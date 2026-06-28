@@ -26,3 +26,18 @@ export async function fetchQuotes(symbols) {
   }
   return res.json();
 }
+
+/**
+ * Récupère l'historique quotidien (date + clôture) pour une liste de symboles.
+ * range: "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "ytd" | "max"
+ * Renvoie : [{ symbol, ok, series: [{date, close}] } | { symbol, ok:false, error }]
+ */
+export async function fetchHistory(symbols, range = "6mo") {
+  if (!symbols || symbols.length === 0) return [];
+  const res = await fetch(`${BASE}/history?symbols=${encodeURIComponent(symbols.join(","))}&range=${range}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Historique indisponible");
+  }
+  return res.json();
+}

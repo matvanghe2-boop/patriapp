@@ -1,0 +1,28 @@
+C:\Users\matva\OneDrive\Bureau\Projet App\patrimoine-app
+├── api
+|  ├── quote.js
+|  └── search.js
+├── index.html
+├── package.json
+├── postcss.config.cjs
+├── README.md
+├── src
+|  ├── App.jsx
+|  ├── components
+|  |  ├── Bourse.jsx
+|  |  ├── Dashboard.jsx
+|  |  ├── Immobilier.jsx
+|  |  ├── Livrets.jsx
+|  |  ├── Simulation.jsx
+|  |  └── ui.jsx
+|  ├── index.css
+|  ├── lib
+|  |  ├── api.js
+|  |  ├── finance.js
+|  |  └── storage.js
+|  └── main.jsx
+├── tailwind.config.cjs
+└── vite.config.js
+
+directory: 4 file: 20
+

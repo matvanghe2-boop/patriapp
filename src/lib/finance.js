@@ -50,3 +50,69 @@ export function weightedAverageRate(items, balanceKey = "balance", rateKey = "ra
   if (total === 0) return 0;
   return items.reduce((s, i) => s + i[balanceKey] * i[rateKey], 0) / total;
 }
+
+/**
+ * Fusionne plusieurs séries nommées { name, series: [{date, close}] } en une
+ * seule liste d'objets { date, [name]: close, ... } triée par date.
+ */
+export function mergeSeriesByDate(namedSeries) {
+  const map = new Map();
+  namedSeries.forEach(({ name, series }) => {
+    (series || []).forEach(({ date, close }) => {
+      if (!map.has(date)) map.set(date, { date });
+      map.get(date)[name] = close;
+    });
+  });
+  return Array.from(map.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+/**
+ * Rebase plusieurs séries à 100 à partir d'un point de départ COMMUN — la
+ * première date où toutes les clés demandées disposent d'une valeur. C'est
+ * indispensable pour comparer équitablement un portefeuille à des indices
+ * dont l'historique disponible peut démarrer à des dates différentes.
+ */
+export function rebaseTo100(merged, keys) {
+  const startIndex = merged.findIndex((row) => keys.every((k) => row[k] != null));
+  if (startIndex === -1) return [];
+  const bases = {};
+  keys.forEach((k) => {
+    bases[k] = merged[startIndex][k];
+  });
+  return merged.slice(startIndex).map((row) => {
+    const out = { date: row.date };
+    keys.forEach((k) => {
+      if (row[k] != null && bases[k]) out[k] = (row[k] / bases[k]) * 100;
+    });
+    return out;
+  });
+}
+
+/**
+ * Reconstruit la valeur historique d'un portefeuille en appliquant la
+ * composition ACTUELLE (quantités détenues aujourd'hui) aux cours
+ * historiques de chaque ligne.
+ *
+ * Hypothèse simplificatrice assumée : les quantités sont supposées
+ * constantes sur toute la période affichée (pas d'historique des
+ * achats/ventes). Seules les dates communes à TOUTES les lignes sont
+ * conservées, pour éviter les creux artificiels liés aux jours fériés
+ * propres à chaque place boursière.
+ */
+export function reconstructPortfolioValue(positions, historyBySymbol, cashPocket = 0) {
+  const valid = positions.filter((p) => historyBySymbol[p.ticker]?.ok && historyBySymbol[p.ticker].series.length > 0);
+  if (valid.length === 0) return [];
+
+  const dateSets = valid.map((p) => new Set(historyBySymbol[p.ticker].series.map((s) => s.date)));
+  const commonDates = [...dateSets[0]].filter((d) => dateSets.every((set) => set.has(d))).sort();
+
+  const closeMaps = valid.map((p) => ({
+    p,
+    m: new Map(historyBySymbol[p.ticker].series.map((s) => [s.date, s.close])),
+  }));
+
+  return commonDates.map((date) => ({
+    date,
+    value: closeMaps.reduce((sum, { p, m }) => sum + m.get(date) * p.quantity, 0) + cashPocket,
+  }));
+}

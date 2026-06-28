@@ -1,13 +1,64 @@
-import React, { useState, useEffect, useRef } from "react";
-import { TrendingUp, Wallet, RefreshCw } from "lucide-react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon } from "lucide-react";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Legend,
+} from "recharts";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState } from "./ui";
-import { eur, pctPlain, pct, uid } from "../lib/finance";
-import { searchSecurity, fetchQuotes } from "../lib/api";
+import { eur, pctPlain, pct, uid, compact, mergeSeriesByDate, rebaseTo100, reconstructPortfolioValue } from "../lib/finance";
+import { searchSecurity, fetchQuotes, fetchHistory } from "../lib/api";
 
-export default function Bourse({ bourse, setBourse, bourseTotal, bourseGainAbs, bourseGainPct }) {
+const BENCHMARKS = [
+  { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8" },
+  { symbol: "^FCHI", name: "CAC 40", color: "#a78bfa" },
+  { symbol: "URTH", name: "MSCI World", color: "#34d399" },
+];
+
+const PERIODS = [
+  { key: "3mo", label: "3 mois" },
+  { key: "6mo", label: "6 mois" },
+  { key: "1y", label: "1 an" },
+  { key: "5y", label: "5 ans" },
+];
+
+const PIE_PALETTE = ["#fbbf24", "#2dd4bf", "#a78bfa", "#38bdf8", "#fb7185", "#34d399", "#f472b6", "#facc15"];
+
+const formatDateShort = (d) => {
+  if (!d) return "";
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y.slice(2)}`;
+};
+
+function HistoryTooltip({ active, payload, label, mode }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
+      <div className="text-slate-400 mb-1">{formatDateShort(label)}</div>
+      {payload.map((p) => (
+        <div key={p.dataKey} className="flex items-center gap-2 font-data tabular-nums">
+          <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+          <span className="text-slate-400">{p.name} :</span>
+          <span className="text-slate-100">{mode === "base100" ? p.value.toFixed(1) : eur(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Bourse({ bourse, setBourse, bourseTotal, bourseInvested, bourseGainAbs, bourseGainPct }) {
   const [showAdd, setShowAdd] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
+
+  // édition d'une ligne existante
+  const [editingId, setEditingId] = useState(null);
+  const [editValues, setEditValues] = useState({ quantity: "", pru: "", current_price: "" });
+
+  // graphiques historiques
+  const [period, setPeriod] = useState("6mo");
+  const [histLoading, setHistLoading] = useState(false);
+  const [histError, setHistError] = useState("");
+  const [historyBySymbol, setHistoryBySymbol] = useState({});
 
   const addPosition = (v) =>
     setBourse((b) => ({
@@ -18,6 +69,28 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseGainAbs, 
       ],
     }));
   const removePosition = (id) => setBourse((b) => ({ ...b, positions: b.positions.filter((x) => x.id !== id) }));
+
+  const startEdit = (p) => {
+    setEditingId(p.id);
+    setEditValues({ quantity: String(p.quantity), pru: String(p.pru), current_price: String(p.current_price) });
+  };
+  const cancelEdit = () => setEditingId(null);
+  const saveEdit = (id) => {
+    setBourse((b) => ({
+      ...b,
+      positions: b.positions.map((p) =>
+        p.id === id
+          ? {
+              ...p,
+              quantity: parseFloat(editValues.quantity) || 0,
+              pru: parseFloat(editValues.pru) || 0,
+              current_price: parseFloat(editValues.current_price) || 0,
+            }
+          : p
+      ),
+    }));
+    setEditingId(null);
+  };
 
   const refreshPrices = async () => {
     if (bourse.positions.length === 0) return;
@@ -41,6 +114,74 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseGainAbs, 
       setRefreshing(false);
     }
   };
+
+  // ---- répartition par ligne (camembert) ----
+  const pieData = useMemo(
+    () =>
+      bourse.positions
+        .map((p, i) => ({ name: p.ticker, value: p.quantity * p.current_price, color: PIE_PALETTE[i % PIE_PALETTE.length] }))
+        .filter((d) => d.value > 0),
+    [bourse.positions]
+  );
+
+  // ---- historique : reconstruction du portefeuille + indices de référence ----
+  const tickers = useMemo(() => [...new Set(bourse.positions.map((p) => p.ticker))], [bourse.positions]);
+
+  useEffect(() => {
+    if (tickers.length === 0) {
+      setHistoryBySymbol({});
+      return;
+    }
+    let cancelled = false;
+    setHistLoading(true);
+    setHistError("");
+    const allSymbols = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
+    fetchHistory(allSymbols, period)
+      .then((results) => {
+        if (cancelled) return;
+        const map = {};
+        results.forEach((r) => {
+          map[r.symbol] = r;
+        });
+        setHistoryBySymbol(map);
+        const failed = results.filter((r) => !r.ok).length;
+        if (failed > 0) setHistError(`${failed} série(s) sur ${results.length} indisponible(s) pour le moment.`);
+      })
+      .catch(() => {
+        if (!cancelled) setHistError("Historique indisponible — vérifie ta connexion internet.");
+      })
+      .finally(() => {
+        if (!cancelled) setHistLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickers.join(","), period]);
+
+  const portfolioSeries = useMemo(
+    () => reconstructPortfolioValue(bourse.positions, historyBySymbol, bourse.cash_pocket),
+    [bourse.positions, historyBySymbol, bourse.cash_pocket]
+  );
+
+  const capitalInvesti = bourseInvested + bourse.cash_pocket;
+
+  const comboChartData = useMemo(
+    () => portfolioSeries.map((p) => ({ date: p.date, valeur: Math.round(p.value), capital: Math.round(capitalInvesti) })),
+    [portfolioSeries, capitalInvesti]
+  );
+
+  const base100Data = useMemo(() => {
+    const named = [
+      { name: "Mon portefeuille", series: portfolioSeries.map((p) => ({ date: p.date, close: p.value })) },
+      ...BENCHMARKS.map((b) => ({ name: b.name, series: historyBySymbol[b.symbol]?.ok ? historyBySymbol[b.symbol].series : [] })),
+    ];
+    const merged = mergeSeriesByDate(named);
+    return rebaseTo100(merged, ["Mon portefeuille", ...BENCHMARKS.map((b) => b.name)]);
+  }, [portfolioSeries, historyBySymbol]);
+
+  const hasHistory = comboChartData.length > 0;
+  const hasBase100 = base100Data.length > 0;
 
   return (
     <div className="space-y-6">
@@ -70,6 +211,136 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseGainAbs, 
             />
             <span className="text-xs text-slate-600">€</span>
           </div>
+        </Card>
+      </div>
+
+      {/* Analyse visuelle : répartition, capital vs valeur, comparaison aux indices */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <CardLabel icon={PieIcon}>Analyse du portefeuille</CardLabel>
+        <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1">
+          {PERIODS.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
+                period === p.key ? "bg-slate-700 text-amber-300" : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {histError && <p className="text-[11px] text-amber-300/80">{histError}</p>}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardLabel>Répartition par ligne</CardLabel>
+          {pieData.length === 0 ? (
+            <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
+          ) : (
+            <>
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={2} stroke="none">
+                      {pieData.map((d) => (
+                        <Cell key={d.name} fill={d.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) =>
+                        active && payload?.length ? (
+                          <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
+                            <span className="text-slate-100 font-data">{payload[0].name}</span>
+                            <div className="text-slate-400">{eur(payload[0].value)}</div>
+                          </div>
+                        ) : null
+                      }
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-col gap-1 mt-1 max-h-28 overflow-y-auto">
+                {pieData.map((d) => (
+                  <div key={d.name} className="flex items-center justify-between text-[11px]">
+                    <span className="flex items-center gap-1.5 text-slate-400">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: d.color }} />
+                      {d.name}
+                    </span>
+                    <span className="font-data tabular-nums text-slate-300">{pctPlain((d.value / bourseTotal) * 100)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Card>
+
+        <Card>
+          <CardLabel>Capital investi vs valeur actuelle</CardLabel>
+          {histLoading && !hasHistory ? (
+            <EmptyState>Chargement de l'historique…</EmptyState>
+          ) : !hasHistory ? (
+            <EmptyState>
+              Historique indisponible pour le moment (les positions saisies manuellement n'ont pas de cours historique).
+            </EmptyState>
+          ) : (
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={comboChartData} margin={{ left: -15, right: 5, top: 5 }}>
+                  <defs>
+                    <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={40} />
+                  <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} width={42} />
+                  <Tooltip content={<HistoryTooltip mode="eur" />} />
+                  <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#fbbf24" strokeWidth={2} fill="url(#bourseValeurFill)" />
+                  <Line type="monotone" dataKey="capital" name="Capital investi" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          <p className="text-[11px] text-slate-600 mt-2">
+            Capital investi = coût de revient actuel (PRU × quantité) + cash, supposé constant sur la période.
+          </p>
+        </Card>
+
+        <Card>
+          <CardLabel>Comparaison aux indices (base 100)</CardLabel>
+          {histLoading && !hasBase100 ? (
+            <EmptyState>Chargement de l'historique…</EmptyState>
+          ) : !hasBase100 ? (
+            <EmptyState>Comparaison indisponible pour le moment.</EmptyState>
+          ) : (
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={base100Data} margin={{ left: -15, right: 5, top: 5 }}>
+                  <CartesianGrid stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={40} />
+                  <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} width={36} />
+                  <Tooltip content={<HistoryTooltip mode="base100" />} />
+                  <Line type="monotone" dataKey="Mon portefeuille" stroke="#fbbf24" strokeWidth={2.5} dot={false} />
+                  {BENCHMARKS.map((b) => (
+                    <Line key={b.symbol} type="monotone" dataKey={b.name} stroke={b.color} strokeWidth={1.5} dot={false} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3 mt-2">
+            <Legend2 color="#fbbf24" label="Mon portefeuille" />
+            {BENCHMARKS.map((b) => (
+              <Legend2 key={b.symbol} color={b.color} label={b.name} />
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-600 mt-2">
+            Performance recalculée en appliquant ta composition actuelle aux cours historiques de chaque ligne — une
+            approximation si tu as acheté ou vendu récemment.
+          </p>
         </Card>
       </div>
 
@@ -110,10 +381,65 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseGainAbs, 
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {bourse.positions.map((p) => {
+                  const isEditing = editingId === p.id;
                   const value = p.quantity * p.current_price;
                   const gainAbs = (p.current_price - p.pru) * p.quantity;
                   const gainPct = p.pru > 0 ? ((p.current_price - p.pru) / p.pru) * 100 : 0;
                   const weight = bourseTotal > 0 ? (value / bourseTotal) * 100 : 0;
+
+                  if (isEditing) {
+                    return (
+                      <tr key={p.id} className="bg-slate-950/60">
+                        <td className="py-3 pr-3">
+                          <div className="text-slate-200 font-medium">{p.ticker}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {p.name} · {p.type}
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <input
+                            type="number"
+                            step="0.0001"
+                            value={editValues.quantity}
+                            onChange={(e) => setEditValues((v) => ({ ...v, quantity: e.target.value }))}
+                            className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60"
+                          />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editValues.pru}
+                            onChange={(e) => setEditValues((v) => ({ ...v, pru: e.target.value }))}
+                            className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60"
+                          />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editValues.current_price}
+                            onChange={(e) => setEditValues((v) => ({ ...v, current_price: e.target.value }))}
+                            className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60"
+                          />
+                        </td>
+                        <td className="py-3 pr-3 font-data tabular-nums text-slate-500" colSpan={3}>
+                          Aperçu après enregistrement
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => saveEdit(p.id)} className="text-emerald-400 hover:text-emerald-300 p-1">
+                              <Check size={15} />
+                            </button>
+                            <button onClick={cancelEdit} className="text-slate-500 hover:text-rose-400 p-1">
+                              <XIcon size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
                   return (
                     <tr key={p.id}>
                       <td className="py-3 pr-3">
@@ -131,7 +457,12 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseGainAbs, 
                       </td>
                       <td className="py-3 pr-3 font-data tabular-nums text-slate-400">{pctPlain(weight)}</td>
                       <td className="py-3 text-right">
-                        <IconTrash onClick={() => removePosition(p.id)} />
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => startEdit(p)} className="text-slate-600 hover:text-amber-300 transition-colors p-1">
+                            <Pencil size={14} />
+                          </button>
+                          <IconTrash onClick={() => removePosition(p.id)} />
+                        </div>
                       </td>
                     </tr>
                   );
@@ -148,6 +479,15 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseGainAbs, 
         </p>
       </Card>
     </div>
+  );
+}
+
+function Legend2({ color, label }) {
+  return (
+    <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+      <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+      {label}
+    </span>
   );
 }
 
