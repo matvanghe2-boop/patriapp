@@ -187,6 +187,16 @@ export function generateVolatileReturns(years, seed = 0) {
 }
 
 /**
+ * Calcule la prime d'assurance emprunteur mensuelle.
+ * @param {number} capital - Montant emprunté
+ * @param {number} tauxAnnuel - Taux d'assurance annuel en % (ex: 0.20)
+ * @returns {number} Prime mensuelle
+ */
+export function assuranceMensuelle(capital, tauxAnnuel) {
+  return capital * (tauxAnnuel / 100) / 12;
+}
+
+/**
  * Applique l'inflation à une série de valeurs pour calculer le pouvoir d'achat réel.
  */
 export function applyInflation(values, inflationRatePct) {

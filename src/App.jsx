@@ -48,6 +48,7 @@ const INITIAL_IMMO = {
   inclure_livrets: true,
   inclure_bourse: false,
   apport_manuel: null,
+  assurance_rate: 0.20,
 };
 
 const TAB_LABELS = {
