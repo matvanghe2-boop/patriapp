@@ -110,6 +110,27 @@ export function computeReturnMetrics(series) {
   };
   const ytdStart = new Date(latestDate.getFullYear(), 0, 1);
 
+  const changeFrom = (refDate) => {
+    const tooShort = earliestDate.getTime() > refDate.getTime() + 5 * 24 * 60 * 60 * 1000;
+    if (tooShort) return null;
+    const ref = findOnOrAfter(refDate);
+    if (!ref || !ref.close) return null;
+    return ((latest.close - ref.close) / ref.close) * 100;
+  };
+
+  return {
+    latestClose: latest.close,
+    latestDate: latest.date,
+    ytd: changeFrom(ytdStart),
+    m1: changeFrom(back(1)),
+    m6: changeFrom(back(6)),
+    y1: changeFrom(back(0, 1)),
+    y5: changeFrom(back(0, 5)),
+  };
+}
+
+// ─── NOUVELLES FONCTIONS POUR LA SIMULATION ──────────────────────────────────
+
 /**
  * Calcule l'épargne mensuelle nécessaire pour atteindre un objectif de capital.
  * Résout l'équation : target = currentTotal * (1 + t)^n + (P * ((1 + t)^n - 1) / t)
@@ -171,27 +192,4 @@ export function generateVolatileReturns(years, seed = 0) {
 export function applyInflation(values, inflationRatePct) {
   const rate = inflationRatePct / 100;
   return values.map((v, i) => v / Math.pow(1 + rate, i));
-}
-
-  // Si la donnée disponible la plus ancienne est postérieure (de plus de 5
-  // jours) à la date de référence demandée, l'historique est trop court pour
-  // ce calcul — mieux vaut afficher "—" qu'un chiffre basé sur une période
-  // plus courte présenté comme si c'était la bonne.
-  const changeFrom = (refDate) => {
-    const tooShort = earliestDate.getTime() > refDate.getTime() + 5 * 24 * 60 * 60 * 1000;
-    if (tooShort) return null;
-    const ref = findOnOrAfter(refDate);
-    if (!ref || !ref.close) return null;
-    return ((latest.close - ref.close) / ref.close) * 100;
-  };
-
-  return {
-    latestClose: latest.close,
-    latestDate: latest.date,
-    ytd: changeFrom(ytdStart),
-    m1: changeFrom(back(1)),
-    m6: changeFrom(back(6)),
-    y1: changeFrom(back(0, 1)),
-    y5: changeFrom(back(0, 5)),
-  };
 }
