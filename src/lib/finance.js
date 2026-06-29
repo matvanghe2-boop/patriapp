@@ -110,6 +110,69 @@ export function computeReturnMetrics(series) {
   };
   const ytdStart = new Date(latestDate.getFullYear(), 0, 1);
 
+/**
+ * Calcule l'épargne mensuelle nécessaire pour atteindre un objectif de capital.
+ * Résout l'équation : target = currentTotal * (1 + t)^n + (P * ((1 + t)^n - 1) / t)
+ * en inversant pour trouver P (épargne mensuelle).
+ */
+export function solveMonthlyForTarget({ target, currentTotal, livretsRate, bourseRate, years }) {
+  const n = Math.max(1, years);
+  // On calcule le rendement moyen pondéré entre livrets et bourse
+  const avgRate = (livretsRate + bourseRate) / 2;
+  const t = avgRate;
+  
+  // Croissance du capital existant
+  const growth = Math.pow(1 + t, n);
+  const capitalGrowth = currentTotal * growth;
+  
+  if (capitalGrowth >= target) return 0;
+  
+  // Montant total à atteindre via les versements
+  const needed = target - capitalGrowth;
+  
+  // Formule inverse : P = needed * t / ((1 + t)^n - 1)
+  // P est le montant annuel, on divise par 12 pour le mensuel
+  if (t === 0) {
+    return needed / n / 12;
+  }
+  const annualContribution = (needed * t) / (growth - 1);
+  return annualContribution / 12;
+}
+
+/**
+ * Génère une séquence de rendements annuels basée sur des années historiques réelles.
+ * Cycle de 8 ans incluant krachs et reprises (CAC 40 / MSCI World approximatif).
+ */
+export function generateVolatileReturns(years, seed = 0) {
+  // Séquence de rendements annuels réels approximatifs (2018-2025)
+  // Basé sur les performances du CAC 40 / MSCI World
+  const realReturns = [
+    -0.11, // 2018 : correction (-11%)
+    0.26,  // 2019 : forte reprise (+26%)
+    -0.07, // 2020 : krach COVID (-7%)
+    0.29,  // 2021 : rebond post-COVID (+29%)
+    -0.10, // 2022 : krach inflation (-10%)
+    0.16,  // 2023 : reprise (+16%)
+    0.08,  // 2024 : consolidation (+8%)
+    -0.05, // 2025 : correction (-5%)
+  ];
+  
+  const result = [];
+  for (let i = 0; i < years; i++) {
+    const idx = (i + seed) % realReturns.length;
+    result.push(realReturns[idx]);
+  }
+  return result;
+}
+
+/**
+ * Applique l'inflation à une série de valeurs pour calculer le pouvoir d'achat réel.
+ */
+export function applyInflation(values, inflationRatePct) {
+  const rate = inflationRatePct / 100;
+  return values.map((v, i) => v / Math.pow(1 + rate, i));
+}
+
   // Si la donnée disponible la plus ancienne est postérieure (de plus de 5
   // jours) à la date de référence demandée, l'historique est trop court pour
   // ce calcul — mieux vaut afficher "—" qu'un chiffre basé sur une période

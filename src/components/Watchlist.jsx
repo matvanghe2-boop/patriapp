@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Star, RefreshCw, Target } from "lucide-react";
+import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState } from "./ui";
 import { eur, pct, uid, computeReturnMetrics } from "../lib/finance";
-import { searchSecurity, fetchHistory } from "../lib/api";
+import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
 
 function fmtPct(v) {
   if (v == null || Number.isNaN(v)) return "—";
@@ -11,6 +11,74 @@ function fmtPct(v) {
 function cellClass(v) {
   if (v == null) return "py-3 pr-3 font-data tabular-nums text-slate-600 text-xs";
   return `py-3 pr-3 font-data tabular-nums text-xs ${v >= 0 ? "text-emerald-400" : "text-rose-400"}`;
+}
+
+// ─── Sort config ──────────────────────────────────────────────────────────────
+const SORT_OPTIONS = [
+  { key: "none", label: "Ordre d'ajout" },
+  { key: "name_asc", label: "Nom A→Z" },
+  { key: "name_desc", label: "Nom Z→A" },
+  { key: "price_desc", label: "Cours ↓" },
+  { key: "price_asc", label: "Cours ↑" },
+  { key: "gap_desc", label: "Écart ↓" },
+  { key: "gap_asc", label: "Écart ↑" },
+  { key: "ytd_desc", label: "YTD ↓" },
+  { key: "ytd_asc", label: "YTD ↑" },
+];
+
+function SortButton({ sort, setSort }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  const current = SORT_OPTIONS.find((o) => o.key === sort) || SORT_OPTIONS[0];
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((s) => !s)}
+        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition-colors"
+      >
+        <ArrowUpDown size={13} />
+        Trier : {current.label}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-20 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden min-w-[200px]">
+          {SORT_OPTIONS.map((o) => (
+            <button
+              key={o.key}
+              onClick={() => { setSort(o.key); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-800 transition-colors ${sort === o.key ? "text-amber-300 bg-slate-800" : "text-slate-300"}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Daily variation cell ─────────────────────────────────────────────────────
+function DailyVariation({ ticker, dailyData }) {
+  const d = dailyData?.[ticker];
+  if (!d) {
+    return <span className="text-slate-600 text-xs font-data">—</span>;
+  }
+  const { changeAbs, changePct } = d;
+  const pos = changeAbs >= 0;
+  return (
+    <div className={`flex items-center gap-1 font-data tabular-nums text-xs ${pos ? "text-emerald-400" : "text-rose-400"}`}>
+      {pos ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+      <span>
+        {pos ? "+" : ""}{eur(changeAbs, 2)}
+        <span className="opacity-70 ml-1">({pos ? "+" : ""}{changePct.toFixed(2)}%)</span>
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -24,10 +92,14 @@ export default function Watchlist({ watchlist, setWatchlist }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [metricsBySymbol, setMetricsBySymbol] = useState({});
+  const [dailyData, setDailyData] = useState({});
+  const [sort, setSort] = useState("none");
+  const [refreshingQuotes, setRefreshingQuotes] = useState(false);
 
   const tickers = useMemo(() => [...new Set(watchlist.map((w) => w.ticker))], [watchlist]);
 
-  const refresh = async () => {
+  // Récupère l'historique pour les performances (YTD, 1 mois, etc.)
+  const refreshHistory = async () => {
     if (tickers.length === 0) return;
     setLoading(true);
     setError("");
@@ -47,8 +119,38 @@ export default function Watchlist({ watchlist, setWatchlist }) {
     }
   };
 
+  // Récupère les cours actuels + variation journalière
+  const refreshQuotes = async () => {
+    if (tickers.length === 0) return;
+    setRefreshingQuotes(true);
+    try {
+      const quotes = await fetchQuotes(tickers);
+      const newDailyData = {};
+      quotes.forEach((q) => {
+        if (q.ok && q.previousClose && q.price) {
+          newDailyData[q.symbol] = {
+            changeAbs: q.price - q.previousClose,
+            changePct: ((q.price - q.previousClose) / q.previousClose) * 100,
+          };
+        }
+      });
+      setDailyData(newDailyData);
+    } catch {
+      // Silencieux, on garde les données précédentes
+    } finally {
+      setRefreshingQuotes(false);
+    }
+  };
+
+  const refreshAll = async () => {
+    await refreshHistory();
+    await refreshQuotes();
+  };
+
   useEffect(() => {
-    if (tickers.length > 0) refresh();
+    if (tickers.length > 0) {
+      refreshAll();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickers.join(",")]);
 
@@ -57,18 +159,56 @@ export default function Watchlist({ watchlist, setWatchlist }) {
   const removeItem = (id) => setWatchlist((w) => w.filter((x) => x.id !== id));
   const updateTarget = (id, value) => setWatchlist((w) => w.map((x) => (x.id === id ? { ...x, target_price: value } : x)));
 
+  // ─── Sorted watchlist ──────────────────────────────────────────────────────
+  const sortedWatchlist = useMemo(() => {
+    const items = [...watchlist];
+    const getPrice = (w) => metricsBySymbol[w.ticker]?.latestClose ?? 0;
+    const getGap = (w) => {
+      const current = metricsBySymbol[w.ticker]?.latestClose;
+      if (current == null || !w.target_price || w.target_price <= 0) return null;
+      return ((current - w.target_price) / w.target_price) * 100;
+    };
+    const getYtd = (w) => metricsBySymbol[w.ticker]?.ytd ?? null;
+
+    switch (sort) {
+      case "name_asc": return items.sort((a, b) => a.name.localeCompare(b.name));
+      case "name_desc": return items.sort((a, b) => b.name.localeCompare(a.name));
+      case "price_desc": return items.sort((a, b) => getPrice(b) - getPrice(a));
+      case "price_asc": return items.sort((a, b) => getPrice(a) - getPrice(b));
+      case "gap_desc": return items.sort((a, b) => (getGap(b) ?? -Infinity) - (getGap(a) ?? -Infinity));
+      case "gap_asc": return items.sort((a, b) => (getGap(a) ?? Infinity) - (getGap(b) ?? Infinity));
+      case "ytd_desc": return items.sort((a, b) => (getYtd(b) ?? -Infinity) - (getYtd(a) ?? -Infinity));
+      case "ytd_asc": return items.sort((a, b) => (getYtd(a) ?? Infinity) - (getYtd(b) ?? Infinity));
+      default: return items;
+    }
+  }, [watchlist, sort, metricsBySymbol]);
+
+  // ─── Total daily variation ────────────────────────────────────────────────
+  const totalDailyChange = useMemo(() => {
+    let total = 0;
+    let hasData = false;
+    watchlist.forEach((w) => {
+      const d = dailyData[w.ticker];
+      if (d) { total += d.changeAbs; hasData = true; }
+    });
+    return hasData ? total : null;
+  }, [watchlist, dailyData]);
+
+  const isLoading = loading || refreshingQuotes;
+
   return (
     <Card>
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <CardLabel icon={Star}>Watchlist — produits à suivre</CardLabel>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <SortButton sort={sort} setSort={setSort} />
           <button
-            onClick={refresh}
-            disabled={loading || tickers.length === 0}
+            onClick={refreshAll}
+            disabled={isLoading || tickers.length === 0}
             className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
           >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            {loading ? "Actualisation..." : "Actualiser"}
+            <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+            {isLoading ? "Actualisation..." : "Actualiser"}
           </button>
           <GhostButton onClick={() => setShowAdd((s) => !s)}>Suivre un produit</GhostButton>
         </div>
@@ -76,6 +216,14 @@ export default function Watchlist({ watchlist, setWatchlist }) {
       <p className="text-sm text-slate-500 mb-3">
         Des valeurs que tu envisages d'acheter — distinctes de ton portefeuille réel.
       </p>
+
+      {/* Variation totale du jour */}
+      {totalDailyChange !== null && (
+        <div className={`flex items-center gap-1 text-xs mb-3 font-data ${totalDailyChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          {totalDailyChange >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+          Variation totale : {totalDailyChange >= 0 ? "+" : ""}{eur(totalDailyChange)} aujourd'hui
+        </div>
+      )}
 
       {error && <p className="text-[11px] text-amber-300/80 mb-3">{error}</p>}
 
@@ -88,6 +236,12 @@ export default function Watchlist({ watchlist, setWatchlist }) {
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 pr-3">Actif</th>
                 <th className="py-2 pr-3">Cours actuel</th>
+                <th className="py-2 pr-3">
+                  <span className="flex items-center gap-1">
+                    Var. J
+                    <span className="text-[9px] text-slate-600 normal-case tracking-normal">(vs clôt. veille)</span>
+                  </span>
+                </th>
                 <th className="py-2 pr-3">Objectif d'achat</th>
                 <th className="py-2 pr-3">Écart</th>
                 <th className="py-2 pr-3">YTD</th>
@@ -99,19 +253,22 @@ export default function Watchlist({ watchlist, setWatchlist }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {watchlist.map((w) => {
+              {sortedWatchlist.map((w) => {
                 const m = metricsBySymbol[w.ticker];
                 const current = m?.latestClose;
                 const hasTarget = w.target_price > 0;
                 const gap = current != null && hasTarget ? ((current - w.target_price) / w.target_price) * 100 : null;
                 const reached = gap != null && gap <= 0;
                 return (
-                  <tr key={w.id}>
+                  <tr key={w.id} className="group hover:bg-slate-800/30 transition-colors">
                     <td className="py-3 pr-3">
                       <div className="text-slate-200 font-medium">{w.ticker}</div>
                       <div className="text-[11px] text-slate-500">{w.name}</div>
                     </td>
                     <td className="py-3 pr-3 font-data tabular-nums">{current != null ? eur(current, 2) : "—"}</td>
+                    <td className="py-3 pr-3">
+                      <DailyVariation ticker={w.ticker} dailyData={dailyData} />
+                    </td>
                     <td className="py-3 pr-3">
                       <input
                         type="number"
@@ -139,7 +296,9 @@ export default function Watchlist({ watchlist, setWatchlist }) {
                     <td className={cellClass(m?.y1)}>{fmtPct(m?.y1)}</td>
                     <td className={cellClass(m?.y5)}>{fmtPct(m?.y5)}</td>
                     <td className="py-3 text-right">
-                      <IconTrash onClick={() => removeItem(w.id)} />
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <IconTrash onClick={() => removeItem(w.id)} />
+                      </div>
                     </td>
                   </tr>
                 );
@@ -153,7 +312,8 @@ export default function Watchlist({ watchlist, setWatchlist }) {
 
       <p className="text-[11px] text-slate-600 mt-4">
         YTD / 1 mois / 6 mois / 1 an / 5 ans sont calculés à partir des cours réels déjà constatés de chaque titre —
-        aucune projection, uniquement de l'historique factuel.
+        aucune projection, uniquement de l'historique factuel. La variation journalière est calculée par rapport au
+        cours de clôture de la veille.
       </p>
     </Card>
   );
