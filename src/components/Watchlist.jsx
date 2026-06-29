@@ -3,6 +3,7 @@ import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown } from "lucide
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState } from "./ui";
 import { eur, pct, uid, computeReturnMetrics } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
+import { usePersistentState } from "../lib/storage";
 
 function fmtPct(v) {
   if (v == null || Number.isNaN(v)) return "—";
@@ -92,8 +93,11 @@ export default function Watchlist({ watchlist, setWatchlist }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [metricsBySymbol, setMetricsBySymbol] = useState({});
-  const [dailyData, setDailyData] = useState({});
-  const [sort, setSort] = useState("none");
+  
+  // ─── Persistance du tri et des données de variation ──────────────────────
+  const [sort, setSort] = usePersistentState("watchlistSort", "none");
+  const [dailyData, setDailyData] = usePersistentState("watchlistDailyData", {});
+  
   const [refreshingQuotes, setRefreshingQuotes] = useState(false);
 
   const tickers = useMemo(() => [...new Set(watchlist.map((w) => w.ticker))], [watchlist]);
@@ -134,7 +138,7 @@ export default function Watchlist({ watchlist, setWatchlist }) {
           };
         }
       });
-      setDailyData(newDailyData);
+      setDailyData((prev) => ({ ...prev, ...newDailyData }));
     } catch {
       // Silencieux, on garde les données précédentes
     } finally {

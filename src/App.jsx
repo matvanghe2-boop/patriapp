@@ -9,7 +9,7 @@ import Bourse from "./components/Bourse";
 import Simulation from "./components/Simulation";
 import Immobilier from "./components/Immobilier";
 
-const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes"];
+const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes" "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData",];
 
 const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };
 

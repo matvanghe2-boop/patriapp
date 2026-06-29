@@ -10,6 +10,7 @@ import {
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState } from "./ui";
 import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
+import { usePersistentState } from "../lib/storage";
 import Watchlist from "./Watchlist";
 
 const BENCHMARKS = [
@@ -117,10 +118,10 @@ export default function Bourse({
   const [showAdd, setShowAdd] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
-  const [sort, setSort] = useState("none");
 
-  // Store daily variation data: { [ticker]: { changeAbs, changePct } }
-  const [dailyData, setDailyData] = useState({});
+  // ─── Persistance du tri et des données de variation ──────────────────────
+  const [sort, setSort] = usePersistentState("bourseSort", "none");
+  const [dailyData, setDailyData] = usePersistentState("bourseDailyData", {});
 
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({ quantity: "", pru: "", current_price: "" });
@@ -174,7 +175,8 @@ export default function Bourse({
           return p;
         }),
       }));
-      setDailyData(newDailyData);
+      // Mettre à jour les données persistées (fusionner avec les existantes)
+      setDailyData((prev) => ({ ...prev, ...newDailyData }));
       const failed = quotes.filter((q) => !q.ok).length;
       setRefreshMsg(failed > 0 ? `${failed} cours sur ${quotes.length} n'ont pas pu être actualisés.` : "Tous les cours ont été actualisés.");
     } catch {
