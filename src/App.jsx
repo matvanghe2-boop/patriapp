@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, Download, Upload, RotateCcw } from "lucide-react";
 import { usePersistentState, exportAllData, importAllData, clearAllData } from "./lib/storage";
 import { weightedAverageRate } from "./lib/finance";
@@ -9,7 +9,7 @@ import Bourse from "./components/Bourse";
 import Simulation from "./components/Simulation";
 import Immobilier from "./components/Immobilier";
 
-const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo"];
+const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist"];
 
 const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };
 
@@ -50,8 +50,21 @@ const INITIAL_IMMO = {
   apport_manuel: null,
 };
 
+const TAB_LABELS = {
+  dashboard: "Dashboard",
+  livrets: "Livrets & Épargne",
+  bourse: "PEA & Bourse",
+  simulation: "Simulation",
+  immobilier: "Immobilier & Crédit",
+};
+
 export default function App() {
   const [tab, setTab] = useState("dashboard");
+
+  useEffect(() => {
+    document.title = `${TAB_LABELS[tab] || ""} · Pilote de Patrimoine`;
+  }, [tab]);
+
 
   const [profile, setProfile] = usePersistentState("profile", INITIAL_PROFILE);
   const [livrets, setLivrets] = usePersistentState("livrets", INITIAL_LIVRETS);
@@ -60,6 +73,11 @@ export default function App() {
   const [historyPast, setHistoryPast] = usePersistentState("historyPast", INITIAL_HISTORY_PAST);
   const [sim, setSim] = usePersistentState("sim", INITIAL_SIM);
   const [immo, setImmo] = usePersistentState("immo", INITIAL_IMMO);
+  // Suivi quotidien réel du portefeuille (une entrée par jour, alimentée au fil
+  // du temps — aucune donnée passée n'est reconstituée, aucune projection future).
+  const [bourseHistory, setBourseHistory] = usePersistentState("bourseHistory", []);
+  // Watchlist : produits suivis en vue d'un achat (distincts des positions détenues).
+  const [watchlist, setWatchlist] = usePersistentState("watchlist", []);
 
   const livretsTotal = useMemo(() => livrets.reduce((s, l) => s + l.balance, 0), [livrets]);
   const livretsAvgRate = useMemo(() => weightedAverageRate(livrets) * 100, [livrets]);
@@ -81,6 +99,7 @@ export default function App() {
   const shared = {
     profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
     historyPast, setHistoryPast, sim, setSim, immo, setImmo,
+    bourseHistory, setBourseHistory, watchlist, setWatchlist,
     livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
     bourseTotal, bourseGainAbs, bourseGainPct, patrimoineBrut, patrimoineNet,
     epargneMensuelle, tauxEpargne, matelasMois,

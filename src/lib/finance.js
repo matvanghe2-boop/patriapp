@@ -52,18 +52,18 @@ export function weightedAverageRate(items, balanceKey = "balance", rateKey = "ra
 }
 
 /**
- * Fusionne plusieurs séries nommées { name, series: [{date, close}] } en une
- * seule liste d'objets { date, [name]: close, ... } triée par date.
+ * Insère ou met à jour (par date) une entrée dans une série déjà triée par
+ * date. Utilisé pour le suivi quotidien du portefeuille : une seule entrée
+ * par jour, mise à jour si on revient plusieurs fois le même jour.
  */
-export function mergeSeriesByDate(namedSeries) {
-  const map = new Map();
-  namedSeries.forEach(({ name, series }) => {
-    (series || []).forEach(({ date, close }) => {
-      if (!map.has(date)) map.set(date, { date });
-      map.get(date)[name] = close;
-    });
-  });
-  return Array.from(map.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
+export function upsertByDate(arr, entry) {
+  const idx = arr.findIndex((e) => e.date === entry.date);
+  if (idx >= 0) {
+    const copy = [...arr];
+    copy[idx] = entry;
+    return copy;
+  }
+  return [...arr, entry].sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
 /**
@@ -89,30 +89,46 @@ export function rebaseTo100(merged, keys) {
 }
 
 /**
- * Reconstruit la valeur historique d'un portefeuille en appliquant la
- * composition ACTUELLE (quantités détenues aujourd'hui) aux cours
- * historiques de chaque ligne.
- *
- * Hypothèse simplificatrice assumée : les quantités sont supposées
- * constantes sur toute la période affichée (pas d'historique des
- * achats/ventes). Seules les dates communes à TOUTES les lignes sont
- * conservées, pour éviter les creux artificiels liés aux jours fériés
- * propres à chaque place boursière.
+ * Calcule les variations de performance RÉELLES (YTD, 1 mois, 6 mois, 1 an,
+ * 5 ans) d'un titre à partir de son historique de clôtures quotidiennes.
+ * Aucune hypothèse ni simulation : uniquement les cours déjà constatés du
+ * titre lui-même (utilisé pour la Watchlist, sur des titres non détenus).
  */
-export function reconstructPortfolioValue(positions, historyBySymbol, cashPocket = 0) {
-  const valid = positions.filter((p) => historyBySymbol[p.ticker]?.ok && historyBySymbol[p.ticker].series.length > 0);
-  if (valid.length === 0) return [];
+export function computeReturnMetrics(series) {
+  if (!series || series.length === 0) return null;
+  const latest = series[series.length - 1];
+  const latestDate = new Date(`${latest.date}T00:00:00`);
+  const earliestDate = new Date(`${series[0].date}T00:00:00`);
 
-  const dateSets = valid.map((p) => new Set(historyBySymbol[p.ticker].series.map((s) => s.date)));
-  const commonDates = [...dateSets[0]].filter((d) => dateSets.every((set) => set.has(d))).sort();
+  const findOnOrAfter = (targetDate) => series.find((p) => new Date(`${p.date}T00:00:00`) >= targetDate) || series[0];
 
-  const closeMaps = valid.map((p) => ({
-    p,
-    m: new Map(historyBySymbol[p.ticker].series.map((s) => [s.date, s.close])),
-  }));
+  const back = (months, years = 0) => {
+    const d = new Date(latestDate);
+    d.setFullYear(d.getFullYear() - years);
+    d.setMonth(d.getMonth() - months);
+    return d;
+  };
+  const ytdStart = new Date(latestDate.getFullYear(), 0, 1);
 
-  return commonDates.map((date) => ({
-    date,
-    value: closeMaps.reduce((sum, { p, m }) => sum + m.get(date) * p.quantity, 0) + cashPocket,
-  }));
+  // Si la donnée disponible la plus ancienne est postérieure (de plus de 5
+  // jours) à la date de référence demandée, l'historique est trop court pour
+  // ce calcul — mieux vaut afficher "—" qu'un chiffre basé sur une période
+  // plus courte présenté comme si c'était la bonne.
+  const changeFrom = (refDate) => {
+    const tooShort = earliestDate.getTime() > refDate.getTime() + 5 * 24 * 60 * 60 * 1000;
+    if (tooShort) return null;
+    const ref = findOnOrAfter(refDate);
+    if (!ref || !ref.close) return null;
+    return ((latest.close - ref.close) / ref.close) * 100;
+  };
+
+  return {
+    latestClose: latest.close,
+    latestDate: latest.date,
+    ytd: changeFrom(ytdStart),
+    m1: changeFrom(back(1)),
+    m6: changeFrom(back(6)),
+    y1: changeFrom(back(0, 1)),
+    y5: changeFrom(back(0, 5)),
+  };
 }

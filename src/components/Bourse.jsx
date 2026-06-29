@@ -1,27 +1,24 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon } from "lucide-react";
+import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Legend,
+  LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState } from "./ui";
-import { eur, pctPlain, pct, uid, compact, mergeSeriesByDate, rebaseTo100, reconstructPortfolioValue } from "../lib/finance";
-import { searchSecurity, fetchQuotes, fetchHistory } from "../lib/api";
+import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate } from "../lib/finance";
+import { searchSecurity, fetchQuotes } from "../lib/api";
+import Watchlist from "./Watchlist";
 
 const BENCHMARKS = [
   { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8" },
   { symbol: "^FCHI", name: "CAC 40", color: "#a78bfa" },
   { symbol: "URTH", name: "MSCI World", color: "#34d399" },
 ];
-
-const PERIODS = [
-  { key: "3mo", label: "3 mois" },
-  { key: "6mo", label: "6 mois" },
-  { key: "1y", label: "1 an" },
-  { key: "5y", label: "5 ans" },
-];
+const BENCHMARK_KEYS = { "^GSPC": "sp500", "^FCHI": "cac40", URTH: "msciWorld" };
 
 const PIE_PALETTE = ["#fbbf24", "#2dd4bf", "#a78bfa", "#38bdf8", "#fb7185", "#34d399", "#f472b6", "#facc15"];
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 const formatDateShort = (d) => {
   if (!d) return "";
@@ -45,7 +42,10 @@ function HistoryTooltip({ active, payload, label, mode }) {
   );
 }
 
-export default function Bourse({ bourse, setBourse, bourseTotal, bourseInvested, bourseGainAbs, bourseGainPct }) {
+export default function Bourse({
+  bourse, setBourse, bourseTotal, bourseInvested, bourseGainAbs, bourseGainPct,
+  bourseHistory, setBourseHistory, watchlist, setWatchlist,
+}) {
   const [showAdd, setShowAdd] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
@@ -54,11 +54,9 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseInvested,
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({ quantity: "", pru: "", current_price: "" });
 
-  // graphiques historiques
-  const [period, setPeriod] = useState("6mo");
-  const [histLoading, setHistLoading] = useState(false);
-  const [histError, setHistError] = useState("");
-  const [historyBySymbol, setHistoryBySymbol] = useState({});
+  // suivi quotidien réel (aucune reconstruction du passé, aucune projection)
+  const [trackLoading, setTrackLoading] = useState(false);
+  const [trackError, setTrackError] = useState("");
 
   const addPosition = (v) =>
     setBourse((b) => ({
@@ -124,64 +122,57 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseInvested,
     [bourse.positions]
   );
 
-  // ---- historique : reconstruction du portefeuille + indices de référence ----
-  const tickers = useMemo(() => [...new Set(bourse.positions.map((p) => p.ticker))], [bourse.positions]);
-
-  useEffect(() => {
-    if (tickers.length === 0) {
-      setHistoryBySymbol({});
-      return;
+  // ---- suivi quotidien : capture un point réel pour AUJOURD'HUI ----
+  // Aucune donnée antérieure n'est récupérée ou reconstituée : on enregistre
+  // uniquement la valeur du jour, et la courbe se construit au fil du temps.
+  const captureSnapshot = async (silent = false) => {
+    if (!silent) {
+      setTrackLoading(true);
+      setTrackError("");
     }
-    let cancelled = false;
-    setHistLoading(true);
-    setHistError("");
-    const allSymbols = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
-    fetchHistory(allSymbols, period)
-      .then((results) => {
-        if (cancelled) return;
-        const map = {};
-        results.forEach((r) => {
-          map[r.symbol] = r;
-        });
-        setHistoryBySymbol(map);
-        const failed = results.filter((r) => !r.ok).length;
-        if (failed > 0) setHistError(`${failed} série(s) sur ${results.length} indisponible(s) pour le moment.`);
-      })
-      .catch(() => {
-        if (!cancelled) setHistError("Historique indisponible — vérifie ta connexion internet.");
-      })
-      .finally(() => {
-        if (!cancelled) setHistLoading(false);
+    try {
+      const tickers = [...new Set(bourse.positions.map((p) => p.ticker))];
+      const allSymbols = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
+      const quotes = allSymbols.length > 0 ? await fetchQuotes(allSymbols) : [];
+      const priceMap = {};
+      quotes.forEach((q) => {
+        if (q.ok) priceMap[q.symbol] = q.price;
       });
-    return () => {
-      cancelled = true;
-    };
+
+      const valeur =
+        bourse.positions.reduce((sum, p) => sum + (priceMap[p.ticker] ?? p.current_price) * p.quantity, 0) + bourse.cash_pocket;
+      const capital = bourseInvested + bourse.cash_pocket;
+
+      const entry = {
+        date: today(),
+        valeur: Math.round(valeur),
+        capital: Math.round(capital),
+        sp500: priceMap["^GSPC"] ?? null,
+        cac40: priceMap["^FCHI"] ?? null,
+        msciWorld: priceMap["URTH"] ?? null,
+      };
+      setBourseHistory((h) => upsertByDate(h, entry));
+
+      const failed = quotes.filter((q) => !q.ok).length;
+      if (failed > 0) setTrackError(`${failed} cotation(s) sur ${quotes.length} indisponible(s) pour cette mise à jour.`);
+    } catch {
+      setTrackError("Mise à jour du suivi impossible — vérifie ta connexion internet.");
+    } finally {
+      if (!silent) setTrackLoading(false);
+    }
+  };
+
+  // capture automatique, une fois par jour, à l'ouverture de l'onglet
+  useEffect(() => {
+    const hasToday = bourseHistory.some((e) => e.date === today());
+    if (!hasToday) captureSnapshot(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tickers.join(","), period]);
+  }, []);
 
-  const portfolioSeries = useMemo(
-    () => reconstructPortfolioValue(bourse.positions, historyBySymbol, bourse.cash_pocket),
-    [bourse.positions, historyBySymbol, bourse.cash_pocket]
-  );
+  const base100Data = useMemo(() => rebaseTo100(bourseHistory, ["valeur", "sp500", "cac40", "msciWorld"]), [bourseHistory]);
 
-  const capitalInvesti = bourseInvested + bourse.cash_pocket;
-
-  const comboChartData = useMemo(
-    () => portfolioSeries.map((p) => ({ date: p.date, valeur: Math.round(p.value), capital: Math.round(capitalInvesti) })),
-    [portfolioSeries, capitalInvesti]
-  );
-
-  const base100Data = useMemo(() => {
-    const named = [
-      { name: "Mon portefeuille", series: portfolioSeries.map((p) => ({ date: p.date, close: p.value })) },
-      ...BENCHMARKS.map((b) => ({ name: b.name, series: historyBySymbol[b.symbol]?.ok ? historyBySymbol[b.symbol].series : [] })),
-    ];
-    const merged = mergeSeriesByDate(named);
-    return rebaseTo100(merged, ["Mon portefeuille", ...BENCHMARKS.map((b) => b.name)]);
-  }, [portfolioSeries, historyBySymbol]);
-
-  const hasHistory = comboChartData.length > 0;
-  const hasBase100 = base100Data.length > 0;
+  const hasEnoughHistory = bourseHistory.length >= 2;
+  const hasEnoughBase100 = base100Data.length >= 2;
 
   return (
     <div className="space-y-6">
@@ -214,135 +205,132 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseInvested,
         </Card>
       </div>
 
-      {/* Analyse visuelle : répartition, capital vs valeur, comparaison aux indices */}
+      {/* Répartition par ligne */}
+      <Card>
+        <CardLabel icon={PieIcon}>Répartition par ligne</CardLabel>
+        {pieData.length === 0 ? (
+          <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-center gap-6 mt-2">
+            <div className="h-64 w-full sm:w-1/2">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={64} outerRadius={100} paddingAngle={2} stroke="none">
+                    {pieData.map((d) => (
+                      <Cell key={d.name} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) =>
+                      active && payload?.length ? (
+                        <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
+                          <span className="text-slate-100 font-data">{payload[0].name}</span>
+                          <div className="text-slate-400">{eur(payload[0].value)}</div>
+                        </div>
+                      ) : null
+                    }
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col gap-2 w-full sm:w-1/2">
+              {pieData.map((d) => (
+                <div key={d.name} className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-slate-400">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
+                    {d.name}
+                  </span>
+                  <span className="font-data tabular-nums text-slate-300">{pctPlain((d.value / bourseTotal) * 100)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Suivi réel du portefeuille — démarre à partir d'aujourd'hui */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <CardLabel icon={PieIcon}>Analyse du portefeuille</CardLabel>
-        <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1">
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => setPeriod(p.key)}
-              className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
-                period === p.key ? "bg-slate-700 text-amber-300" : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              {p.label}
-            </button>
+        <CardLabel icon={Activity}>Suivi du portefeuille (à partir d'aujourd'hui)</CardLabel>
+        <button
+          onClick={() => captureSnapshot(false)}
+          disabled={trackLoading}
+          className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+        >
+          <RefreshCw size={14} className={trackLoading ? "animate-spin" : ""} />
+          {trackLoading ? "Mise à jour..." : "Actualiser le suivi"}
+        </button>
+      </div>
+      {trackError && <p className="text-[11px] text-amber-300/80">{trackError}</p>}
+
+      <Card>
+        <CardLabel>Capital investi vs valeur actuelle</CardLabel>
+        {!hasEnoughHistory ? (
+          <EmptyState>
+            {bourseHistory.length === 0
+              ? "Aucun suivi enregistré encore — clique sur « Actualiser le suivi » pour démarrer."
+              : `Suivi démarré le ${formatDateShort(bourseHistory[0].date)} — reviens dans les prochains jours pour voir la courbe se construire.`}
+          </EmptyState>
+        ) : (
+          <div className="h-80 mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={bourseHistory} margin={{ left: 0, right: 10, top: 10 }}>
+                <defs>
+                  <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
+                <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
+                <Tooltip content={<HistoryTooltip mode="eur" />} />
+                <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#fbbf24" strokeWidth={2.5} fill="url(#bourseValeurFill)" />
+                <Line type="monotone" dataKey="capital" name="Capital investi" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 3" dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <p className="text-[11px] text-slate-600 mt-3">
+          Le suivi démarre à partir d'aujourd'hui : aucune donnée passée n'est reconstituée, aucune projection future
+          n'est affichée. « Capital investi » suit le coût de revient réel (PRU × quantité) + cash à chaque mise à jour.
+        </p>
+      </Card>
+
+      <Card>
+        <CardLabel>Comparaison aux indices (base 100, depuis le début du suivi)</CardLabel>
+        {!hasEnoughBase100 ? (
+          <EmptyState>
+            {base100Data.length === 0
+              ? "Comparaison disponible une fois le suivi démarré."
+              : "Reviens dans les prochains jours pour voir la comparaison se construire."}
+          </EmptyState>
+        ) : (
+          <div className="h-80 mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={base100Data} margin={{ left: 0, right: 10, top: 10 }}>
+                <CartesianGrid stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+                <Tooltip content={<HistoryTooltip mode="base100" />} />
+                <Line type="monotone" dataKey="valeur" name="Mon portefeuille" stroke="#fbbf24" strokeWidth={2.5} dot={false} />
+                {BENCHMARKS.map((b) => (
+                  <Line key={b.symbol} type="monotone" dataKey={BENCHMARK_KEYS[b.symbol]} name={b.name} stroke={b.color} strokeWidth={1.5} dot={false} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-3 mt-2">
+          <Legend2 color="#fbbf24" label="Mon portefeuille" />
+          {BENCHMARKS.map((b) => (
+            <Legend2 key={b.symbol} color={b.color} label={b.name} />
           ))}
         </div>
-      </div>
-      {histError && <p className="text-[11px] text-amber-300/80">{histError}</p>}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardLabel>Répartition par ligne</CardLabel>
-          {pieData.length === 0 ? (
-            <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
-          ) : (
-            <>
-              <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={2} stroke="none">
-                      {pieData.map((d) => (
-                        <Cell key={d.name} fill={d.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) =>
-                        active && payload?.length ? (
-                          <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
-                            <span className="text-slate-100 font-data">{payload[0].name}</span>
-                            <div className="text-slate-400">{eur(payload[0].value)}</div>
-                          </div>
-                        ) : null
-                      }
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex flex-col gap-1 mt-1 max-h-28 overflow-y-auto">
-                {pieData.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between text-[11px]">
-                    <span className="flex items-center gap-1.5 text-slate-400">
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: d.color }} />
-                      {d.name}
-                    </span>
-                    <span className="font-data tabular-nums text-slate-300">{pctPlain((d.value / bourseTotal) * 100)}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </Card>
-
-        <Card>
-          <CardLabel>Capital investi vs valeur actuelle</CardLabel>
-          {histLoading && !hasHistory ? (
-            <EmptyState>Chargement de l'historique…</EmptyState>
-          ) : !hasHistory ? (
-            <EmptyState>
-              Historique indisponible pour le moment (les positions saisies manuellement n'ont pas de cours historique).
-            </EmptyState>
-          ) : (
-            <div className="h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={comboChartData} margin={{ left: -15, right: 5, top: 5 }}>
-                  <defs>
-                    <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={40} />
-                  <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} width={42} />
-                  <Tooltip content={<HistoryTooltip mode="eur" />} />
-                  <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#fbbf24" strokeWidth={2} fill="url(#bourseValeurFill)" />
-                  <Line type="monotone" dataKey="capital" name="Capital investi" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-          <p className="text-[11px] text-slate-600 mt-2">
-            Capital investi = coût de revient actuel (PRU × quantité) + cash, supposé constant sur la période.
-          </p>
-        </Card>
-
-        <Card>
-          <CardLabel>Comparaison aux indices (base 100)</CardLabel>
-          {histLoading && !hasBase100 ? (
-            <EmptyState>Chargement de l'historique…</EmptyState>
-          ) : !hasBase100 ? (
-            <EmptyState>Comparaison indisponible pour le moment.</EmptyState>
-          ) : (
-            <div className="h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={base100Data} margin={{ left: -15, right: 5, top: 5 }}>
-                  <CartesianGrid stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={40} />
-                  <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} width={36} />
-                  <Tooltip content={<HistoryTooltip mode="base100" />} />
-                  <Line type="monotone" dataKey="Mon portefeuille" stroke="#fbbf24" strokeWidth={2.5} dot={false} />
-                  {BENCHMARKS.map((b) => (
-                    <Line key={b.symbol} type="monotone" dataKey={b.name} stroke={b.color} strokeWidth={1.5} dot={false} />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-          <div className="flex flex-wrap gap-3 mt-2">
-            <Legend2 color="#fbbf24" label="Mon portefeuille" />
-            {BENCHMARKS.map((b) => (
-              <Legend2 key={b.symbol} color={b.color} label={b.name} />
-            ))}
-          </div>
-          <p className="text-[11px] text-slate-600 mt-2">
-            Performance recalculée en appliquant ta composition actuelle aux cours historiques de chaque ligne — une
-            approximation si tu as acheté ou vendu récemment.
-          </p>
-        </Card>
-      </div>
+        <p className="text-[11px] text-slate-600 mt-3">
+          Base 100 au premier jour du suivi (ci-dessus) — comparaison de la performance réelle constatée depuis cette
+          date, sans reconstitution antérieure ni projection.
+        </p>
+      </Card>
 
       <Card>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -478,6 +466,8 @@ export default function Bourse({ bourse, setBourse, bourseTotal, bourseInvested,
           Outil de rééquilibrage et diversification sectorielle/géographique : à venir dans une prochaine itération.
         </p>
       </Card>
+
+      <Watchlist watchlist={watchlist} setWatchlist={setWatchlist} />
     </div>
   );
 }
