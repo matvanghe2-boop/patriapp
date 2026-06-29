@@ -9,7 +9,7 @@ import Bourse from "./components/Bourse";
 import Simulation from "./components/Simulation";
 import Immobilier from "./components/Immobilier";
 
-const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist"];
+const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes"];
 
 const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };
 
@@ -76,6 +76,14 @@ export default function App() {
   // Suivi quotidien réel du portefeuille (une entrée par jour, alimentée au fil
   // du temps — aucune donnée passée n'est reconstituée, aucune projection future).
   const [bourseHistory, setBourseHistory] = usePersistentState("bourseHistory", []);
+  // Cash disponible sur compte courant
+  const [cash, setCash] = usePersistentState("cash", 0);
+  // Enveloppes de ventilation de l'épargne
+  const [enveloppes, setEnveloppes] = usePersistentState("enveloppes", [
+    { id: "env1", label: "Matelas d'urgence", amount: 3000, colorIdx: 0 },
+    { id: "env2", label: "Projet Immo", amount: 3000, colorIdx: 1 },
+    { id: "env3", label: "Plaisir / Voyage", amount: 950, colorIdx: 2 },
+  ]);
   // Watchlist : produits suivis en vue d'un achat (distincts des positions détenues).
   const [watchlist, setWatchlist] = usePersistentState("watchlist", []);
 
@@ -89,7 +97,7 @@ export default function App() {
   const bourseGainAbs = bourseValuePositions - bourseInvested;
   const bourseGainPct = bourseInvested > 0 ? (bourseGainAbs / bourseInvested) * 100 : 0;
 
-  const patrimoineBrut = livretsTotal + bourseTotal;
+  const patrimoineBrut = livretsTotal + bourseTotal + (cash ?? 0);
   const patrimoineNet = patrimoineBrut - dettesTotal;
 
   const epargneMensuelle = profile.monthly_income - profile.monthly_expenses;
@@ -100,6 +108,7 @@ export default function App() {
     profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
     historyPast, setHistoryPast, sim, setSim, immo, setImmo,
     bourseHistory, setBourseHistory, watchlist, setWatchlist,
+    cash, setCash, enveloppes, setEnveloppes,
     livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
     bourseTotal, bourseGainAbs, bourseGainPct, patrimoineBrut, patrimoineNet,
     epargneMensuelle, tauxEpargne, matelasMois,
