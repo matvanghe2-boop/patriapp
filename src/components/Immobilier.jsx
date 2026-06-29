@@ -56,7 +56,7 @@ function ResteAVivre({ revenus, mensualite }) {
         <span className="text-[9px] text-slate-500">
           {isGood ? "> 1 000 € — dossier solide" : 
            isOk ? "700-1 000 € — à surveiller" : 
-           "< 700 € — risque de refus"}
+           "&lt; 700 € — risque de refus"}
         </span>
       </div>
     </div>
@@ -326,11 +326,11 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           </span>
           <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
             <span className="w-3 h-3 rounded-full bg-rose-400/30 border border-rose-400/50" />
-            Taux > 40 %
+            Taux &gt; 40 %
           </span>
           <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
             <span className="w-3 h-3 rounded-full bg-slate-700 border border-slate-600" />
-            Reste à vivre < 700 €
+            Reste à vivre &lt; 700 €
           </span>
         </div>
         
