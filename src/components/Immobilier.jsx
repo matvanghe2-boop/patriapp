@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { Landmark, AlertTriangle, Shield, Wallet, Gauge } from "lucide-react";
+<<<<<<< HEAD
 import { Card, CardLabel, SliderField, PageGlow, CARD_THEMES } from "./ui";
+=======
+import { Card, CardLabel, SliderField, PageGlow } from "./ui";
+>>>>>>> f29632063f6c4d938e2837a477e42162eca90159
 import { monthlyPayment, eur, pctPlain } from "../lib/finance";
 
 const DURATIONS = [15, 20, 25];
@@ -126,7 +130,11 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<<<<<<< HEAD
         <Card accent={CARD_THEMES.rose}>
+=======
+        <Card accent="border-rose-500/15 hover:border-rose-500/25">
+>>>>>>> f29632063f6c4d938e2837a477e42162eca90159
           <CardLabel icon={Landmark}>Projet</CardLabel>
           <div className="space-y-4 mt-2">
             <SliderField 
@@ -168,7 +176,11 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           </div>
         </Card>
 
+<<<<<<< HEAD
         <Card accent={CARD_THEMES.rose}>
+=======
+        <Card accent="border-rose-500/15 hover:border-rose-500/25">
+>>>>>>> f29632063f6c4d938e2837a477e42162eca90159
           <CardLabel icon={Shield}>Apport &amp; Assurance</CardLabel>
           <div className="flex flex-col gap-3 mt-2">
             <div>
@@ -210,6 +222,7 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+<<<<<<< HEAD
         <Card accent={CARD_THEMES.rose}>
           <CardLabel>Coût total (prix + notaire)</CardLabel>
           <div className="font-display text-xl text-slate-100">{eur(coutTotal)}</div>
@@ -219,6 +232,17 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           <div className="font-display text-xl text-emerald-400">{eur(apport)}</div>
         </Card>
         <Card accent={CARD_THEMES.rose}>
+=======
+        <Card accent="border-rose-500/15 hover:border-rose-500/25">
+          <CardLabel>Coût total (prix + notaire)</CardLabel>
+          <div className="font-display text-xl text-slate-100">{eur(coutTotal)}</div>
+        </Card>
+        <Card accent="border-rose-500/15 hover:border-rose-500/25">
+          <CardLabel>Apport injecté</CardLabel>
+          <div className="font-display text-xl text-emerald-400">{eur(apport)}</div>
+        </Card>
+        <Card accent="border-rose-500/15 hover:border-rose-500/25">
+>>>>>>> f29632063f6c4d938e2837a477e42162eca90159
           <CardLabel>Montant à emprunter</CardLabel>
           <div className="font-display text-xl text-amber-300">{eur(montantEmprunte)}</div>
         </Card>
@@ -226,7 +250,11 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
 
       {/* ─── Jauge de taux d'endettement ────────────────────────────────────── */}
       {rows.length > 0 && (
+<<<<<<< HEAD
         <Card accent={CARD_THEMES.rose}>
+=======
+        <Card accent="border-rose-500/15 hover:border-rose-500/25">
+>>>>>>> f29632063f6c4d938e2837a477e42162eca90159
           <CardLabel icon={Gauge}>Analyse de la capacité d'emprunt</CardLabel>
           <div className="mt-2 space-y-4">
             {rows.map((r) => (
@@ -255,7 +283,11 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
       )}
 
       {/* ─── Tableau des mensualités ────────────────────────────────────────── */}
+<<<<<<< HEAD
       <Card accent={CARD_THEMES.rose}>
+=======
+      <Card accent="border-rose-500/15 hover:border-rose-500/25">
+>>>>>>> f29632063f6c4d938e2837a477e42162eca90159
         <div className="flex items-center justify-between">
           <CardLabel icon={Wallet}>Mensualités selon la durée</CardLabel>
           <button 
