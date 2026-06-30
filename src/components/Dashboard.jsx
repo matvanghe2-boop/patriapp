@@ -7,7 +7,7 @@ import {
   TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight,
   Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap,
 } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow } from "./ui";
 import { eur, pct, compact, uid } from "../lib/finance";
 
 // ─── Time filter config ────────────────────────────────────────────────────────
@@ -358,17 +358,20 @@ export default function Dashboard({
   const joinIndex = historyPast.length; // index of "Aujourd'hui" in chartData
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="relative space-y-6">
+      <PageGlow color="emerald" />
+      <div className="flex items-start justify-between relative">
         <div>
-          <h1 className="font-display text-2xl text-slate-50">Dashboard global</h1>
+          <h1 className="font-display text-2xl text-slate-50">
+            Dashboard <span className="text-emerald-400">global</span>
+          </h1>
           <p className="text-sm text-slate-500 mt-1">La photographie consolidée de ton patrimoine, à date.</p>
         </div>
         <StagnationBadge lastUpdateDate={lastUpdateDate} />
       </div>
 
       {/* Profil mensuel */}
-      <Card className="flex flex-wrap items-center gap-6">
+      <Card accent="border-emerald-500/10 hover:border-emerald-500/20" className="flex flex-wrap items-center gap-6">
         <CardLabel icon={Wallet}>Profil mensuel</CardLabel>
         <div className="flex items-center gap-2">
           <label className="text-xs text-slate-500">Revenu net</label>
@@ -397,11 +400,11 @@ export default function Dashboard({
         <div
           className="flex flex-col items-center justify-center text-center rounded-full mx-auto p-6 aspect-square w-[190px]"
           style={{
-            background: "radial-gradient(circle at 32% 30%, rgba(251,191,36,0.10), transparent 65%)",
-            border: "1.5px solid rgba(251,191,36,0.35)",
+            background: "radial-gradient(circle at 32% 30%, rgba(16,185,129,0.12), transparent 65%)",
+            border: "1.5px solid rgba(16,185,129,0.35)",
           }}
         >
-          <span className="text-[11px] uppercase tracking-widest text-amber-300/80 font-medium">Patrimoine net</span>
+          <span className="text-[11px] uppercase tracking-widest text-emerald-300/80 font-medium">Patrimoine net</span>
           <span className="font-display text-[26px] text-slate-50 mt-1.5 leading-tight">{eur(patrimoineNet)}</span>
           <span className={`text-xs mt-1.5 flex items-center gap-1 ${deltaVsLastMonth >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {deltaVsLastMonth >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
@@ -410,14 +413,14 @@ export default function Dashboard({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
+          <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
             <CardLabel icon={Landmark}>Patrimoine brut</CardLabel>
             <div className="font-display text-xl text-slate-100">{eur(patrimoineBrut)}</div>
             {dettesTotal > 0 && <div className="text-xs text-slate-500 mt-1">dont −{eur(dettesTotal)} de passifs</div>}
           </Card>
 
           {/* Enhanced performance card: effort vs gains */}
-          <Card>
+          <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
             <CardLabel icon={TrendingUp}>Performance bourse</CardLabel>
             <div className={`font-display text-xl ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {eur(bourseGainAbs)}
@@ -445,10 +448,10 @@ export default function Dashboard({
             </div>
           </Card>
 
-          <Card>
+          <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
             <CardLabel icon={PiggyBank}>Taux d'épargne mensuel</CardLabel>
             <div className="font-display text-xl text-slate-100">{eur(epargneMensuelle)}</div>
-            <div className="text-xs text-amber-300/80 mt-1">{pct(tauxEpargne)} du revenu</div>
+            <div className="text-xs text-emerald-300/80 mt-1">{pct(tauxEpargne)} du revenu</div>
             {epargneMensuelle > 0 && (
               <div className="text-[11px] text-slate-600 mt-1">
                 Projection +{eur(epargneMensuelle * 6)} / 6 mois
@@ -461,7 +464,7 @@ export default function Dashboard({
       {/* Allocation + historique */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Allocation card */}
-        <Card>
+        <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
           <CardLabel>Allocation d'actifs globale</CardLabel>
           {allocationData.length === 0 ? (
             <EmptyState>Ajoute un livret ou une position pour voir ta répartition.</EmptyState>
@@ -507,23 +510,23 @@ export default function Dashboard({
         </Card>
 
         {/* History chart card */}
-        <Card>
+        <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
           <div className="flex items-center justify-between mb-1">
             <CardLabel>Évolution du patrimoine net</CardLabel>
             <div className="flex items-center gap-2">
               <TimeFilterBar active={timeFilter} onChange={setTimeFilter} />
-              <GhostButton onClick={() => setShowAddHistory((s) => !s)}>Ajouter</GhostButton>
+              <GhostButton theme="emerald" onClick={() => setShowAddHistory((s) => !s)}>Ajouter</GhostButton>
             </div>
           </div>
 
           {/* Legend for projection */}
           <div className="flex items-center gap-4 mb-2">
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-              <div className="w-6 h-0.5 bg-amber-400 rounded" />
+              <div className="w-6 h-0.5 bg-emerald-400 rounded" />
               Historique
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-              <div className="w-6 h-0.5 border-t-2 border-dashed border-amber-400/50" />
+              <div className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400/50" />
               Projection ({eur(epargneMensuelle)}/mois)
             </div>
           </div>
@@ -533,12 +536,12 @@ export default function Dashboard({
               <ComposedChart data={chartData} margin={{ left: -10, right: 5, top: 5 }}>
                 <defs>
                   <linearGradient id="netWorthFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="projFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.12} />
-                    <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.12} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="#1e293b" vertical={false} />
@@ -552,7 +555,7 @@ export default function Dashboard({
                   type="monotone"
                   dataKey="value"
                   name="Patrimoine net"
-                  stroke="#fbbf24"
+                  stroke="#10b981"
                   strokeWidth={2}
                   fill="url(#netWorthFill)"
                   connectNulls={false}
@@ -562,7 +565,7 @@ export default function Dashboard({
                   type="monotone"
                   dataKey="projection"
                   name="Projection"
-                  stroke="#fbbf24"
+                  stroke="#10b981"
                   strokeWidth={1.5}
                   strokeDasharray="5 4"
                   dot={false}
@@ -598,10 +601,10 @@ export default function Dashboard({
       </div>
 
       {/* Passifs */}
-      <Card>
+      <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
         <div className="flex items-center justify-between">
           <CardLabel>Passifs / Dettes</CardLabel>
-          <GhostButton onClick={() => setShowAddDette((s) => !s)}>Ajouter un passif</GhostButton>
+          <GhostButton theme="emerald" onClick={() => setShowAddDette((s) => !s)}>Ajouter un passif</GhostButton>
         </div>
         {dettes.length === 0 ? (
           <EmptyState>Aucun passif déclaré — le patrimoine net est égal au patrimoine brut.</EmptyState>

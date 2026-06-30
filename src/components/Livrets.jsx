@@ -3,7 +3,7 @@ import {
   PiggyBank, ShieldCheck, Banknote, Lightbulb, Target,
   Plus, Trash2, X, ChevronDown, ChevronUp, AlertTriangle, TrendingUp,
 } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow } from "./ui";
 import { eur, uid } from "../lib/finance";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
@@ -14,7 +14,7 @@ const MARKET_ALTERNATIVES = [
 ];
 
 // ─── Smart Progress Bar ───────────────────────────────────────────────────────
-function SmartProgressBar({ value, max, goal, color = "bg-teal-400", showGoal = false }) {
+function SmartProgressBar({ value, max, goal, color = "bg-indigo-400", showGoal = false }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const goalPct = (goal && max > 0) ? Math.min(100, (goal / max) * 100) : null;
 
@@ -49,7 +49,7 @@ function CompteCourant({ cash, setCash }) {
   const save = () => { setCash(parseFloat(draft) || 0); setEditing(false); };
 
   return (
-    <Card className="flex items-center gap-4 relative">
+    <Card accent="border-indigo-500/15 hover:border-indigo-500/25" className="flex items-center gap-4 relative">
       <div className="rounded-full bg-slate-700/60 text-slate-300 p-3 shrink-0">
         <Banknote size={20} />
       </div>
@@ -117,7 +117,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
     setEnveloppes((prev) => prev.map((e) => e.id === id ? { ...e, amount: parseFloat(amount) || 0 } : e));
 
   return (
-    <Card>
+    <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
       <div className="flex items-center justify-between">
         <CardLabel icon={Target}>Ventilation de l'épargne</CardLabel>
         <div className="flex items-center gap-2">
@@ -267,7 +267,7 @@ function ArbitrageOptimizer({ livrets }) {
   if (suggestions.length === 0) return null;
 
   return (
-    <Card>
+    <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
       <CardLabel icon={Lightbulb}>Optimisateur de rendement</CardLabel>
       <div className="space-y-3 mt-2">
         {suggestions.map((s) => (
@@ -311,8 +311,8 @@ function LivretRow({ l, onRemove, onUpdateGoal }) {
       ? "bg-rose-400"
       : l.balance / l.limit > 0.6
       ? "bg-amber-400"
-      : "bg-teal-400"
-    : "bg-teal-400";
+      : "bg-indigo-400"
+    : "bg-indigo-400";
 
   const saveGoal = () => {
     const g = parseFloat(goalDraft);
@@ -400,16 +400,19 @@ export default function Livrets({
   const totalInterets = livrets.reduce((s, l) => s + l.balance * l.rate, 0);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl text-slate-50">Livrets &amp; Épargne sécurisée</h1>
+    <div className="relative space-y-6">
+      <PageGlow color="indigo" />
+      <div className="relative">
+        <h1 className="font-display text-2xl text-slate-50">
+          Livrets &amp; <span className="text-indigo-400">Épargne sécurisée</span>
+        </h1>
         <p className="text-sm text-slate-500 mt-1">Capital garanti : Livrets réglementés, fonds en euros, cash disponible.</p>
       </div>
 
       {/* KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="flex items-center gap-4">
-          <div className="rounded-full bg-teal-400/10 text-teal-300 p-3 shrink-0">
+        <Card accent="border-indigo-500/15 hover:border-indigo-500/25" className="flex items-center gap-4">
+          <div className="rounded-full bg-indigo-400/10 text-indigo-300 p-3 shrink-0">
             <ShieldCheck size={20} />
           </div>
           <div>
@@ -418,12 +421,12 @@ export default function Livrets({
             <div className="text-[11px] text-slate-600">de dépenses couvertes</div>
           </div>
         </Card>
-        <Card>
+        <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total épargne sécurisée</div>
           <div className="font-display text-xl text-slate-50">{eur(livretsTotal)}</div>
-          <div className="text-xs text-amber-300/80 mt-0.5">Taux moyen {livretsAvgRate.toFixed(2)} %</div>
+          <div className="text-xs text-indigo-300/80 mt-0.5">Taux moyen {livretsAvgRate.toFixed(2)} %</div>
         </Card>
-        <Card>
+        <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Intérêts estimés / an</div>
           <div className="font-display text-xl text-emerald-400">{eur(totalInterets)}</div>
           <div className="text-[11px] text-slate-600 mt-0.5">soit {eur(totalInterets / 12)} / mois</div>
@@ -434,10 +437,10 @@ export default function Livrets({
       <CompteCourant cash={cash ?? 0} setCash={setCash} />
 
       {/* Livrets table */}
-      <Card>
+      <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
         <div className="flex items-center justify-between mb-3">
           <CardLabel icon={PiggyBank}>Comptes &amp; supports</CardLabel>
-          <GhostButton onClick={() => setShowAdd((s) => !s)}>Ajouter un livret</GhostButton>
+          <GhostButton theme="indigo" onClick={() => setShowAdd((s) => !s)}>Ajouter un livret</GhostButton>
         </div>
 
         {livrets.length === 0 ? (

@@ -2,15 +2,24 @@ import React, { useState } from "react";
 import { Plus, Trash2, X, Lock } from "lucide-react";
 import { eur } from "../lib/finance";
 
-export function NavButton({ active, onClick, icon: Icon, label, disabled }) {
+const NAV_THEMES = {
+  emerald: { active: "bg-slate-800 text-emerald-300", bar: "bg-emerald-400" },
+  indigo: { active: "bg-slate-800 text-indigo-300", bar: "bg-indigo-400" },
+  violet: { active: "bg-slate-800 text-violet-300", bar: "bg-violet-400" },
+  amber: { active: "bg-slate-800 text-amber-300", bar: "bg-amber-400" },
+  rose: { active: "bg-slate-800 text-rose-300", bar: "bg-rose-400" },
+};
+
+export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber" }) {
+  const t = NAV_THEMES[theme] || NAV_THEMES.amber;
   return (
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
-        ${disabled ? "text-slate-600 cursor-not-allowed" : active ? "bg-slate-800 text-amber-300" : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
+        ${disabled ? "text-slate-600 cursor-not-allowed" : active ? t.active : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
-      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-amber-400 hidden md:block" />}
+      {active && <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
       <Icon size={17} strokeWidth={2} />
       <span className="font-medium">{label}</span>
       {disabled && <Lock size={12} className="ml-auto opacity-60" />}
@@ -26,8 +35,37 @@ export function EmptyState({ children }) {
   );
 }
 
-export function Card({ children, className = "" }) {
-  return <div className={`rounded-2xl border border-slate-800 bg-slate-900 p-5 ${className}`}>{children}</div>;
+export function Card({ children, className = "", accent = "" }) {
+  return <div className={`rounded-2xl border border-slate-800 bg-slate-900 p-5 transition-colors duration-300 ${accent} ${className}`}>{children}</div>;
+}
+
+/**
+ * Lueur de fond ambiante thématique — à placer en position absolute/fixed
+ * dans le conteneur racine de chaque page pour donner une identité visuelle
+ * propre à chaque onglet sans dupliquer le layout.
+ */
+export function PageGlow({ color = "emerald" }) {
+  const COLORS = {
+    emerald: "from-emerald-500/10 to-cyan-500/5",
+    indigo: "bg-indigo-500/10",
+    violet: "bg-violet-500/10",
+    amber: "bg-amber-500/10",
+    rose: "bg-rose-500/10",
+  };
+  if (color === "emerald") {
+    return (
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] rounded-full bg-gradient-to-br ${COLORS.emerald} blur-[120px]`}
+      />
+    );
+  }
+  return (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute -top-10 -right-10 w-96 h-96 rounded-full ${COLORS[color] || COLORS.emerald} blur-[120px]`}
+    />
+  );
 }
 
 export function CardLabel({ children, icon: Icon }) {
@@ -47,12 +85,20 @@ export function ProgressBar({ value, accent = "bg-teal-400" }) {
   );
 }
 
-export function GhostButton({ onClick, children, icon: Icon = Plus, disabled }) {
+const GHOST_THEMES = {
+  amber: "text-amber-300 hover:text-amber-200 border-slate-700 hover:border-amber-400/50 focus-visible:ring-amber-400/40",
+  emerald: "text-emerald-300 hover:text-emerald-200 border-slate-700 hover:border-emerald-400/50 focus-visible:ring-emerald-400/40",
+  indigo: "text-indigo-300 hover:text-indigo-200 border-slate-700 hover:border-indigo-400/50 focus-visible:ring-indigo-400/40",
+  violet: "text-violet-300 hover:text-violet-200 border-slate-700 hover:border-violet-400/50 focus-visible:ring-violet-400/40",
+  rose: "text-rose-300 hover:text-rose-200 border-slate-700 hover:border-rose-400/50 focus-visible:ring-rose-400/40",
+};
+
+export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, theme = "amber" }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+      className={`flex items-center gap-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${GHOST_THEMES[theme] || GHOST_THEMES.amber}`}
     >
       <Icon size={14} />
       {children}

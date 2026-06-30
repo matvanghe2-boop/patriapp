@@ -201,7 +201,7 @@ export default function Watchlist({ watchlist, setWatchlist }) {
   const isLoading = loading || refreshingQuotes;
 
   return (
-    <Card>
+    <Card accent="border-fuchsia-500/15 hover:border-fuchsia-500/25">
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <CardLabel icon={Star}>Watchlist — produits à suivre</CardLabel>
         <div className="flex items-center gap-2 flex-wrap">
@@ -214,7 +214,7 @@ export default function Watchlist({ watchlist, setWatchlist }) {
             <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
             {isLoading ? "Actualisation..." : "Actualiser"}
           </button>
-          <GhostButton onClick={() => setShowAdd((s) => !s)}>Suivre un produit</GhostButton>
+          <GhostButton theme="violet" onClick={() => setShowAdd((s) => !s)}>Suivre un produit</GhostButton>
         </div>
       </div>
       <p className="text-sm text-slate-500 mb-3">

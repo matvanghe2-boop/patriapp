@@ -158,11 +158,11 @@ export default function App() {
           <div className="text-xs text-slate-500 mt-0.5">Vision consolidée &amp; simulation</div>
         </div>
         <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible p-2 md:p-3 flex-1">
-          <NavButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" />
-          <NavButton active={tab === "livrets"} onClick={() => setTab("livrets")} icon={PiggyBank} label="Livrets & Épargne" />
-          <NavButton active={tab === "bourse"} onClick={() => setTab("bourse")} icon={TrendingUp} label="PEA & Bourse" />
-          <NavButton active={tab === "simulation"} onClick={() => setTab("simulation")} icon={Calculator} label="Simulation" />
-          <NavButton active={tab === "immobilier"} onClick={() => setTab("immobilier")} icon={Landmark} label="Immobilier & Crédit" />
+          <NavButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" theme="emerald" />
+          <NavButton active={tab === "livrets"} onClick={() => setTab("livrets")} icon={PiggyBank} label="Livrets & Épargne" theme="indigo" />
+          <NavButton active={tab === "bourse"} onClick={() => setTab("bourse")} icon={TrendingUp} label="PEA & Bourse" theme="violet" />
+          <NavButton active={tab === "simulation"} onClick={() => setTab("simulation")} icon={Calculator} label="Simulation" theme="amber" />
+          <NavButton active={tab === "immobilier"} onClick={() => setTab("immobilier")} icon={Landmark} label="Immobilier & Crédit" theme="rose" />
         </nav>
         <div className="hidden md:flex flex-col gap-2 px-4 py-4 border-t border-slate-800">
           <button onClick={handleExport} className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded">
