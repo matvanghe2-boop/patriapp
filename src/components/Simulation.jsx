@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
-import { Card, CardLabel, SliderField, CustomTooltip } from "./ui";
+import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES } from "./ui";
 import { projectCompound, eur, pct, compact, solveMonthlyForTarget, applyInflation, generateVolatileReturns } from "../lib/finance";
 
 export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, bourseTotal }) {
@@ -106,10 +106,13 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
   const isCustom = sim.livrets.capital != null || sim.livrets.rate != null || sim.bourse.capital != null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-2">
+    <div className="relative space-y-6">
+      <PageGlow color="amber" />
+      <div className="flex items-start justify-between flex-wrap gap-2 relative">
         <div>
-          <h1 className="font-display text-2xl text-slate-50">Moteur de simulation — patrimoine entier</h1>
+          <h1 className="font-display text-2xl text-slate-50">
+            Moteur de <span className="text-amber-400">simulation</span> — patrimoine entier
+          </h1>
           <p className="text-sm text-slate-500 mt-1">
             Projection combinée de la poche sécurisée et de la poche Bourse, intérêts composés.
             {showStress && " — Mode Volatile (simulation historique)"}
@@ -127,12 +130,12 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
 
       {/* ─── Controls ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
+        <Card accent={CARD_THEMES.amber}>
           <CardLabel icon={Calculator}>Durée de la projection</CardLabel>
           <SliderField label="Nombre d'années" value={sim.years} onChange={setYears} min={1} max={40} step={1} unit=" ans" />
         </Card>
 
-        <Card>
+        <Card accent={CARD_THEMES.amber}>
           <CardLabel>
             <div className="flex items-center gap-3">
               <span>Paramètres avancés</span>
@@ -181,7 +184,7 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
+        <Card accent={CARD_THEMES.amber}>
           <CardLabel>Poche sécurisée (Livrets)</CardLabel>
           <div className="space-y-4 mt-2">
             <SliderField label="Capital de départ" value={livretsCapital} onChange={set("livrets", "capital")} min={0} max={150000} step={500} format={(v) => eur(v)} />
@@ -189,7 +192,7 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
             <SliderField label="Versement mensuel" value={sim.livrets.monthly} onChange={set("livrets", "monthly")} min={0} max={2000} step={25} format={(v) => eur(v)} />
           </div>
         </Card>
-        <Card>
+        <Card accent={CARD_THEMES.amber}>
           <CardLabel>Poche Bourse (PEA)</CardLabel>
           <div className="space-y-4 mt-2">
             <SliderField label="Capital de départ" value={bourseCapital} onChange={set("bourse", "capital")} min={0} max={200000} step={500} format={(v) => eur(v)} />
@@ -201,7 +204,7 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
 
       {/* ─── Résumé ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
+        <Card accent={CARD_THEMES.amber}>
           <CardLabel>Valeur finale (patrimoine)</CardLabel>
           <div className="font-display text-xl text-slate-100">{eur(final.total)}</div>
           {showInflation && (
@@ -211,11 +214,11 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
             </div>
           )}
         </Card>
-        <Card>
+        <Card accent={CARD_THEMES.amber}>
           <CardLabel>Total versé</CardLabel>
           <div className="font-display text-xl text-slate-100">{eur(final.versed)}</div>
         </Card>
-        <Card>
+        <Card accent={CARD_THEMES.amber}>
           <CardLabel>Intérêts générés</CardLabel>
           <div className={`font-display text-xl ${totalInterets >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {eur(totalInterets)}
@@ -227,7 +230,7 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
       </div>
 
       {/* ─── Simulation inverse ──────────────────────────────────────────────── */}
-      <Card>
+      <Card accent={CARD_THEMES.amber}>
         <button
           onClick={() => setShowInverse(!showInverse)}
           className="w-full flex items-center justify-between text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded-lg p-1"
@@ -287,7 +290,7 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
       </Card>
 
       {/* ─── Graphique ────────────────────────────────────────────────────────── */}
-      <Card>
+      <Card accent={CARD_THEMES.amber}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardLabel>Trajectoire du patrimoine (Livrets + Bourse)</CardLabel>
           {showBand && <span className="text-[11px] text-amber-300/80">Horizon cible : 6–7 ans</span>}
