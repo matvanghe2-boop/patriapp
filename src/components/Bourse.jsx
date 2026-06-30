@@ -7,11 +7,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-<<<<<<< HEAD
-import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-=======
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow } from "./ui";
->>>>>>> f29632063f6c4d938e2837a477e42162eca90159
 import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -281,11 +277,7 @@ export default function Bourse({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-<<<<<<< HEAD
-        <Card accent={CARD_THEMES.violet}>
-=======
         <Card accent="border-violet-500/20 hover:border-violet-500/35">
->>>>>>> f29632063f6c4d938e2837a477e42162eca90159
           <CardLabel>Valeur du portefeuille</CardLabel>
           <div className="font-display text-xl text-slate-100">{eur(bourseTotal)}</div>
           {portfolioDailyChange !== null && (
@@ -295,20 +287,12 @@ export default function Bourse({
             </div>
           )}
         </Card>
-<<<<<<< HEAD
-        <Card accent={CARD_THEMES.violet}>
-=======
         <Card accent="border-violet-500/20 hover:border-violet-500/35">
->>>>>>> f29632063f6c4d938e2837a477e42162eca90159
           <CardLabel>Plus/moins-value latente</CardLabel>
           <div className={`font-display text-xl ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(bourseGainAbs)}</div>
           <div className={`text-xs mt-1 ${bourseGainAbs >= 0 ? "text-emerald-400/80" : "text-rose-400/80"}`}>{pct(bourseGainPct)}</div>
         </Card>
-<<<<<<< HEAD
-        <Card accent={CARD_THEMES.violet}>
-=======
         <Card accent="border-violet-500/20 hover:border-violet-500/35">
->>>>>>> f29632063f6c4d938e2837a477e42162eca90159
           <CardLabel icon={Wallet}>Poche cash disponible</CardLabel>
           <div className="flex items-center gap-2 mt-1">
             <input
@@ -323,11 +307,7 @@ export default function Bourse({
       </div>
 
       {/* Pie */}
-<<<<<<< HEAD
-      <Card accent={CARD_THEMES.violet}>
-=======
       <Card accent="border-violet-500/20 hover:border-violet-500/35">
->>>>>>> f29632063f6c4d938e2837a477e42162eca90159
         <CardLabel icon={PieIcon}>Répartition par ligne</CardLabel>
         {pieData.length === 0 ? (
           <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
@@ -379,11 +359,7 @@ export default function Bourse({
       </div>
       {trackError && <p className="text-[11px] text-amber-300/80">{trackError}</p>}
 
-<<<<<<< HEAD
-      <Card accent={CARD_THEMES.violet}>
-=======
       <Card accent="border-violet-500/20 hover:border-violet-500/35">
->>>>>>> f29632063f6c4d938e2837a477e42162eca90159
         <CardLabel>Capital investi vs valeur actuelle</CardLabel>
         {!hasEnoughHistory ? (
           <EmptyState>
@@ -413,11 +389,7 @@ export default function Bourse({
         )}
       </Card>
 
-<<<<<<< HEAD
-      <Card accent={CARD_THEMES.violet}>
-=======
       <Card accent="border-violet-500/20 hover:border-violet-500/35">
->>>>>>> f29632063f6c4d938e2837a477e42162eca90159
         <CardLabel>Comparaison aux indices (base 100)</CardLabel>
         {!hasEnoughBase100 ? (
           <EmptyState>Comparaison disponible après plusieurs jours de suivi.</EmptyState>
@@ -444,11 +416,7 @@ export default function Bourse({
       </Card>
 
       {/* ─── Positions Table ─── */}
-<<<<<<< HEAD
-      <Card accent={CARD_THEMES.violet}>
-=======
       <Card accent="border-violet-500/20 hover:border-violet-500/35">
->>>>>>> f29632063f6c4d938e2837a477e42162eca90159
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <CardLabel icon={TrendingUp}>Positions</CardLabel>
           <div className="flex items-center gap-2 flex-wrap">
