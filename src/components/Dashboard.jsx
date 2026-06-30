@@ -7,7 +7,7 @@ import {
   TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight,
   Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap,
 } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, pct, compact, uid } from "../lib/finance";
 
 // ─── Time filter config ────────────────────────────────────────────────────────
@@ -371,7 +371,7 @@ export default function Dashboard({
       </div>
 
       {/* Profil mensuel */}
-      <Card accent="border-emerald-500/10 hover:border-emerald-500/20" className="flex flex-wrap items-center gap-6">
+      <Card accent={CARD_THEMES.emerald} className="flex flex-wrap items-center gap-6">
         <CardLabel icon={Wallet}>Profil mensuel</CardLabel>
         <div className="flex items-center gap-2">
           <label className="text-xs text-slate-500">Revenu net</label>
@@ -413,14 +413,14 @@ export default function Dashboard({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
+          <Card accent={CARD_THEMES.emerald}>
             <CardLabel icon={Landmark}>Patrimoine brut</CardLabel>
             <div className="font-display text-xl text-slate-100">{eur(patrimoineBrut)}</div>
             {dettesTotal > 0 && <div className="text-xs text-slate-500 mt-1">dont −{eur(dettesTotal)} de passifs</div>}
           </Card>
 
           {/* Enhanced performance card: effort vs gains */}
-          <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
+          <Card accent={CARD_THEMES.emerald}>
             <CardLabel icon={TrendingUp}>Performance bourse</CardLabel>
             <div className={`font-display text-xl ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {eur(bourseGainAbs)}
@@ -448,7 +448,7 @@ export default function Dashboard({
             </div>
           </Card>
 
-          <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
+          <Card accent={CARD_THEMES.emerald}>
             <CardLabel icon={PiggyBank}>Taux d'épargne mensuel</CardLabel>
             <div className="font-display text-xl text-slate-100">{eur(epargneMensuelle)}</div>
             <div className="text-xs text-emerald-300/80 mt-1">{pct(tauxEpargne)} du revenu</div>
@@ -464,7 +464,7 @@ export default function Dashboard({
       {/* Allocation + historique */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Allocation card */}
-        <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
+        <Card accent={CARD_THEMES.emerald}>
           <CardLabel>Allocation d'actifs globale</CardLabel>
           {allocationData.length === 0 ? (
             <EmptyState>Ajoute un livret ou une position pour voir ta répartition.</EmptyState>
@@ -510,7 +510,7 @@ export default function Dashboard({
         </Card>
 
         {/* History chart card */}
-        <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
+        <Card accent={CARD_THEMES.emerald}>
           <div className="flex items-center justify-between mb-1">
             <CardLabel>Évolution du patrimoine net</CardLabel>
             <div className="flex items-center gap-2">
@@ -601,7 +601,7 @@ export default function Dashboard({
       </div>
 
       {/* Passifs */}
-      <Card accent="border-emerald-500/10 hover:border-emerald-500/20">
+      <Card accent={CARD_THEMES.emerald}>
         <div className="flex items-center justify-between">
           <CardLabel>Passifs / Dettes</CardLabel>
           <GhostButton theme="emerald" onClick={() => setShowAddDette((s) => !s)}>Ajouter un passif</GhostButton>

@@ -201,7 +201,7 @@ export default function Watchlist({ watchlist, setWatchlist }) {
   const isLoading = loading || refreshingQuotes;
 
   return (
-    <Card accent="border-fuchsia-500/15 hover:border-fuchsia-500/25">
+    <Card accent="border-fuchsia-500/40 bg-gradient-to-br from-fuchsia-950/40 via-slate-900 to-slate-900 hover:border-fuchsia-400/60">
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <CardLabel icon={Star}>Watchlist — produits à suivre</CardLabel>
         <div className="flex items-center gap-2 flex-wrap">

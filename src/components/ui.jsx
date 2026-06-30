@@ -56,25 +56,24 @@ export const CARD_THEMES = {
  * dans le conteneur racine de chaque page pour donner une identité visuelle
  * propre à chaque onglet sans dupliquer le layout.
  */
-const GLOW_COLORS = {
-  emerald: { a: "bg-emerald-500/25", b: "bg-cyan-500/15" },
-  indigo: { a: "bg-indigo-500/25", b: "bg-blue-500/15" },
-  violet: { a: "bg-violet-500/25", b: "bg-fuchsia-500/15" },
-  amber: { a: "bg-amber-500/25", b: "bg-orange-500/15" },
-  rose: { a: "bg-rose-500/25", b: "bg-orange-600/15" },
-};
-
 export function PageGlow({ color = "emerald" }) {
-  const c = GLOW_COLORS[color] || GLOW_COLORS.emerald;
+  const COLORS = {
+    emerald: { a: "bg-emerald-400/10", b: "bg-cyan-400/8" },
+    indigo: { a: "bg-indigo-400/10", b: "bg-blue-400/8" },
+    violet: { a: "bg-violet-400/10", b: "bg-fuchsia-400/8" },
+    amber: { a: "bg-amber-400/10", b: "bg-orange-400/8" },
+    rose: { a: "bg-rose-400/10", b: "bg-orange-500/8" },
+  };
+  const c = COLORS[color] || COLORS.emerald;
   return (
     <>
       <div
         aria-hidden="true"
-        className={`pointer-events-none fixed -top-24 left-1/4 -translate-x-1/2 w-[40rem] h-[40rem] rounded-full ${c.a} blur-[110px] -z-10`}
+        className={`pointer-events-none fixed -top-24 left-1/4 -translate-x-1/2 w-[40rem] h-[40rem] rounded-full ${c.a} blur-[130px] -z-10`}
       />
       <div
         aria-hidden="true"
-        className={`pointer-events-none fixed top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full ${c.b} blur-[100px] -z-10`}
+        className={`pointer-events-none fixed top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full ${c.b} blur-[120px] -z-10`}
       />
     </>
   );
@@ -98,11 +97,11 @@ export function ProgressBar({ value, accent = "bg-teal-400" }) {
 }
 
 const GHOST_THEMES = {
-  amber: "text-amber-300 hover:text-amber-200 border-slate-700 hover:border-amber-400/50 focus-visible:ring-amber-400/40",
-  emerald: "text-emerald-300 hover:text-emerald-200 border-slate-700 hover:border-emerald-400/50 focus-visible:ring-emerald-400/40",
-  indigo: "text-indigo-300 hover:text-indigo-200 border-slate-700 hover:border-indigo-400/50 focus-visible:ring-indigo-400/40",
-  violet: "text-violet-300 hover:text-violet-200 border-slate-700 hover:border-violet-400/50 focus-visible:ring-violet-400/40",
-  rose: "text-rose-300 hover:text-rose-200 border-slate-700 hover:border-rose-400/50 focus-visible:ring-rose-400/40",
+  amber: "text-amber-300 hover:text-amber-100 bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/40 hover:border-amber-400/70 focus-visible:ring-amber-400/40",
+  emerald: "text-emerald-300 hover:text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 hover:border-emerald-400/70 focus-visible:ring-emerald-400/40",
+  indigo: "text-indigo-300 hover:text-indigo-100 bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 hover:border-indigo-400/70 focus-visible:ring-indigo-400/40",
+  violet: "text-violet-300 hover:text-violet-100 bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 hover:border-violet-400/70 focus-visible:ring-violet-400/40",
+  rose: "text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 hover:border-rose-400/70 focus-visible:ring-rose-400/40",
 };
 
 export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, theme = "amber" }) {

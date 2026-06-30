@@ -3,7 +3,7 @@ import {
   PiggyBank, ShieldCheck, Banknote, Lightbulb, Target,
   Plus, Trash2, X, ChevronDown, ChevronUp, AlertTriangle, TrendingUp,
 } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid } from "../lib/finance";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
@@ -49,7 +49,7 @@ function CompteCourant({ cash, setCash }) {
   const save = () => { setCash(parseFloat(draft) || 0); setEditing(false); };
 
   return (
-    <Card accent="border-indigo-500/15 hover:border-indigo-500/25" className="flex items-center gap-4 relative">
+    <Card accent={CARD_THEMES.indigo} className="flex items-center gap-4 relative">
       <div className="rounded-full bg-slate-700/60 text-slate-300 p-3 shrink-0">
         <Banknote size={20} />
       </div>
@@ -117,11 +117,11 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
     setEnveloppes((prev) => prev.map((e) => e.id === id ? { ...e, amount: parseFloat(amount) || 0 } : e));
 
   return (
-    <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
+    <Card accent={CARD_THEMES.indigo}>
       <div className="flex items-center justify-between">
         <CardLabel icon={Target}>Ventilation de l'épargne</CardLabel>
         <div className="flex items-center gap-2">
-          <GhostButton theme="indigo" onClick={() => setShowAdd((s) => !s)} icon={Plus}>Ajouter une enveloppe</GhostButton>
+          <GhostButton onClick={() => setShowAdd((s) => !s)} icon={Plus}>Ajouter une enveloppe</GhostButton>
           <button onClick={() => setExpanded((e) => !e)} className="text-slate-500 hover:text-slate-300">
             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
@@ -267,7 +267,7 @@ function ArbitrageOptimizer({ livrets }) {
   if (suggestions.length === 0) return null;
 
   return (
-    <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
+    <Card accent={CARD_THEMES.indigo}>
       <CardLabel icon={Lightbulb}>Optimisateur de rendement</CardLabel>
       <div className="space-y-3 mt-2">
         {suggestions.map((s) => (
@@ -411,7 +411,7 @@ export default function Livrets({
 
       {/* KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card accent="border-indigo-500/15 hover:border-indigo-500/25" className="flex items-center gap-4">
+        <Card accent={CARD_THEMES.indigo} className="flex items-center gap-4">
           <div className="rounded-full bg-indigo-400/10 text-indigo-300 p-3 shrink-0">
             <ShieldCheck size={20} />
           </div>
@@ -421,12 +421,12 @@ export default function Livrets({
             <div className="text-[11px] text-slate-600">de dépenses couvertes</div>
           </div>
         </Card>
-        <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
+        <Card accent={CARD_THEMES.indigo}>
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total épargne sécurisée</div>
           <div className="font-display text-xl text-slate-50">{eur(livretsTotal)}</div>
           <div className="text-xs text-indigo-300/80 mt-0.5">Taux moyen {livretsAvgRate.toFixed(2)} %</div>
         </Card>
-        <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
+        <Card accent={CARD_THEMES.indigo}>
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Intérêts estimés / an</div>
           <div className="font-display text-xl text-emerald-400">{eur(totalInterets)}</div>
           <div className="text-[11px] text-slate-600 mt-0.5">soit {eur(totalInterets / 12)} / mois</div>
@@ -437,7 +437,7 @@ export default function Livrets({
       <CompteCourant cash={cash ?? 0} setCash={setCash} />
 
       {/* Livrets table */}
-      <Card accent="border-indigo-500/15 hover:border-indigo-500/25">
+      <Card accent={CARD_THEMES.indigo}>
         <div className="flex items-center justify-between mb-3">
           <CardLabel icon={PiggyBank}>Comptes &amp; supports</CardLabel>
           <GhostButton theme="indigo" onClick={() => setShowAdd((s) => !s)}>Ajouter un livret</GhostButton>
