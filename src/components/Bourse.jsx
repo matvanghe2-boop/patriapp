@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { Card, CardLabel, GhostButton, IconTrash, EmptyState } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -19,7 +19,7 @@ const BENCHMARKS = [
   { symbol: "URTH", name: "MSCI World", color: "#34d399" },
 ];
 const BENCHMARK_KEYS = { "^GSPC": "sp500", "^FCHI": "cac40", URTH: "msciWorld" };
-const PIE_PALETTE = ["#fbbf24", "#2dd4bf", "#a78bfa", "#38bdf8", "#fb7185", "#34d399", "#f472b6", "#facc15"];
+const PIE_PALETTE = ["#a78bfa", "#d946ef", "#818cf8", "#c084fc", "#22d3ee", "#f472b6", "#8b5cf6", "#e879f9"];
 
 const today = () => new Date().toISOString().slice(0, 10);
 const formatDateShort = (d) => {
@@ -54,7 +54,7 @@ function SortButton({ sort, setSort }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((s) => !s)}
-        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition-colors"
+        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-violet-300 border border-slate-700 hover:border-violet-500/50 rounded-lg px-3 py-1.5 transition-colors"
       >
         <ArrowUpDown size={13} />
         Trier : {current.label}
@@ -267,14 +267,17 @@ export default function Bourse({
   }, [bourse.positions, dailyData]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl text-slate-50">PEA &amp; Bourse</h1>
+    <div className="relative space-y-6">
+      <PageGlow color="violet" />
+      <div className="relative">
+        <h1 className="font-display text-2xl text-slate-50">
+          PEA &amp; <span className="text-violet-400">Bourse</span>
+        </h1>
         <p className="text-sm text-slate-500 mt-1">Positions actions / ETF — analyse de portefeuille.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
+        <Card accent={CARD_THEMES.violet}>
           <CardLabel>Valeur du portefeuille</CardLabel>
           <div className="font-display text-xl text-slate-100">{eur(bourseTotal)}</div>
           {portfolioDailyChange !== null && (
@@ -284,12 +287,12 @@ export default function Bourse({
             </div>
           )}
         </Card>
-        <Card>
+        <Card accent={CARD_THEMES.violet}>
           <CardLabel>Plus/moins-value latente</CardLabel>
           <div className={`font-display text-xl ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(bourseGainAbs)}</div>
           <div className={`text-xs mt-1 ${bourseGainAbs >= 0 ? "text-emerald-400/80" : "text-rose-400/80"}`}>{pct(bourseGainPct)}</div>
         </Card>
-        <Card>
+        <Card accent={CARD_THEMES.violet}>
           <CardLabel icon={Wallet}>Poche cash disponible</CardLabel>
           <div className="flex items-center gap-2 mt-1">
             <input
@@ -304,7 +307,7 @@ export default function Bourse({
       </div>
 
       {/* Pie */}
-      <Card>
+      <Card accent={CARD_THEMES.violet}>
         <CardLabel icon={PieIcon}>Répartition par ligne</CardLabel>
         {pieData.length === 0 ? (
           <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
@@ -356,7 +359,7 @@ export default function Bourse({
       </div>
       {trackError && <p className="text-[11px] text-amber-300/80">{trackError}</p>}
 
-      <Card>
+      <Card accent={CARD_THEMES.violet}>
         <CardLabel>Capital investi vs valeur actuelle</CardLabel>
         {!hasEnoughHistory ? (
           <EmptyState>
@@ -370,15 +373,15 @@ export default function Bourse({
               <ComposedChart data={bourseHistory} margin={{ left: 0, right: 10, top: 10 }}>
                 <defs>
                   <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
                 <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
                 <Tooltip content={<HistoryTooltip mode="eur" />} />
-                <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#fbbf24" strokeWidth={2.5} fill="url(#bourseValeurFill)" />
+                <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#a78bfa" strokeWidth={2.5} fill="url(#bourseValeurFill)" />
                 <Line type="monotone" dataKey="capital" name="Capital investi" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 3" dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -386,7 +389,7 @@ export default function Bourse({
         )}
       </Card>
 
-      <Card>
+      <Card accent={CARD_THEMES.violet}>
         <CardLabel>Comparaison aux indices (base 100)</CardLabel>
         {!hasEnoughBase100 ? (
           <EmptyState>Comparaison disponible après plusieurs jours de suivi.</EmptyState>
@@ -398,7 +401,7 @@ export default function Bourse({
                 <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
                 <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
                 <Tooltip content={<HistoryTooltip mode="base100" />} />
-                <Line type="monotone" dataKey="valeur" name="Mon portefeuille" stroke="#fbbf24" strokeWidth={2.5} dot={false} />
+                <Line type="monotone" dataKey="valeur" name="Mon portefeuille" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
                 {BENCHMARKS.map((b) => (
                   <Line key={b.symbol} type="monotone" dataKey={BENCHMARK_KEYS[b.symbol]} name={b.name} stroke={b.color} strokeWidth={1.5} dot={false} />
                 ))}
@@ -413,7 +416,7 @@ export default function Bourse({
       </Card>
 
       {/* ─── Positions Table ─── */}
-      <Card>
+      <Card accent={CARD_THEMES.violet}>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <CardLabel icon={TrendingUp}>Positions</CardLabel>
           <div className="flex items-center gap-2 flex-wrap">
@@ -426,7 +429,7 @@ export default function Bourse({
               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               {refreshing ? "Actualisation..." : "Actualiser les cours"}
             </button>
-            <GhostButton onClick={() => setShowAdd((s) => !s)}>Ajouter une position</GhostButton>
+            <GhostButton theme="violet" onClick={() => setShowAdd((s) => !s)}>Ajouter une position</GhostButton>
           </div>
         </div>
 

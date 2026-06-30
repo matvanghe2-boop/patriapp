@@ -2,15 +2,24 @@ import React, { useState } from "react";
 import { Plus, Trash2, X, Lock } from "lucide-react";
 import { eur } from "../lib/finance";
 
-export function NavButton({ active, onClick, icon: Icon, label, disabled }) {
+const NAV_THEMES = {
+  emerald: { active: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30", bar: "bg-emerald-400" },
+  indigo: { active: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30", bar: "bg-indigo-400" },
+  violet: { active: "bg-violet-500/15 text-violet-300 border border-violet-500/30", bar: "bg-violet-400" },
+  amber: { active: "bg-amber-500/15 text-amber-300 border border-amber-500/30", bar: "bg-amber-400" },
+  rose: { active: "bg-rose-500/15 text-rose-300 border border-rose-500/30", bar: "bg-rose-400" },
+};
+
+export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber" }) {
+  const t = NAV_THEMES[theme] || NAV_THEMES.amber;
   return (
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
-        ${disabled ? "text-slate-600 cursor-not-allowed" : active ? "bg-slate-800 text-amber-300" : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
+        ${disabled ? "text-slate-600 cursor-not-allowed" : active ? t.active : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
-      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-amber-400 hidden md:block" />}
+      {active && <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
       <Icon size={17} strokeWidth={2} />
       <span className="font-medium">{label}</span>
       {disabled && <Lock size={12} className="ml-auto opacity-60" />}
@@ -26,8 +35,48 @@ export function EmptyState({ children }) {
   );
 }
 
-export function Card({ children, className = "" }) {
-  return <div className={`rounded-2xl border border-slate-800 bg-slate-900 p-5 ${className}`}>{children}</div>;
+export function Card({ children, className = "", accent = "" }) {
+  return <div className={`rounded-2xl border bg-slate-900 p-5 transition-colors duration-300 ${accent || "border-slate-800"} ${className}`}>{children}</div>;
+}
+
+/**
+ * Préréglages de thème de carte par domaine — fond teinté + bordure marquée,
+ * bien plus visibles qu'une simple bordure à faible opacité.
+ */
+export const CARD_THEMES = {
+  emerald: "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 hover:border-emerald-400/60",
+  indigo: "border-indigo-500/40 bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 hover:border-indigo-400/60",
+  violet: "border-violet-500/40 bg-gradient-to-br from-violet-950/40 via-slate-900 to-slate-900 hover:border-violet-400/60",
+  amber: "border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 hover:border-amber-400/60",
+  rose: "border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-slate-900 to-slate-900 hover:border-rose-400/60",
+};
+
+/**
+ * Lueur de fond ambiante thématique — à placer en position absolute/fixed
+ * dans le conteneur racine de chaque page pour donner une identité visuelle
+ * propre à chaque onglet sans dupliquer le layout.
+ */
+export function PageGlow({ color = "emerald" }) {
+  const COLORS = {
+    emerald: { a: "bg-emerald-400/10", b: "bg-cyan-400/8" },
+    indigo: { a: "bg-indigo-400/10", b: "bg-blue-400/8" },
+    violet: { a: "bg-violet-400/10", b: "bg-fuchsia-400/8" },
+    amber: { a: "bg-amber-400/10", b: "bg-orange-400/8" },
+    rose: { a: "bg-rose-400/10", b: "bg-orange-500/8" },
+  };
+  const c = COLORS[color] || COLORS.emerald;
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none fixed -top-24 left-1/4 -translate-x-1/2 w-[40rem] h-[40rem] rounded-full ${c.a} blur-[130px] -z-10`}
+      />
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none fixed top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full ${c.b} blur-[120px] -z-10`}
+      />
+    </>
+  );
 }
 
 export function CardLabel({ children, icon: Icon }) {
@@ -47,12 +96,20 @@ export function ProgressBar({ value, accent = "bg-teal-400" }) {
   );
 }
 
-export function GhostButton({ onClick, children, icon: Icon = Plus, disabled }) {
+const GHOST_THEMES = {
+  amber: "text-amber-300 hover:text-amber-100 bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/40 hover:border-amber-400/70 focus-visible:ring-amber-400/40",
+  emerald: "text-emerald-300 hover:text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 hover:border-emerald-400/70 focus-visible:ring-emerald-400/40",
+  indigo: "text-indigo-300 hover:text-indigo-100 bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 hover:border-indigo-400/70 focus-visible:ring-indigo-400/40",
+  violet: "text-violet-300 hover:text-violet-100 bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 hover:border-violet-400/70 focus-visible:ring-violet-400/40",
+  rose: "text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 hover:border-rose-400/70 focus-visible:ring-rose-400/40",
+};
+
+export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, theme = "amber" }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+      className={`flex items-center gap-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${GHOST_THEMES[theme] || GHOST_THEMES.amber}`}
     >
       <Icon size={14} />
       {children}

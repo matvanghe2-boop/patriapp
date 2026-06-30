@@ -1,4 +1,4 @@
-# 📊 Pilote de Patrimoine
+# 📊 Patrium
 
 Dashboard personnel de gestion de patrimoine et de simulation financière.
 **Toutes les données restent dans ton navigateur** (`localStorage`) — aucune base de données externe, aucun compte, aucun envoi de données à un serveur tiers (à l'exception de la recherche de cours de bourse, voir plus bas).
@@ -27,10 +27,10 @@ C'est la façon la plus simple d'avoir un vrai site, avec les cours de bourse fo
 ### 1. Pousser le projet sur GitHub
 
 ```bash
-cd pilote-de-patrimoine
+cd patrium
 git init
 git add .
-git commit -m "Initial commit — Pilote de Patrimoine"
+git commit -m "Initial commit — Patrium"
 ```
 
 Crée un nouveau dépôt vide sur [github.com/new](https://github.com/new), puis :
@@ -96,7 +96,7 @@ vercel dev
 ## 🗂️ Structure du projet
 
 ```
-pilote-de-patrimoine/
+patrium/
 ├── api/
 │   ├── search.js          # fonction serverless : recherche ticker/ISIN/nom
 │   └── quote.js           # fonction serverless : cours actuels

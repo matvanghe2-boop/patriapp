@@ -59,11 +59,21 @@ const TAB_LABELS = {
   immobilier: "Immobilier & Crédit",
 };
 
+// Fond de page teinté par domaine — même esprit que le bouton de nav actif :
+// un fond dégradé bien visible derrière les cartes, pas juste un glow discret.
+const TAB_BG = {
+  dashboard: "bg-gradient-to-br from-emerald-950/70 via-slate-950 to-slate-950",
+  livrets: "bg-gradient-to-br from-indigo-950/70 via-slate-950 to-slate-950",
+  bourse: "bg-gradient-to-br from-violet-950/70 via-slate-950 to-slate-950",
+  simulation: "bg-gradient-to-br from-amber-950/70 via-slate-950 to-slate-950",
+  immobilier: "bg-gradient-to-br from-rose-950/70 via-slate-950 to-slate-950",
+};
+
 export default function App() {
   const [tab, setTab] = useState("dashboard");
 
   useEffect(() => {
-    document.title = `${TAB_LABELS[tab] || ""} · Pilote de Patrimoine`;
+    document.title = `${TAB_LABELS[tab] || ""} · Patrium`;
   }, [tab]);
 
 
@@ -154,15 +164,15 @@ export default function App() {
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100">
       <aside className="md:w-60 md:h-screen md:sticky md:top-0 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950 flex md:flex-col">
         <div className="hidden md:block px-5 pt-6 pb-4">
-          <div className="font-display text-lg text-slate-50">Pilote de Patrimoine</div>
+          <div className="font-display text-lg text-slate-50">Patrium</div>
           <div className="text-xs text-slate-500 mt-0.5">Vision consolidée &amp; simulation</div>
         </div>
         <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible p-2 md:p-3 flex-1">
-          <NavButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" />
-          <NavButton active={tab === "livrets"} onClick={() => setTab("livrets")} icon={PiggyBank} label="Livrets & Épargne" />
-          <NavButton active={tab === "bourse"} onClick={() => setTab("bourse")} icon={TrendingUp} label="PEA & Bourse" />
-          <NavButton active={tab === "simulation"} onClick={() => setTab("simulation")} icon={Calculator} label="Simulation" />
-          <NavButton active={tab === "immobilier"} onClick={() => setTab("immobilier")} icon={Landmark} label="Immobilier & Crédit" />
+          <NavButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" theme="emerald" />
+          <NavButton active={tab === "livrets"} onClick={() => setTab("livrets")} icon={PiggyBank} label="Livrets & Épargne" theme="indigo" />
+          <NavButton active={tab === "bourse"} onClick={() => setTab("bourse")} icon={TrendingUp} label="PEA & Bourse" theme="violet" />
+          <NavButton active={tab === "simulation"} onClick={() => setTab("simulation")} icon={Calculator} label="Simulation" theme="amber" />
+          <NavButton active={tab === "immobilier"} onClick={() => setTab("immobilier")} icon={Landmark} label="Immobilier & Crédit" theme="rose" />
         </nav>
         <div className="hidden md:flex flex-col gap-2 px-4 py-4 border-t border-slate-800">
           <button onClick={handleExport} className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded">
@@ -181,7 +191,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl">
+      <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl transition-colors duration-500 ${TAB_BG[tab] || ""}`}>
         <div key={tab} className="animate-[fadeIn_0.3s_ease-out]">
           {tab === "dashboard" && <Dashboard {...shared} />}
           {tab === "livrets" && <Livrets {...shared} />}
