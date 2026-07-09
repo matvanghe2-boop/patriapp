@@ -338,117 +338,6 @@ export default function Bourse({
         )}
       </Card>
 
-      <FinancialCalendar positions={bourse.positions} />
-
-      {/* Pie */}
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel icon={PieIcon}>Répartition par ligne</CardLabel>
-        {pieData.length === 0 ? (
-          <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
-        ) : (
-          <div className="flex flex-col sm:flex-row items-center gap-6 mt-2">
-            <div className="h-64 w-full sm:w-1/2">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={64} outerRadius={100} paddingAngle={2} stroke="none">
-                    {pieData.map((d) => <Cell key={d.name} fill={d.color} />)}
-                  </Pie>
-                  <Tooltip content={({ active, payload }) =>
-                    active && payload?.length ? (
-                      <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
-                        <span className="text-slate-100 font-data">{payload[0].name}</span>
-                        <div className="text-slate-400">{eur(payload[0].value)}</div>
-                      </div>
-                    ) : null
-                  } />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-col gap-2 w-full sm:w-1/2">
-              {pieData.map((d) => (
-                <div key={d.name} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-slate-400">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
-                    {d.name}
-                  </span>
-                  <span className="font-data tabular-nums text-slate-300">{pctPlain((d.value / bourseTotal) * 100)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* Suivi historique */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <CardLabel icon={Activity}>Suivi du portefeuille (à partir d'aujourd'hui)</CardLabel>
-        <button
-          onClick={() => captureSnapshot(false)}
-          disabled={trackLoading}
-          className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors"
-        >
-          <RefreshCw size={14} className={trackLoading ? "animate-spin" : ""} />
-          {trackLoading ? "Mise à jour..." : "Actualiser le suivi"}
-        </button>
-      </div>
-      {trackError && <p className="text-[11px] text-amber-300/80">{trackError}</p>}
-
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel>Capital investi vs valeur actuelle</CardLabel>
-        {!hasEnoughHistory ? (
-          <EmptyState>
-            {bourseHistory.length === 0
-              ? "Aucun suivi encore — clique sur « Actualiser le suivi » pour démarrer."
-              : `Suivi démarré le ${formatDateShort(bourseHistory[0].date)} — reviens dans les prochains jours.`}
-          </EmptyState>
-        ) : (
-          <div className="h-80 mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={bourseHistory} margin={{ left: 0, right: 10, top: 10 }}>
-                <defs>
-                  <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
-                <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
-                <Tooltip content={<HistoryTooltip mode="eur" />} />
-                <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#a78bfa" strokeWidth={2.5} fill="url(#bourseValeurFill)" />
-                <Line type="monotone" dataKey="capital" name="Capital investi" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 3" dot={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </Card>
-
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel>Comparaison aux indices (base 100)</CardLabel>
-        {!hasEnoughBase100 ? (
-          <EmptyState>Comparaison disponible après plusieurs jours de suivi.</EmptyState>
-        ) : (
-          <div className="h-80 mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={base100Data} margin={{ left: 0, right: 10, top: 10 }}>
-                <CartesianGrid stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
-                <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
-                <Tooltip content={<HistoryTooltip mode="base100" />} />
-                <Line type="monotone" dataKey="valeur" name="Mon portefeuille" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
-                {BENCHMARKS.map((b) => (
-                  <Line key={b.symbol} type="monotone" dataKey={BENCHMARK_KEYS[b.symbol]} name={b.name} stroke={b.color} strokeWidth={1.5} dot={false} />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        <div className="flex flex-wrap gap-3 mt-2">
-          <Legend2 color="#fbbf24" label="Mon portefeuille" />
-          {BENCHMARKS.map((b) => <Legend2 key={b.symbol} color={b.color} label={b.name} />)}
-        </div>
-      </Card>
-
       {/* ─── Positions Table ─── */}
       <Card accent={CARD_THEMES.violet}>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -585,6 +474,117 @@ export default function Bourse({
       </Card>
 
       <Watchlist watchlist={watchlist} setWatchlist={setWatchlist} />
+
+      {/* Pie */}
+      <Card accent={CARD_THEMES.violet}>
+        <CardLabel icon={PieIcon}>Répartition par ligne</CardLabel>
+        {pieData.length === 0 ? (
+          <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-center gap-6 mt-2">
+            <div className="h-64 w-full sm:w-1/2">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={64} outerRadius={100} paddingAngle={2} stroke="none">
+                    {pieData.map((d) => <Cell key={d.name} fill={d.color} />)}
+                  </Pie>
+                  <Tooltip content={({ active, payload }) =>
+                    active && payload?.length ? (
+                      <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
+                        <span className="text-slate-100 font-data">{payload[0].name}</span>
+                        <div className="text-slate-400">{eur(payload[0].value)}</div>
+                      </div>
+                    ) : null
+                  } />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col gap-2 w-full sm:w-1/2">
+              {pieData.map((d) => (
+                <div key={d.name} className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-slate-400">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
+                    {d.name}
+                  </span>
+                  <span className="font-data tabular-nums text-slate-300">{pctPlain((d.value / bourseTotal) * 100)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <FinancialCalendar positions={bourse.positions} />
+
+      {/* Suivi historique */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <CardLabel icon={Activity}>Suivi du portefeuille (à partir d'aujourd'hui)</CardLabel>
+        <button
+          onClick={() => captureSnapshot(false)}
+          disabled={trackLoading}
+          className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors"
+        >
+          <RefreshCw size={14} className={trackLoading ? "animate-spin" : ""} />
+          {trackLoading ? "Mise à jour..." : "Actualiser le suivi"}
+        </button>
+      </div>
+      {trackError && <p className="text-[11px] text-amber-300/80">{trackError}</p>}
+
+      <Card accent={CARD_THEMES.violet}>
+        <CardLabel>Capital investi vs valeur actuelle</CardLabel>
+        {!hasEnoughHistory ? (
+          <EmptyState>
+            {bourseHistory.length === 0
+              ? "Aucun suivi encore — clique sur « Actualiser le suivi » pour démarrer."
+              : `Suivi démarré le ${formatDateShort(bourseHistory[0].date)} — reviens dans les prochains jours.`}
+          </EmptyState>
+        ) : (
+          <div className="h-80 mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={bourseHistory} margin={{ left: 0, right: 10, top: 10 }}>
+                <defs>
+                  <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
+                <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
+                <Tooltip content={<HistoryTooltip mode="eur" />} />
+                <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#a78bfa" strokeWidth={2.5} fill="url(#bourseValeurFill)" />
+                <Line type="monotone" dataKey="capital" name="Capital investi" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 3" dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Card>
+
+      <Card accent={CARD_THEMES.violet}>
+        <CardLabel>Comparaison aux indices (base 100)</CardLabel>
+        {!hasEnoughBase100 ? (
+          <EmptyState>Comparaison disponible après plusieurs jours de suivi.</EmptyState>
+        ) : (
+          <div className="h-80 mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={base100Data} margin={{ left: 0, right: 10, top: 10 }}>
+                <CartesianGrid stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+                <Tooltip content={<HistoryTooltip mode="base100" />} />
+                <Line type="monotone" dataKey="valeur" name="Mon portefeuille" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
+                {BENCHMARKS.map((b) => (
+                  <Line key={b.symbol} type="monotone" dataKey={BENCHMARK_KEYS[b.symbol]} name={b.name} stroke={b.color} strokeWidth={1.5} dot={false} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-3 mt-2">
+          <Legend2 color="#fbbf24" label="Mon portefeuille" />
+          {BENCHMARKS.map((b) => <Legend2 key={b.symbol} color={b.color} label={b.name} />)}
+        </div>
+      </Card>
     </div>
   );
 }
