@@ -4,24 +4,61 @@
 // résultats) pour chaque ticker, via l'endpoint v7/finance/quote de Yahoo
 // Finance. Exécuté côté serveur pour éviter le CORS.
 //
-// NOTE IMPORTANTE : l'endpoint v10/finance/quoteSummary (module
-// calendarEvents), utilisé dans une version précédente de ce fichier, exige
-// désormais un cookie + "crumb" d'authentification côté Yahoo (durci
-// courant 2024-2025) : sans ce mécanisme, chaque appel échoue avec une
-// erreur "Invalid Crumb" et aucune donnée n'est renvoyée — c'est exactement
-// ce qui provoquait le message "X ligne(s) sur X sans calendrier
-// disponible". L'endpoint v7/finance/quote expose les mêmes informations
-// utiles (dates de dividende, dates de résultats) SANS nécessiter de crumb,
-// on l'utilise donc à la place.
+// NOTE IMPORTANTE — AUTHENTIFICATION YAHOO (cookie + crumb) :
+// Depuis 2023-2025, TOUS les endpoints Yahoo Finance utiles ici
+// (v10/quoteSummary ET v7/finance/quote) exigent un cookie de session ET un
+// "crumb" anti-CSRF ; sans eux, chaque appel échoue avec
+// {"finance":{"error":{"code":"Unauthorized","description":"Invalid Crumb"}}}
+// — c'est ce qui provoquait "X ligne(s) sur X sans calendrier disponible"
+// avec les deux versions précédentes de ce fichier (aucune des deux
+// n'envoyait de cookie/crumb).
+//
+// On implémente donc ici le mécanisme standard (le même que celui utilisé en
+// interne par les librairies yfinance / yahoo-finance2) :
+//   1. GET https://fc.yahoo.com               → pose un cookie de session
+//   2. GET https://query2.finance.yahoo.com/v1/test/getcrumb (avec ce cookie)
+//                                              → renvoie un crumb texte brut
+//   3. GET v7/finance/quote?...&crumb=XXX (avec le même cookie)
+// Le couple {cookie, crumb} est mis en cache en mémoire pour la durée de vie
+// de l'instance serverless (évite de le régénérer à chaque requête, ce qui
+// peut déclencher un 429 côté Yahoo en cas d'appels trop fréquents).
 //
 // Limite connue : Yahoo n'expose pas de date d'assemblée générale sur cet
-// endpoint (ni sur aucun endpoint public non authentifié). Aucune date
-// n'est donc fabriquée pour ce type d'événement.
+// endpoint (ni sur aucun endpoint public). Aucune date n'est donc fabriquée
+// pour ce type d'événement.
 
 const YF_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  Accept: "*/*",
 };
+
+// Cache mémoire process — vit tant que l'instance serverless reste "chaude".
+let cachedAuth = null; // { cookie, crumb, expiresAt }
+const AUTH_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+async function getYahooAuth() {
+  if (cachedAuth && cachedAuth.expiresAt > Date.now()) return cachedAuth;
+
+  // Étape 1 — poser un cookie de session.
+  const cookieRes = await fetch("https://fc.yahoo.com", { headers: YF_HEADERS, redirect: "manual" });
+  const setCookieHeaders = cookieRes.headers.getSetCookie
+    ? cookieRes.headers.getSetCookie()
+    : [cookieRes.headers.get("set-cookie")].filter(Boolean);
+  const cookie = setCookieHeaders.map((c) => c.split(";")[0]).join("; ");
+  if (!cookie) throw new Error("Impossible d'obtenir le cookie de session Yahoo");
+
+  // Étape 2 — échanger ce cookie contre un crumb.
+  const crumbRes = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+    headers: { ...YF_HEADERS, Cookie: cookie },
+  });
+  if (!crumbRes.ok) throw new Error(`Échec récupération crumb (HTTP ${crumbRes.status})`);
+  const crumb = (await crumbRes.text()).trim();
+  if (!crumb || crumb.includes("<")) throw new Error("Crumb Yahoo invalide");
+
+  cachedAuth = { cookie, crumb, expiresAt: Date.now() + AUTH_TTL_MS };
+  return cachedAuth;
+}
 
 // Yahoo renvoie les timestamps en epoch secondes (nombre entier).
 function toIsoDate(epochSeconds) {
@@ -32,12 +69,14 @@ function toIsoDate(epochSeconds) {
 }
 
 async function fetchCalendarForSymbols(symbols) {
+  const { cookie, crumb } = await getYahooAuth();
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(
     symbols.join(",")
-  )}`;
-  const r = await fetch(url, { headers: YF_HEADERS });
+  )}&crumb=${encodeURIComponent(crumb)}`;
+  const r = await fetch(url, { headers: { ...YF_HEADERS, Cookie: cookie } });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const data = await r.json();
+  if (data?.finance?.error) throw new Error(data.finance.error.description || "Erreur Yahoo");
   const rows = data?.quoteResponse?.result;
   if (!Array.isArray(rows)) throw new Error("Réponse inattendue");
   return rows;
@@ -105,10 +144,12 @@ export default async function handler(req, res) {
 
     res.status(200).json(results);
   } catch (err) {
-    // Si l'appel groupé échoue entièrement (ex: réseau), on renvoie un
-    // échec explicite pour chaque symbole plutôt qu'une 500 opaque.
+    // L'authentification a pu expirer / être invalidée entre-temps : on
+    // vide le cache pour forcer une régénération au prochain appel.
+    cachedAuth = null;
     const results = symbols.map((symbol) => ({ symbol, ok: false, error: err.message, events: [] }));
     res.status(200).json(results);
   }
 }
+
 
