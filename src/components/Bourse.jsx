@@ -12,6 +12,7 @@ import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate, computeDiv
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import Watchlist from "./Watchlist";
+import FinancialCalendar from "./FinancialCalendar";
 
 const BENCHMARKS = [
   { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8" },
@@ -336,6 +337,8 @@ export default function Bourse({
           </div>
         )}
       </Card>
+
+      <FinancialCalendar positions={bourse.positions} />
 
       {/* Pie */}
       <Card accent={CARD_THEMES.violet}>

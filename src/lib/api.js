@@ -28,6 +28,21 @@ export async function fetchQuotes(symbols) {
 }
 
 /**
+ * Récupère les événements financiers à venir (dividendes, résultats,
+ * assemblées générales) pour une liste de tickers.
+ * Renvoie : [{ symbol, ok, events: [{ ticker, name, type, date, label }] } | { symbol, ok:false, error, events: [] }]
+ */
+export async function fetchCalendarEvents(symbols) {
+  if (!symbols || symbols.length === 0) return [];
+  const res = await fetch(`${BASE}/calendar?symbols=${encodeURIComponent(symbols.join(","))}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Calendrier indisponible");
+  }
+  return res.json();
+}
+
+/**
  * Récupère l'historique quotidien (date + clôture) pour une liste de symboles.
  * range: "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "ytd" | "max"
  * Renvoie : [{ symbol, ok, series: [{date, close}] } | { symbol, ok:false, error }]
@@ -41,3 +56,4 @@ export async function fetchHistory(symbols, range = "6mo") {
   }
   return res.json();
 }
+
