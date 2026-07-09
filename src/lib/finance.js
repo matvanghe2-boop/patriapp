@@ -203,3 +203,45 @@ export function applyInflation(values, inflationRatePct) {
   const rate = inflationRatePct / 100;
   return values.map((v, i) => v / Math.pow(1 + rate, i));
 }
+
+// ─── DIVIDENDES ──────────────────────────────────────────────────────────────
+
+export function dividendYieldOnPrice(annualDividendPerShare, currentPrice) {
+  if (!currentPrice || currentPrice <= 0) return 0;
+  return ((annualDividendPerShare || 0) / currentPrice) * 100;
+}
+
+export function dividendYieldOnCost(annualDividendPerShare, pru) {
+  if (!pru || pru <= 0) return 0;
+  return ((annualDividendPerShare || 0) / pru) * 100;
+}
+
+export function computeDividendSummary(positions) {
+  let totalAnnualDividend = 0;
+  let totalValue = 0;
+  let totalInvested = 0;
+
+  const perPosition = positions.map((p) => {
+    const div = p.annual_dividend || 0;
+    const annualAmount = div * p.quantity;
+    const value = p.quantity * p.current_price;
+    const invested = p.quantity * p.pru;
+    totalAnnualDividend += annualAmount;
+    totalValue += value;
+    totalInvested += invested;
+    return {
+      ...p,
+      annualAmount,
+      yieldOnPrice: dividendYieldOnPrice(div, p.current_price),
+      yieldOnCost: dividendYieldOnCost(div, p.pru),
+    };
+  });
+
+  return {
+    perPosition,
+    totalAnnualDividend,
+    monthlyAverage: totalAnnualDividend / 12,
+    portfolioYieldOnValue: totalValue > 0 ? (totalAnnualDividend / totalValue) * 100 : 0,
+    portfolioYieldOnCost: totalInvested > 0 ? (totalAnnualDividend / totalInvested) * 100 : 0,
+  };
+}

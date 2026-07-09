@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon,
-  PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown,
+  PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate } from "../lib/finance";
+import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate, computeDividendSummary } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import Watchlist from "./Watchlist";
@@ -124,7 +124,7 @@ export default function Bourse({
   const [dailyData, setDailyData] = usePersistentState("bourseDailyData", {});
 
   const [editingId, setEditingId] = useState(null);
-  const [editValues, setEditValues] = useState({ quantity: "", pru: "", current_price: "" });
+  const [editValues, setEditValues] = useState({ quantity: "", pru: "", current_price: "", annual_dividend: "" });
   const [trackLoading, setTrackLoading] = useState(false);
   const [trackError, setTrackError] = useState("");
 
@@ -133,18 +133,18 @@ export default function Bourse({
       ...b,
       positions: [
         ...b.positions,
-        { id: uid(), ticker: v.ticker, name: v.name, quantity: v.quantity, pru: v.pru, current_price: v.current_price, type: v.type },
+        { id: uid(), ticker: v.ticker, name: v.name, quantity: v.quantity, pru: v.pru, current_price: v.current_price, type: v.type, annual_dividend: v.annual_dividend || 0 },
       ],
     }));
   const removePosition = (id) => setBourse((b) => ({ ...b, positions: b.positions.filter((x) => x.id !== id) }));
 
-  const startEdit = (p) => { setEditingId(p.id); setEditValues({ quantity: String(p.quantity), pru: String(p.pru), current_price: String(p.current_price) }); };
+  const startEdit = (p) => { setEditingId(p.id); setEditValues({ quantity: String(p.quantity), pru: String(p.pru), current_price: String(p.current_price), annual_dividend: String(p.annual_dividend || 0) }); };
   const cancelEdit = () => setEditingId(null);
   const saveEdit = (id) => {
     setBourse((b) => ({
       ...b,
       positions: b.positions.map((p) =>
-        p.id === id ? { ...p, quantity: parseFloat(editValues.quantity) || 0, pru: parseFloat(editValues.pru) || 0, current_price: parseFloat(editValues.current_price) || 0 } : p
+        p.id === id ? { ...p, quantity: parseFloat(editValues.quantity) || 0, pru: parseFloat(editValues.pru) || 0, current_price: parseFloat(editValues.current_price) || 0, annual_dividend: parseFloat(editValues.annual_dividend) || 0 } : p
       ),
     }));
     setEditingId(null);
@@ -190,6 +190,8 @@ export default function Bourse({
     () => bourse.positions.map((p, i) => ({ name: p.ticker, value: p.quantity * p.current_price, color: PIE_PALETTE[i % PIE_PALETTE.length] })).filter((d) => d.value > 0),
     [bourse.positions]
   );
+
+  const dividendSummary = useMemo(() => computeDividendSummary(bourse.positions), [bourse.positions]);
 
   const captureSnapshot = async (silent = false) => {
     if (!silent) { setTrackLoading(true); setTrackError(""); }
@@ -305,6 +307,35 @@ export default function Bourse({
           </div>
         </Card>
       </div>
+
+      {/* Dividendes */}
+      <Card accent={CARD_THEMES.violet}>
+        <CardLabel icon={Coins}>Revenus de dividendes estimés</CardLabel>
+        {bourse.positions.length === 0 || dividendSummary.totalAnnualDividend === 0 ? (
+          <EmptyState>
+            Renseigne le dividende annuel par action de tes lignes (via le crayon d'édition) pour voir ton rendement et tes revenus estimés.
+          </EmptyState>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-1">
+            <div>
+              <div className="text-[11px] text-slate-500 mb-0.5">Dividendes annuels</div>
+              <div className="font-display text-lg text-emerald-400">{eur(dividendSummary.totalAnnualDividend, 2)}</div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-500 mb-0.5">Moyenne mensuelle</div>
+              <div className="font-display text-lg text-slate-100">{eur(dividendSummary.monthlyAverage, 2)}</div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-500 mb-0.5">Rendement / valeur actuelle</div>
+              <div className="font-display text-lg text-violet-300">{pctPlain(dividendSummary.portfolioYieldOnValue, 2)}</div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-500 mb-0.5">Rendement / capital investi</div>
+              <div className="font-display text-lg text-violet-300">{pctPlain(dividendSummary.portfolioYieldOnCost, 2)}</div>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* Pie */}
       <Card accent={CARD_THEMES.violet}>
@@ -455,6 +486,12 @@ export default function Bourse({
                   <th className="py-2 pr-3">Valeur</th>
                   <th className="py-2 pr-3">+/− value</th>
                   <th className="py-2 pr-3">Poids</th>
+                  <th className="py-2 pr-3">
+                    <span className="flex items-center gap-1">
+                      Div. annuel
+                      <span className="text-[9px] text-slate-600 normal-case tracking-normal">(rdt)</span>
+                    </span>
+                  </th>
                   <th className="py-2"></th>
                 </tr>
               </thead>
@@ -482,7 +519,10 @@ export default function Bourse({
                         <td className="py-2 pr-3">
                           <input type="number" step="0.01" value={editValues.current_price} onChange={(e) => setEditValues((v) => ({ ...v, current_price: e.target.value }))} className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60" />
                         </td>
-                        <td className="py-3 pr-3 text-slate-600 text-xs" colSpan={4}>Aperçu après enregistrement</td>
+                        <td className="py-3 pr-3 text-slate-600 text-xs" colSpan={3}>Aperçu après enregistrement</td>
+                        <td className="py-2 pr-3">
+                          <input type="number" step="0.01" placeholder="€ / action" value={editValues.annual_dividend} onChange={(e) => setEditValues((v) => ({ ...v, annual_dividend: e.target.value }))} className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60" />
+                        </td>
                         <td className="py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={() => saveEdit(p.id)} className="text-emerald-400 hover:text-emerald-300 p-1"><Check size={15} /></button>
@@ -510,6 +550,16 @@ export default function Bourse({
                         {eur(gainAbs)} <span className="text-[11px] opacity-80">({pct(gainPct)})</span>
                       </td>
                       <td className="py-3 pr-3 font-data tabular-nums text-slate-400">{pctPlain(weight)}</td>
+                      <td className="py-3 pr-3">
+                        {p.annual_dividend > 0 ? (
+                          <div className="font-data tabular-nums">
+                            <div className="text-emerald-400">{eur(p.annual_dividend * p.quantity, 2)}</div>
+                            <div className="text-[11px] text-slate-500">{pctPlain(p.current_price > 0 ? (p.annual_dividend / p.current_price) * 100 : 0, 2)} rdt</div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600 text-xs">—</span>
+                        )}
+                      </td>
                       <td className="py-3 text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => startEdit(p)} className="text-slate-600 hover:text-amber-300 p-1"><Pencil size={14} /></button>
@@ -553,11 +603,12 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
   const [selected, setSelected] = useState(null);
   const [quantity, setQuantity] = useState("");
   const [pru, setPru] = useState("");
+  const [annualDividend, setAnnualDividend] = useState("");
   const [manual, setManual] = useState(false);
   const debounceRef = useRef(null);
 
   useEffect(() => {
-    if (!open) { setQuery(""); setResults([]); setSelected(null); setQuantity(""); setPru(""); setManual(false); setError(""); }
+    if (!open) { setQuery(""); setResults([]); setSelected(null); setQuantity(""); setPru(""); setAnnualDividend(""); setManual(false); setError(""); }
   }, [open]);
 
   useEffect(() => {
@@ -593,9 +644,9 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
     e.preventDefault();
     if (!quantity || !pru || !ready) return;
     if (manual) {
-      onSubmit({ ticker: query.toUpperCase(), name: query, type: "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: parseFloat(pru) });
+      onSubmit({ ticker: query.toUpperCase(), name: query, type: "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: parseFloat(pru), annual_dividend: parseFloat(annualDividend) || 0 });
     } else {
-      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: selected.current_price || 0 });
+      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: selected.current_price || 0, annual_dividend: parseFloat(annualDividend) || 0 });
     }
     onClose();
   };
@@ -645,6 +696,10 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
           <div>
             <label className="text-[11px] text-slate-500">Prix de revient unitaire (€)</label>
             <input required type="number" step="0.01" value={pru} onChange={(e) => setPru(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
+          </div>
+          <div className="col-span-2">
+            <label className="text-[11px] text-slate-500">Dividende annuel par action (€) — optionnel</label>
+            <input type="number" step="0.01" placeholder="Ex : 1.20" value={annualDividend} onChange={(e) => setAnnualDividend(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
           </div>
         </div>
       )}
