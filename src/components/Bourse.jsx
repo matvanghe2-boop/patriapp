@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon,
-  PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins,
+  PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -13,6 +13,21 @@ import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import Watchlist from "./Watchlist";
 import FinancialCalendar from "./FinancialCalendar";
+
+// Reprend le même code couleur que le module Stratégie & Logs pour que le
+// statut d'une thèse se reconnaisse d'un coup d'œil, qu'on le voie dans le
+// journal de bord ou dans le widget Anti-Panique du tableau de positions.
+const STRATEGY_STATUS = {
+  intacte: { label: "intacte", dot: "bg-emerald-400", text: "text-emerald-300", bg: "bg-emerald-500/10 border-emerald-500/30" },
+  surveiller: { label: "à surveiller", dot: "bg-amber-400", text: "text-amber-300", bg: "bg-amber-500/10 border-amber-500/30" },
+  invalidee: { label: "invalidée", dot: "bg-rose-400", text: "text-rose-300", bg: "bg-rose-500/10 border-rose-500/30" },
+};
+
+function formatDateFrShort(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 const BENCHMARKS = [
   { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8" },
@@ -96,6 +111,79 @@ function DailyVariation({ position, dailyData }) {
   );
 }
 
+// ─── Widget Anti-Panique ─────────────────────────────────────────────────────
+// Seuil de baisse journalière au-delà duquel le bouton "Lire ma thèse"
+// apparaît sur la ligne — au-delà de ce seuil, c'est typiquement le moment où
+// une décision impulsive est la plus tentante.
+const PANIC_THRESHOLD_PCT = -5;
+
+function AntiPanicModal({ position, note, onClose }) {
+  if (!position) return null;
+  const st = STRATEGY_STATUS[note?.statut] || STRATEGY_STATUS.intacte;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-slate-950 p-5 shadow-[0_0_40px_rgba(244,63,94,0.15)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 text-rose-300">
+            <AlertTriangle size={20} />
+            <span className="text-xs font-bold uppercase tracking-wide">Secousse détectée</span>
+          </div>
+          <button onClick={onClose} className="text-slate-600 hover:text-white transition-colors" aria-label="Fermer">
+            <XIcon size={18} />
+          </button>
+        </div>
+
+        <h3 className="text-lg font-bold text-slate-50 mb-0.5">{position.ticker}</h3>
+        <p className="text-sm text-slate-500 mb-4">{position.name}</p>
+
+        {note ? (
+          <>
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                Thèse {st.label}
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 mb-3">
+              <p className="text-sm text-slate-300 leading-relaxed italic">
+                💡 Rappel à toi-même (rédigé le {formatDateFrShort(note.date)}) :
+              </p>
+              {note.these && <p className="text-sm text-slate-200 mt-2 whitespace-pre-wrap">{note.these}</p>}
+            </div>
+
+            {note.conditions_vente && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 mb-3">
+                <div className="text-[11px] text-amber-300/80 font-semibold uppercase tracking-wide mb-1">
+                  Tu ne vends que si...
+                </div>
+                <p className="text-sm text-slate-200 whitespace-pre-wrap">{note.conditions_vente}</p>
+              </div>
+            )}
+
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Est-ce que l'une de ces conditions est vraie aujourd'hui ? Si non, cette baisse est probablement du bruit de marché. Respire, et laisse la thèse jouer.
+            </p>
+          </>
+        ) : (
+          <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900 p-4 text-sm text-slate-400">
+            Aucune thèse enregistrée pour {position.ticker}. Sans repère écrit à froid, c'est le moment idéal pour ne prendre aucune décision impulsive — attends d'avoir de quoi te relire la prochaine fois.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HistoryTooltip({ active, payload, label, mode }) {
   if (!active || !payload?.length) return null;
   return (
@@ -114,11 +202,22 @@ function HistoryTooltip({ active, payload, label, mode }) {
 
 export default function Bourse({
   bourse, setBourse, bourseTotal, bourseInvested, bourseGainAbs, bourseGainPct,
-  bourseHistory, setBourseHistory, watchlist, setWatchlist,
+  bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
+  const [panicPosition, setPanicPosition] = useState(null);
+
+  // Retrouve la note de thèse la plus pertinente pour un ticker : priorité à
+  // une note active (non clôturée), sinon la plus récente toutes confondues.
+  const findNoteForTicker = (ticker) => {
+    const matches = strategyNotes.filter((n) => n.ticker?.toUpperCase() === ticker?.toUpperCase());
+    if (matches.length === 0) return null;
+    const active = matches.filter((n) => !n.archivee).sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (active.length > 0) return active[0];
+    return matches.sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+  };
 
   // ─── Persistance du tri et des données de variation ──────────────────────
   const [sort, setSort] = usePersistentState("bourseSort", "none");
@@ -436,6 +535,14 @@ export default function Bourse({
                       <td className="py-3 pr-3 font-data tabular-nums">{eur(p.current_price, 2)}</td>
                       <td className="py-3 pr-3">
                         <DailyVariation position={p} dailyData={dailyData} />
+                        {(dailyData?.[p.ticker]?.changePct ?? 0) <= PANIC_THRESHOLD_PCT && (
+                          <button
+                            onClick={() => setPanicPosition(p)}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-rose-300 hover:text-rose-200 mt-1 animate-pulse"
+                          >
+                            <BookOpen size={11} /> Lire ma thèse
+                          </button>
+                        )}
                       </td>
                       <td className="py-3 pr-3 font-data tabular-nums">{eur(value)}</td>
                       <td className={`py-3 pr-3 font-data tabular-nums ${gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -592,6 +699,14 @@ export default function Bourse({
           {BENCHMARKS.map((b) => <Legend2 key={b.symbol} color={b.color} label={b.name} />)}
         </div>
       </Card>
+
+      {panicPosition && (
+        <AntiPanicModal
+          position={panicPosition}
+          note={findNoteForTicker(panicPosition.ticker)}
+          onClose={() => setPanicPosition(null)}
+        />
+      )}
     </div>
   );
 }

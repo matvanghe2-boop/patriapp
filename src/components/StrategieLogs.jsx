@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { NotebookPen, Plus, Pencil, X, Check, Search, Filter } from "lucide-react";
+import { NotebookPen, Plus, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, CARD_THEMES } from "./ui";
+import { eur, pct } from "../lib/finance";
 
 // Statuts de thèse — inspirés du tableau "Performance vs Thèse" : un simple
 // code couleur suffit à se souvenir de l'état sans relire toute la note.
@@ -16,6 +17,12 @@ function formatDateFr(iso) {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
+function formatDateShortFr(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -27,6 +34,8 @@ const BLANK_NOTE = {
   objectif_cours: "",
   conditions_vente: "",
   statut: "intacte",
+  archivee: false,
+  postmortem: null, // { date, resultat_pct, bilan, decision } une fois clôturée
 };
 
 // ─── Formulaire d'ajout / édition d'une note ────────────────────────────────
@@ -131,11 +140,93 @@ function NoteForm({ initial, onCancel, onSubmit }) {
   );
 }
 
-// ─── Carte d'affichage d'une note ───────────────────────────────────────────
-function NoteCard({ note, onEdit, onDelete }) {
-  const st = STATUS[note.statut] || STATUS.intacte;
+// ─── Formulaire Post-Mortem (clôture d'une thèse après vente) ──────────────
+const DECISIONS = {
+  bonne_decision: { label: "Bonne décision", text: "text-emerald-300" },
+  erreur_emotion: { label: "Erreur d'émotion", text: "text-rose-300" },
+  a_ameliorer: { label: "À améliorer", text: "text-amber-300" },
+};
+
+function PostMortemForm({ note, onCancel, onSubmit }) {
+  const [resultatPct, setResultatPct] = useState(note.postmortem?.resultat_pct ?? "");
+  const [decision, setDecision] = useState(note.postmortem?.decision ?? "bonne_decision");
+  const [bilan, setBilan] = useState(note.postmortem?.bilan ?? "");
+
+  const submit = (e) => {
+    e.preventDefault();
+    onSubmit({
+      postmortem: {
+        date: note.postmortem?.date || new Date().toISOString(),
+        resultat_pct: resultatPct === "" ? null : parseFloat(resultatPct),
+        decision,
+        bilan,
+      },
+      archivee: true,
+    });
+  };
+
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 group">
+    <form onSubmit={submit} className="rounded-xl border border-slate-700 bg-slate-950 p-4 flex flex-col gap-3">
+      <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
+        <ClipboardCheck size={15} className="text-cyan-300" />
+        Bilan post-mortem — {note.ticker || note.titre}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[11px] text-slate-500">Résultat final (%)</label>
+          <input
+            type="number"
+            step="0.1"
+            placeholder="Ex : 18.5 ou -6.2"
+            value={resultatPct}
+            onChange={(e) => setResultatPct(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] text-slate-500">Décision</label>
+          <select
+            value={decision}
+            onChange={(e) => setDecision(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60"
+          >
+            {Object.entries(DECISIONS).map(([key, d]) => (
+              <option key={key} value={key}>{d.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="text-[11px] text-slate-500">Bilan — qu'as-tu appris ?</label>
+        <textarea
+          rows={3}
+          maxLength={500}
+          placeholder="Ex : Vendu avec +18%, mais un peu tôt par peur de perdre mes gains. La thèse fondamentale tenait toujours."
+          value={bilan}
+          onChange={(e) => setBilan(e.target.value)}
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60 resize-y"
+        />
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button type="button" onClick={onCancel} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">
+          <X size={13} /> Annuler
+        </button>
+        <button type="submit" className="flex items-center gap-1.5 text-xs font-semibold bg-cyan-400 hover:bg-cyan-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors">
+          <Check size={14} /> Clôturer la thèse
+        </button>
+      </div>
+    </form>
+  );
+}
+
+
+function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen }) {
+  const st = STATUS[note.statut] || STATUS.intacte;
+  const pm = note.postmortem;
+  const dec = pm ? DECISIONS[pm.decision] || DECISIONS.bonne_decision : null;
+
+  return (
+    <div className={`rounded-xl border p-4 group ${note.archivee ? "border-slate-800/60 bg-slate-900/30" : "border-slate-800 bg-slate-900/60"}`}>
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -144,15 +235,26 @@ function NoteCard({ note, onEdit, onDelete }) {
                 {note.ticker}
               </span>
             )}
-            <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-              {st.label}
-            </span>
+            {note.archivee ? (
+              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border bg-slate-500/10 border-slate-500/30 text-slate-400">
+                <Archive size={10} /> Clôturée
+              </span>
+            ) : (
+              <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                {st.label}
+              </span>
+            )}
           </div>
-          <h3 className="font-semibold text-slate-100 truncate">{note.titre}</h3>
+          <h3 className={`font-semibold truncate ${note.archivee ? "text-slate-400" : "text-slate-100"}`}>{note.titre}</h3>
           <p className="text-[11px] text-slate-500">{formatDateFr(note.date)}</p>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          {note.archivee ? (
+            <button onClick={() => onReopen(note.id)} title="Ré-ouvrir la thèse" className="text-slate-600 hover:text-cyan-300 p-1"><ArchiveRestore size={14} /></button>
+          ) : (
+            <button onClick={() => onClosePosition(note)} title="Clôturer / bilan post-mortem" className="text-slate-600 hover:text-cyan-300 p-1"><ClipboardCheck size={14} /></button>
+          )}
           <button onClick={() => onEdit(note)} className="text-slate-600 hover:text-cyan-300 p-1"><Pencil size={14} /></button>
           <IconTrash onClick={() => onDelete(note.id)} />
         </div>
@@ -178,6 +280,107 @@ function NoteCard({ note, onEdit, onDelete }) {
           <span className="font-data font-semibold text-slate-200">{note.objectif_cours} €</span>
         </div>
       )}
+
+      {pm && (
+        <div className="mt-3 rounded-lg border border-slate-700/60 bg-slate-950/60 p-3">
+          <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+            <span className="text-[11px] text-slate-500">Bilan post-mortem · {formatDateShortFr(pm.date)}</span>
+            <div className="flex items-center gap-2">
+              {pm.resultat_pct != null && (
+                <span className={`font-data text-xs font-bold ${pm.resultat_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {pct(pm.resultat_pct)}
+                </span>
+              )}
+              <span className={`text-[10px] font-bold uppercase tracking-wide ${dec?.text}`}>{dec?.label}</span>
+            </div>
+          </div>
+          {pm.bilan && <p className="text-sm text-slate-400 whitespace-pre-wrap">{pm.bilan}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tableau "Performance vs Thèse" ─────────────────────────────────────────
+// Croise chaque note active (non archivée) rattachée à un ticker avec la
+// position correspondante du portefeuille (si elle existe encore), pour
+// confronter l'objectif de cours et le statut de thèse à la réalité du
+// marché en un coup d'œil.
+function PerformanceTable({ notes, positions }) {
+  const rows = useMemo(() => {
+    return notes
+      .filter((n) => !n.archivee && n.ticker)
+      .map((n) => {
+        const pos = positions.find((p) => p.ticker?.toUpperCase() === n.ticker?.toUpperCase());
+        const ecartObjectifPct =
+          n.objectif_cours && pos?.current_price
+            ? ((pos.current_price - n.objectif_cours) / n.objectif_cours) * 100
+            : null;
+        return { note: n, pos, ecartObjectifPct };
+      });
+  }, [notes, positions]);
+
+  if (rows.length === 0) {
+    return (
+      <EmptyState>
+        Aucune thèse active liée à un ticker. Ajoute un ticker à tes notes pour les voir apparaître ici, confrontées au cours réel de tes positions.
+      </EmptyState>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto -mx-1">
+      <table className="w-full text-sm min-w-[640px]">
+        <thead>
+          <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+            <th className="py-2 px-1">Actif</th>
+            <th className="py-2 px-1">Statut de la thèse</th>
+            <th className="py-2 px-1">Cours actuel</th>
+            <th className="py-2 px-1">Objectif de cours</th>
+            <th className="py-2 px-1">Écart</th>
+            <th className="py-2 px-1">En portefeuille</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-800/60">
+          {rows.map(({ note, pos, ecartObjectifPct }) => {
+            const st = STATUS[note.statut] || STATUS.intacte;
+            return (
+              <tr key={note.id}>
+                <td className="py-2.5 px-1">
+                  <div className="font-data font-semibold text-slate-100">{note.ticker}</div>
+                  <div className="text-[11px] text-slate-500 truncate max-w-[160px]">{note.titre}</div>
+                </td>
+                <td className="py-2.5 px-1">
+                  <span className={`flex items-center gap-1.5 w-fit text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                    {st.label}
+                  </span>
+                </td>
+                <td className="py-2.5 px-1 font-data tabular-nums text-slate-200">
+                  {pos ? eur(pos.current_price) : <span className="text-slate-600">—</span>}
+                </td>
+                <td className="py-2.5 px-1 font-data tabular-nums text-slate-400">
+                  {note.objectif_cours != null ? eur(note.objectif_cours) : <span className="text-slate-600">—</span>}
+                </td>
+                <td className="py-2.5 px-1 font-data tabular-nums">
+                  {ecartObjectifPct != null ? (
+                    <span className={ecartObjectifPct >= 0 ? "text-emerald-400" : "text-rose-400"}>{pct(ecartObjectifPct)}</span>
+                  ) : (
+                    <span className="text-slate-600">—</span>
+                  )}
+                </td>
+                <td className="py-2.5 px-1">
+                  {pos ? (
+                    <span className="text-[11px] text-emerald-400 font-medium">Oui · {pos.quantity} titres</span>
+                  ) : (
+                    <span className="text-[11px] text-slate-600">Non détenu</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -188,18 +391,33 @@ function NoteCard({ note, onEdit, onDelete }) {
  * thèse d'investissement au moment lucide de l'achat (pitch, objectif de
  * cours, conditions de vente) pour pouvoir s'y référer froidement lors
  * d'une secousse de marché plutôt que de réagir dans l'émotion.
- * Persisté via usePersistentState côté App.jsx (prop notes/setNotes).
+ *
+ * Trois briques :
+ * - Journal de bord : création/édition/recherche des notes.
+ * - Performance vs Thèse : croise les notes actives avec les positions
+ *   réelles du portefeuille (par ticker) pour comparer objectif et réalité.
+ * - Post-Mortem : à la clôture d'une thèse (vente réelle ou décision
+ *   d'abandon), on fige un bilan chiffré + qualitatif, conservé dans
+ *   l'historique plutôt que supprimé.
+ *
+ * Persisté via usePersistentState côté App.jsx (props strategyNotes/setStrategyNotes).
+ * bourse.positions est lu en lecture seule pour le rapprochement par ticker —
+ * aucune écriture n'est faite sur le portefeuille depuis cet écran.
  */
-export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, ...rest }) {
+export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bourse }) {
   const notes = strategyNotes;
   const setNotes = setStrategyNotes;
+  const positions = bourse?.positions || [];
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [closingId, setClosingId] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showArchived, setShowArchived] = useState(false);
 
   const addNote = (values) => {
-    setNotes((n) => [{ id: uid(), date: new Date().toISOString(), ...values }, ...n]);
+    setNotes((n) => [{ id: uid(), date: new Date().toISOString(), archivee: false, postmortem: null, ...values }, ...n]);
     setShowForm(false);
   };
 
@@ -214,8 +432,18 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, ..
     }
   };
 
+  const closeNote = (id, values) => {
+    setNotes((n) => n.map((note) => (note.id === id ? { ...note, ...values } : note)));
+    setClosingId(null);
+  };
+
+  const reopenNote = (id) => {
+    setNotes((n) => n.map((note) => (note.id === id ? { ...note, archivee: false } : note)));
+  };
+
   const filtered = useMemo(() => {
     return notes
+      .filter((n) => (showArchived ? true : !n.archivee))
       .filter((n) => statusFilter === "all" || n.statut === statusFilter)
       .filter((n) => {
         if (!search.trim()) return true;
@@ -227,9 +455,11 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, ..
         );
       })
       .sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [notes, search, statusFilter]);
+  }, [notes, search, statusFilter, showArchived]);
 
   const editingNote = editingId ? notes.find((n) => n.id === editingId) : null;
+  const closingNote = closingId ? notes.find((n) => n.id === closingId) : null;
+  const archivedCount = notes.filter((n) => n.archivee).length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -242,12 +472,31 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, ..
         </p>
       </div>
 
+      {/* Performance vs Thèse */}
+      <Card accent={CARD_THEMES.cyan}>
+        <CardLabel icon={TableProperties}>Performance vs Thèse</CardLabel>
+        <PerformanceTable notes={notes} positions={positions} />
+      </Card>
+
+      {/* Journal de bord */}
       <Card accent={CARD_THEMES.cyan}>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <CardLabel icon={NotebookPen}>Journal de bord</CardLabel>
-          <GhostButton onClick={() => { setShowForm((s) => !s); setEditingId(null); }} theme="cyan">
-            Nouvelle note
-          </GhostButton>
+          <div className="flex items-center gap-2">
+            {archivedCount > 0 && (
+              <button
+                onClick={() => setShowArchived((s) => !s)}
+                className={`flex items-center gap-1.5 text-xs font-medium border rounded-lg px-3 py-1.5 transition-colors ${
+                  showArchived ? "text-cyan-300 border-cyan-500/40 bg-cyan-500/10" : "text-slate-500 border-slate-700 hover:text-slate-300"
+                }`}
+              >
+                <Archive size={13} /> {showArchived ? "Masquer clôturées" : `Voir clôturées (${archivedCount})`}
+              </button>
+            )}
+            <GhostButton onClick={() => { setShowForm((s) => !s); setEditingId(null); setClosingId(null); }} theme="cyan">
+              Nouvelle note
+            </GhostButton>
+          </div>
         </div>
 
         {showForm && (
@@ -262,6 +511,16 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, ..
               initial={editingNote}
               onCancel={() => setEditingId(null)}
               onSubmit={(values) => updateNote(editingId, values)}
+            />
+          </div>
+        )}
+
+        {closingNote && (
+          <div className="mb-4">
+            <PostMortemForm
+              note={closingNote}
+              onCancel={() => setClosingId(null)}
+              onSubmit={(values) => closeNote(closingId, values)}
             />
           </div>
         )}
@@ -303,7 +562,14 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, ..
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">
             {filtered.map((note) => (
-              <NoteCard key={note.id} note={note} onEdit={(n) => { setEditingId(n.id); setShowForm(false); }} onDelete={deleteNote} />
+              <NoteCard
+                key={note.id}
+                note={note}
+                onEdit={(n) => { setEditingId(n.id); setShowForm(false); setClosingId(null); }}
+                onDelete={deleteNote}
+                onClosePosition={(n) => { setClosingId(n.id); setShowForm(false); setEditingId(null); }}
+                onReopen={reopenNote}
+              />
             ))}
           </div>
         )}
