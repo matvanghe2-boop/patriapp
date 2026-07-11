@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState } from "./ui";
+import AssetLogo from "./AssetLogo";
 import { eur, pct, uid, computeReturnMetrics } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -266,8 +267,13 @@ export default function Watchlist({ watchlist, setWatchlist }) {
                 return (
                   <tr key={w.id} className="group hover:bg-slate-800/30 transition-colors">
                     <td className="py-3 pr-3">
-                      <div className="text-slate-200 font-medium">{w.ticker}</div>
-                      <div className="text-[11px] text-slate-500">{w.name}</div>
+                      <div className="flex items-center gap-2">
+                        <AssetLogo ticker={w.ticker} size="xs" />
+                        <div>
+                          <div className="text-slate-200 font-medium">{w.ticker}</div>
+                          <div className="text-[11px] text-slate-500">{w.name}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-3 pr-3 font-data tabular-nums">{current != null ? eur(current, 2) : "—"}</td>
                     <td className="py-3 pr-3">

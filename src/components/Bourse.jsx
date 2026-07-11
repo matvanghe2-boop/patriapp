@@ -8,6 +8,7 @@ import {
   LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
+import AssetLogo from "./AssetLogo";
 import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate, computeDividendSummary } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -142,7 +143,10 @@ function AntiPanicModal({ position, note, onClose }) {
           </button>
         </div>
 
-        <h3 className="text-lg font-bold text-slate-50 mb-0.5">{position.ticker}</h3>
+        <h3 className="text-lg font-bold text-slate-50 mb-0.5 flex items-center gap-2">
+          <AssetLogo ticker={position.ticker} size="sm" />
+          {position.ticker}
+        </h3>
         <p className="text-sm text-slate-500 mb-4">{position.name}</p>
 
         {note ? (
@@ -498,8 +502,13 @@ export default function Bourse({
                     return (
                       <tr key={p.id} className="bg-slate-950/60">
                         <td className="py-3 pr-3">
-                          <div className="text-slate-200 font-medium">{p.ticker}</div>
-                          <div className="text-[11px] text-slate-500">{p.name} · {p.type}</div>
+                          <div className="flex items-center gap-2">
+                            <AssetLogo ticker={p.ticker} size="xs" />
+                            <div>
+                              <div className="text-slate-200 font-medium">{p.ticker}</div>
+                              <div className="text-[11px] text-slate-500">{p.name} · {p.type}</div>
+                            </div>
+                          </div>
                         </td>
                         <td className="py-2 pr-3">
                           <input type="number" step="0.0001" value={editValues.quantity} onChange={(e) => setEditValues((v) => ({ ...v, quantity: e.target.value }))} className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60" />
@@ -527,8 +536,13 @@ export default function Bourse({
                   return (
                     <tr key={p.id} className="group hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 pr-3">
-                        <div className="text-slate-200 font-medium">{p.ticker}</div>
-                        <div className="text-[11px] text-slate-500">{p.name} · {p.type}</div>
+                        <div className="flex items-center gap-2">
+                          <AssetLogo ticker={p.ticker} size="xs" />
+                          <div>
+                            <div className="text-slate-200 font-medium">{p.ticker}</div>
+                            <div className="text-[11px] text-slate-500">{p.name} · {p.type}</div>
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 pr-3 font-data tabular-nums">{p.quantity}</td>
                       <td className="py-3 pr-3 font-data tabular-nums">{eur(p.pru, 2)}</td>

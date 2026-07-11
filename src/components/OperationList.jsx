@@ -2,6 +2,7 @@ import React from "react";
 import { Trash2, Pencil } from "lucide-react";
 import { eur } from "../lib/finance";
 import { EmptyState } from "./ui";
+import AssetLogo from "./AssetLogo";
 
 function formatDateShortFr(iso) {
   if (!iso) return "";
@@ -50,7 +51,12 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
               title="Voir la thèse liée à cet actif"
             >
               <td className="py-2.5 px-1 font-data tabular-nums text-slate-400">{formatDateShortFr(op.date)}</td>
-              <td className="py-2.5 px-1 font-data font-semibold text-slate-100">{op.asset}</td>
+              <td className="py-2.5 px-1 font-data font-semibold text-slate-100">
+                <div className="flex items-center gap-2">
+                  <AssetLogo ticker={op.asset} size="xs" />
+                  {op.asset}
+                </div>
+              </td>
               <td className="py-2.5 px-1">
                 <span
                   className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${

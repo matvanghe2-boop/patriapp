@@ -3,6 +3,7 @@ import { ChevronDown, BarChart3 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer, ReferenceLine } from "recharts";
 import { eur, pctPlain } from "../lib/finance";
 import { Card, CardLabel, EmptyState } from "./ui";
+import AssetLogo from "./AssetLogo";
 
 function formatDateShortFr(iso) {
   if (!iso) return "—";
@@ -213,6 +214,7 @@ export default function AssetStats({ bourse }) {
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <ChevronDown size={15} className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+                  <AssetLogo ticker={r.label} size="sm" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-data font-semibold text-slate-100 truncate">{r.label}</span>
