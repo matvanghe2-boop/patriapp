@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { UploadCloud, Plus, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles } from "lucide-react";
+import { UploadCloud, Plus, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles, Trash2 } from "lucide-react";
 import { Card, CardLabel, GhostButton, EmptyState } from "./ui";
 import { eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash, sanitizeOperation } from "../lib/finance";
 import { parseOperationPdf } from "../lib/api";
@@ -196,6 +196,18 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     return { totalFees, tauxEffort, plusValuesRealisees, plusValuesLatentes };
   }, [operations, positions]);
 
+  const deleteOperation = (id) => {
+    if (window.confirm("Supprimer cette opération de l'historique ? Les positions/PRU actuels ne seront pas recalculés automatiquement.")) {
+      setBourse((b) => ({ ...b, operations: (b.operations || []).filter((op) => op.id !== id) }));
+    }
+  };
+
+  const clearAllOperations = () => {
+    if (window.confirm("Effacer tout l'historique des opérations (et les frais associés) ? Les positions actuelles ne seront pas modifiées.")) {
+      setBourse((b) => ({ ...b, operations: [] }));
+    }
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {/* En-tête d'action & import */}
@@ -279,8 +291,15 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
 
       {/* Historique */}
       <Card>
-        <CardLabel icon={UploadCloud}>Historique des opérations</CardLabel>
-        <OperationList operations={operations} onRowClick={(op) => onOpenThesis?.(op.asset)} />
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <CardLabel icon={UploadCloud}>Historique des opérations</CardLabel>
+          {operations.length > 0 && (
+            <button onClick={clearAllOperations} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-400 transition-colors">
+              <Trash2 size={13} /> Tout effacer
+            </button>
+          )}
+        </div>
+        <OperationList operations={operations} onRowClick={(op) => onOpenThesis?.(op.asset)} onDelete={deleteOperation} />
       </Card>
 
       <OperationForm

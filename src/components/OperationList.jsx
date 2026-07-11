@@ -1,4 +1,5 @@
 import React from "react";
+import { Trash2 } from "lucide-react";
 import { eur } from "../lib/finance";
 import { EmptyState } from "./ui";
 
@@ -13,7 +14,7 @@ function formatDateShortFr(iso) {
  * Un clic sur une ligne remonte l'opération au parent — utilisé pour la
  * passerelle Ordre ➔ Thèse (relire la note d'investissement initiale).
  */
-export default function OperationList({ operations = [], onRowClick }) {
+export default function OperationList({ operations = [], onRowClick, onDelete }) {
   const sorted = [...operations].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   if (sorted.length === 0) {
@@ -37,6 +38,7 @@ export default function OperationList({ operations = [], onRowClick }) {
             <th className="py-2 px-1">Frais</th>
             <th className="py-2 px-1">Montant net</th>
             <th className="py-2 px-1">Plus-value réalisée</th>
+            <th className="py-2 px-1"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800/60">
@@ -54,14 +56,16 @@ export default function OperationList({ operations = [], onRowClick }) {
                   className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${
                     op.type === "ACHAT"
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                      : op.type === "DIVIDENDE"
+                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                   }`}
                 >
                   {op.type}
                 </span>
               </td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{op.quantity}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{eur(op.price, 2)}</td>
+              <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{op.quantity ?? <span className="text-slate-600">—</span>}</td>
+              <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{op.price != null ? eur(op.price, 2) : <span className="text-slate-600">—</span>}</td>
               <td className="py-2.5 px-1 font-data tabular-nums text-slate-500">{eur(op.fees, 2)}</td>
               <td className="py-2.5 px-1 font-data tabular-nums text-slate-100">{eur(op.montantNet, 2)}</td>
               <td className="py-2.5 px-1 font-data tabular-nums">
@@ -72,6 +76,15 @@ export default function OperationList({ operations = [], onRowClick }) {
                 ) : (
                   <span className="text-slate-600">—</span>
                 )}
+              </td>
+              <td className="py-2.5 px-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete?.(op.id); }}
+                  className="text-slate-600 hover:text-rose-400 transition-colors p-1"
+                  title="Supprimer cette opération"
+                >
+                  <Trash2 size={13} />
+                </button>
               </td>
             </tr>
           ))}
