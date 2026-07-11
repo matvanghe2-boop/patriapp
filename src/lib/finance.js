@@ -226,6 +226,20 @@ export function dividendYieldOnCost(annualDividendPerShare, pru) {
  * pas d'identifiant clair dans le PDF. Combine les données structurantes
  * de l'ordre : date_ticker_type_quantite_prix.
  */
+/**
+ * Ne garde, avant persistance dans le localStorage, que les champs
+ * strictement nécessaires à la comptabilité et aux graphiques. Le nom du
+ * courtier (et tout autre identifiant de compte que le parseur PDF aurait pu
+ * capter) n'est jamais écrit en stockage local — il ne sert que le temps de
+ * l'import pour l'affichage d'un message de confirmation. `transactionId`
+ * est conservé : c'est une référence d'ordre (pas un identifiant de compte),
+ * indispensable à la logique anti-doublons.
+ */
+export function sanitizeOperation(order) {
+  const { transactionId, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee, id } = order;
+  return { id, transactionId: transactionId || null, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee };
+}
+
 export function generateOperationHash({ date, asset, type, quantity, price }) {
   const norm = (s) => String(s ?? "").trim().toUpperCase().replace(/\s+/g, "");
   return `${norm(date)}_${norm(asset)}_${norm(type)}_${norm(quantity)}_${norm(price)}`;

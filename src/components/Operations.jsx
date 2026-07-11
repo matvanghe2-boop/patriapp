@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { UploadCloud, Plus, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles } from "lucide-react";
 import { Card, CardLabel, GhostButton, EmptyState } from "./ui";
-import { eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash } from "../lib/finance";
+import { eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash, sanitizeOperation } from "../lib/finance";
 import { parseOperationPdf } from "../lib/api";
 import OperationForm from "./OperationForm";
 import OperationList from "./OperationList";
@@ -51,6 +51,19 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
       return false;
     }
 
+    // Dividende / coupon perçu : vient créditer la poche de cash, ne touche
+    // à aucune position ni PRU.
+    if (order.type === "DIVIDENDE") {
+      const newOperation = sanitizeOperation({ id: uid(), ...order, montantNet: order.amount, plusValueRealisee: null });
+      setBourse((b) => ({
+        ...b,
+        cash_pocket: (b.cash_pocket || 0) + (order.amount || 0),
+        operations: [newOperation, ...(b.operations || [])],
+      }));
+      setFeedback({ type: "success", message: `Dividende enregistré : +${eur(order.amount, 2)} (${order.asset || "n/c"}).` });
+      return true;
+    }
+
     const tickerKey = order.asset.toUpperCase();
     const existingPosition = positions.find((p) => p.ticker?.toUpperCase() === tickerKey);
 
@@ -94,12 +107,14 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
           : positions.map((p) => (p.id === existingPosition.id ? { ...p, quantity: newQuantity, totalBuyFees: newTotalBuyFees } : p));
     }
 
-    const newOperation = { id: uid(), ...order, montantNet, plusValueRealisee };
+    const newOperation = sanitizeOperation({ id: uid(), ...order, montantNet, plusValueRealisee });
 
     setBourse((b) => ({ ...b, positions: newPositions, operations: [newOperation, ...(b.operations || [])] }));
     setFeedback({ type: "success", message: `Opération enregistrée : ${order.type} ${order.quantity} ${order.asset}.` });
     return true;
   };
+
+  const [reviewQueue, setReviewQueue] = useState([]); // ordres incomplets à finaliser manuellement, un par un
 
   // ─── Import PDF ────────────────────────────────────────────────────────────
   const handleFiles = async (fileList) => {
@@ -107,15 +122,60 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     if (files.length === 0) return;
     setImporting(true);
     setFeedback(null);
+    const pendingReview = [];
     for (const file of files) {
       try {
-        const order = await parseOperationPdf(file);
-        commitOperation(order);
+        // `rawExcerpt` (extrait du texte brut du PDF, renvoyé uniquement en
+        // cas d'échec d'extraction pour du debug ponctuel) n'est ici utilisé
+        // que pour une vérification booléenne locale — il n'est jamais
+        // affecté à un state React, donc jamais écrit en localStorage, et il
+        // sort de portée (garbage collecté) dès la fin de cette itération.
+        // Le fichier PDF lui-même (`file`) n'est jamais chargé via
+        // URL.createObjectURL — il est lu en mémoire le temps de l'encodage
+        // base64 (voir lib/api.js) puis relâché sans laisser de référence.
+        const { orders = [], rawExcerpt } = await parseOperationPdf(file);
+        if (orders.length === 0) {
+          setFeedback({ type: "error", message: `${file.name} : aucun mouvement reconnu dans ce document.` });
+          continue;
+        }
+        let committedCount = 0;
+        for (const order of orders) {
+          if (order.complete) {
+            if (commitOperation(order)) committedCount += 1;
+          } else {
+            pendingReview.push(order);
+          }
+        }
+        if (committedCount > 0) {
+          setFeedback({ type: "success", message: `${file.name} : ${committedCount} mouvement(s) importé(s).` });
+        } else if (!rawExcerpt && orders.length === 0) {
+          setFeedback({ type: "error", message: `${file.name} : format non reconnu.` });
+        }
       } catch (err) {
         setFeedback({ type: "error", message: `${file.name} : ${err.message}` });
       }
     }
     setImporting(false);
+    if (pendingReview.length > 0) {
+      const [first, ...rest] = pendingReview;
+      setReviewQueue(rest);
+      setFormPreset({ asset: first.asset || "", type: first.type === "DIVIDENDE" ? "ACHAT" : (first.type || "ACHAT"), ...first });
+      setFormOpen(true);
+      setFeedback({
+        type: "error",
+        message: `${pendingReview.length} ligne(s) incomplète(s) à compléter manuellement (formulaire pré-rempli).`,
+      });
+    }
+  };
+
+  // Après validation/annulation d'une révision manuelle, on enchaîne sur la
+  // ligne incomplète suivante s'il en reste dans la file.
+  const advanceReviewQueue = () => {
+    if (reviewQueue.length === 0) return;
+    const [next, ...rest] = reviewQueue;
+    setReviewQueue(rest);
+    setFormPreset({ asset: next.asset || "", type: next.type === "DIVIDENDE" ? "ACHAT" : (next.type || "ACHAT"), ...next });
+    setFormOpen(true);
   };
 
   const onDrop = (e) => {
@@ -162,7 +222,7 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
             <UploadCloud size={26} className="text-slate-500" />
           )}
           <p className="text-sm text-slate-300">
-            Glisse-dépose tes avis d'opérés PDF ici (Boursorama, Fortuneo, Bourse Direct)
+            Glisse-dépose tes documents PDF ici (avis d'opéré, relevé de titres, relevé d'espèces, relevé de coupons/dividendes — Boursorama, Fortuneo, Bourse Direct)
           </p>
           <p className="text-xs text-slate-600">ou clique pour sélectionner un fichier</p>
           <input
@@ -225,10 +285,10 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
 
       <OperationForm
         open={formOpen}
-        onClose={() => setFormOpen(false)}
+        onClose={() => { setFormOpen(false); advanceReviewQueue(); }}
         onSubmit={(order) => {
           const ok = commitOperation(order);
-          if (ok) setFormOpen(false);
+          if (ok) { setFormOpen(false); advanceReviewQueue(); }
         }}
         positions={positions}
         preset={formPreset}
