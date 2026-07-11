@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { X, Check, TrendingUp, TrendingDown } from "lucide-react";
+import { X, Check, TrendingUp, TrendingDown, Coins } from "lucide-react";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
 /**
- * Fenêtre modale flottante de saisie manuelle d'une opération (achat/vente).
- * Reste volontairement à l'écart de la liste historique : l'utilisateur ne
- * voit le formulaire que lorsqu'il clique sur "Nouvelle Opération" (ou via
- * la passerelle "Déclarer une opération" depuis une thèse).
+ * Fenêtre modale flottante de saisie manuelle d'une opération
+ * (achat / vente / dividende). Reste volontairement à l'écart de la liste
+ * historique : l'utilisateur ne voit le formulaire que lorsqu'il clique sur
+ * "Nouvelle Opération" (ou via la passerelle "Déclarer une opération" depuis
+ * une thèse).
  */
 export default function OperationForm({ open, onClose, onSubmit, positions = [], preset }) {
   const blank = {
@@ -19,6 +20,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
     quantity: "",
     price: "",
     fees: "",
+    amount: "",
     date: todayIso(),
   };
   const [values, setValues] = useState(blank);
@@ -29,6 +31,11 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         ...blank,
         type: preset?.type || "ACHAT",
         asset: preset?.asset || "",
+        quantity: preset?.quantity != null ? String(preset.quantity) : "",
+        price: preset?.price != null ? String(preset.price) : "",
+        fees: preset?.fees != null ? String(preset.fees) : "",
+        amount: preset?.amount != null ? String(preset.amount) : "",
+        date: preset?.date || todayIso(),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -36,9 +43,24 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
 
   if (!open) return null;
 
+  const isDividende = values.type === "DIVIDENDE";
+
   const submit = (e) => {
     e.preventDefault();
-    if (!values.asset.trim() || !values.quantity || !values.price) return;
+    if (!values.asset.trim()) return;
+    if (isDividende) {
+      if (!values.amount) return;
+      onSubmit({
+        type: "DIVIDENDE",
+        asset: values.asset.trim(),
+        amount: parseFloat(values.amount),
+        date: values.date,
+        broker: "Saisie manuelle",
+        transactionId: null,
+      });
+      return;
+    }
+    if (!values.quantity || !values.price) return;
     onSubmit({
       type: values.type,
       asset: values.asset.trim(),
@@ -65,8 +87,8 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           </button>
         </div>
 
-        {/* Toggle ACHAT / VENTE */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Toggle ACHAT / VENTE / DIVIDENDE */}
+        <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => setValues((v) => ({ ...v, type: "ACHAT" }))}
@@ -89,6 +111,17 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           >
             <TrendingDown size={15} /> Vente
           </button>
+          <button
+            type="button"
+            onClick={() => setValues((v) => ({ ...v, type: "DIVIDENDE" }))}
+            className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 text-sm font-semibold transition-colors ${
+              values.type === "DIVIDENDE"
+                ? "bg-cyan-500/15 border-cyan-500/50 text-cyan-300"
+                : "border-slate-700 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            <Coins size={15} /> Dividende
+          </button>
         </div>
 
         {/* Actif */}
@@ -110,6 +143,20 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           </datalist>
         </div>
 
+        {isDividende ? (
+          <div>
+            <label className="text-[11px] text-slate-500">Montant du dividende reçu (€)</label>
+            <input
+              required
+              type="number"
+              step="0.01"
+              min="0"
+              value={values.amount}
+              onChange={(e) => setValues((v) => ({ ...v, amount: e.target.value }))}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60"
+            />
+          </div>
+        ) : (
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="text-[11px] text-slate-500">Quantité</label>
@@ -148,6 +195,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
             />
           </div>
         </div>
+        )}
 
         <div>
           <label className="text-[11px] text-slate-500">Date</label>
