@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { NotebookPen, Plus, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal } from "lucide-react";
+import { NotebookPen, Plus, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal, Layers } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, CARD_THEMES } from "./ui";
 import { eur, pct } from "../lib/finance";
 import Operations from "./Operations";
+import AssetStats from "./AssetStats";
 
 // Statuts de thèse — inspirés du tableau "Performance vs Thèse" : un simple
 // code couleur suffit à se souvenir de l'état sans relire toute la note.
@@ -514,6 +515,14 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bo
         >
           <Wallet size={14} /> Opérations
         </button>
+        <button
+          onClick={() => setSubTab("stats")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "stats" ? "text-cyan-300 border-b-2 border-cyan-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Layers size={14} /> Statistiques
+        </button>
       </div>
 
       {subTab === "operations" ? (
@@ -524,6 +533,8 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bo
           onConsumePreset={() => setPresetOperation(null)}
           onOpenThesis={openThesisForAsset}
         />
+      ) : subTab === "stats" ? (
+        <AssetStats bourse={bourse} />
       ) : (
       <>
       {/* Performance vs Thèse */}
