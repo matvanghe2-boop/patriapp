@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Layers } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { eur, pctPlain } from "../lib/finance";
 import { EmptyState } from "./ui";
 
@@ -109,6 +109,14 @@ export default function AssetStats({ bourse }) {
     [rows]
   );
 
+  const [openKeys, setOpenKeys] = useState(() => new Set());
+  const toggle = (key) =>
+    setOpenKeys((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
   if (rows.length === 0) {
     return (
       <EmptyState>
@@ -143,74 +151,76 @@ export default function AssetStats({ bourse }) {
         </div>
       </div>
 
-      {/* Fiche de vie par actif */}
-      <div className="overflow-x-auto -mx-1">
-        <table className="w-full text-sm min-w-[920px]">
-          <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
-              <th className="py-2 px-1">Actif</th>
-              <th className="py-2 px-1">Statut</th>
-              <th className="py-2 px-1">Qté actuelle</th>
-              <th className="py-2 px-1">PRU</th>
-              <th className="py-2 px-1">Investi</th>
-              <th className="py-2 px-1">Frais cumulés</th>
-              <th className="py-2 px-1">PV réalisée</th>
-              <th className="py-2 px-1">PV latente</th>
-              <th className="py-2 px-1">Dividendes</th>
-              <th className="py-2 px-1">Résultat net</th>
-              <th className="py-2 px-1">Rendement net</th>
-              <th className="py-2 px-1">Ordres</th>
-              <th className="py-2 px-1">Période</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/60">
-            {rows.map((r) => {
-              const badge = STATUT_BADGE[r.statut];
-              return (
-                <tr key={r.key} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-2.5 px-1 font-data font-semibold text-slate-100">{r.label}</td>
-                  <td className="py-2.5 px-1">
-                    <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${badge.cls}`}>{badge.label}</span>
-                  </td>
-                  <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{r.currentQty || <span className="text-slate-600">—</span>}</td>
-                  <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{r.pru != null ? eur(r.pru, 2) : <span className="text-slate-600">—</span>}</td>
-                  <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{eur(r.totalInvested, 0)}</td>
-                  <td className="py-2.5 px-1 font-data tabular-nums text-slate-500">{eur(r.feesTotal, 2)}</td>
-                  <td className="py-2.5 px-1 font-data tabular-nums">
-                    <span className={r.realizedPV === 0 ? "text-slate-600" : r.realizedPV > 0 ? "text-emerald-400" : "text-rose-400"}>
-                      {eur(r.realizedPV, 2)}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-1 font-data tabular-nums">
-                    {r.currentQty > 0 ? (
-                      <span className={r.latentPV >= 0 ? "text-emerald-400" : "text-rose-400"}>{eur(r.latentPV, 2)}</span>
-                    ) : (
-                      <span className="text-slate-600">—</span>
-                    )}
-                  </td>
-                  <td className="py-2.5 px-1 font-data tabular-nums text-cyan-300">
-                    {r.dividendsTotal > 0 ? eur(r.dividendsTotal, 2) : <span className="text-slate-600">—</span>}
-                  </td>
-                  <td className="py-2.5 px-1 font-data tabular-nums font-semibold">
-                    <span className={r.netResult >= 0 ? "text-emerald-400" : "text-rose-400"}>{eur(r.netResult, 2)}</span>
-                  </td>
-                  <td className="py-2.5 px-1 font-data tabular-nums">
-                    {r.rendementPct != null ? (
-                      <span className={r.rendementPct >= 0 ? "text-emerald-400" : "text-rose-400"}>{pctPlain(r.rendementPct, 1)}</span>
-                    ) : (
-                      <span className="text-slate-600">—</span>
-                    )}
-                  </td>
-                  <td className="py-2.5 px-1 font-data tabular-nums text-slate-500">{r.nbOperations}</td>
-                  <td className="py-2.5 px-1 text-[11px] text-slate-500 whitespace-nowrap">
-                    {formatDateShortFr(r.firstDate)} → {formatDateShortFr(r.lastDate)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Fiches de vie par actif, dépliables */}
+      <div className="flex flex-col gap-2">
+        {rows.map((r) => {
+          const badge = STATUT_BADGE[r.statut];
+          const open = openKeys.has(r.key);
+          const perfColor = r.rendementPct == null ? "text-slate-500" : r.rendementPct >= 0 ? "text-emerald-400" : "text-rose-400";
+
+          return (
+            <div key={r.key} className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+              <button
+                onClick={() => toggle(r.key)}
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <ChevronDown size={15} className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-data font-semibold text-slate-100 truncate">{r.label}</span>
+                      <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {r.currentQty > 0 ? `${r.currentQty} titres en portefeuille` : `${r.nbOperations} ordre(s) historisé(s)`}
+                    </p>
+                  </div>
+                </div>
+                <div className={`font-data text-lg font-bold shrink-0 ${perfColor}`}>
+                  {r.rendementPct != null ? pctPlain(r.rendementPct, 1) : "—"}
+                </div>
+              </button>
+
+              {open && (
+                <div className="border-t border-slate-800 px-4 py-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <StatBlock label="Qté actuelle" value={r.currentQty || "—"} />
+                  <StatBlock label="PRU" value={r.pru != null ? eur(r.pru, 2) : "—"} />
+                  <StatBlock label="Investi" value={eur(r.totalInvested, 0)} />
+                  <StatBlock label="Frais cumulés" value={eur(r.feesTotal, 2)} muted />
+                  <StatBlock
+                    label="PV réalisée"
+                    value={eur(r.realizedPV, 2)}
+                    tone={r.realizedPV === 0 ? "neutral" : r.realizedPV > 0 ? "pos" : "neg"}
+                  />
+                  <StatBlock
+                    label="PV latente"
+                    value={r.currentQty > 0 ? eur(r.latentPV, 2) : "—"}
+                    tone={r.currentQty > 0 ? (r.latentPV >= 0 ? "pos" : "neg") : "neutral"}
+                  />
+                  <StatBlock label="Dividendes" value={r.dividendsTotal > 0 ? eur(r.dividendsTotal, 2) : "—"} cyan />
+                  <StatBlock label="Résultat net" value={eur(r.netResult, 2)} tone={r.netResult >= 0 ? "pos" : "neg"} bold />
+                  <StatBlock label="Ordres" value={r.nbOperations} muted />
+                  <StatBlock label="Période" value={`${formatDateShortFr(r.firstDate)} → ${formatDateShortFr(r.lastDate)}`} small />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
+    </div>
+  );
+}
+
+function StatBlock({ label, value, tone = "default", muted, cyan, bold, small }) {
+  const toneCls =
+    tone === "pos" ? "text-emerald-400" : tone === "neg" ? "text-rose-400" : tone === "neutral" ? "text-slate-500" : "text-slate-100";
+  const colorCls = cyan ? "text-cyan-300" : muted ? "text-slate-400" : toneCls;
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`font-data ${small ? "text-[11px]" : "text-sm"} ${bold ? "font-semibold" : ""} ${colorCls}`}>{value}</p>
     </div>
   );
 }
