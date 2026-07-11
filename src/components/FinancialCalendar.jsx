@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { CalendarDays, List, ChevronLeft, ChevronRight, RefreshCw, CircleDollarSign, FileBarChart, Users } from "lucide-react";
+import { CalendarDays, List, ChevronLeft, ChevronRight, RefreshCw, CircleDollarSign, FileBarChart, Users, X } from "lucide-react";
 import { fetchCalendarEvents } from "../lib/api";
 
 // ─── Types d'événements : couleurs très vives et saturées pour un contraste maximal sur fond noir ───
@@ -37,29 +37,98 @@ function EventDot({ type }) {
   const t = EVENT_TYPES[type] || EVENT_TYPES.Dividende;
   return (
     <span
-      className="inline-block w-2 h-2 rounded-full"
+      className="inline-block w-2 h-2 rounded-full shrink-0"
       style={{ background: t.color, boxShadow: `0 0 6px ${t.glow}` }}
     />
   );
 }
 
-function EventBadge({ ev }) {
+// Badge affiché DANS une case du calendrier : montre le texte de l'événement
+// (ticker + type abrégé), cliquable pour ouvrir le détail complet.
+function EventChip({ ev, onClick }) {
   const t = EVENT_TYPES[ev.type] || EVENT_TYPES.Dividende;
   const Icon = t.icon;
   return (
-    <div
-      className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold truncate"
-      style={{ background: `${t.color}1A`, border: `1px solid ${t.color}66`, color: t.color }}
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(ev); }}
+      className="w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[9px] sm:text-[10px] font-bold leading-tight truncate transition-transform hover:scale-[1.03]"
+      style={{ background: `${t.color}22`, border: `1px solid ${t.color}88`, color: t.color }}
       title={`${ev.ticker} — ${ev.label}`}
     >
-      <Icon size={10} strokeWidth={2.5} />
+      <Icon size={9} strokeWidth={2.5} className="shrink-0" />
       <span className="truncate">{ev.ticker}</span>
+    </button>
+  );
+}
+
+// ─── Modal de détail d'un événement ─────────────────────────────────────────
+function EventModal({ ev, onClose }) {
+  if (!ev) return null;
+  const t = EVENT_TYPES[ev.type] || EVENT_TYPES.Dividende;
+  const Icon = t.icon;
+  const today = isoToday();
+  const d = new Date(`${ev.date}T00:00:00`);
+  const todayD = new Date(`${today}T00:00:00`);
+  const daysLeft = Math.round((d - todayD) / (1000 * 60 * 60 * 24));
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl border p-5 bg-black"
+        style={{ borderColor: `${t.color}66`, boxShadow: `0 0 40px ${t.glow}` }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div
+            className="flex items-center justify-center w-12 h-12 rounded-full shrink-0"
+            style={{ background: `${t.color}1A`, border: `1.5px solid ${t.color}` }}
+          >
+            <Icon size={22} style={{ color: t.color }} strokeWidth={2.5} />
+          </div>
+          <button onClick={onClose} className="text-[#888] hover:text-white transition-colors" aria-label="Fermer">
+            <X size={20} />
+          </button>
+        </div>
+
+        <span
+          className="inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded mb-2"
+          style={{ background: `${t.color}22`, color: t.color }}
+        >
+          {ev.type}
+        </span>
+
+        <h3 className="text-xl font-bold text-white mb-0.5">{ev.ticker}</h3>
+        <p className="text-sm text-[#999] mb-4">{ev.name}</p>
+
+        <div className="rounded-xl border border-[#222] bg-[#0a0a0a] p-3 mb-2">
+          <div className="text-[11px] text-[#888] mb-0.5">Événement</div>
+          <div className="text-sm text-white font-semibold">{ev.label}</div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-[#222] bg-[#0a0a0a] p-3">
+          <div>
+            <div className="text-[11px] text-[#888] mb-0.5">Date</div>
+            <div className="font-data text-base text-white font-bold">{formatDateFr(ev.date)}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[11px] text-[#888] mb-0.5">Échéance</div>
+            <div className="font-data text-sm font-bold" style={{ color: t.color }}>
+              {daysLeft === 0 ? "Aujourd'hui" : daysLeft === 1 ? "Demain" : daysLeft > 0 ? `Dans ${daysLeft} j` : `Il y a ${-daysLeft} j`}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ─── Vue grille mensuelle ───────────────────────────────────────────────────
-function MonthGrid({ year, month, eventsByDate, onMonthChange }) {
+function MonthGrid({ year, month, eventsByDate, onMonthChange, onEventClick }) {
   const total = daysInMonth(year, month);
   const offset = firstWeekdayOffset(year, month);
   const cells = [];
@@ -68,6 +137,7 @@ function MonthGrid({ year, month, eventsByDate, onMonthChange }) {
   while (cells.length % 7 !== 0) cells.push(null);
 
   const today = isoToday();
+  const MAX_VISIBLE = 3;
 
   return (
     <div>
@@ -101,24 +171,26 @@ function MonthGrid({ year, month, eventsByDate, onMonthChange }) {
 
       <div className="grid grid-cols-7 gap-1">
         {cells.map((d, i) => {
-          if (d === null) return <div key={i} className="aspect-square" />;
+          if (d === null) return <div key={i} className="min-h-[64px] sm:min-h-[92px]" />;
           const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
           const dayEvents = eventsByDate[iso] || [];
           const isToday = iso === today;
+          const visible = dayEvents.slice(0, MAX_VISIBLE);
+          const hiddenCount = dayEvents.length - visible.length;
           return (
             <div
               key={i}
-              className={`aspect-square rounded-lg p-1 flex flex-col border ${
+              className={`min-h-[64px] sm:min-h-[92px] rounded-lg p-1 flex flex-col gap-0.5 border ${
                 isToday ? "border-white bg-white/[0.06]" : "border-[#1a1a1a] bg-[#0a0a0a]"
               } overflow-hidden`}
             >
               <div className={`text-[11px] font-data ${isToday ? "text-white font-bold" : "text-[#999]"}`}>{d}</div>
-              <div className="flex flex-wrap gap-0.5 mt-auto">
-                {dayEvents.slice(0, 3).map((ev, idx) => (
-                  <EventDot key={idx} type={ev.type} />
+              <div className="flex flex-col gap-0.5 flex-1 min-h-0">
+                {visible.map((ev, idx) => (
+                  <EventChip key={idx} ev={ev} onClick={onEventClick} />
                 ))}
-                {dayEvents.length > 3 && (
-                  <span className="text-[9px] text-[#888] font-data">+{dayEvents.length - 3}</span>
+                {hiddenCount > 0 && (
+                  <span className="text-[9px] text-[#888] font-data px-1">+{hiddenCount} autre{hiddenCount > 1 ? "s" : ""}</span>
                 )}
               </div>
             </div>
@@ -130,7 +202,7 @@ function MonthGrid({ year, month, eventsByDate, onMonthChange }) {
 }
 
 // ─── Vue Timeline : 5 prochains événements ─────────────────────────────────
-function TimelineView({ events }) {
+function TimelineView({ events, onEventClick }) {
   const today = isoToday();
   const upcoming = useMemo(
     () =>
@@ -158,9 +230,10 @@ function TimelineView({ events }) {
         const todayD = new Date(`${today}T00:00:00`);
         const daysLeft = Math.round((d - todayD) / (1000 * 60 * 60 * 24));
         return (
-          <div
+          <button
             key={idx}
-            className="flex items-center gap-3 rounded-xl border p-3 bg-[#0a0a0a]"
+            onClick={() => onEventClick(ev)}
+            className="w-full flex items-center gap-3 rounded-xl border p-3 bg-[#0a0a0a] text-left transition-colors hover:bg-[#111]"
             style={{ borderColor: `${t.color}44` }}
           >
             <div
@@ -187,7 +260,7 @@ function TimelineView({ events }) {
                 {daysLeft === 0 ? "Aujourd'hui" : daysLeft === 1 ? "Demain" : `Dans ${daysLeft} j`}
               </div>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -198,8 +271,9 @@ function TimelineView({ events }) {
 /**
  * Calendrier financier mode sombre. Les événements sont dérivés automatiquement
  * des tickers présents dans `positions` (lignes du portefeuille) via l'API
- * Yahoo Finance (calendarEvents). Se ré-actualise dès que la liste de tickers
- * change (ajout / suppression d'une ligne).
+ * Yahoo Finance (v7/finance/quote, authentifiée par cookie+crumb côté
+ * serveur). Se ré-actualise dès que la liste de tickers change (ajout /
+ * suppression d'une ligne).
  *
  * positions attendu : [{ ticker, name }, ...] — un simple sous-ensemble des
  * positions du portefeuille suffit.
@@ -214,6 +288,7 @@ export default function FinancialCalendar({ positions = [] }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastSync, setLastSync] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   const tickers = useMemo(
     () => [...new Set(positions.map((p) => p.ticker).filter(Boolean))],
@@ -323,9 +398,9 @@ export default function FinancialCalendar({ positions = [] }) {
           {error}
         </p>
       ) : view === "grid" ? (
-        <MonthGrid year={cursor.year} month={cursor.month} eventsByDate={eventsByDate} onMonthChange={changeMonth} />
+        <MonthGrid year={cursor.year} month={cursor.month} eventsByDate={eventsByDate} onMonthChange={changeMonth} onEventClick={setSelectedEvent} />
       ) : (
-        <TimelineView events={events} />
+        <TimelineView events={events} onEventClick={setSelectedEvent} />
       )}
 
       {error && events.length > 0 && <p className="text-[11px] text-[#ffb020] mt-3">{error}</p>}
@@ -334,6 +409,9 @@ export default function FinancialCalendar({ positions = [] }) {
           Dernière synchro : {lastSync.toLocaleTimeString("fr-FR")} · {tickers.length} ligne(s) suivie(s) automatiquement
         </p>
       )}
+
+      <EventModal ev={selectedEvent} onClose={() => setSelectedEvent(null)} />
     </div>
   );
 }
+

@@ -70,9 +70,23 @@ function toIsoDate(epochSeconds) {
 
 async function fetchCalendarForSymbols(symbols) {
   const { cookie, crumb } = await getYahooAuth();
+  // IMPORTANT : sans le paramètre "fields", Yahoo ne renvoie qu'un jeu de
+  // champs par défaut qui EXCLUT exDividendDate/dividendDate pour de
+  // nombreuses valeurs (notamment les valeurs européennes) — même si le
+  // champ existe bel et bien côté Yahoo. C'est ce qui provoquait "aucun
+  // dividende" alors que les dates de résultats remontaient normalement
+  // (earningsTimestamp* fait partie du jeu de champs par défaut, mais pas
+  // les champs dividende). On force donc explicitement la liste de champs
+  // utiles pour être sûr de les recevoir.
+  const fields = [
+    "symbol", "shortName", "longName",
+    "exDividendDate", "dividendDate",
+    "earningsTimestamp", "earningsTimestampStart", "earningsTimestampEnd",
+    "trailingAnnualDividendRate", "trailingAnnualDividendYield",
+  ].join(",");
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(
     symbols.join(",")
-  )}&crumb=${encodeURIComponent(crumb)}`;
+  )}&fields=${fields}&crumb=${encodeURIComponent(crumb)}`;
   const r = await fetch(url, { headers: { ...YF_HEADERS, Cookie: cookie } });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const data = await r.json();
@@ -96,6 +110,10 @@ function eventsFromRow(row) {
   if (payDiv) {
     events.push({ ticker: symbol, name: shortName, type: "Dividende", date: payDiv, label: "Mise en paiement" });
   }
+  // Si Yahoo ne fournit ni date ex-dividende ni date de paiement pour ce
+  // titre, mais qu'un montant de dividende versé sur les 12 derniers mois
+  // est connu (trailingAnnualDividendRate), on ne fabrique PAS de date —
+  // seule une date effectivement communiquée par Yahoo est affichée.
 
   // Résultats trimestriels — Yahoo fournit une date ponctuelle et/ou une
   // fourchette (début/fin) selon la confiance de l'estimation.
