@@ -43,6 +43,29 @@ export async function fetchCalendarEvents(symbols) {
 }
 
 /**
+ * Envoie un avis d'opéré (PDF) au parseur serveur et récupère l'ordre
+ * standardisé qu'il en a extrait. Le fichier est encodé en base64 côté
+ * client — aucune donnée binaire brute n'est postée directement.
+ */
+export async function parseOperationPdf(file) {
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.onerror = () => reject(new Error("Lecture du fichier impossible"));
+    reader.readAsDataURL(file);
+  });
+
+  const res = await fetch(`${BASE}/parse-pdf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename: file.name, data: base64 }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || "Analyse du PDF impossible");
+  return body; // { broker, transactionId, date, asset, type, quantity, price, fees }
+}
+
+/**
  * Récupère l'historique quotidien (date + clôture) pour une liste de symboles.
  * range: "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "ytd" | "max"
  * Renvoie : [{ symbol, ok, series: [{date, close}] } | { symbol, ok:false, error }]

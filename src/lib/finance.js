@@ -216,6 +216,68 @@ export function dividendYieldOnCost(annualDividendPerShare, pru) {
   return ((annualDividendPerShare || 0) / pru) * 100;
 }
 
+// ─── OPÉRATIONS BOURSIÈRES (ACHAT / VENTE) ───────────────────────────────────
+// Ces fonctions sont pures : elles ne touchent à aucun état React, elles
+// prennent la position actuelle (ou null si l'actif n'est pas encore détenu)
+// et l'ordre à comptabiliser, et renvoient les nouvelles valeurs à appliquer.
+
+/**
+ * Génère une empreinte unique pour un ordre quand le courtier ne fournit
+ * pas d'identifiant clair dans le PDF. Combine les données structurantes
+ * de l'ordre : date_ticker_type_quantite_prix.
+ */
+export function generateOperationHash({ date, asset, type, quantity, price }) {
+  const norm = (s) => String(s ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  return `${norm(date)}_${norm(asset)}_${norm(type)}_${norm(quantity)}_${norm(price)}`;
+}
+
+/**
+ * ACHAT — les frais s'ajoutent au coût de l'investissement et sont donc
+ * amortis dans le nouveau PRU.
+ */
+export function computeBuyOperation(position, { quantity, price, fees = 0 }) {
+  const q = Number(quantity) || 0;
+  const p = Number(price) || 0;
+  const f = Number(fees) || 0;
+
+  const currentQty = position?.quantity || 0;
+  const currentPru = position?.pru || 0;
+  const currentTotalBuyFees = position?.totalBuyFees || 0;
+
+  const montantNet = q * p + f;
+  const newQuantity = currentQty + q;
+  const newPru = newQuantity > 0 ? (currentQty * currentPru + q * p + f) / newQuantity : 0;
+  const newTotalBuyFees = currentTotalBuyFees + f;
+
+  return { montantNet, newQuantity, newPru, newTotalBuyFees };
+}
+
+/**
+ * VENTE — les frais se déduisent du montant récupéré. Une vente ne modifie
+ * jamais le PRU des titres restants. La plus-value réalisée est définitive
+ * et nette des frais d'achat (alloués au prorata des titres vendus) et de
+ * vente.
+ */
+export function computeSellOperation(position, { quantity, price, fees = 0 }) {
+  const q = Number(quantity) || 0;
+  const p = Number(price) || 0;
+  const f = Number(fees) || 0;
+
+  const currentQty = position?.quantity || 0;
+  const currentPru = position?.pru || 0;
+  const currentTotalBuyFees = position?.totalBuyFees || 0;
+
+  const feesPerShare = currentQty > 0 ? currentTotalBuyFees / currentQty : 0;
+  const feesAchatAlloues = feesPerShare * q;
+
+  const montantNet = q * p - f;
+  const newQuantity = currentQty - q;
+  const plusValueRealisee = (p - currentPru) * q - feesAchatAlloues - f;
+  const newTotalBuyFees = Math.max(0, currentTotalBuyFees - feesAchatAlloues);
+
+  return { montantNet, newQuantity, plusValueRealisee, newTotalBuyFees };
+}
+
 export function computeDividendSummary(positions) {
   let totalAnnualDividend = 0;
   let totalValue = 0;
