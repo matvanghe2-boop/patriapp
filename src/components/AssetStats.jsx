@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer, ReferenceLine } from "recharts";
 import { eur, pctPlain } from "../lib/finance";
-import { EmptyState } from "./ui";
+import { Card, CardLabel, EmptyState } from "./ui";
 
 function formatDateShortFr(iso) {
   if (!iso) return "—";
@@ -88,6 +89,20 @@ const STATUT_BADGE = {
   inconnu: { label: "Historique", cls: "bg-amber-500/10 border-amber-500/30 text-amber-300" },
 };
 
+function PerformanceTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl">
+      <p className="font-data font-semibold text-slate-100 mb-1">{d.label}</p>
+      <p className={`font-data font-bold ${d.rendementPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+        {pctPlain(d.rendementPct, 1)}
+      </p>
+      <p className="text-slate-500 mt-1">Résultat net : {eur(d.netResult, 2)}</p>
+    </div>
+  );
+}
+
 export default function AssetStats({ bourse }) {
   const operations = bourse?.operations || [];
   const positions = bourse?.positions || [];
@@ -150,6 +165,38 @@ export default function AssetStats({ bourse }) {
           <p className="font-data font-bold text-cyan-300">{eur(totals.dividends, 0)}</p>
         </div>
       </div>
+
+      {/* Diagramme de performance comparée */}
+      {(() => {
+        const chartData = rows.filter((r) => r.rendementPct != null).sort((a, b) => b.rendementPct - a.rendementPct);
+        if (chartData.length === 0) return null;
+        return (
+          <Card>
+            <CardLabel icon={BarChart3}>Performance comparée (rendement net)</CardLabel>
+            <div style={{ width: "100%", height: 240 }}>
+              <ResponsiveContainer>
+                <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <CartesianGrid stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={false} />
+                  <YAxis
+                    tick={{ fill: "#64748b", fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `${v}%`}
+                  />
+                  <ReferenceLine y={0} stroke="#334155" />
+                  <Tooltip content={<PerformanceTooltip />} cursor={{ fill: "rgba(148,163,184,0.08)" }} />
+                  <Bar dataKey="rendementPct" radius={[4, 4, 4, 4]} maxBarSize={38}>
+                    {chartData.map((r) => (
+                      <Cell key={r.key} fill={r.rendementPct >= 0 ? "#34d399" : "#f87171"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Fiches de vie par actif, dépliables */}
       <div className="flex flex-col gap-2">
