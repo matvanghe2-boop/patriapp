@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { UploadCloud, Plus, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles, Trash2 } from "lucide-react";
+import { UploadCloud, Plus, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles, Trash2, Coins } from "lucide-react";
 import { Card, CardLabel, GhostButton, EmptyState } from "./ui";
 import { eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash, sanitizeOperation } from "../lib/finance";
 import { parseOperationPdf } from "../lib/api";
@@ -193,8 +193,36 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     const tauxEffort = totalVerse > 0 ? (totalFees / totalVerse) * 100 : 0;
     const plusValuesRealisees = operations.reduce((s, op) => s + (op.plusValueRealisee || 0), 0);
     const plusValuesLatentes = positions.reduce((s, p) => s + (p.current_price - p.pru) * p.quantity, 0);
-    return { totalFees, tauxEffort, plusValuesRealisees, plusValuesLatentes };
+    const dividendesTotal = operations
+      .filter((op) => op.type === "DIVIDENDE")
+      .reduce((s, op) => s + (op.amount ?? op.montantNet ?? 0), 0);
+    return { totalFees, tauxEffort, plusValuesRealisees, plusValuesLatentes, dividendesTotal };
   }, [operations, positions]);
+
+  const editOperation = (order) => {
+    const original = operations.find((op) => op.id === order.id);
+    if (!original) return false;
+
+    let updated;
+    if (order.type === "DIVIDENDE") {
+      updated = sanitizeOperation({ ...order, montantNet: order.amount, plusValueRealisee: null });
+    } else {
+      const montantNet =
+        order.type === "ACHAT" ? order.quantity * order.price + (order.fees || 0) : order.quantity * order.price - (order.fees || 0);
+      // La plus-value réalisée d'une vente dépend du PRU au moment de l'ordre ;
+      // on la conserve telle quelle plutôt que de la recalculer à l'aveugle.
+      updated = sanitizeOperation({ ...order, montantNet, plusValueRealisee: order.type === "VENTE" ? original.plusValueRealisee : null });
+    }
+
+    setBourse((b) => ({ ...b, operations: (b.operations || []).map((op) => (op.id === order.id ? updated : op)) }));
+    setFeedback({ type: "success", message: "Opération modifiée. Les positions/PRU actuels n'ont pas été recalculés automatiquement." });
+    return true;
+  };
+
+  const handleEditClick = (op) => {
+    setFormPreset(op);
+    setFormOpen(true);
+  };
 
   const deleteOperation = (id) => {
     if (window.confirm("Supprimer cette opération de l'historique ? Les positions/PRU actuels ne seront pas recalculés automatiquement.")) {
@@ -262,7 +290,7 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
       </Card>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Card>
           <CardLabel icon={Wallet}>Frais totaux</CardLabel>
           <div className="font-data text-xl font-bold text-slate-100">{eur(kpis.totalFees, 2)}</div>
@@ -287,6 +315,10 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
           </div>
           <p className="text-[11px] text-slate-600 mt-0.5">Rappel virtuel — onglet Bourse</p>
         </Card>
+        <Card>
+          <CardLabel icon={Coins}>Dividendes totaux</CardLabel>
+          <div className="font-data text-xl font-bold text-cyan-300">{eur(kpis.dividendesTotal, 2)}</div>
+        </Card>
       </div>
 
       {/* Historique */}
@@ -299,14 +331,14 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
             </button>
           )}
         </div>
-        <OperationList operations={operations} onRowClick={(op) => onOpenThesis?.(op.asset)} onDelete={deleteOperation} />
+        <OperationList operations={operations} onRowClick={(op) => onOpenThesis?.(op.asset)} onDelete={deleteOperation} onEdit={handleEditClick} />
       </Card>
 
       <OperationForm
         open={formOpen}
         onClose={() => { setFormOpen(false); advanceReviewQueue(); }}
         onSubmit={(order) => {
-          const ok = commitOperation(order);
+          const ok = order.id ? editOperation(order) : commitOperation(order);
           if (ok) { setFormOpen(false); advanceReviewQueue(); }
         }}
         positions={positions}

@@ -51,25 +51,27 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
     if (isDividende) {
       if (!values.amount) return;
       onSubmit({
+        ...(preset?.id ? { id: preset.id } : {}),
         type: "DIVIDENDE",
         asset: values.asset.trim(),
         amount: parseFloat(values.amount),
         date: values.date,
-        broker: "Saisie manuelle",
-        transactionId: null,
+        broker: preset?.broker || "Saisie manuelle",
+        transactionId: preset?.transactionId ?? null,
       });
       return;
     }
     if (!values.quantity || !values.price) return;
     onSubmit({
+      ...(preset?.id ? { id: preset.id } : {}),
       type: values.type,
       asset: values.asset.trim(),
       quantity: parseFloat(values.quantity),
       price: parseFloat(values.price),
       fees: values.fees === "" ? 0 : parseFloat(values.fees),
       date: values.date,
-      broker: "Saisie manuelle",
-      transactionId: null,
+      broker: preset?.broker || "Saisie manuelle",
+      transactionId: preset?.transactionId ?? null,
     });
   };
 
@@ -81,7 +83,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         className="w-full max-w-lg rounded-2xl border border-cyan-500/30 bg-slate-900 p-5 flex flex-col gap-4 shadow-2xl"
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg text-slate-50">Nouvelle opération</h3>
+          <h3 className="font-display text-lg text-slate-50">{preset?.id ? "Modifier l'opération" : "Nouvelle opération"}</h3>
           <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-200 p-1">
             <X size={16} />
           </button>
@@ -216,7 +218,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
             type="submit"
             className="flex items-center gap-1.5 text-xs font-semibold bg-cyan-400 hover:bg-cyan-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors"
           >
-            <Check size={14} /> Valider l'opération
+            <Check size={14} /> {preset?.id ? "Enregistrer les modifications" : "Valider l'opération"}
           </button>
         </div>
       </form>

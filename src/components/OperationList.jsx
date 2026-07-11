@@ -1,5 +1,5 @@
 import React from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
 import { eur } from "../lib/finance";
 import { EmptyState } from "./ui";
 
@@ -14,7 +14,7 @@ function formatDateShortFr(iso) {
  * Un clic sur une ligne remonte l'opération au parent — utilisé pour la
  * passerelle Ordre ➔ Thèse (relire la note d'investissement initiale).
  */
-export default function OperationList({ operations = [], onRowClick, onDelete }) {
+export default function OperationList({ operations = [], onRowClick, onDelete, onEdit }) {
   const sorted = [...operations].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   if (sorted.length === 0) {
@@ -78,13 +78,22 @@ export default function OperationList({ operations = [], onRowClick, onDelete })
                 )}
               </td>
               <td className="py-2.5 px-1">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete?.(op.id); }}
-                  className="text-slate-600 hover:text-rose-400 transition-colors p-1"
-                  title="Supprimer cette opération"
-                >
-                  <Trash2 size={13} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit?.(op); }}
+                    className="text-slate-600 hover:text-cyan-300 transition-colors p-1"
+                    title="Modifier cette opération"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete?.(op.id); }}
+                    className="text-slate-600 hover:text-rose-400 transition-colors p-1"
+                    title="Supprimer cette opération"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
