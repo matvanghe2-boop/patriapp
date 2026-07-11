@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen, Download, Upload, RotateCcw } from "lucide-react";
+import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen, Download, Upload, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { usePersistentState, exportAllData, importAllData, clearAllData } from "./lib/storage";
 import { weightedAverageRate } from "./lib/finance";
 import { NavButton } from "./components/ui";
@@ -74,6 +74,7 @@ const TAB_BG = {
 
 export default function App() {
   const [tab, setTab] = useState("dashboard");
+  const [ghostMode, setGhostMode] = useState(false);
 
   useEffect(() => {
     document.title = `${TAB_LABELS[tab] || ""} · Patrium`;
@@ -167,13 +168,21 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100">
+    <div className={`flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100 ${ghostMode ? "ghost-mode" : ""}`}>
       <aside className="md:w-60 md:h-screen md:sticky md:top-0 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950 flex md:flex-col">
         <div className="hidden md:block px-5 pt-6 pb-4">
-          <div className="font-display text-lg text-slate-50">Patrium</div>
+          <div className="flex items-center justify-between">
+            <div className="font-display text-lg text-slate-50">Patrium</div>
+            <button onClick={() => setGhostMode((g) => !g)} title="Mode Ghost (flouter les montants)" className="text-slate-500 hover:text-slate-200 p-1">
+              {ghostMode ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
           <div className="text-xs text-slate-500 mt-0.5">Vision consolidée &amp; simulation</div>
         </div>
-        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible p-2 md:p-3 flex-1">
+        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible p-2 md:p-3 flex-1 items-center">
+          <button onClick={() => setGhostMode((g) => !g)} className="md:hidden text-slate-500 hover:text-slate-200 p-2 shrink-0">
+            {ghostMode ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
           <NavButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" theme="emerald" />
           <NavButton active={tab === "livrets"} onClick={() => setTab("livrets")} icon={PiggyBank} label="Livrets & Épargne" theme="indigo" />
           <NavButton active={tab === "bourse"} onClick={() => setTab("bourse")} icon={TrendingUp} label="PEA & Bourse" theme="violet" />

@@ -69,3 +69,19 @@ input[type="checkbox"] {
     transform: translateY(0);
   }
 }
+
+.ghost-mode .font-data:not(:has(+ *)):not([data-ghost-safe]) {
+  filter: blur(6px);
+  user-select: none;
+}
+.ghost-mode .font-data {
+  filter: blur(6px);
+  user-select: none;
+  transition: filter 0.15s;
+}
+.ghost-mode .font-data[data-ghost-safe] {
+  filter: none;
+}
+.ghost-mode .font-data:hover {
+  filter: blur(0);
+}
