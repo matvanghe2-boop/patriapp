@@ -8,6 +8,7 @@ const NAV_THEMES = {
   violet: { active: "bg-violet-500/15 text-violet-300 border border-violet-500/30", bar: "bg-violet-400" },
   amber: { active: "bg-amber-500/15 text-amber-300 border border-amber-500/30", bar: "bg-amber-400" },
   rose: { active: "bg-rose-500/15 text-rose-300 border border-rose-500/30", bar: "bg-rose-400" },
+  cyan: { active: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30", bar: "bg-cyan-400" },
 };
 
 export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber" }) {
@@ -49,6 +50,7 @@ export const CARD_THEMES = {
   violet: "border-violet-500/40 bg-gradient-to-br from-violet-950/40 via-slate-900 to-slate-900 hover:border-violet-400/60",
   amber: "border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 hover:border-amber-400/60",
   rose: "border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-slate-900 to-slate-900 hover:border-rose-400/60",
+  cyan: "border-cyan-500/40 bg-gradient-to-br from-cyan-950/40 via-slate-900 to-slate-900 hover:border-cyan-400/60",
 };
 
 /**
@@ -63,6 +65,7 @@ export function PageGlow({ color = "emerald" }) {
     violet: { a: "bg-violet-400/10", b: "bg-fuchsia-400/8" },
     amber: { a: "bg-amber-400/10", b: "bg-orange-400/8" },
     rose: { a: "bg-rose-400/10", b: "bg-orange-500/8" },
+    cyan: { a: "bg-cyan-400/10", b: "bg-teal-400/8" },
   };
   const c = COLORS[color] || COLORS.emerald;
   return (
@@ -102,6 +105,7 @@ const GHOST_THEMES = {
   indigo: "text-indigo-300 hover:text-indigo-100 bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 hover:border-indigo-400/70 focus-visible:ring-indigo-400/40",
   violet: "text-violet-300 hover:text-violet-100 bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 hover:border-violet-400/70 focus-visible:ring-violet-400/40",
   rose: "text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 hover:border-rose-400/70 focus-visible:ring-rose-400/40",
+  cyan: "text-cyan-300 hover:text-cyan-100 bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/40 hover:border-cyan-400/70 focus-visible:ring-cyan-400/40",
 };
 
 export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, theme = "amber" }) {

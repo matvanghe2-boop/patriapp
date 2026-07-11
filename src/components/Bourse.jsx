@@ -381,7 +381,7 @@ export default function Bourse({
                   <th className="py-2 pr-3">
                     <span className="flex items-center gap-1">
                       Div. annuel
-                      <span className="text-[9px] text-slate-600 normal-case tracking-normal">(rdt)</span>
+                      <span className="text-[9px] text-slate-600 normal-case tracking-normal">(rdt · YoC)</span>
                     </span>
                   </th>
                   <th className="py-2"></th>
@@ -446,7 +446,14 @@ export default function Bourse({
                         {p.annual_dividend > 0 ? (
                           <div className="font-data tabular-nums">
                             <div className="text-emerald-400">{eur(p.annual_dividend * p.quantity, 2)}</div>
-                            <div className="text-[11px] text-slate-500">{pctPlain(p.current_price > 0 ? (p.annual_dividend / p.current_price) * 100 : 0, 2)} rdt</div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                              <span>{pctPlain(p.current_price > 0 ? (p.annual_dividend / p.current_price) * 100 : 0, 2)} rdt</span>
+                              {p.pru > 0 && (
+                                <span className="text-amber-300/90" title="Rendement sur ton PRU (Yield on Cost)">
+                                  · <span className="font-semibold">{pctPlain((p.annual_dividend / p.pru) * 100, 2)}</span> YoC
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-slate-600 text-xs">—</span>

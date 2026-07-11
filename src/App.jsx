@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, Download, Upload, RotateCcw } from "lucide-react";
+import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen, Download, Upload, RotateCcw } from "lucide-react";
 import { usePersistentState, exportAllData, importAllData, clearAllData } from "./lib/storage";
 import { weightedAverageRate } from "./lib/finance";
 import { NavButton } from "./components/ui";
@@ -8,8 +8,9 @@ import Livrets from "./components/Livrets";
 import Bourse from "./components/Bourse";
 import Simulation from "./components/Simulation";
 import Immobilier from "./components/Immobilier";
+import StrategieLogs from "./components/StrategieLogs";
 
-const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData",];
+const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData", "strategyNotes"];
 
 const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };
 
@@ -57,6 +58,7 @@ const TAB_LABELS = {
   bourse: "PEA & Bourse",
   simulation: "Simulation",
   immobilier: "Immobilier & Crédit",
+  strategie: "Stratégie & Logs",
 };
 
 // Fond de page teinté par domaine — même esprit que le bouton de nav actif :
@@ -67,6 +69,7 @@ const TAB_BG = {
   bourse: "bg-gradient-to-br from-violet-950/70 via-slate-950 to-slate-950",
   simulation: "bg-gradient-to-br from-amber-950/70 via-slate-950 to-slate-950",
   immobilier: "bg-gradient-to-br from-rose-950/70 via-slate-950 to-slate-950",
+  strategie: "bg-gradient-to-br from-cyan-950/70 via-slate-950 to-slate-950",
 };
 
 export default function App() {
@@ -97,6 +100,8 @@ export default function App() {
   ]);
   // Watchlist : produits suivis en vue d'un achat (distincts des positions détenues).
   const [watchlist, setWatchlist] = usePersistentState("watchlist", []);
+  // Journal de bord "Stratégie & Logs" : thèses d'investissement notées à l'achat.
+  const [strategyNotes, setStrategyNotes] = usePersistentState("strategyNotes", []);
 
   const livretsTotal = useMemo(() => livrets.reduce((s, l) => s + l.balance, 0), [livrets]);
   const livretsAvgRate = useMemo(() => weightedAverageRate(livrets) * 100, [livrets]);
@@ -120,6 +125,7 @@ export default function App() {
     historyPast, setHistoryPast, sim, setSim, immo, setImmo,
     bourseHistory, setBourseHistory, watchlist, setWatchlist,
     cash, setCash, enveloppes, setEnveloppes,
+    strategyNotes, setStrategyNotes,
     livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
     bourseTotal, bourseGainAbs, bourseGainPct, patrimoineBrut, patrimoineNet,
     epargneMensuelle, tauxEpargne, matelasMois,
@@ -173,6 +179,7 @@ export default function App() {
           <NavButton active={tab === "bourse"} onClick={() => setTab("bourse")} icon={TrendingUp} label="PEA & Bourse" theme="violet" />
           <NavButton active={tab === "simulation"} onClick={() => setTab("simulation")} icon={Calculator} label="Simulation" theme="amber" />
           <NavButton active={tab === "immobilier"} onClick={() => setTab("immobilier")} icon={Landmark} label="Immobilier & Crédit" theme="rose" />
+          <NavButton active={tab === "strategie"} onClick={() => setTab("strategie")} icon={NotebookPen} label="Stratégie & Logs" theme="cyan" />
         </nav>
         <div className="hidden md:flex flex-col gap-2 px-4 py-4 border-t border-slate-800">
           <button onClick={handleExport} className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded">
@@ -198,6 +205,7 @@ export default function App() {
           {tab === "bourse" && <Bourse {...shared} />}
           {tab === "simulation" && <Simulation {...shared} />}
           {tab === "immobilier" && <Immobilier {...shared} />}
+          {tab === "strategie" && <StrategieLogs {...shared} />}
         </div>
       </main>
     </div>
