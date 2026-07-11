@@ -3,7 +3,9 @@ import React, { useState } from "react";
 // Le service de logo "par ticker" ambigu confond les places boursières :
 // DG.PA (Vinci) est résolu comme DG (Dollar General, US), SAN.PA (Sanofi)
 // comme SAN (Banco Santander, US), etc. Pour les valeurs connues, on préfère
-// donc un logo par domaine (non ambigu) via Clearbit. À compléter au besoin.
+// donc un logo par domaine (non ambigu, via le favicon du site officiel). À
+// compléter au besoin — quasi tout le CAC 40 et les grandes valeurs
+// européennes (Euronext, Xetra, SIX, Milan, Amsterdam, Bruxelles) y sont.
 const DOMAIN_OVERRIDES = {
   "AI.PA": "airliquide.com",
   "SAN.PA": "sanofi.com",
@@ -41,6 +43,59 @@ const DOMAIN_OVERRIDES = {
   "URW.PA": "urw.com",
   "VU.PA": "vusion.com",
   "ADYEN.AS": "adyen.com",
+  "STLA.PA": "stellantis.com",
+  "VIV.PA": "vivendi.com",
+  "BOL.PA": "bollore.com",
+  "AC.PA": "accor.com",
+  "AIR.PA": "airbus.com",
+  "AMUN.PA": "amundi.com",
+  "COFA.PA": "coface.com",
+  "COV.PA": "covivio.fr",
+  "ERF.PA": "eurofins.com",
+  "FR.PA": "valeo.com",
+  "FDJ.PA": "groupefdj.com",
+  "ICAD.PA": "icade.fr",
+  "IPN.PA": "ipsen.com",
+  "MT.AS": "arcelormittal.com",
+  "NEXI.MI": "nexi.it",
+  "RNO.PA": "renault.com",
+  "RXL.PA": "rexel.com",
+  "SCR.PA": "scor.com",
+  "SESG.PA": "ses.com",
+  "SOI.PA": "soitec.com",
+  "SW.PA": "sodexo.com",
+  "TFI.PA": "groupe-tf1.fr",
+  "UBI.PA": "ubisoft.com",
+  "VLA.PA": "valneva.com",
+  "VK.PA": "vallourec.com",
+  "ASML.AS": "asml.com",
+  "SAP.DE": "sap.com",
+  "SIE.DE": "siemens.com",
+  "ALV.DE": "allianz.com",
+  "DTE.DE": "telekom.com",
+  "MBG.DE": "mercedes-benz.com",
+  "BMW.DE": "bmwgroup.com",
+  "VOW3.DE": "volkswagen.com",
+  "BAS.DE": "basf.com",
+  "DBK.DE": "db.com",
+  "NESN.SW": "nestle.com",
+  "NOVN.SW": "novartis.com",
+  "ROG.SW": "novartis.com",
+  "UHR.SW": "swatchgroup.com",
+  "ENEL.MI": "enel.com",
+  "ENI.MI": "eni.com",
+  "ISP.MI": "group.intesasanpaolo.com",
+  "UCG.MI": "unicredit.eu",
+  "SHEL.AS": "shell.com",
+  "PHIA.AS": "philips.com",
+  "INGA.AS": "ing.com",
+  "AD.AS": "aholddelhaize.com",
+  "HEIA.AS": "theheinekencompany.com",
+  "UNA.AS": "unilever.com",
+  "ABI.BR": "ab-inbev.com",
+  "SOLB.BR": "solvay.com",
+  "UCB.BR": "ucb.com",
+  "KBC.BR": "kbc.com",
 };
 
 // Palette de repli déterministe (même ticker -> même couleur d'avatar à chaque rendu).
@@ -76,19 +131,15 @@ export default function AssetLogo({ ticker, name, size = "sm", className = "" })
   const [errored, setErrored] = useState(false);
   const sizeCls = SIZES[size] || SIZES.sm;
   const upperTicker = String(ticker || "").toUpperCase();
-  const hasExchangeSuffix = upperTicker.includes(".");
   const domain = DOMAIN_OVERRIDES[upperTicker];
 
   // Le service "par ticker" (financialmodelingprep) résout le symbole sans
-  // tenir compte de la place boursière : il n'est fiable que pour les
-  // tickers US "nus" (sans suffixe .PA/.DE/...). Pour les tickers à suffixe
-  // sans correspondance connue, mieux vaut l'avatar-initiales qu'un logo
-  // potentiellement faux (cf. DG.PA / SAN.PA plus haut).
-  const logoUrl = domain
-    ? `https://logo.clearbit.com/${domain}`
-    : !hasExchangeSuffix
-    ? `https://images.financialmodelingprep.com/symbol/${upperTicker}.png`
-    : null;
+  // tenir compte de la place boursière et n'est fiable que pour des tickers
+  // US "nus" — inutile ici puisqu'un PEA ne peut pas détenir d'actions US.
+  // On utilise donc uniquement les domaines connus, via le service de
+  // favicon de DuckDuckGo (fiable, rarement bloqué par les extensions
+  // anti-tracking, contrairement à Clearbit qui y est souvent catalogué).
+  const logoUrl = domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null;
 
   if (!ticker || errored || !logoUrl) {
     return (
