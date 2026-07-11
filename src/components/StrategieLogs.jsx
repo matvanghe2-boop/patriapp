@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { NotebookPen, Plus, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck } from "lucide-react";
+import { NotebookPen, Plus, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, CARD_THEMES } from "./ui";
 import { eur, pct } from "../lib/finance";
+import Operations from "./Operations";
 
 // Statuts de thèse — inspirés du tableau "Performance vs Thèse" : un simple
 // code couleur suffit à se souvenir de l'état sans relire toute la note.
@@ -220,13 +221,17 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
 }
 
 
-function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen }) {
+function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen, onDeclareOperation, highlighted }) {
   const st = STATUS[note.statut] || STATUS.intacte;
   const pm = note.postmortem;
   const dec = pm ? DECISIONS[pm.decision] || DECISIONS.bonne_decision : null;
 
   return (
-    <div className={`rounded-xl border p-4 group ${note.archivee ? "border-slate-800/60 bg-slate-900/30" : "border-slate-800 bg-slate-900/60"}`}>
+    <div
+      className={`rounded-xl border p-4 group transition-shadow ${
+        note.archivee ? "border-slate-800/60 bg-slate-900/30" : "border-slate-800 bg-slate-900/60"
+      } ${highlighted ? "ring-2 ring-cyan-400/70" : ""}`}
+    >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -250,6 +255,9 @@ function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen }) {
           <p className="text-[11px] text-slate-500">{formatDateFr(note.date)}</p>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          {note.ticker && (
+            <button onClick={() => onDeclareOperation(note)} title="Déclarer une opération" className="text-slate-600 hover:text-cyan-300 p-1"><SendHorizonal size={14} /></button>
+          )}
           {note.archivee ? (
             <button onClick={() => onReopen(note.id)} title="Ré-ouvrir la thèse" className="text-slate-600 hover:text-cyan-300 p-1"><ArchiveRestore size={14} /></button>
           ) : (
@@ -404,10 +412,26 @@ function PerformanceTable({ notes, positions }) {
  * bourse.positions est lu en lecture seule pour le rapprochement par ticker —
  * aucune écriture n'est faite sur le portefeuille depuis cet écran.
  */
-export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bourse }) {
+export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bourse, setBourse }) {
   const notes = strategyNotes;
   const setNotes = setStrategyNotes;
   const positions = bourse?.positions || [];
+
+  // ─── Sous-onglets & passerelles Thèse ⇄ Opérations ──────────────────────
+  const [subTab, setSubTab] = useState("strategie"); // "strategie" | "operations"
+  const [presetOperation, setPresetOperation] = useState(null); // { asset, type } pour ouvrir la modale d'opération pré-remplie
+  const [highlightTicker, setHighlightTicker] = useState(null);
+
+  const declareOperation = (note) => {
+    setPresetOperation({ asset: note.ticker, type: "ACHAT" });
+    setSubTab("operations");
+  };
+
+  const openThesisForAsset = (asset) => {
+    setHighlightTicker(asset?.toUpperCase() || null);
+    setSearch(asset || "");
+    setSubTab("strategie");
+  };
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -472,6 +496,36 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bo
         </p>
       </div>
 
+      {/* Sous-onglets */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-1">
+        <button
+          onClick={() => setSubTab("strategie")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "strategie" ? "text-cyan-300 border-b-2 border-cyan-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <FileSignature size={14} /> Stratégie
+        </button>
+        <button
+          onClick={() => setSubTab("operations")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "operations" ? "text-cyan-300 border-b-2 border-cyan-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Wallet size={14} /> Opérations
+        </button>
+      </div>
+
+      {subTab === "operations" ? (
+        <Operations
+          bourse={bourse}
+          setBourse={setBourse}
+          presetOperation={presetOperation}
+          onConsumePreset={() => setPresetOperation(null)}
+          onOpenThesis={openThesisForAsset}
+        />
+      ) : (
+      <>
       {/* Performance vs Thèse */}
       <Card accent={CARD_THEMES.cyan}>
         <CardLabel icon={TableProperties}>Performance vs Thèse</CardLabel>
@@ -569,11 +623,15 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bo
                 onDelete={deleteNote}
                 onClosePosition={(n) => { setClosingId(n.id); setShowForm(false); setEditingId(null); }}
                 onReopen={reopenNote}
+                onDeclareOperation={declareOperation}
+                highlighted={!!highlightTicker && note.ticker?.toUpperCase() === highlightTicker}
               />
             ))}
           </div>
         )}
       </Card>
+      </>
+      )}
     </div>
   );
 }

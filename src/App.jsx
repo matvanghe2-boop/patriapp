@@ -25,6 +25,9 @@ const INITIAL_BOURSE = {
     { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
     { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },
   ],
+  // Historique des opérations (achats/ventes) — alimenté par l'import PDF ou
+  // la saisie manuelle depuis le sous-onglet "Opérations" de Stratégie & Logs.
+  operations: [],
 };
 
 const INITIAL_HISTORY_PAST = [
