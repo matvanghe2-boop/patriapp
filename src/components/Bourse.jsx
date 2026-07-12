@@ -2,15 +2,22 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon,
   PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, LayoutGrid, Briefcase,
+  Info, TrendingDown, Target, Percent, Scale,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid, ReferenceArea,
 } from "recharts";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
-import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate, computeDividendSummary } from "../lib/finance";
+import {
+  eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate, computeDividendSummary,
+  MARKET_BENCHMARKS, computeTWR, computeXIRR, computeVolatility, computeMaxDrawdown,
+  computeDrawdownSeries, computeSharpeRatio, computeBestWorst, computeAlphaBeta,
+  computeContribution, computeRollingPerformance, computeFeeEfficiency, computeTSR,
+  filterHistoryByRange,
+} from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import Watchlist from "./Watchlist";
@@ -214,6 +221,11 @@ export default function Bourse({
   const [refreshMsg, setRefreshMsg] = useState("");
   const [panicPosition, setPanicPosition] = useState(null);
   const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "performance"
+
+  // ─── État de l'onglet Performance ────────────────────────────────────────
+  const [perfRange, setPerfRange] = useState("MAX"); // "1M" | "3M" | "YTD" | "1A" | "MAX"
+  const [selectedBenchmarks, setSelectedBenchmarks] = useState(["^GSPC", "^FCHI", "URTH"]);
+  const [showDividendsReinvested, setShowDividendsReinvested] = useState(false);
 
   // Retrouve la note de thèse la plus pertinente pour un ticker : priorité à
   // une note active (non clôturée), sinon la plus récente toutes confondues.
@@ -672,7 +684,208 @@ export default function Bourse({
       )}
 
       {subTab === "performance" && (
-      <>
+      <PerformanceTab
+        bourse={bourse}
+        bourseHistory={bourseHistory}
+        bourseGainAbs={bourseGainAbs}
+        trackLoading={trackLoading}
+        trackError={trackError}
+        captureSnapshot={captureSnapshot}
+        hasEnoughHistory={hasEnoughHistory}
+        hasEnoughBase100={hasEnoughBase100}
+        perfRange={perfRange}
+        setPerfRange={setPerfRange}
+        selectedBenchmarks={selectedBenchmarks}
+        setSelectedBenchmarks={setSelectedBenchmarks}
+        showDividendsReinvested={showDividendsReinvested}
+        setShowDividendsReinvested={setShowDividendsReinvested}
+      />
+      )}
+
+      {panicPosition && (
+        <AntiPanicModal
+          position={panicPosition}
+          note={findNoteForTicker(panicPosition.ticker)}
+          onClose={() => setPanicPosition(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Onglet Performance ───────────────────────────────────────────────────
+const RANGE_OPTIONS = ["1M", "3M", "YTD", "1A", "MAX"];
+const ALL_BENCHMARKS = [
+  { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8" },
+  { symbol: "^FCHI", name: "CAC 40", color: "#a78bfa" },
+  { symbol: "URTH", name: "MSCI World", color: "#34d399" },
+  { symbol: "^IXIC", name: "Nasdaq", color: "#f472b6" },
+  { symbol: "EEM", name: "MSCI Emerging", color: "#fb923c" },
+  { symbol: "GC=F", name: "Or", color: "#facc15" },
+];
+const ALL_BENCHMARK_KEYS = {
+  "^GSPC": "sp500", "^FCHI": "cac40", URTH: "msciWorld",
+  "^IXIC": "nasdaq", EEM: "msciEmerging", "GC=F": "or",
+};
+
+/** Petite pastille "où je me situe" par rapport à une valeur de référence marché. */
+function BenchmarkGauge({ label, value, target, unit = "", higherIsBetter = true, digits = 2 }) {
+  if (value == null || !Number.isFinite(value)) return null;
+  const good = higherIsBetter ? value >= target : value <= target;
+  return (
+    <div className="flex items-center justify-between gap-2 text-[11px] py-1 border-b border-slate-800/60 last:border-0">
+      <span className="text-slate-500">{label}</span>
+      <span className="flex items-center gap-1.5">
+        <span className={`font-data tabular-nums ${good ? "text-emerald-400" : "text-amber-300"}`}>
+          {value.toFixed(digits)}{unit}
+        </span>
+        <span className="text-slate-600">vs {target}{unit} (marché)</span>
+      </span>
+    </div>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, sub, tone = "slate" }) {
+  const toneClass = {
+    emerald: "text-emerald-400", rose: "text-rose-400", violet: "text-violet-300",
+    amber: "text-amber-300", slate: "text-slate-100",
+  }[tone];
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+        {Icon && <Icon size={11} />} {label}
+      </div>
+      <div className={`font-display text-lg ${toneClass}`}>{value}</div>
+      {sub && <div className="text-[11px] text-slate-500 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+function RangeSelector({ range, setRange }) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg border border-slate-800 p-0.5 bg-slate-950/60">
+      {RANGE_OPTIONS.map((r) => (
+        <button
+          key={r}
+          onClick={() => setRange(r)}
+          className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${
+            range === r ? "bg-violet-500/20 text-violet-300 border border-violet-500/40" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          {r}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function EnrichedHistoryTooltip({ active, payload, label, drawdownByDate }) {
+  if (!active || !payload?.length) return null;
+  const valeur = payload.find((p) => p.dataKey === "valeur")?.value;
+  const capital = payload.find((p) => p.dataKey === "capital")?.value;
+  const dd = drawdownByDate?.[label];
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl space-y-1">
+      <div className="text-slate-400">{formatDateShort(label)}</div>
+      {valeur != null && <div className="text-violet-300 font-data tabular-nums">Valeur : {eur(valeur)}</div>}
+      {capital != null && <div className="text-slate-400 font-data tabular-nums">Capital investi : {eur(capital)}</div>}
+      {valeur != null && capital > 0 && (
+        <div className={`font-data tabular-nums ${valeur >= capital ? "text-emerald-400" : "text-rose-400"}`}>
+          {pct(((valeur - capital) / capital) * 100)}
+        </div>
+      )}
+      {dd != null && dd < -0.05 && (
+        <div className="text-rose-400/90 font-data tabular-nums">Drawdown : {dd.toFixed(1)} %</div>
+      )}
+    </div>
+  );
+}
+
+function BenchmarkCompareTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl space-y-1">
+      <div className="text-slate-400 mb-1">{formatDateShort(label)}</div>
+      {payload.map((p) => (
+        <div key={p.dataKey} className="flex items-center gap-2 font-data tabular-nums">
+          <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+          <span className="text-slate-400">{p.name} :</span>
+          <span className="text-slate-100">{typeof p.value === "number" ? p.value.toFixed(1) : p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PerformanceTab({
+  bourse, bourseHistory, bourseGainAbs, trackLoading, trackError, captureSnapshot,
+  hasEnoughHistory, hasEnoughBase100, perfRange, setPerfRange,
+  selectedBenchmarks, setSelectedBenchmarks, showDividendsReinvested, setShowDividendsReinvested,
+}) {
+  const operations = bourse.operations || [];
+
+  const rangedHistory = useMemo(() => filterHistoryByRange(bourseHistory, perfRange), [bourseHistory, perfRange]);
+
+  const twr = useMemo(() => computeTWR(bourseHistory), [bourseHistory]);
+  const xirr = useMemo(() => computeXIRR(bourseHistory), [bourseHistory]);
+  const volatility = useMemo(() => computeVolatility(bourseHistory), [bourseHistory]);
+  const maxDD = useMemo(() => computeMaxDrawdown(bourseHistory), [bourseHistory]);
+  const drawdownSeries = useMemo(() => computeDrawdownSeries(rangedHistory), [rangedHistory]);
+  const drawdownByDate = useMemo(() => Object.fromEntries(drawdownSeries.map((d) => [d.date, d.ddPct])), [drawdownSeries]);
+  const sharpe = useMemo(() => computeSharpeRatio(bourseHistory), [bourseHistory]);
+  const bestWorst = useMemo(() => computeBestWorst(bourseHistory), [bourseHistory]);
+  const alphaBeta = useMemo(() => computeAlphaBeta(bourseHistory, "sp500"), [bourseHistory]);
+  const contribution = useMemo(() => computeContribution(bourse.positions), [bourse.positions]);
+  const rolling = useMemo(() => computeRollingPerformance(bourseHistory), [bourseHistory]);
+  const feeEfficiency = useMemo(() => computeFeeEfficiency(operations, bourseGainAbs), [operations, bourseGainAbs]);
+  const tsr = useMemo(() => computeTSR(bourseHistory, operations), [bourseHistory, operations]);
+
+  const base100Data = useMemo(() => rebaseTo100(rangedHistory, ["valeur", ...selectedBenchmarks.map((s) => ALL_BENCHMARK_KEYS[s])]), [rangedHistory, selectedBenchmarks]);
+
+  // Écart de surperformance vs le premier indice sélectionné, pour l'affichage en zone colorée
+  const primaryBenchKey = selectedBenchmarks[0] ? ALL_BENCHMARK_KEYS[selectedBenchmarks[0]] : null;
+  const spreadData = useMemo(() => {
+    if (!primaryBenchKey) return [];
+    return base100Data
+      .filter((d) => d.valeur != null && d[primaryBenchKey] != null)
+      .map((d) => ({ ...d, spread: d.valeur - d[primaryBenchKey] }));
+  }, [base100Data, primaryBenchKey]);
+
+  const toggleBenchmark = (symbol) => {
+    setSelectedBenchmarks((prev) =>
+      prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol]
+    );
+  };
+
+  // Points cliquables : achats/ventes sur la courbe de capital investi
+  const opsByDate = useMemo(() => {
+    const map = {};
+    operations.filter((op) => op.type === "ACHAT" || op.type === "VENTE").forEach((op) => {
+      if (!map[op.date]) map[op.date] = [];
+      map[op.date].push(op);
+    });
+    return map;
+  }, [operations]);
+
+  const OperationDot = (props) => {
+    const { cx, cy, payload } = props;
+    const ops = opsByDate[payload.date];
+    if (!ops || cx == null || cy == null) return null;
+    const isBuy = ops.some((o) => o.type === "ACHAT");
+    return (
+      <circle
+        cx={cx} cy={cy} r={4}
+        fill={isBuy ? "#34d399" : "#fb7185"}
+        stroke="#0f172a" strokeWidth={1.5}
+        style={{ cursor: "pointer" }}
+      >
+        <title>{ops.map((o) => `${o.type} ${o.asset} x${o.quantity}`).join(" · ")}</title>
+      </circle>
+    );
+  };
+
+  return (
+    <>
       {/* Suivi historique */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <CardLabel icon={Activity}>Suivi du portefeuille (à partir d'aujourd'hui)</CardLabel>
@@ -687,74 +900,314 @@ export default function Bourse({
       </div>
       {trackError && <p className="text-[11px] text-amber-300/80">{trackError}</p>}
 
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel>Capital investi vs valeur actuelle</CardLabel>
-        {!hasEnoughHistory ? (
+      {!hasEnoughHistory ? (
+        <Card accent={CARD_THEMES.violet}>
           <EmptyState>
             {bourseHistory.length === 0
               ? "Aucun suivi encore — clique sur « Actualiser le suivi » pour démarrer."
               : `Suivi démarré le ${formatDateShort(bourseHistory[0].date)} — reviens dans les prochains jours.`}
           </EmptyState>
-        ) : (
-          <div className="h-80 mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={bourseHistory} margin={{ left: 0, right: 10, top: 10 }}>
-                <defs>
-                  <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
-                <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
-                <Tooltip content={<HistoryTooltip mode="eur" />} />
-                <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#a78bfa" strokeWidth={2.5} fill="url(#bourseValeurFill)" />
-                <Line type="monotone" dataKey="capital" name="Capital investi" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 3" dot={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <>
+          {/* ─── Indicateurs clés ─── */}
+          <Card accent={CARD_THEMES.violet}>
+            <CardLabel icon={Target}>Indicateurs de performance</CardLabel>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
+              <MetricCard
+                icon={TrendingUp} label="Rendement annualisé (TWR)"
+                value={twr ? pct(twr.annualizedPct) : "—"}
+                sub={twr ? `Total sur période : ${pct(twr.totalReturnPct)}` : "Historique insuffisant"}
+                tone={twr && twr.annualizedPct >= 0 ? "emerald" : "rose"}
+              />
+              <MetricCard
+                icon={Percent} label="XIRR (flux réels)"
+                value={xirr != null ? pct(xirr) : "—"}
+                sub="Taux tenant compte des dates de versement"
+                tone={xirr != null && xirr >= 0 ? "emerald" : "rose"}
+              />
+              <MetricCard
+                icon={Activity} label="Volatilité annualisée"
+                value={volatility != null ? pctPlain(volatility) : "—"}
+                sub={`Marché actions ≈ ${MARKET_BENCHMARKS.volatility.market}%`}
+                tone="amber"
+              />
+              <MetricCard
+                icon={TrendingDown} label="Max drawdown"
+                value={maxDD ? pctPlain(maxDD.maxDrawdownPct) : "—"}
+                sub={
+                  maxDD
+                    ? maxDD.recoveryDays != null
+                      ? `Récupéré en ${maxDD.recoveryDays} j`
+                      : maxDD.stillInDrawdown ? "Pas encore récupéré" : "—"
+                    : "—"
+                }
+                tone="rose"
+              />
+              <MetricCard
+                icon={Scale} label="Ratio de Sharpe"
+                value={sharpe != null ? sharpe.toFixed(2) : "—"}
+                sub={`Bon ≥ ${MARKET_BENCHMARKS.sharpe.good} · marché ≈ ${MARKET_BENCHMARKS.sharpe.market}`}
+                tone={sharpe != null && sharpe >= MARKET_BENCHMARKS.sharpe.good ? "emerald" : "amber"}
+              />
+              <MetricCard
+                icon={Scale} label="Bêta (vs S&P 500)"
+                value={alphaBeta ? alphaBeta.beta.toFixed(2) : "—"}
+                sub="Sensibilité au marché — 1 = comme le marché"
+                tone="violet"
+              />
+              <MetricCard
+                icon={Target} label="Alpha annualisé (vs S&P 500)"
+                value={alphaBeta ? pct(alphaBeta.alphaAnnualizedPct) : "—"}
+                sub="Surperformance nette de la sensibilité au marché"
+                tone={alphaBeta && alphaBeta.alphaAnnualizedPct >= 0 ? "emerald" : "rose"}
+              />
+              <MetricCard
+                icon={Coins} label="Frais / performance"
+                value={feeEfficiency.ratioPct != null ? pctPlain(Math.abs(feeEfficiency.ratioPct)) : "—"}
+                sub={`${eur(feeEfficiency.totalFees, 2)} de frais cumulés`}
+                tone="amber"
+              />
+            </div>
 
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel>Comparaison aux indices (base 100)</CardLabel>
-        {!hasEnoughBase100 ? (
-          <EmptyState>Comparaison disponible après plusieurs jours de suivi.</EmptyState>
-        ) : (
-          <div className="h-80 mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={base100Data} margin={{ left: 0, right: 10, top: 10 }}>
-                <CartesianGrid stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
-                <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
-                <Tooltip content={<HistoryTooltip mode="base100" />} />
-                <Line type="monotone" dataKey="valeur" name="Mon portefeuille" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
-                {BENCHMARKS.map((b) => (
-                  <Line key={b.symbol} type="monotone" dataKey={BENCHMARK_KEYS[b.symbol]} name={b.name} stroke={b.color} strokeWidth={1.5} dot={false} />
+            {/* Repères marché */}
+            <div className="mt-4 pt-3 border-t border-slate-800">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                <Info size={11} /> Repères de marché (indicatif)
+              </div>
+              <div className="grid sm:grid-cols-2 gap-x-6">
+                {twr && (
+                  <BenchmarkGauge label="Rendement annualisé" value={twr.annualizedPct} target={MARKET_BENCHMARKS.annualReturn.market} unit="%" />
+                )}
+                {twr && (
+                  <BenchmarkGauge label="vs investisseur moyen (comportemental)" value={twr.annualizedPct} target={MARKET_BENCHMARKS.annualReturn.investorAvg} unit="%" />
+                )}
+                {volatility != null && (
+                  <BenchmarkGauge label="Volatilité" value={volatility} target={MARKET_BENCHMARKS.volatility.market} unit="%" higherIsBetter={false} />
+                )}
+                {sharpe != null && (
+                  <BenchmarkGauge label="Sharpe" value={sharpe} target={MARKET_BENCHMARKS.sharpe.good} digits={2} />
+                )}
+                {alphaBeta && (
+                  <BenchmarkGauge label="Bêta" value={alphaBeta.beta} target={MARKET_BENCHMARKS.beta.market} digits={2} higherIsBetter={false} />
+                )}
+                {maxDD && (
+                  <BenchmarkGauge label="Max drawdown" value={maxDD.maxDrawdownPct} target={MARKET_BENCHMARKS.maxDrawdown.market} unit="%" higherIsBetter={false} />
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* ─── Meilleur / pire jour & mois ─── */}
+          {bestWorst && (
+            <Card accent={CARD_THEMES.violet}>
+              <CardLabel icon={Activity}>Extrêmes de performance</CardLabel>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <MetricCard icon={ArrowUp} label="Meilleur jour" value={pct(bestWorst.bestDay.r)} sub={formatDateShort(bestWorst.bestDay.date)} tone="emerald" />
+                <MetricCard icon={ArrowDown} label="Pire jour" value={pct(bestWorst.worstDay.r)} sub={formatDateShort(bestWorst.worstDay.date)} tone="rose" />
+                {bestWorst.bestMonth && (
+                  <MetricCard icon={ArrowUp} label="Meilleur mois" value={pct(bestWorst.bestMonth.r)} sub={bestWorst.bestMonth.month} tone="emerald" />
+                )}
+                {bestWorst.worstMonth && (
+                  <MetricCard icon={ArrowDown} label="Pire mois" value={pct(bestWorst.worstMonth.r)} sub={bestWorst.worstMonth.month} tone="rose" />
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* ─── Performance glissante ─── */}
+          {rolling && (
+            <Card accent={CARD_THEMES.violet}>
+              <CardLabel icon={TrendingUp}>Performance glissante</CardLabel>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-2">
+                {[
+                  ["1M", rolling.m1], ["3M", rolling.m3], ["6M", rolling.m6],
+                  ["1A", rolling.y1], ["YTD", rolling.ytd], ["Origine", rolling.sinceOrigin],
+                ].map(([label, val]) => (
+                  <div key={label} className="text-center">
+                    <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+                    <div className={`font-data tabular-nums text-sm mt-0.5 ${val == null ? "text-slate-600" : val >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      {val != null ? pct(val) : "—"}
+                    </div>
+                  </div>
                 ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        <div className="flex flex-wrap gap-3 mt-2">
-          <Legend2 color="#fbbf24" label="Mon portefeuille" />
-          {BENCHMARKS.map((b) => <Legend2 key={b.symbol} color={b.color} label={b.name} />)}
-        </div>
-      </Card>
+              </div>
+            </Card>
+          )}
+
+          {/* ─── Contribution par ligne ─── */}
+          {contribution.length > 0 && (
+            <Card accent={CARD_THEMES.violet}>
+              <CardLabel icon={PieIcon}>Contribution à la performance par ligne</CardLabel>
+              <div className="space-y-2 mt-2">
+                {contribution.map((c) => (
+                  <div key={c.ticker} className="flex items-center gap-3">
+                    <span className="text-xs text-slate-300 w-20 truncate">{c.ticker}</span>
+                    <div className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${c.gainAbs >= 0 ? "bg-emerald-400" : "bg-rose-400"}`}
+                        style={{ width: `${Math.max(2, c.sharePct)}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-data tabular-nums w-20 text-right ${c.gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      {eur(c.gainAbs)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* ─── TSR avec/sans dividendes ─── */}
+          {tsr && (
+            <Card accent={CARD_THEMES.violet}>
+              <CardLabel icon={Coins}>Rendement total avec dividendes réinvestis (TSR)</CardLabel>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <MetricCard label="Sans dividendes" value={pct(tsr.withoutDividends)} tone={tsr.withoutDividends >= 0 ? "emerald" : "rose"} />
+                <MetricCard label="Avec dividendes réinvestis (TSR)" value={pct(tsr.withDividends)} sub={`${eur(tsr.dividendsInPeriod, 2)} de dividendes perçus`} tone={tsr.withDividends >= 0 ? "emerald" : "rose"} />
+              </div>
+            </Card>
+          )}
+
+          {/* ─── Graphique capital vs valeur, avec drawdown et annotations d'ordres ─── */}
+          <Card accent={CARD_THEMES.violet}>
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+              <CardLabel>Capital investi vs valeur actuelle</CardLabel>
+              <RangeSelector range={perfRange} setRange={setPerfRange} />
+            </div>
+            <div className="h-80 mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={rangedHistory} margin={{ left: 0, right: 10, top: 10 }}>
+                  <defs>
+                    <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
+                  <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
+                  <Tooltip content={<EnrichedHistoryTooltip drawdownByDate={drawdownByDate} />} />
+                  {/* Zones grisées de drawdown */}
+                  {drawdownSeries.map((d, i) => {
+                    if (d.ddPct >= -0.3) return null;
+                    const next = drawdownSeries[i + 1];
+                    if (!next) return null;
+                    return (
+                      <ReferenceArea key={d.date} x1={d.date} x2={next.date} fill="#64748b" fillOpacity={0.12} strokeOpacity={0} />
+                    );
+                  })}
+                  <Area type="monotone" dataKey="valeur" name="Valeur du portefeuille" stroke="#a78bfa" strokeWidth={2.5} fill="url(#bourseValeurFill)" dot={<OperationDot />} />
+                  <Line type="monotone" dataKey="capital" name="Capital investi" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 3" dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex items-center gap-4 mt-2 text-[11px] text-slate-500">
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Achat</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-400" /> Vente</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-2 rounded-sm bg-slate-500/30" /> Zone de drawdown</span>
+            </div>
+          </Card>
+
+          {/* ─── Comparaison aux indices ─── */}
+          <Card accent={CARD_THEMES.violet}>
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+              <CardLabel>Comparaison aux indices (base 100)</CardLabel>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowDividendsReinvested((v) => !v)}
+                  className={`text-[11px] font-medium px-2.5 py-1 rounded-md border transition-colors ${
+                    showDividendsReinvested ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40" : "text-slate-500 border-slate-800 hover:text-slate-300"
+                  }`}
+                  title="Inclure les dividendes réinvestis dans la courbe du portefeuille"
+                >
+                  {showDividendsReinvested ? "Avec dividendes" : "Sans dividendes"}
+                </button>
+              </div>
+            </div>
+
+            {/* Multi-select indices */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {ALL_BENCHMARKS.map((b) => (
+                <button
+                  key={b.symbol}
+                  onClick={() => toggleBenchmark(b.symbol)}
+                  className={`text-[11px] font-medium px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1.5 ${
+                    selectedBenchmarks.includes(b.symbol) ? "text-slate-100" : "text-slate-500 border-slate-800 hover:text-slate-300"
+                  }`}
+                  style={selectedBenchmarks.includes(b.symbol) ? { borderColor: b.color, background: `${b.color}22` } : {}}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: b.color }} />
+                  {b.name}
+                </button>
+              ))}
+            </div>
+
+            {!hasEnoughBase100 ? (
+              <EmptyState>Comparaison disponible après plusieurs jours de suivi.</EmptyState>
+            ) : (
+              <div className="h-80 mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={base100Data} margin={{ left: 0, right: 10, top: 10 }}>
+                    <CartesianGrid stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
+                    <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+                    <Tooltip content={<BenchmarkCompareTooltip />} />
+                    <Line type="monotone" dataKey="valeur" name="Mon portefeuille" stroke="#fbbf24" strokeWidth={2.5} dot={false} />
+                    {ALL_BENCHMARKS.filter((b) => selectedBenchmarks.includes(b.symbol)).map((b) => (
+                      <Line key={b.symbol} type="monotone" dataKey={ALL_BENCHMARK_KEYS[b.symbol]} name={b.name} stroke={b.color} strokeWidth={1.5} dot={false} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3 mt-2">
+              <Legend2 color="#fbbf24" label="Mon portefeuille" />
+              {ALL_BENCHMARKS.filter((b) => selectedBenchmarks.includes(b.symbol)).map((b) => <Legend2 key={b.symbol} color={b.color} label={b.name} />)}
+            </div>
+          </Card>
+
+          {/* ─── Écart de surperformance (zone colorée) ─── */}
+          {primaryBenchKey && spreadData.length > 1 && (
+            <Card accent={CARD_THEMES.violet}>
+              <CardLabel icon={Activity}>
+                Surperformance vs {ALL_BENCHMARKS.find((b) => b.symbol === selectedBenchmarks[0])?.name}
+              </CardLabel>
+              <div className="h-56 mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={spreadData} margin={{ left: 0, right: 10, top: 10 }}>
+                    <defs>
+                      <linearGradient id="spreadFillPos" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.5} />
+                        <stop offset="100%" stopColor="#34d399" stopOpacity={0.05} />
+                      </linearGradient>
+                      <linearGradient id="spreadFillNeg" x1="0" y1="1" x2="0" y2="0">
+                        <stop offset="0%" stopColor="#fb7185" stopOpacity={0.5} />
+                        <stop offset="100%" stopColor="#fb7185" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={50} />
+                    <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+                    <Tooltip
+                      formatter={(v) => [`${v >= 0 ? "+" : ""}${v.toFixed(1)} pts`, "Écart"]}
+                      labelFormatter={formatDateShort}
+                      contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
+                    />
+                    <Area type="monotone" dataKey="spread" name="Écart (pts base 100)" stroke="#a78bfa" strokeWidth={1.5} fill="url(#spreadFillPos)" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2">
+                Zone au-dessus de zéro = surperformance de ton portefeuille vs l'indice ; en-dessous = sous-performance.
+              </p>
+            </Card>
+          )}
+        </>
+      )}
 
       <FinancialCalendar positions={bourse.positions} />
-      </>
-      )}
-
-      {panicPosition && (
-        <AntiPanicModal
-          position={panicPosition}
-          note={findNoteForTicker(panicPosition.ticker)}
-          onClose={() => setPanicPosition(null)}
-        />
-      )}
-    </div>
+    </>
   );
 }
 
