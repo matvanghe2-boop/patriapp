@@ -342,6 +342,14 @@ export const MARKET_BENCHMARKS = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const toDate = (iso) => new Date(`${iso}T00:00:00`);
 
+// Annualiser un rendement mesuré sur quelques jours seulement produit des
+// nombres absurdes (composer +2% sur 3 jours donne +183%/an). En dessous de
+// ces seuils, on renvoie le total brut sur la période plutôt qu'un taux
+// annualisé, et les métriques purement statistiques (volatilité, Sharpe,
+// alpha/bêta) sont carrément désactivées faute d'échantillon significatif.
+export const MIN_DAYS_FOR_ANNUALIZATION = 30;
+export const MIN_POINTS_FOR_STATS = 20;
+
 /** Nombre d'années (fraction) entre deux dates ISO. */
 function yearsBetween(startIso, endIso) {
   return Math.max((toDate(endIso) - toDate(startIso)) / (365.25 * DAY_MS), 1 / 365.25);
@@ -383,15 +391,22 @@ function stdDev(values) {
  * chaîne des rendements quotidiens neutralisés des flux de capital. C'est la
  * mesure qui reflète la performance de gestion, indépendamment des dates de
  * versement — contrairement à un simple (valeur finale / capital investi).
+ *
+ * En dessous de MIN_DAYS_FOR_ANNUALIZATION jours d'historique, annualiser
+ * n'a aucun sens statistique (un +2% sur 3 jours composé sur 365 jours
+ * donne +183%/an) : on renvoie alors annualizedPct = null et on laisse
+ * l'appelant afficher le total brut sur période à la place.
  */
 export function computeTWR(history) {
   const returns = computeDailyReturns(history);
   if (returns.length === 0) return null;
   const cumGrowth = returns.reduce((acc, { r }) => acc * (1 + r / 100), 1);
   const totalReturnPct = (cumGrowth - 1) * 100;
+  const daysSpan = (toDate(history[history.length - 1].date) - toDate(history[0].date)) / DAY_MS;
   const years = yearsBetween(history[0].date, history[history.length - 1].date);
-  const annualized = years > 0 ? (Math.pow(cumGrowth, 1 / years) - 1) * 100 : totalReturnPct;
-  return { totalReturnPct, annualizedPct: annualized, years };
+  const reliable = daysSpan >= MIN_DAYS_FOR_ANNUALIZATION;
+  const annualized = reliable ? (Math.pow(cumGrowth, 1 / years) - 1) * 100 : null;
+  return { totalReturnPct, annualizedPct: annualized, years, daysSpan, reliable };
 }
 
 /**
@@ -402,6 +417,8 @@ export function computeTWR(history) {
  */
 export function computeXIRR(history) {
   if (!history || history.length < 2) return null;
+  const daysSpan = (toDate(history[history.length - 1].date) - toDate(history[0].date)) / DAY_MS;
+  if (daysSpan < MIN_DAYS_FOR_ANNUALIZATION) return null;
   const flows = [];
   let prevCapital = history[0].capital ?? 0;
   if (prevCapital > 0) flows.push({ date: history[0].date, amount: -prevCapital });
@@ -432,10 +449,13 @@ export function computeXIRR(history) {
   return Number.isFinite(mid) ? mid * 100 : null;
 }
 
-/** Volatilité annualisée (%) à partir de l'écart-type des rendements quotidiens. */
+/** Volatilité annualisée (%) à partir de l'écart-type des rendements quotidiens.
+ * Renvoie null en dessous de MIN_POINTS_FOR_STATS points — un écart-type
+ * calculé sur 2-3 jours n'est pas représentatif et fait exploser le chiffre
+ * une fois annualisé (×√252). */
 export function computeVolatility(history) {
   const returns = computeDailyReturns(history).map((d) => d.r);
-  if (returns.length < 2) return null;
+  if (returns.length < MIN_POINTS_FOR_STATS) return null;
   return stdDev(returns) * Math.sqrt(252);
 }
 
@@ -495,11 +515,13 @@ export function computeDrawdownSeries(history) {
   });
 }
 
-/** Ratio de Sharpe annualisé = (rendement annualisé - taux sans risque) / volatilité annualisée. */
+/** Ratio de Sharpe annualisé = (rendement annualisé - taux sans risque) / volatilité annualisée.
+ * Hérite naturellement des garde-fous de computeTWR (annualizedPct) et
+ * computeVolatility (null en dessous du seuil minimum de points). */
 export function computeSharpeRatio(history, riskFreeRatePct = 2.5) {
   const twr = computeTWR(history);
   const vol = computeVolatility(history);
-  if (!twr || !vol || vol === 0) return null;
+  if (!twr || twr.annualizedPct == null || !vol || vol === 0) return null;
   return (twr.annualizedPct - riskFreeRatePct) / vol;
 }
 
@@ -539,7 +561,7 @@ export function computeBestWorst(history) {
  * (méthode des moindres carrés). Alpha est exprimé en % annualisé.
  */
 export function computeAlphaBeta(history, benchmarkKey = "sp500") {
-  if (!history || history.length < 3) return null;
+  if (!history || history.length < MIN_POINTS_FOR_STATS) return null;
   const pairs = [];
   for (let i = 1; i < history.length; i++) {
     const prev = history[i - 1], cur = history[i];
@@ -549,7 +571,7 @@ export function computeAlphaBeta(history, benchmarkKey = "sp500") {
     const rb = (cur[benchmarkKey] - prev[benchmarkKey]) / prev[benchmarkKey];
     if (Number.isFinite(rp) && Number.isFinite(rb)) pairs.push({ rp, rb });
   }
-  if (pairs.length < 3) return null;
+  if (pairs.length < MIN_POINTS_FOR_STATS) return null;
 
   const n = pairs.length;
   const meanP = pairs.reduce((s, p) => s + p.rp, 0) / n;

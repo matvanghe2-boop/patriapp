@@ -16,7 +16,7 @@ import {
   MARKET_BENCHMARKS, computeTWR, computeXIRR, computeVolatility, computeMaxDrawdown,
   computeDrawdownSeries, computeSharpeRatio, computeBestWorst, computeAlphaBeta,
   computeContribution, computeRollingPerformance, computeFeeEfficiency, computeTSR,
-  filterHistoryByRange,
+  filterHistoryByRange, MIN_DAYS_FOR_ANNUALIZATION, MIN_POINTS_FOR_STATS,
 } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -913,23 +913,37 @@ function PerformanceTab({
           {/* ─── Indicateurs clés ─── */}
           <Card accent={CARD_THEMES.violet}>
             <CardLabel icon={Target}>Indicateurs de performance</CardLabel>
+            {bourseHistory.length < MIN_POINTS_FOR_STATS && (
+              <p className="text-[11px] text-amber-300/80 -mt-1 mb-2 flex items-center gap-1.5">
+                <Info size={12} className="shrink-0" />
+                Certains indicateurs (volatilité, Sharpe, alpha/bêta, rendement annualisé) ne s'affichent qu'à partir d'un historique
+                suffisant ({bourseHistory.length} j sur {MIN_POINTS_FOR_STATS}-{MIN_DAYS_FOR_ANNUALIZATION} j requis) — sur trop peu de
+                jours, ils donneraient des chiffres extrapolés absurdes.
+              </p>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
               <MetricCard
-                icon={TrendingUp} label="Rendement annualisé (TWR)"
-                value={twr ? pct(twr.annualizedPct) : "—"}
-                sub={twr ? `Total sur période : ${pct(twr.totalReturnPct)}` : "Historique insuffisant"}
-                tone={twr && twr.annualizedPct >= 0 ? "emerald" : "rose"}
+                icon={TrendingUp} label={twr && !twr.reliable ? "Rendement sur période" : "Rendement annualisé (TWR)"}
+                value={twr ? (twr.reliable ? pct(twr.annualizedPct) : pct(twr.totalReturnPct)) : "—"}
+                sub={
+                  !twr
+                    ? "Historique insuffisant"
+                    : twr.reliable
+                    ? `Total sur période : ${pct(twr.totalReturnPct)}`
+                    : `Annualisation dispo à partir de ${MIN_DAYS_FOR_ANNUALIZATION} j de suivi (${Math.round(twr.daysSpan)} j pour l'instant)`
+                }
+                tone={twr && (twr.reliable ? twr.annualizedPct >= 0 : twr.totalReturnPct >= 0) ? "emerald" : "rose"}
               />
               <MetricCard
                 icon={Percent} label="XIRR (flux réels)"
                 value={xirr != null ? pct(xirr) : "—"}
-                sub="Taux tenant compte des dates de versement"
-                tone={xirr != null && xirr >= 0 ? "emerald" : "rose"}
+                sub={xirr != null ? "Taux tenant compte des dates de versement" : `Fiable à partir de ${MIN_DAYS_FOR_ANNUALIZATION} j de suivi`}
+                tone={xirr != null && xirr >= 0 ? "emerald" : xirr == null ? "slate" : "rose"}
               />
               <MetricCard
                 icon={Activity} label="Volatilité annualisée"
                 value={volatility != null ? pctPlain(volatility) : "—"}
-                sub={`Marché actions ≈ ${MARKET_BENCHMARKS.volatility.market}%`}
+                sub={volatility != null ? `Marché actions ≈ ${MARKET_BENCHMARKS.volatility.market}%` : `Fiable à partir de ${MIN_POINTS_FOR_STATS} points`}
                 tone="amber"
               />
               <MetricCard
@@ -947,25 +961,29 @@ function PerformanceTab({
               <MetricCard
                 icon={Scale} label="Ratio de Sharpe"
                 value={sharpe != null ? sharpe.toFixed(2) : "—"}
-                sub={`Bon ≥ ${MARKET_BENCHMARKS.sharpe.good} · marché ≈ ${MARKET_BENCHMARKS.sharpe.market}`}
+                sub={sharpe != null ? `Bon ≥ ${MARKET_BENCHMARKS.sharpe.good} · marché ≈ ${MARKET_BENCHMARKS.sharpe.market}` : `Fiable à partir de ${MIN_POINTS_FOR_STATS} points`}
                 tone={sharpe != null && sharpe >= MARKET_BENCHMARKS.sharpe.good ? "emerald" : "amber"}
               />
               <MetricCard
                 icon={Scale} label="Bêta (vs S&P 500)"
                 value={alphaBeta ? alphaBeta.beta.toFixed(2) : "—"}
-                sub="Sensibilité au marché — 1 = comme le marché"
+                sub={alphaBeta ? "Sensibilité au marché — 1 = comme le marché" : `Fiable à partir de ${MIN_POINTS_FOR_STATS} points`}
                 tone="violet"
               />
               <MetricCard
                 icon={Target} label="Alpha annualisé (vs S&P 500)"
                 value={alphaBeta ? pct(alphaBeta.alphaAnnualizedPct) : "—"}
-                sub="Surperformance nette de la sensibilité au marché"
+                sub={alphaBeta ? "Surperformance nette de la sensibilité au marché" : `Fiable à partir de ${MIN_POINTS_FOR_STATS} points`}
                 tone={alphaBeta && alphaBeta.alphaAnnualizedPct >= 0 ? "emerald" : "rose"}
               />
               <MetricCard
                 icon={Coins} label="Frais / performance"
                 value={feeEfficiency.ratioPct != null ? pctPlain(Math.abs(feeEfficiency.ratioPct)) : "—"}
-                sub={`${eur(feeEfficiency.totalFees, 2)} de frais cumulés`}
+                sub={
+                  feeEfficiency.ratioPct != null
+                    ? `${eur(feeEfficiency.totalFees, 2)} de frais pour ${eur(feeEfficiency.totalGain, 2)} de gain — ratio élevé si le gain est encore faible`
+                    : "Pas encore de gain pour calculer ce ratio"
+                }
                 tone="amber"
               />
             </div>
@@ -976,10 +994,10 @@ function PerformanceTab({
                 <Info size={11} /> Repères de marché (indicatif)
               </div>
               <div className="grid sm:grid-cols-2 gap-x-6">
-                {twr && (
+                {twr && twr.reliable && (
                   <BenchmarkGauge label="Rendement annualisé" value={twr.annualizedPct} target={MARKET_BENCHMARKS.annualReturn.market} unit="%" />
                 )}
-                {twr && (
+                {twr && twr.reliable && (
                   <BenchmarkGauge label="vs investisseur moyen (comportemental)" value={twr.annualizedPct} target={MARKET_BENCHMARKS.annualReturn.investorAvg} unit="%" />
                 )}
                 {volatility != null && (
