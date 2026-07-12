@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon,
-  PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen,
+  PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, LayoutGrid, Briefcase,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import AssetLogo from "./AssetLogo";
+import SectorHeatmap from "./SectorHeatmap";
 import { eur, pctPlain, pct, uid, compact, rebaseTo100, upsertByDate, computeDividendSummary } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -212,6 +213,7 @@ export default function Bourse({
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
   const [panicPosition, setPanicPosition] = useState(null);
+  const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "performance"
 
   // Retrouve la note de thèse la plus pertinente pour un ticker : priorité à
   // une note active (non clôturée), sinon la plus récente toutes confondues.
@@ -381,6 +383,29 @@ export default function Bourse({
         </h1>
         <p className="text-sm text-slate-500 mt-1">Positions actions / ETF — analyse de portefeuille.</p>
       </div>
+
+      {/* Sous-onglets */}
+      <div className="relative flex items-center gap-2 border-b border-slate-800 pb-1">
+        <button
+          onClick={() => setSubTab("portefeuille")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "portefeuille" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Briefcase size={14} /> Portefeuille
+        </button>
+        <button
+          onClick={() => setSubTab("performance")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "performance" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Activity size={14} /> Performance
+        </button>
+      </div>
+
+      {subTab === "portefeuille" && (
+      <>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card accent={CARD_THEMES.violet}>
@@ -642,8 +667,12 @@ export default function Bourse({
         )}
       </Card>
 
-      <FinancialCalendar positions={bourse.positions} />
+      <SectorHeatmap positions={bourse.positions} />
+      </>
+      )}
 
+      {subTab === "performance" && (
+      <>
       {/* Suivi historique */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <CardLabel icon={Activity}>Suivi du portefeuille (à partir d'aujourd'hui)</CardLabel>
@@ -713,6 +742,10 @@ export default function Bourse({
           {BENCHMARKS.map((b) => <Legend2 key={b.symbol} color={b.color} label={b.name} />)}
         </div>
       </Card>
+
+      <FinancialCalendar positions={bourse.positions} />
+      </>
+      )}
 
       {panicPosition && (
         <AntiPanicModal
