@@ -128,3 +128,19 @@ export const SECTOR_COLORS = {
   "Services": { bg: "bg-teal-500/20", border: "border-teal-500/40", text: "text-teal-300" },
   "Autre": { bg: "bg-slate-500/20", border: "border-slate-500/40", text: "text-slate-300" },
 };
+
+// Mêmes secteurs, en hexadécimal plein pour le remplissage SVG du treemap
+// (les classes Tailwind ci-dessus ne sont pas exploitables comme fill SVG).
+export const SECTOR_HEX = {
+  "Technologie": "#0e7490",
+  "Santé & pharmacie": "#047857",
+  "Biens de consommation": "#be185d",
+  "Industrie": "#b45309",
+  "Finance": "#6d28d9",
+  "Énergie": "#c2410c",
+  "Immobilier": "#0369a1",
+  "Télécommunications": "#a21caf",
+  "Matériaux": "#4d7c0f",
+  "Services": "#0f766e",
+  "Autre": "#334155",
+};
