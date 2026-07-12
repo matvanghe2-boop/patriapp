@@ -66,17 +66,31 @@ export async function parseOperationPdf(file) {
 }
 
 /**
- * Récupère l'historique quotidien (date + clôture) pour une liste de symboles.
- * range: "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "ytd" | "max"
- * Renvoie : [{ symbol, ok, series: [{date, close}] } | { symbol, ok:false, error }]
+ * Récupère l'historique (date + OHLC + volume) pour une liste de symboles.
+ * range: "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "10y" | "ytd" | "max"
+ * interval (optionnel) : "1d" | "1wk" | "1mo" — sinon déduit automatiquement du range côté serveur.
+ * Renvoie : [{ symbol, ok, interval, series: [{date, open, high, low, close, volume}], firstTradeDate, currency } | { symbol, ok:false, error }]
  */
-export async function fetchHistory(symbols, range = "6mo") {
+export async function fetchHistory(symbols, range = "6mo", interval = null) {
   if (!symbols || symbols.length === 0) return [];
-  const res = await fetch(`${BASE}/history?symbols=${encodeURIComponent(symbols.join(","))}&range=${range}`);
+  const intervalParam = interval ? `&interval=${interval}` : "";
+  const res = await fetch(`${BASE}/history?symbols=${encodeURIComponent(symbols.join(","))}&range=${range}${intervalParam}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Historique indisponible");
   }
   return res.json();
+}
+
+/**
+ * Récupère la fiche complète d'une entreprise (secteur, activité, ratios
+ * clés, repères de cours) pour le sous-onglet Marché.
+ * Renvoie : { symbol, ok, name, sector, industry, description, ...ratios } | { symbol, ok:false, error }
+ */
+export async function fetchCompanyProfile(symbol) {
+  const res = await fetch(`${BASE}/profile?symbol=${encodeURIComponent(symbol)}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || "Fiche entreprise indisponible");
+  return body;
 }
 

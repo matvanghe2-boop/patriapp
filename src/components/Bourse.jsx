@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon,
   PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, LayoutGrid, Briefcase,
-  Info, TrendingDown, Target, Percent, Scale,
+  Info, TrendingDown, Target, Percent, Scale, Search,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -22,6 +22,7 @@ import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import Watchlist from "./Watchlist";
 import FinancialCalendar from "./FinancialCalendar";
+import Marche from "./Marche";
 
 // Reprend le même code couleur que le module Stratégie & Logs pour que le
 // statut d'une thèse se reconnaisse d'un coup d'œil, qu'on le voie dans le
@@ -414,6 +415,14 @@ export default function Bourse({
         >
           <Activity size={14} /> Performance
         </button>
+        <button
+          onClick={() => setSubTab("marche")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "marche" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Search size={14} /> Marché
+        </button>
       </div>
 
       {subTab === "portefeuille" && (
@@ -701,6 +710,8 @@ export default function Bourse({
         setShowDividendsReinvested={setShowDividendsReinvested}
       />
       )}
+
+      {subTab === "marche" && <Marche watchlist={watchlist} setWatchlist={setWatchlist} />}
 
       {panicPosition && (
         <AntiPanicModal
