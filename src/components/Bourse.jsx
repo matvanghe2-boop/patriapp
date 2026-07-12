@@ -422,9 +422,9 @@ export default function Bourse({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card accent={CARD_THEMES.violet}>
           <CardLabel>Valeur du portefeuille</CardLabel>
-          <div className="font-display text-xl text-slate-100">{eur(bourseTotal)}</div>
+          <div className="font-display text-xl text-slate-100 ghost-blur">{eur(bourseTotal)}</div>
           {portfolioDailyChange !== null && (
-            <div className={`flex items-center gap-1 text-xs mt-1 font-data ${portfolioDailyChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            <div className={`flex items-center gap-1 text-xs mt-1 font-data ghost-blur ${portfolioDailyChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {portfolioDailyChange >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
               {portfolioDailyChange >= 0 ? "+" : ""}{eur(portfolioDailyChange)} aujourd'hui
             </div>
@@ -432,7 +432,7 @@ export default function Bourse({
         </Card>
         <Card accent={CARD_THEMES.violet}>
           <CardLabel>Plus/moins-value latente</CardLabel>
-          <div className={`font-display text-xl ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(bourseGainAbs)}</div>
+          <div className={`font-display text-xl ghost-blur ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(bourseGainAbs)}</div>
           <div className={`text-xs mt-1 ${bourseGainAbs >= 0 ? "text-emerald-400/80" : "text-rose-400/80"}`}>{pct(bourseGainPct)}</div>
         </Card>
         <Card accent={CARD_THEMES.violet}>
@@ -442,7 +442,7 @@ export default function Bourse({
               type="number"
               value={bourse.cash_pocket}
               onChange={(e) => setBourse((b) => ({ ...b, cash_pocket: parseFloat(e.target.value) || 0 }))}
-              className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
+              className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
             />
             <span className="text-xs text-slate-600">€</span>
           </div>
@@ -460,11 +460,11 @@ export default function Bourse({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-1">
             <div>
               <div className="text-[11px] text-slate-500 mb-0.5">Dividendes annuels</div>
-              <div className="font-display text-lg text-emerald-400">{eur(dividendSummary.totalAnnualDividend, 2)}</div>
+              <div className="font-display text-lg text-emerald-400 ghost-blur">{eur(dividendSummary.totalAnnualDividend, 2)}</div>
             </div>
             <div>
               <div className="text-[11px] text-slate-500 mb-0.5">Moyenne mensuelle</div>
-              <div className="font-display text-lg text-slate-100">{eur(dividendSummary.monthlyAverage, 2)}</div>
+              <div className="font-display text-lg text-slate-100 ghost-blur">{eur(dividendSummary.monthlyAverage, 2)}</div>
             </div>
             <div>
               <div className="text-[11px] text-slate-500 mb-0.5">Rendement / valeur actuelle</div>
@@ -582,8 +582,8 @@ export default function Bourse({
                         </div>
                       </td>
                       <td className="py-3 pr-3 font-data tabular-nums">{p.quantity}</td>
-                      <td className="py-3 pr-3 font-data tabular-nums">{eur(p.pru, 2)}</td>
-                      <td className="py-3 pr-3 font-data tabular-nums">{eur(p.current_price, 2)}</td>
+                      <td className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.pru, 2)}</td>
+                      <td className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.current_price, 2)}</td>
                       <td className="py-3 pr-3">
                         <DailyVariation position={p} dailyData={dailyData} />
                         {(dailyData?.[p.ticker]?.changePct ?? 0) <= PANIC_THRESHOLD_PCT && (
@@ -595,15 +595,15 @@ export default function Bourse({
                           </button>
                         )}
                       </td>
-                      <td className="py-3 pr-3 font-data tabular-nums">{eur(value)}</td>
-                      <td className={`py-3 pr-3 font-data tabular-nums ${gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      <td className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(value)}</td>
+                      <td className={`py-3 pr-3 font-data tabular-nums ghost-blur ${gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         {eur(gainAbs)} <span className="text-[11px] opacity-80">({pct(gainPct)})</span>
                       </td>
                       <td className="py-3 pr-3 font-data tabular-nums text-slate-400">{pctPlain(weight)}</td>
                       <td className="py-3 pr-3">
                         {p.annual_dividend > 0 ? (
                           <div className="font-data tabular-nums">
-                            <div className="text-emerald-400">{eur(p.annual_dividend * p.quantity, 2)}</div>
+                            <div className="text-emerald-400 ghost-blur">{eur(p.annual_dividend * p.quantity, 2)}</div>
                             <div className="text-[11px] text-slate-500 flex items-center gap-1">
                               <span>{pctPlain(p.current_price > 0 ? (p.annual_dividend / p.current_price) * 100 : 0, 2)} rdt</span>
                               {p.pru > 0 && (
@@ -745,7 +745,7 @@ function BenchmarkGauge({ label, value, target, unit = "", higherIsBetter = true
   );
 }
 
-function MetricCard({ icon: Icon, label, value, sub, tone = "slate" }) {
+function MetricCard({ icon: Icon, label, value, sub, tone = "slate", valueSensitive = false, subSensitive = false }) {
   const toneClass = {
     emerald: "text-emerald-400", rose: "text-rose-400", violet: "text-violet-300",
     amber: "text-amber-300", slate: "text-slate-100",
@@ -755,8 +755,8 @@ function MetricCard({ icon: Icon, label, value, sub, tone = "slate" }) {
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 mb-1">
         {Icon && <Icon size={11} />} {label}
       </div>
-      <div className={`font-display text-lg ${toneClass}`}>{value}</div>
-      {sub && <div className="text-[11px] text-slate-500 mt-0.5">{sub}</div>}
+      <div className={`font-display text-lg ${toneClass} ${valueSensitive ? "ghost-blur" : ""}`}>{value}</div>
+      {sub && <div className={`text-[11px] text-slate-500 mt-0.5 ${subSensitive ? "ghost-blur" : ""}`}>{sub}</div>}
     </div>
   );
 }
@@ -787,8 +787,8 @@ function EnrichedHistoryTooltip({ active, payload, label, drawdownByDate }) {
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl space-y-1">
       <div className="text-slate-400">{formatDateShort(label)}</div>
-      {valeur != null && <div className="text-violet-300 font-data tabular-nums">Valeur : {eur(valeur)}</div>}
-      {capital != null && <div className="text-slate-400 font-data tabular-nums">Capital investi : {eur(capital)}</div>}
+      {valeur != null && <div className="text-violet-300 font-data tabular-nums ghost-blur">Valeur : {eur(valeur)}</div>}
+      {capital != null && <div className="text-slate-400 font-data tabular-nums ghost-blur">Capital investi : {eur(capital)}</div>}
       {valeur != null && capital > 0 && (
         <div className={`font-data tabular-nums ${valeur >= capital ? "text-emerald-400" : "text-rose-400"}`}>
           {pct(((valeur - capital) / capital) * 100)}
@@ -984,6 +984,7 @@ function PerformanceTab({
                     ? `${eur(feeEfficiency.totalFees, 2)} de frais pour ${eur(feeEfficiency.totalGain, 2)} de gain — ratio élevé si le gain est encore faible`
                     : "Pas encore de gain pour calculer ce ratio"
                 }
+                subSensitive={feeEfficiency.ratioPct != null}
                 tone="amber"
               />
             </div>
@@ -1067,7 +1068,7 @@ function PerformanceTab({
                         style={{ width: `${Math.max(2, c.sharePct)}%` }}
                       />
                     </div>
-                    <span className={`text-xs font-data tabular-nums w-20 text-right ${c.gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    <span className={`text-xs font-data tabular-nums w-20 text-right ghost-blur ${c.gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                       {eur(c.gainAbs)}
                     </span>
                   </div>
@@ -1082,7 +1083,7 @@ function PerformanceTab({
               <CardLabel icon={Coins}>Rendement total avec dividendes réinvestis (TSR)</CardLabel>
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <MetricCard label="Sans dividendes" value={pct(tsr.withoutDividends)} tone={tsr.withoutDividends >= 0 ? "emerald" : "rose"} />
-                <MetricCard label="Avec dividendes réinvestis (TSR)" value={pct(tsr.withDividends)} sub={`${eur(tsr.dividendsInPeriod, 2)} de dividendes perçus`} tone={tsr.withDividends >= 0 ? "emerald" : "rose"} />
+                <MetricCard label="Avec dividendes réinvestis (TSR)" value={pct(tsr.withDividends)} sub={`${eur(tsr.dividendsInPeriod, 2)} de dividendes perçus`} subSensitive tone={tsr.withDividends >= 0 ? "emerald" : "rose"} />
               </div>
             </Card>
           )}

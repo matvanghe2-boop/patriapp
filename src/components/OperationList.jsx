@@ -71,10 +71,10 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                 </span>
               </td>
               <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{op.quantity ?? <span className="text-slate-600">—</span>}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{op.price != null ? eur(op.price, 2) : <span className="text-slate-600">—</span>}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-500">{eur(op.fees, 2)}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-100">{eur(op.montantNet, 2)}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums">
+              <td className="py-2.5 px-1 font-data tabular-nums text-slate-300 ghost-blur">{op.price != null ? eur(op.price, 2) : <span className="text-slate-600">—</span>}</td>
+              <td className="py-2.5 px-1 font-data tabular-nums text-slate-500 ghost-blur">{eur(op.fees, 2)}</td>
+              <td className="py-2.5 px-1 font-data tabular-nums text-slate-100 ghost-blur">{eur(op.montantNet, 2)}</td>
+              <td className="py-2.5 px-1 font-data tabular-nums ghost-blur">
                 {op.plusValueRealisee != null ? (
                   <span className={op.plusValueRealisee >= 0 ? "text-emerald-400" : "text-rose-400"}>
                     {eur(op.plusValueRealisee, 2)}

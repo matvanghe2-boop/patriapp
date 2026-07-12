@@ -214,7 +214,7 @@ function ChartTooltip({ active, payload, label }) {
         <div key={p.dataKey} className="flex items-center gap-2 font-data tabular-nums">
           <span className="w-2 h-2 rounded-full" style={{ background: p.color || p.stroke }} />
           <span className="text-slate-400">{p.name} :</span>
-          <span className={p.name?.includes("Projection") ? "text-amber-300/70" : "text-slate-100"}>
+          <span className={`ghost-blur ${p.name?.includes("Projection") ? "text-amber-300/70" : "text-slate-100"}`}>
             {eur(p.value)}
           </span>
         </div>
@@ -379,7 +379,7 @@ export default function Dashboard({
             type="number"
             value={profile.monthly_income}
             onChange={(e) => setProfile((p) => ({ ...p, monthly_income: parseFloat(e.target.value) || 0 }))}
-            className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
+            className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
           />
           <span className="text-xs text-slate-600">€/mois</span>
         </div>
@@ -389,7 +389,7 @@ export default function Dashboard({
             type="number"
             value={profile.monthly_expenses}
             onChange={(e) => setProfile((p) => ({ ...p, monthly_expenses: parseFloat(e.target.value) || 0 }))}
-            className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
+            className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
           />
           <span className="text-xs text-slate-600">€/mois</span>
         </div>
@@ -405,8 +405,8 @@ export default function Dashboard({
           }}
         >
           <span className="text-[11px] uppercase tracking-widest text-emerald-300/80 font-medium">Patrimoine net</span>
-          <span className="font-display text-[26px] text-slate-50 mt-1.5 leading-tight">{eur(patrimoineNet)}</span>
-          <span className={`text-xs mt-1.5 flex items-center gap-1 ${deltaVsLastMonth >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          <span className="font-display text-[26px] text-slate-50 mt-1.5 leading-tight ghost-blur">{eur(patrimoineNet)}</span>
+          <span className={`text-xs mt-1.5 flex items-center gap-1 ghost-blur ${deltaVsLastMonth >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {deltaVsLastMonth >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
             {eur(Math.abs(deltaVsLastMonth))} vs mois dernier
           </span>
@@ -415,14 +415,14 @@ export default function Dashboard({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card accent={CARD_THEMES.emerald}>
             <CardLabel icon={Landmark}>Patrimoine brut</CardLabel>
-            <div className="font-display text-xl text-slate-100">{eur(patrimoineBrut)}</div>
-            {dettesTotal > 0 && <div className="text-xs text-slate-500 mt-1">dont −{eur(dettesTotal)} de passifs</div>}
+            <div className="font-display text-xl text-slate-100 ghost-blur">{eur(patrimoineBrut)}</div>
+            {dettesTotal > 0 && <div className="text-xs text-slate-500 mt-1 ghost-blur">dont −{eur(dettesTotal)} de passifs</div>}
           </Card>
 
           {/* Enhanced performance card: effort vs gains */}
           <Card accent={CARD_THEMES.emerald}>
             <CardLabel icon={TrendingUp}>Performance bourse</CardLabel>
-            <div className={`font-display text-xl ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            <div className={`font-display text-xl ghost-blur ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {eur(bourseGainAbs)}
             </div>
             <div className={`text-xs mt-1 ${bourseGainAbs >= 0 ? "text-emerald-400/80" : "text-rose-400/80"}`}>
@@ -434,14 +434,14 @@ export default function Dashboard({
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
                   Versements cumulés
                 </span>
-                <span className="font-data tabular-nums text-slate-300">{eur(versementsCumules)}</span>
+                <span className="font-data tabular-nums text-slate-300 ghost-blur">{eur(versementsCumules)}</span>
               </div>
               <div className="flex justify-between items-center text-[11px]">
                 <span className={`flex items-center gap-1 ${gainsMarcheReels >= 0 ? "text-emerald-400/80" : "text-rose-400/80"}`}>
                   <span className={`w-1.5 h-1.5 rounded-full inline-block ${gainsMarcheReels >= 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
                   Gains marché réels
                 </span>
-                <span className={`font-data tabular-nums ${gainsMarcheReels >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                <span className={`font-data tabular-nums ghost-blur ${gainsMarcheReels >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                   {eur(gainsMarcheReels)}
                 </span>
               </div>
@@ -450,10 +450,10 @@ export default function Dashboard({
 
           <Card accent={CARD_THEMES.emerald}>
             <CardLabel icon={PiggyBank}>Taux d'épargne mensuel</CardLabel>
-            <div className="font-display text-xl text-slate-100">{eur(epargneMensuelle)}</div>
+            <div className="font-display text-xl text-slate-100 ghost-blur">{eur(epargneMensuelle)}</div>
             <div className="text-xs text-emerald-300/80 mt-1">{pct(tauxEpargne)} du revenu</div>
             {epargneMensuelle > 0 && (
-              <div className="text-[11px] text-slate-600 mt-1">
+              <div className="text-[11px] text-slate-600 mt-1 ghost-blur">
                 Projection +{eur(epargneMensuelle * 6)} / 6 mois
               </div>
             )}
@@ -490,7 +490,7 @@ export default function Dashboard({
                       {d.name}
                     </span>
                     <span className="font-data tabular-nums text-slate-300">
-                      {eur(d.value)} · {totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(0) : 0} %
+                      <span className="ghost-blur">{eur(d.value)}</span> · {totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(0) : 0} %
                     </span>
                   </div>
                 ))}
@@ -591,7 +591,7 @@ export default function Dashboard({
             <div className="flex flex-wrap gap-2 mt-3 max-h-24 overflow-y-auto">
               {historyPast.map((h) => (
                 <span key={h.id} className="flex items-center gap-1.5 text-[11px] bg-slate-950 border border-slate-800 rounded-full px-2.5 py-1 text-slate-400">
-                  {h.label} · {eur(h.value)}
+                  {h.label} · <span className="ghost-blur">{eur(h.value)}</span>
                   <button onClick={() => removeHistoryPoint(h.id)} className="text-slate-600 hover:text-rose-400">×</button>
                 </span>
               ))}
@@ -614,7 +614,7 @@ export default function Dashboard({
               <div key={d.id} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-slate-300">{d.name}</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-data tabular-nums text-rose-400">−{eur(d.amount)}</span>
+                  <span className="font-data tabular-nums text-rose-400 ghost-blur">−{eur(d.amount)}</span>
                   <IconTrash onClick={() => removeDette(d.id)} />
                 </div>
               </div>

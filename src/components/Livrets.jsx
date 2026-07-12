@@ -35,7 +35,7 @@ function SmartProgressBar({ value, max, goal, color = "bg-indigo-400", showGoal 
       </div>
       <div className="flex items-center justify-between text-[10px] text-slate-500 font-data">
         <span>{pct.toFixed(0)}%</span>
-        <span>{eur(value, 0)} / {eur(max, 0)}</span>
+        <span className="ghost-blur">{eur(value, 0)} / {eur(max, 0)}</span>
       </div>
     </div>
   );
@@ -61,7 +61,7 @@ function CompteCourant({ cash, setCash }) {
               type="number"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              className="w-28 bg-slate-950 border border-amber-400/40 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-amber-400"
+              className="w-28 bg-slate-950 border border-amber-400/40 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400"
               autoFocus
               onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
             />
@@ -71,7 +71,7 @@ function CompteCourant({ cash, setCash }) {
           </div>
         ) : (
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-xl text-slate-100">{eur(cash)}</span>
+            <span className="font-display text-xl text-slate-100 ghost-blur">{eur(cash)}</span>
             <span className="text-[11px] text-slate-600">cash disponible</span>
           </div>
         )}
@@ -156,7 +156,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
               </div>
               <div className="flex items-center justify-between text-[10px] text-slate-600 mt-1 font-data">
                 <span>0 €</span>
-                <span>{eur(livretsTotal)}</span>
+                <span className="ghost-blur">{eur(livretsTotal)}</span>
               </div>
             </div>
           )}
@@ -178,7 +178,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                       type="number"
                       value={e.amount}
                       onChange={(ev) => updateEnv(e.id, ev.target.value)}
-                      className="w-24 bg-black/20 border border-white/10 rounded-lg px-2 py-1 text-sm font-data tabular-nums text-right focus:outline-none focus:border-white/30"
+                      className="w-24 bg-black/20 border border-white/10 rounded-lg px-2 py-1 text-sm font-data tabular-nums text-right ghost-blur focus:outline-none focus:border-white/30"
                     />
                     <span className="text-[11px] opacity-50">€</span>
                     <button onClick={() => removeEnv(e.id)} className="opacity-40 hover:opacity-80 ml-1">
@@ -192,7 +192,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                 <div className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm ${remaining >= 0 ? "border-slate-700 text-slate-500" : "border-rose-400/30 text-rose-400"}`}>
                   <span className="w-2 h-2 rounded-full bg-slate-600 shrink-0" />
                   <span className="flex-1">{remaining >= 0 ? "Non alloué" : "Dépassement"}</span>
-                  <span className="font-data tabular-nums">
+                  <span className="font-data tabular-nums ghost-blur">
                     {remaining >= 0 ? eur(remaining) : `−${eur(Math.abs(remaining))}`}
                   </span>
                   {remaining < 0 && <AlertTriangle size={13} className="text-rose-400" />}
@@ -279,10 +279,10 @@ function ArbitrageOptimizer({ livrets }) {
             <div className="flex-1 min-w-0">
               <p className="text-sm text-slate-200 leading-relaxed">
                 En déplaçant{" "}
-                <span className="font-data font-semibold text-amber-300">{eur(s.amount)}</span>{" "}
+                <span className="font-data font-semibold text-amber-300 ghost-blur">{eur(s.amount)}</span>{" "}
                 de ton <span className="text-slate-300">{s.from}</span> ({(s.fromRate * 100).toFixed(2)} %) vers{" "}
                 <span className="text-slate-300">{s.to}</span> ({(s.toRate * 100).toFixed(2)} %), tu gagnes{" "}
-                <span className="font-data font-semibold text-emerald-400">+{eur(s.gainAnnuel)} / an</span>.
+                <span className="font-data font-semibold text-emerald-400 ghost-blur">+{eur(s.gainAnnuel)} / an</span>.
               </p>
               <p className="text-[11px] text-slate-600 mt-1">{s.condition}</p>
             </div>
@@ -323,9 +323,9 @@ function LivretRow({ l, onRemove, onUpdateGoal }) {
   return (
     <tr className="group">
       <td className="py-3 pr-3 text-slate-200 font-medium">{l.name}</td>
-      <td className="py-3 pr-3 font-data tabular-nums text-slate-100">{eur(l.balance)}</td>
+      <td className="py-3 pr-3 font-data tabular-nums text-slate-100 ghost-blur">{eur(l.balance)}</td>
       <td className="py-3 pr-3 font-data tabular-nums text-amber-300/90">{(l.rate * 100).toFixed(2)} %</td>
-      <td className="py-3 pr-3 font-data tabular-nums text-emerald-400">{eur(l.balance * l.rate)}</td>
+      <td className="py-3 pr-3 font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.balance * l.rate)}</td>
       <td className="py-3 pr-3 min-w-[160px]">
         {barMax ? (
           <SmartProgressBar
@@ -339,7 +339,7 @@ function LivretRow({ l, onRemove, onUpdateGoal }) {
         {/* Goal / limit labels */}
         <div className="flex items-center gap-2 mt-1">
           {hasGoal && (
-            <span className="text-[10px] text-violet-400/80 bg-violet-400/10 border border-violet-400/20 rounded-full px-2 py-0.5">
+            <span className="text-[10px] text-violet-400/80 bg-violet-400/10 border border-violet-400/20 rounded-full px-2 py-0.5 ghost-blur">
               Objectif : {eur(l.goal, 0)}
             </span>
           )}
@@ -423,13 +423,13 @@ export default function Livrets({
         </Card>
         <Card accent={CARD_THEMES.indigo}>
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total épargne sécurisée</div>
-          <div className="font-display text-xl text-slate-50">{eur(livretsTotal)}</div>
+          <div className="font-display text-xl text-slate-50 ghost-blur">{eur(livretsTotal)}</div>
           <div className="text-xs text-indigo-300/80 mt-0.5">Taux moyen {livretsAvgRate.toFixed(2)} %</div>
         </Card>
         <Card accent={CARD_THEMES.indigo}>
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Intérêts estimés / an</div>
-          <div className="font-display text-xl text-emerald-400">{eur(totalInterets)}</div>
-          <div className="text-[11px] text-slate-600 mt-0.5">soit {eur(totalInterets / 12)} / mois</div>
+          <div className="font-display text-xl text-emerald-400 ghost-blur">{eur(totalInterets)}</div>
+          <div className="text-[11px] text-slate-600 mt-0.5 ghost-blur">soit {eur(totalInterets / 12)} / mois</div>
         </Card>
       </div>
 

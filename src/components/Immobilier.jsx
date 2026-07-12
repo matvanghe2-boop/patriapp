@@ -49,7 +49,7 @@ function ResteAVivre({ revenus, mensualite }) {
     <div className={`rounded-lg border ${bgColor} px-3 py-2`}>
       <div className="flex items-center justify-between">
         <span className="text-xs text-slate-400">Reste à vivre</span>
-        <span className={`font-display text-base ${color}`}>{eur(reste)}</span>
+        <span className={`font-display text-base ghost-blur ${color}`}>{eur(reste)}</span>
       </div>
       <div className="flex items-center justify-between mt-0.5">
         <span className={`text-[10px] ${color}`}>{label}</span>
@@ -185,11 +185,11 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
             
             <label className="flex items-center gap-2 text-sm text-slate-300">
               <input type="checkbox" checked={immo.inclure_livrets} onChange={(e) => set("inclure_livrets")(e.target.checked)} />
-              Inclure l'épargne sécurisée ({eur(livretsTotal)})
+              Inclure l'épargne sécurisée (<span className="ghost-blur">{eur(livretsTotal)}</span>)
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-300">
               <input type="checkbox" checked={immo.inclure_bourse} onChange={(e) => set("inclure_bourse")(e.target.checked)} />
-              Inclure le portefeuille Bourse ({eur(bourseTotal)})
+              Inclure le portefeuille Bourse (<span className="ghost-blur">{eur(bourseTotal)}</span>)
             </label>
             <div>
               <label className="text-[11px] text-slate-500">Apport retenu (€) — ajustable</label>
@@ -197,11 +197,11 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
                 type="number"
                 value={Math.round(apport)}
                 onChange={(e) => set("apport_manuel")(parseFloat(e.target.value) || 0)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data tabular-nums mt-1 focus:outline-none focus:border-amber-400/60"
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data tabular-nums mt-1 ghost-blur focus:outline-none focus:border-amber-400/60"
               />
               {immo.apport_manuel != null && (
                 <button onClick={() => set("apport_manuel")(null)} className="text-[11px] text-amber-300/80 hover:text-amber-200 mt-1 underline">
-                  Revenir au montant auto ({eur(apportDisponible)})
+                  Revenir au montant auto (<span className="ghost-blur">{eur(apportDisponible)}</span>)
                 </button>
               )}
             </div>
@@ -212,15 +212,15 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card accent={CARD_THEMES.rose}>
           <CardLabel>Coût total (prix + notaire)</CardLabel>
-          <div className="font-display text-xl text-slate-100">{eur(coutTotal)}</div>
+          <div className="font-display text-xl text-slate-100 ghost-blur">{eur(coutTotal)}</div>
         </Card>
         <Card accent={CARD_THEMES.rose}>
           <CardLabel>Apport injecté</CardLabel>
-          <div className="font-display text-xl text-emerald-400">{eur(apport)}</div>
+          <div className="font-display text-xl text-emerald-400 ghost-blur">{eur(apport)}</div>
         </Card>
         <Card accent={CARD_THEMES.rose}>
           <CardLabel>Montant à emprunter</CardLabel>
-          <div className="font-display text-xl text-amber-300">{eur(montantEmprunte)}</div>
+          <div className="font-display text-xl text-amber-300 ghost-blur">{eur(montantEmprunte)}</div>
         </Card>
       </div>
 

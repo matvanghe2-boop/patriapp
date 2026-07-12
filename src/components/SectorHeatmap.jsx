@@ -92,7 +92,7 @@ function TreemapTooltip({ active, payload, total }) {
     <div className="rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl">
       <p className="font-data font-semibold text-slate-100">{d.ticker}</p>
       <p className="text-slate-500">{d.sector}</p>
-      <p className="text-slate-300 mt-1">{eur(d.value, 0)}</p>
+      <p className="text-slate-300 mt-1 ghost-blur">{eur(d.value, 0)}</p>
       <p className="text-slate-500">{pctPlain((d.value / total) * 100, 1)} du portefeuille</p>
     </div>
   );

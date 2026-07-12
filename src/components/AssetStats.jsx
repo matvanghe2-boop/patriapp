@@ -99,7 +99,7 @@ function PerformanceTooltip({ active, payload }) {
       <p className={`font-data font-bold ${d.rendementPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
         {pctPlain(d.rendementPct, 1)}
       </p>
-      <p className="text-slate-500 mt-1">Résultat net : {eur(d.netResult, 2)}</p>
+      <p className="text-slate-500 mt-1 ghost-blur">Résultat net : {eur(d.netResult, 2)}</p>
     </div>
   );
 }
@@ -147,23 +147,23 @@ export default function AssetStats({ bourse }) {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 text-center">
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
           <p className="text-[11px] text-slate-500">Capital investi</p>
-          <p className="font-data font-bold text-slate-100">{eur(totals.invested, 0)}</p>
+          <p className="font-data font-bold text-slate-100 ghost-blur">{eur(totals.invested, 0)}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
           <p className="text-[11px] text-slate-500">Frais cumulés</p>
-          <p className="font-data font-bold text-slate-300">{eur(totals.fees, 2)}</p>
+          <p className="font-data font-bold text-slate-300 ghost-blur">{eur(totals.fees, 2)}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
           <p className="text-[11px] text-slate-500">PV réalisées</p>
-          <p className={`font-data font-bold ${totals.realized >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(totals.realized, 0)}</p>
+          <p className={`font-data font-bold ghost-blur ${totals.realized >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(totals.realized, 0)}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
           <p className="text-[11px] text-slate-500">PV latentes</p>
-          <p className={`font-data font-bold ${totals.latent >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(totals.latent, 0)}</p>
+          <p className={`font-data font-bold ghost-blur ${totals.latent >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(totals.latent, 0)}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
           <p className="text-[11px] text-slate-500">Dividendes</p>
-          <p className="font-data font-bold text-cyan-300">{eur(totals.dividends, 0)}</p>
+          <p className="font-data font-bold text-cyan-300 ghost-blur">{eur(totals.dividends, 0)}</p>
         </div>
       </div>
 
@@ -235,21 +235,23 @@ export default function AssetStats({ bourse }) {
               {open && (
                 <div className="border-t border-slate-800 px-4 py-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                   <StatBlock label="Qté actuelle" value={r.currentQty || "—"} />
-                  <StatBlock label="PRU" value={r.pru != null ? eur(r.pru, 2) : "—"} />
-                  <StatBlock label="Investi" value={eur(r.totalInvested, 0)} />
-                  <StatBlock label="Frais cumulés" value={eur(r.feesTotal, 2)} muted />
+                  <StatBlock label="PRU" value={r.pru != null ? eur(r.pru, 2) : "—"} sensitive />
+                  <StatBlock label="Investi" value={eur(r.totalInvested, 0)} sensitive />
+                  <StatBlock label="Frais cumulés" value={eur(r.feesTotal, 2)} muted sensitive />
                   <StatBlock
                     label="PV réalisée"
                     value={eur(r.realizedPV, 2)}
                     tone={r.realizedPV === 0 ? "neutral" : r.realizedPV > 0 ? "pos" : "neg"}
+                    sensitive
                   />
                   <StatBlock
                     label="PV latente"
                     value={r.currentQty > 0 ? eur(r.latentPV, 2) : "—"}
                     tone={r.currentQty > 0 ? (r.latentPV >= 0 ? "pos" : "neg") : "neutral"}
+                    sensitive
                   />
-                  <StatBlock label="Dividendes" value={r.dividendsTotal > 0 ? eur(r.dividendsTotal, 2) : "—"} cyan />
-                  <StatBlock label="Résultat net" value={eur(r.netResult, 2)} tone={r.netResult >= 0 ? "pos" : "neg"} bold />
+                  <StatBlock label="Dividendes" value={r.dividendsTotal > 0 ? eur(r.dividendsTotal, 2) : "—"} cyan sensitive />
+                  <StatBlock label="Résultat net" value={eur(r.netResult, 2)} tone={r.netResult >= 0 ? "pos" : "neg"} bold sensitive />
                   <StatBlock label="Ordres" value={r.nbOperations} muted />
                   <StatBlock label="Période" value={`${formatDateShortFr(r.firstDate)} → ${formatDateShortFr(r.lastDate)}`} small />
                 </div>
@@ -262,14 +264,14 @@ export default function AssetStats({ bourse }) {
   );
 }
 
-function StatBlock({ label, value, tone = "default", muted, cyan, bold, small }) {
+function StatBlock({ label, value, tone = "default", muted, cyan, bold, small, sensitive }) {
   const toneCls =
     tone === "pos" ? "text-emerald-400" : tone === "neg" ? "text-rose-400" : tone === "neutral" ? "text-slate-500" : "text-slate-100";
   const colorCls = cyan ? "text-cyan-300" : muted ? "text-slate-400" : toneCls;
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`font-data ${small ? "text-[11px]" : "text-sm"} ${bold ? "font-semibold" : ""} ${colorCls}`}>{value}</p>
+      <p className={`font-data ${small ? "text-[11px]" : "text-sm"} ${bold ? "font-semibold" : ""} ${colorCls} ${sensitive ? "ghost-blur" : ""}`}>{value}</p>
     </div>
   );
 }

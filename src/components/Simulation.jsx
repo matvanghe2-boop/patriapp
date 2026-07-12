@@ -206,9 +206,9 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card accent={CARD_THEMES.amber}>
           <CardLabel>Valeur finale (patrimoine)</CardLabel>
-          <div className="font-display text-xl text-slate-100">{eur(final.total)}</div>
+          <div className="font-display text-xl text-slate-100 ghost-blur">{eur(final.total)}</div>
           {showInflation && (
-            <div className="text-xs text-slate-400 mt-1">
+            <div className="text-xs text-slate-400 mt-1 ghost-blur">
               Pouvoir d'achat réel : {eur(Math.round(final.total / Math.pow(1 + inflationRate / 100, sim.years)))}
               <span className="text-[10px] text-slate-500 ml-1">(inflation {inflationRate.toFixed(1)}%)</span>
             </div>
@@ -216,11 +216,11 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
         </Card>
         <Card accent={CARD_THEMES.amber}>
           <CardLabel>Total versé</CardLabel>
-          <div className="font-display text-xl text-slate-100">{eur(final.versed)}</div>
+          <div className="font-display text-xl text-slate-100 ghost-blur">{eur(final.versed)}</div>
         </Card>
         <Card accent={CARD_THEMES.amber}>
           <CardLabel>Intérêts générés</CardLabel>
-          <div className={`font-display text-xl ${totalInterets >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          <div className={`font-display text-xl ghost-blur ${totalInterets >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {eur(totalInterets)}
           </div>
           <div className={`text-xs mt-1 ${totalInterets >= 0 ? "text-emerald-400/80" : "text-rose-400/80"}`}>

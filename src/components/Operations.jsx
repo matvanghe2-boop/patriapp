@@ -293,7 +293,7 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Card>
           <CardLabel icon={Wallet}>Frais totaux</CardLabel>
-          <div className="font-data text-xl font-bold text-slate-100">{eur(kpis.totalFees, 2)}</div>
+          <div className="font-data text-xl font-bold text-slate-100 ghost-blur">{eur(kpis.totalFees, 2)}</div>
         </Card>
         <Card>
           <CardLabel icon={Percent}>Taux d'effort des frais</CardLabel>
@@ -304,20 +304,20 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
         </Card>
         <Card>
           <CardLabel icon={Sparkles}>Plus-values réalisées</CardLabel>
-          <div className={`font-data text-xl font-bold ${kpis.plusValuesRealisees >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          <div className={`font-data text-xl font-bold ghost-blur ${kpis.plusValuesRealisees >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {eur(kpis.plusValuesRealisees, 2)}
           </div>
         </Card>
         <Card>
           <CardLabel icon={TrendingUp}>Plus-values latentes</CardLabel>
-          <div className={`font-data text-xl font-bold ${kpis.plusValuesLatentes >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          <div className={`font-data text-xl font-bold ghost-blur ${kpis.plusValuesLatentes >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {eur(kpis.plusValuesLatentes, 2)}
           </div>
           <p className="text-[11px] text-slate-600 mt-0.5">Rappel virtuel — onglet Bourse</p>
         </Card>
         <Card>
           <CardLabel icon={Coins}>Dividendes totaux</CardLabel>
-          <div className="font-data text-xl font-bold text-cyan-300">{eur(kpis.dividendesTotal, 2)}</div>
+          <div className="font-data text-xl font-bold text-cyan-300 ghost-blur">{eur(kpis.dividendesTotal, 2)}</div>
         </Card>
       </div>
 

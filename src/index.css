@@ -70,18 +70,19 @@ input[type="checkbox"] {
   }
 }
 
-.ghost-mode .font-data:not(:has(+ *)):not([data-ghost-safe]) {
-  filter: blur(6px);
-  user-select: none;
-}
-.ghost-mode .font-data {
+/*
+ * Mode Ghost — floute uniquement les montants patrimoniaux réels marqués
+ * explicitement avec la classe `.ghost-blur` (opt-in), jamais tout
+ * `.font-data` en général : ça évite de flouter par erreur des champs de
+ * saisie (inputs, devenus inutilisables une fois floutés), des sliders
+ * d'hypothèses de simulation (qui ne sont pas des données personnelles),
+ * ou des pourcentages/ratios qui n'ont rien de confidentiel.
+ */
+.ghost-mode .ghost-blur {
   filter: blur(6px);
   user-select: none;
   transition: filter 0.15s;
 }
-.ghost-mode .font-data[data-ghost-safe] {
-  filter: none;
-}
-.ghost-mode .font-data:hover {
+.ghost-mode .ghost-blur:hover {
   filter: blur(0);
 }
