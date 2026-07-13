@@ -5,10 +5,10 @@ import {
 } from "recharts";
 import {
   TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight,
-  Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap,
+  Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap, ListChecks, ArrowRight, Scale,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, pct, compact, uid } from "../lib/finance";
+import { eur, pct, pctPlain, compact, uid } from "../lib/finance";
 
 // ─── Time filter config ────────────────────────────────────────────────────────
 const TIME_FILTERS = [
@@ -22,6 +22,85 @@ function getMonthsAgo(months) {
   const d = new Date();
   d.setMonth(d.getMonth() - months);
   return d;
+}
+
+// ─── Plafonds légaux connus (réutilisé ici pour détecter les livrets pleins) ──
+const LEGAL_CEILINGS = {
+  "livret a": 22950, "ldds": 12000, "lep": 10000, "livret jeune": 1600,
+  "pel": 61200, "cel": 15300,
+};
+function guessLegalLimit(name) {
+  const key = (name || "").toLowerCase().trim();
+  for (const [k, v] of Object.entries(LEGAL_CEILINGS)) {
+    if (key.includes(k)) return v;
+  }
+  return null;
+}
+
+// ─── Panneau d'actions prioritaires ────────────────────────────────────────────
+// Consolide des signaux qui n'existent nulle part ailleurs dans l'app (pas de
+// doublon avec la StagnationBadge ni avec les alertes déjà présentes dans
+// Bourse/Livrets) : plafonds de livrets saturés, cash PEA dormant, matelas de
+// sécurité insuffisant.
+function PriorityActions({ livrets, bourse, matelasMois }) {
+  const actions = useMemo(() => {
+    const list = [];
+
+    (livrets || []).forEach((l) => {
+      const limit = l.limit || guessLegalLimit(l.name);
+      if (limit && l.balance / limit >= 0.95) {
+        list.push({
+          id: `livret-${l.id}`,
+          icon: AlertCircle,
+          tone: "amber",
+          text: `${l.name} est proche ou au plafond — orienter les prochains versements ailleurs.`,
+        });
+      }
+    });
+
+    const cashPocket = bourse?.cash_pocket || 0;
+    const bourseValue = (bourse?.positions || []).reduce((s, p) => s + p.current_price * p.quantity, 0);
+    if (cashPocket > 500 && bourseValue > 0 && cashPocket / (cashPocket + bourseValue) > 0.15) {
+      list.push({
+        id: "cash-dormant",
+        icon: Wallet,
+        tone: "violet",
+        text: `${eur(cashPocket, 0)} de cash dorment sur ton PEA — envisage de les investir.`,
+        sensitive: true,
+      });
+    }
+
+    if (matelasMois != null && matelasMois < 3) {
+      list.push({
+        id: "matelas-faible",
+        icon: PiggyBank,
+        tone: "rose",
+        text: `Matelas de sécurité de ${matelasMois.toFixed(1)} mois seulement — viser au moins 3 mois de dépenses.`,
+      });
+    }
+
+    return list;
+  }, [livrets, bourse, matelasMois]);
+
+  if (actions.length === 0) return null;
+
+  const toneClass = { amber: "text-amber-300 bg-amber-400/10", violet: "text-violet-300 bg-violet-400/10", rose: "text-rose-300 bg-rose-400/10" };
+
+  return (
+    <Card accent={CARD_THEMES.emerald}>
+      <CardLabel icon={ListChecks}>À faire</CardLabel>
+      <div className="space-y-1.5 mt-2">
+        {actions.map((a) => (
+          <div key={a.id} className="flex items-center gap-3 text-sm rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
+            <span className={`rounded-full p-1.5 shrink-0 ${toneClass[a.tone]}`}>
+              <a.icon size={14} />
+            </span>
+            <span className={`text-slate-300 flex-1 ${a.sensitive ? "ghost-blur" : ""}`}>{a.text}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
 }
 
 // ─── Stagnation badge ─────────────────────────────────────────────────────────
@@ -244,7 +323,7 @@ export default function Dashboard({
   profile, setProfile, patrimoineBrut, patrimoineNet, bourseGainAbs, bourseGainPct,
   epargneMensuelle, tauxEpargne, dettes, setDettes, dettesTotal,
   historyPast, setHistoryPast, livretsTotal, bourseTotal,
-  bourseInvested,
+  bourseInvested, livrets, bourse, matelasMois,
 }) {
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -369,6 +448,9 @@ export default function Dashboard({
         </div>
         <StagnationBadge lastUpdateDate={lastUpdateDate} />
       </div>
+
+      {/* Actions prioritaires cross-onglets */}
+      <PriorityActions livrets={livrets} bourse={bourse} matelasMois={matelasMois} />
 
       {/* Profil mensuel */}
       <Card accent={CARD_THEMES.emerald} className="flex flex-wrap items-center gap-6">
@@ -606,6 +688,15 @@ export default function Dashboard({
           <CardLabel>Passifs / Dettes</CardLabel>
           <GhostButton theme="emerald" onClick={() => setShowAddDette((s) => !s)}>Ajouter un passif</GhostButton>
         </div>
+        {dettesTotal > 0 && patrimoineBrut > 0 && (
+          <div className="flex items-center gap-2 mt-2 text-xs">
+            <Scale size={12} className="text-slate-500" />
+            <span className="text-slate-500">Ratio d'endettement (dette / patrimoine brut)</span>
+            <span className={`font-data tabular-nums font-semibold ${dettesTotal / patrimoineBrut > 0.5 ? "text-rose-400" : dettesTotal / patrimoineBrut > 0.3 ? "text-amber-300" : "text-emerald-400"}`}>
+              {pctPlain((dettesTotal / patrimoineBrut) * 100, 1)}
+            </span>
+          </div>
+        )}
         {dettes.length === 0 ? (
           <EmptyState>Aucun passif déclaré — le patrimoine net est égal au patrimoine brut.</EmptyState>
         ) : (

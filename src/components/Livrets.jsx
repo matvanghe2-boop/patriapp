@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   PiggyBank, ShieldCheck, Banknote, Lightbulb, Target,
   Plus, Trash2, X, ChevronDown, ChevronUp, AlertTriangle, TrendingUp,
+  ArrowUp, ArrowDown, Minus, Wallet,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid } from "../lib/finance";
@@ -12,6 +13,61 @@ const MARKET_ALTERNATIVES = [
   { name: "Livret boosté (offre promotionnelle)", rate: 0.04, condition: "3 à 6 mois selon banque", plafond: null },
   { name: "LDDS", rate: 0.017, condition: "Plafond 12 000 €", plafond: 12000 },
 ];
+
+// ─── Plafonds légaux connus (pour l'alerte de saturation) ─────────────────────
+const LEGAL_CEILINGS = {
+  "livret a": 22950, "ldds": 12000, "lep": 10000, "livret jeune": 1600,
+  "pel": 61200, "cel": 15300,
+};
+function guessLegalLimit(name) {
+  const key = (name || "").toLowerCase().trim();
+  for (const [k, v] of Object.entries(LEGAL_CEILINGS)) {
+    if (key.includes(k)) return v;
+  }
+  return null;
+}
+
+// ─── Historique du matelas de sécurité (texte seul, pas de graphique) ────────
+function useMatelasTrend(matelasMois) {
+  const [previous, setPrevious] = useState(() => {
+    try {
+      const raw = localStorage.getItem("patrimoine:matelasHistory");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
+  useEffect(() => {
+    if (!Number.isFinite(matelasMois)) return;
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const raw = localStorage.getItem("patrimoine:matelasHistory");
+      const stored = raw ? JSON.parse(raw) : null;
+      if (!stored || stored.date !== today) {
+        // On garde la valeur d'avant aujourd'hui comme référence de comparaison
+        setPrevious(stored);
+        localStorage.setItem("patrimoine:matelasHistory", JSON.stringify({ date: today, value: matelasMois, prevValue: stored?.value ?? null }));
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matelasMois]);
+
+  const refValue = previous?.prevValue ?? previous?.value ?? null;
+  if (refValue == null) return null;
+  const delta = matelasMois - refValue;
+  return { delta, refValue };
+}
+
+function MatelasTrendBadge({ matelasMois }) {
+  const trend = useMatelasTrend(matelasMois);
+  if (!trend || Math.abs(trend.delta) < 0.05) return null;
+  const up = trend.delta > 0;
+  return (
+    <span className={`flex items-center gap-1 text-[11px] mt-1 ${up ? "text-emerald-400/90" : "text-amber-300/90"}`}>
+      {up ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+      {up ? "+" : ""}{trend.delta.toFixed(1)} mois vs dernier relevé
+    </span>
+  );
+}
 
 // ─── Smart Progress Bar ───────────────────────────────────────────────────────
 function SmartProgressBar({ value, max, goal, color = "bg-indigo-400", showGoal = false }) {
@@ -38,6 +94,44 @@ function SmartProgressBar({ value, max, goal, color = "bg-indigo-400", showGoal 
         <span className="ghost-blur">{eur(value, 0)} / {eur(max, 0)}</span>
       </div>
     </div>
+  );
+}
+
+// ─── Alerte de saturation des plafonds (bandeau compact, sans graphique) ─────
+function SaturationAlert({ livrets }) {
+  const flagged = useMemo(() => {
+    return livrets
+      .map((l) => {
+        const limit = l.limit || guessLegalLimit(l.name);
+        if (!limit) return null;
+        const ratio = l.balance / limit;
+        if (ratio < 0.85) return null;
+        return { ...l, limit, ratio, full: ratio >= 1 };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.ratio - a.ratio);
+  }, [livrets]);
+
+  if (flagged.length === 0) return null;
+
+  return (
+    <Card accent={CARD_THEMES.amber}>
+      <CardLabel icon={AlertTriangle}>Plafonds bientôt atteints</CardLabel>
+      <div className="space-y-1.5 mt-2">
+        {flagged.map((l) => (
+          <div key={l.id} className="flex items-center justify-between text-sm">
+            <span className="text-slate-300">{l.name}</span>
+            <span className={`font-data tabular-nums text-[12px] ${l.full ? "text-rose-400" : "text-amber-300"}`}>
+              {l.full ? "Plafond atteint" : `${Math.round(l.ratio * 100)}% du plafond`}
+              <span className="text-slate-600 ml-1.5 ghost-blur">({eur(l.limit - l.balance, 0)} restants)</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-slate-600 mt-2">
+        Envisage un autre support pour tes prochains versements sur ces comptes.
+      </p>
+    </Card>
   );
 }
 
@@ -82,6 +176,79 @@ function CompteCourant({ cash, setCash }) {
       >
         Modifier
       </button>
+    </Card>
+  );
+}
+
+// ─── Simulateur : où placer mon prochain versement ────────────────────────────
+function NextDepositAdvisor({ livrets }) {
+  const [amount, setAmount] = useState(500);
+
+  const ranked = useMemo(() => {
+    return livrets
+      .map((l) => {
+        const limit = l.limit || guessLegalLimit(l.name);
+        const room = limit ? Math.max(0, limit - l.balance) : Infinity;
+        return { ...l, limit, room };
+      })
+      .filter((l) => l.room > 0)
+      .sort((a, b) => b.rate - a.rate);
+  }, [livrets]);
+
+  // Répartit le montant en cascade : priorité au taux le plus élevé, dans la limite de la place restante
+  const allocation = useMemo(() => {
+    let remaining = amount;
+    const result = [];
+    for (const l of ranked) {
+      if (remaining <= 0) break;
+      const alloc = Math.min(remaining, l.room);
+      if (alloc <= 0) continue;
+      result.push({ ...l, alloc });
+      remaining -= alloc;
+    }
+    return { result, leftover: remaining };
+  }, [ranked, amount]);
+
+  if (livrets.length === 0) return null;
+
+  return (
+    <Card accent={CARD_THEMES.indigo}>
+      <CardLabel icon={Wallet}>Où placer mon prochain versement ?</CardLabel>
+      <div className="flex items-center gap-2 mt-2">
+        <label className="text-xs text-slate-500">Montant à placer</label>
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+          className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-indigo-400/60"
+        />
+        <span className="text-xs text-slate-600">€</span>
+      </div>
+
+      {allocation.result.length === 0 ? (
+        <EmptyState>Tous tes livrets sont au plafond — envisage l'onglet Bourse pour ce montant.</EmptyState>
+      ) : (
+        <div className="space-y-1.5 mt-3">
+          {allocation.result.map((l, i) => (
+            <div key={l.id} className="flex items-center justify-between text-sm rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
+              <span className="flex items-center gap-2">
+                <span className="text-[10px] text-indigo-300 bg-indigo-400/10 border border-indigo-400/20 rounded-full w-5 h-5 flex items-center justify-center shrink-0">{i + 1}</span>
+                <span className="text-slate-300">{l.name}</span>
+                <span className="text-[11px] text-amber-300/80">{(l.rate * 100).toFixed(2)} %</span>
+              </span>
+              <span className="font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.alloc, 0)}</span>
+            </div>
+          ))}
+          {allocation.leftover > 0.5 && (
+            <p className="text-[11px] text-amber-300/80 mt-1">
+              <span className="ghost-blur">{eur(allocation.leftover, 0)}</span> restants une fois tous les plafonds atteints — à orienter vers la Bourse ou un autre support.
+            </p>
+          )}
+        </div>
+      )}
+      <p className="text-[11px] text-slate-600 mt-3">
+        Classement par taux net décroissant, dans la limite de la place restante sous chaque plafond.
+      </p>
     </Card>
   );
 }
@@ -419,6 +586,7 @@ export default function Livrets({
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Matelas de sécurité</div>
             <div className="font-display text-lg text-slate-50">{matelasMois.toFixed(1)} mois</div>
             <div className="text-[11px] text-slate-600">de dépenses couvertes</div>
+            <MatelasTrendBadge matelasMois={matelasMois} />
           </div>
         </Card>
         <Card accent={CARD_THEMES.indigo}>
@@ -435,6 +603,9 @@ export default function Livrets({
 
       {/* Compte courant */}
       <CompteCourant cash={cash ?? 0} setCash={setCash} />
+
+      {/* Alerte de saturation des plafonds */}
+      <SaturationAlert livrets={livrets} />
 
       {/* Livrets table */}
       <Card accent={CARD_THEMES.indigo}>
@@ -480,6 +651,9 @@ export default function Livrets({
           ]}
         />
       </Card>
+
+      {/* Simulateur : où placer mon prochain versement */}
+      <NextDepositAdvisor livrets={livrets} />
 
       {/* Ventilation des enveloppes */}
       <Ventilation livretsTotal={livretsTotal} enveloppes={enveloppes ?? []} setEnveloppes={setEnveloppes} />
