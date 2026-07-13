@@ -272,7 +272,7 @@ function TimelineView({ events, onEventClick }) {
  * Calendrier financier mode sombre. Les événements sont dérivés automatiquement
  * des tickers présents dans `positions` (lignes du portefeuille) via l'API
  * Yahoo Finance (v7/finance/quote, authentifiée par cookie+crumb côté
- * serveur). Se ré-actualise dès que la liste de tickers change (ajout /
+ * serveur). Se ré-actualise dès que la liste des tickers change (ajout /
  * suppression d'une ligne).
  *
  * positions attendu : [{ ticker, name }, ...] — un simple sous-ensemble des
