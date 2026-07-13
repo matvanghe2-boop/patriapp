@@ -46,6 +46,86 @@ const INSTRUMENT_TYPE_LABELS = {
 
 const raw = (v) => (v && typeof v === "object" && "raw" in v ? v.raw : v ?? null);
 
+// ─── Traduction en français ────────────────────────────────────────────────
+// Les fiches Yahoo sont systématiquement en anglais. Les utilisateurs de
+// l'appli étant francophones, on traduit : le secteur (dictionnaire fixe, les
+// valeurs GICS de Yahoo sont un ensemble fermé d'une douzaine de termes), les
+// intitulés de direction (dictionnaire de correspondances usuelles, plus
+// fiable et instantané qu'un appel de traduction pour des titres courts), et
+// le texte libre (description d'activité, industrie, catégorie de fonds) via
+// un service de traduction gratuit — avec repli silencieux sur le texte
+// anglais d'origine si la traduction échoue, pour ne jamais casser la fiche.
+const SECTOR_FR = {
+  Technology: "Technologie",
+  Healthcare: "Santé",
+  "Financial Services": "Services financiers",
+  "Consumer Cyclical": "Consommation cyclique",
+  "Consumer Defensive": "Consommation défensive",
+  Industrials: "Industrie",
+  Energy: "Énergie",
+  Utilities: "Services publics",
+  "Real Estate": "Immobilier",
+  "Basic Materials": "Matériaux de base",
+  "Communication Services": "Communication",
+};
+
+// Ordre important : du plus spécifique au plus générique, pour éviter qu'un
+// remplacement générique ("Director") ne mange un intitulé plus précis
+// ("Managing Director") traité plus loin dans la liste.
+const TITLE_REPLACEMENTS = [
+  [/Chairman of the Management Board/gi, "Président du directoire"],
+  [/Chairman of the Board/gi, "Président du conseil d'administration"],
+  [/Chief Executive Officer/gi, "Directeur général"],
+  [/Chief Financial Officer/gi, "Directeur financier"],
+  [/Chief Operating Officer/gi, "Directeur des opérations"],
+  [/Chief Technology Officer/gi, "Directeur technique"],
+  [/Chief Marketing Officer/gi, "Directeur marketing"],
+  [/Chief Information Officer/gi, "Directeur des systèmes d'information"],
+  [/Chief Legal Officer/gi, "Directeur juridique"],
+  [/Chief Accounting Officer/gi, "Directeur comptable"],
+  [/General Counsel/gi, "Directeur juridique"],
+  [/Head of Investor Relations/gi, "Responsable des relations investisseurs"],
+  [/Head of Human Resources/gi, "Responsable des ressources humaines"],
+  [/Head of/gi, "Responsable"],
+  [/Investor Relations/gi, "Relations investisseurs"],
+  [/Human Resources/gi, "Ressources humaines"],
+  [/Executive Vice President/gi, "Vice-président exécutif"],
+  [/Senior Vice President/gi, "Vice-président senior"],
+  [/Vice President/gi, "Vice-président"],
+  [/Managing Director/gi, "Directeur général délégué"],
+  [/Co-Founder/gi, "Cofondateur"],
+  [/Founder/gi, "Fondateur"],
+  [/President\s*&\s*/gi, "Président & "],
+  [/President/gi, "Président"],
+  [/Chairman/gi, "Président"],
+  [/Board Member/gi, "Membre du conseil"],
+  [/Director/gi, "Directeur"],
+  [/Secretary/gi, "Secrétaire"],
+  [/Treasurer/gi, "Trésorier"],
+];
+
+function translateTitle(title) {
+  if (!title) return title;
+  return TITLE_REPLACEMENTS.reduce((acc, [pattern, repl]) => acc.replace(pattern, repl), title);
+}
+
+// Appel à un service de traduction gratuit, sans clé. Best-effort : toute
+// erreur (réseau, quota, format inattendu) renvoie simplement le texte
+// d'origine plutôt que de faire échouer la fiche entière.
+async function translateToFrench(text) {
+  if (!text || !text.trim()) return text;
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fr&dt=t&q=${encodeURIComponent(text)}`;
+    const r = await fetch(url, { headers: { "User-Agent": YF_HEADERS["User-Agent"] } });
+    if (!r.ok) return text;
+    const data = await r.json();
+    const translated = (data?.[0] || []).map((chunk) => chunk?.[0] || "").join("");
+    return translated.trim() || text;
+  } catch {
+    return text;
+  }
+}
+
 // ─── Négociation d'une session Yahoo (cookie + crumb) ──────────────────────
 // Ce flux change parfois côté Yahoo ; il est entièrement encapsulé dans un
 // try/catch en amont pour ne jamais faire échouer la requête si Yahoo modifie
@@ -147,11 +227,22 @@ export default async function handler(req, res) {
   // Secteur/activité : les fonds/ETF n'ont pas de secteur GICS — on utilise
   // alors leur catégorie et leur société de gestion à la place, avec un
   // libellé clair côté front pour ne pas afficher un champ "Secteur" vide.
-  const sector = assetProfile.sector || summaryProfile.sector || null;
-  const industry = assetProfile.industry || summaryProfile.industry || null;
-  const fundCategory = fundProfile.categoryName || null;
+  const sectorEn = assetProfile.sector || summaryProfile.sector || null;
+  const industryEn = assetProfile.industry || summaryProfile.industry || null;
+  const fundCategoryEn = fundProfile.categoryName || null;
   const fundFamily = fundProfile.family || null;
-  const description = assetProfile.longBusinessSummary || summaryProfile.longBusinessSummary || null;
+  const descriptionEn = assetProfile.longBusinessSummary || summaryProfile.longBusinessSummary || null;
+
+  // Un seul lot de traductions en parallèle (secteur seulement si absent du
+  // dictionnaire fixe, pour épargner un appel réseau inutile la plupart du temps).
+  const needsSectorTranslation = sectorEn && !SECTOR_FR[sectorEn];
+  const [description, industry, fundCategory, sectorTranslated] = await Promise.all([
+    translateToFrench(descriptionEn),
+    translateToFrench(industryEn),
+    translateToFrench(fundCategoryEn),
+    needsSectorTranslation ? translateToFrench(sectorEn) : Promise.resolve(null),
+  ]);
+  const sector = sectorEn ? (SECTOR_FR[sectorEn] || sectorTranslated || sectorEn) : null;
 
   const holdings = (topHoldings.holdings || []).slice(0, 10).map((h) => ({
     symbol: h.symbol,
@@ -189,7 +280,7 @@ export default async function handler(req, res) {
     employees: assetProfile.fullTimeEmployees || null,
     website: assetProfile.website || summaryProfile.website || null,
     description,
-    officers: (assetProfile.companyOfficers || []).slice(0, 3).map((o) => ({ name: o.name, title: o.title })),
+    officers: (assetProfile.companyOfficers || []).slice(0, 3).map((o) => ({ name: o.name, title: translateTitle(o.title) })),
     holdings,
     sectorWeightings,
 

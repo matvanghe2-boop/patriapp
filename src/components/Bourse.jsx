@@ -221,7 +221,15 @@ export default function Bourse({
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
   const [panicPosition, setPanicPosition] = useState(null);
-  const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "performance"
+  const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "performance" | "marche"
+  // Requête d'ouverture d'une fiche dans l'onglet Marché depuis le tableau de
+  // positions ou la watchlist. Le "ts" force le re-déclenchement de l'effet
+  // dans <Marche> même si on reclique deux fois de suite sur la même valeur.
+  const [marcheRequest, setMarcheRequest] = useState(null);
+  const openInMarche = (ticker) => {
+    setMarcheRequest({ symbol: ticker.toUpperCase(), ts: Date.now() });
+    setSubTab("marche");
+  };
 
   // ─── État de l'onglet Performance ────────────────────────────────────────
   const [perfRange, setPerfRange] = useState("MAX"); // "1M" | "3M" | "YTD" | "1A" | "MAX"
@@ -582,13 +590,18 @@ export default function Bourse({
                   return (
                     <tr key={p.id} className="group hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 pr-3">
-                        <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openInMarche(p.ticker)}
+                          title="Voir la fiche complète dans l'onglet Marché"
+                          className="flex items-center gap-2 text-left group/ticker"
+                        >
                           <AssetLogo ticker={p.ticker} size="xs" />
                           <div>
-                            <div className="text-slate-200 font-medium">{p.ticker}</div>
+                            <div className="text-slate-200 font-medium group-hover/ticker:text-violet-300 transition-colors">{p.ticker}</div>
                             <div className="text-[11px] text-slate-500">{p.name} · {p.type}</div>
                           </div>
-                        </div>
+                        </button>
                       </td>
                       <td className="py-3 pr-3 font-data tabular-nums">{p.quantity}</td>
                       <td className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.pru, 2)}</td>
@@ -647,7 +660,7 @@ export default function Bourse({
         </p>
       </Card>
 
-      <Watchlist watchlist={watchlist} setWatchlist={setWatchlist} />
+      <Watchlist watchlist={watchlist} setWatchlist={setWatchlist} onOpenMarket={openInMarche} />
 
       {/* Pie */}
       <Card accent={CARD_THEMES.violet}>
@@ -711,7 +724,7 @@ export default function Bourse({
       />
       )}
 
-      {subTab === "marche" && <Marche watchlist={watchlist} setWatchlist={setWatchlist} />}
+      {subTab === "marche" && <Marche watchlist={watchlist} setWatchlist={setWatchlist} openRequest={marcheRequest} />}
 
       {panicPosition && (
         <AntiPanicModal

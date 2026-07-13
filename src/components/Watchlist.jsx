@@ -89,7 +89,7 @@ function DailyVariation({ ticker, dailyData }) {
  * partir des cours RÉELS et passés du titre lui-même (aucune simulation :
  * c'est l'historique constaté de cet instrument, pas une projection).
  */
-export default function Watchlist({ watchlist, setWatchlist }) {
+export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -267,13 +267,19 @@ export default function Watchlist({ watchlist, setWatchlist }) {
                 return (
                   <tr key={w.id} className="group hover:bg-slate-800/30 transition-colors">
                     <td className="py-3 pr-3">
-                      <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onOpenMarket?.(w.ticker)}
+                        disabled={!onOpenMarket}
+                        title={onOpenMarket ? "Voir la fiche complète dans l'onglet Marché" : undefined}
+                        className="flex items-center gap-2 text-left disabled:cursor-default group/ticker"
+                      >
                         <AssetLogo ticker={w.ticker} size="xs" />
                         <div>
-                          <div className="text-slate-200 font-medium">{w.ticker}</div>
+                          <div className={`text-slate-200 font-medium ${onOpenMarket ? "group-hover/ticker:text-violet-300 transition-colors" : ""}`}>{w.ticker}</div>
                           <div className="text-[11px] text-slate-500">{w.name}</div>
                         </div>
-                      </div>
+                      </button>
                     </td>
                     <td className="py-3 pr-3 font-data tabular-nums">{current != null ? eur(current, 2) : "—"}</td>
                     <td className="py-3 pr-3">

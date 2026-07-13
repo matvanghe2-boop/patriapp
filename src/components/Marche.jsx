@@ -174,7 +174,7 @@ const RECO_LABELS = {
   sell: { label: "Vente", tone: "text-rose-400" },
 };
 
-export default function Marche({ watchlist, setWatchlist }) {
+export default function Marche({ watchlist, setWatchlist, openRequest }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -236,6 +236,16 @@ export default function Marche({ watchlist, setWatchlist }) {
     setBrushRange(null);
     setHoverPoint(null);
   };
+
+  // Ouverture directe depuis un clic sur une position (Portefeuille) ou une
+  // ligne de la watchlist : on charge la fiche de la valeur demandée, même si
+  // c'est déjà la valeur affichée (le "ts" garantit le redéclenchement).
+  const lastHandledRequestTs = useRef(null);
+  useEffect(() => {
+    if (!openRequest || openRequest.ts === lastHandledRequestTs.current) return;
+    lastHandledRequestTs.current = openRequest.ts;
+    pickSymbol(openRequest.symbol);
+  }, [openRequest]);
 
   const loadProfile = useCallback(async (sym) => {
     setProfileLoading(true); setProfileError("");
