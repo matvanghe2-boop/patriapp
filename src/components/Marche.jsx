@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Search, Building2, Globe, Users, TrendingUp, TrendingDown, RefreshCw, Clock,
-  BarChart3, Target, Percent, Scale, Activity, Info, ExternalLink, Star, X as XIcon,
+  BarChart3, Target, Percent, Scale, Info, ExternalLink, Star, PieChart as PieIcon, AlertCircle,
 } from "lucide-react";
 import {
-  ResponsiveContainer, ComposedChart, Area, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ReferenceLine,
+  ResponsiveContainer, ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ReferenceLine, Brush,
 } from "recharts";
-import { Card, CardLabel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
+import { Card, CardLabel, EmptyState, CARD_THEMES } from "./ui";
 import AssetLogo from "./AssetLogo";
 import { pct, pctPlain } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchCompanyProfile, fetchQuotes } from "../lib/api";
@@ -20,8 +20,13 @@ import { usePersistentState } from "../lib/storage";
 // temps réel strict (ce serait faux pour une source gratuite).
 const AUTO_REFRESH_MS = 15 * 60 * 1000;
 
+// Échelles de temps : les trois premières descendent en intraday (bougies de
+// quelques minutes) pour un tracé fin ; les suivantes remontent en quotidien
+// puis en hebdomadaire sur les très longues périodes.
 const RANGE_OPTIONS = [
-  { key: "1mo", label: "1 M" },
+  { key: "1d", label: "1 J", intraday: true },
+  { key: "5d", label: "1 S", intraday: true },
+  { key: "1mo", label: "1 M", intraday: true },
   { key: "6mo", label: "6 M" },
   { key: "ytd", label: "YTD" },
   { key: "1y", label: "1 A" },
@@ -40,12 +45,31 @@ const QUICK_PICKS = [
   { symbol: "MSFT", label: "Microsoft" },
 ];
 
+const SECTOR_LABELS_FR = {
+  realestate: "Immobilier", consumer_cyclical: "Consommation cyclique", basic_materials: "Matériaux de base",
+  consumer_defensive: "Consommation défensive", technology: "Technologie", communication_services: "Communication",
+  financial_services: "Services financiers", utilities: "Services publics", industrials: "Industrie",
+  energy: "Énergie", healthcare: "Santé",
+};
+
+// Précision adaptée à l'ordre de grandeur du cours : un ETF à 480 € n'a pas
+// besoin de 4 décimales, mais un titre à 0,85 € en perd tout son sens arrondi
+// à 2 décimales seulement — c'était la cause du rendu "arrondi" signalé.
+function priceDigits(n) {
+  const abs = Math.abs(n ?? 0);
+  if (abs === 0) return 2;
+  if (abs < 1) return 4;
+  if (abs < 20) return 3;
+  return 2;
+}
+
 function formatPrice(n, currency) {
   if (n == null || !Number.isFinite(n)) return "—";
+  const digits = priceDigits(n);
   try {
-    return n.toLocaleString("fr-FR", { style: "currency", currency: currency || "EUR", maximumFractionDigits: 2 });
+    return n.toLocaleString("fr-FR", { style: "currency", currency: currency || "EUR", minimumFractionDigits: digits, maximumFractionDigits: digits });
   } catch {
-    return `${n.toFixed(2)} ${currency || ""}`;
+    return `${n.toFixed(digits)} ${currency || ""}`;
   }
 }
 
@@ -61,18 +85,22 @@ function formatCompact(n, currency) {
   return currency ? `${out} ${currency}` : out;
 }
 
-function formatDateForRange(d, range) {
+function formatAxisTick(d, isIntraday, range) {
   if (!d) return "";
   const date = new Date(d);
-  if (["5y", "10y", "max"].includes(range)) {
-    return date.toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
-  }
+  if (isIntraday && range === "1d") return date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  if (isIntraday) return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  if (["5y", "10y", "max"].includes(range)) return date.toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
   return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" });
 }
 
-function formatFullDate(d) {
+function formatFullDateTime(d, isIntraday) {
   if (!d) return "";
-  return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+  const date = new Date(d);
+  if (isIntraday) {
+    return date.toLocaleString("fr-FR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
 function timeAgo(ts) {
@@ -109,6 +137,7 @@ function FiftyTwoWeekGauge({ low, high, current, currency }) {
 }
 
 function StatCell({ icon: Icon, label, value, sub }) {
+  if (value == null || value === "—") return null;
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 mb-1">
@@ -120,14 +149,18 @@ function StatCell({ icon: Icon, label, value, sub }) {
   );
 }
 
-function ChartTooltip({ active, payload, label, currency }) {
+function ChartTooltip({ active, payload, label, currency, isIntraday }) {
   if (!active || !payload?.length) return null;
   const close = payload.find((p) => p.dataKey === "close")?.value;
   const volume = payload.find((p) => p.dataKey === "volume")?.value;
+  const point = payload[0]?.payload;
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl space-y-1">
-      <div className="text-slate-400">{formatFullDate(label)}</div>
+      <div className="text-slate-400">{formatFullDateTime(label, isIntraday)}</div>
       {close != null && <div className="text-violet-300 font-data tabular-nums">Clôture : {formatPrice(close, currency)}</div>}
+      {point?.open != null && point?.close != null && (
+        <div className="text-slate-500 font-data tabular-nums">O {formatPrice(point.open, currency)} · H {formatPrice(point.high, currency)} · B {formatPrice(point.low, currency)}</div>
+      )}
       {volume != null && <div className="text-slate-500 font-data tabular-nums">Volume : {formatCompact(volume)}</div>}
     </div>
   );
@@ -155,7 +188,7 @@ export default function Marche({ watchlist, setWatchlist }) {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
 
-  const [range, setRange] = useState("max");
+  const [range, setRange] = useState("1y");
   const [series, setSeries] = useState([]);
   const [seriesMeta, setSeriesMeta] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -163,6 +196,11 @@ export default function Marche({ watchlist, setWatchlist }) {
 
   const [lastUpdated, setLastUpdated] = useState(null);
   const [, forceTick] = useState(0); // pour rafraîchir l'affichage "il y a N min"
+
+  // Point survolé/sélectionné sur le graphique — permet de se déplacer sur
+  // toute l'échelle et de voir le cours exact à n'importe quelle date.
+  const [hoverPoint, setHoverPoint] = useState(null);
+  const [brushRange, setBrushRange] = useState(null); // [startIndex, endIndex]
 
   // Ferme la liste de résultats au clic extérieur.
   useEffect(() => {
@@ -195,6 +233,8 @@ export default function Marche({ watchlist, setWatchlist }) {
     setQuery("");
     setResults([]);
     setShowResults(false);
+    setBrushRange(null);
+    setHoverPoint(null);
   };
 
   const loadProfile = useCallback(async (sym) => {
@@ -213,6 +253,7 @@ export default function Marche({ watchlist, setWatchlist }) {
 
   const loadHistory = useCallback(async (sym, r) => {
     setHistoryLoading(true); setHistoryError("");
+    setBrushRange(null);
     try {
       const [res] = await fetchHistory([sym], r);
       if (!res?.ok) throw new Error(res?.error || "Historique indisponible");
@@ -276,15 +317,17 @@ export default function Marche({ watchlist, setWatchlist }) {
     return { abs, pct: p };
   }, [profile]);
 
-  const chartData = useMemo(() => series.map((p) => ({ ...p, dateLabel: formatDateForRange(p.date, range) })), [series, range]);
+  const isIntraday = !!seriesMeta?.isIntraday;
+  const chartData = series;
 
-  const totalReturnSinceStart = useMemo(() => {
-    if (chartData.length < 2) return null;
-    const first = chartData[0].close;
-    const last = chartData[chartData.length - 1].close;
+  const totalReturnOnBrush = useMemo(() => {
+    const data = brushRange ? chartData.slice(brushRange[0], brushRange[1] + 1) : chartData;
+    if (data.length < 2) return null;
+    const first = data[0].close;
+    const last = data[data.length - 1].close;
     if (!first) return null;
     return ((last - first) / first) * 100;
-  }, [chartData]);
+  }, [chartData, brushRange]);
 
   const isInWatchlist = useMemo(
     () => (watchlist || []).some((w) => w.ticker?.toUpperCase() === symbol?.toUpperCase()),
@@ -302,6 +345,21 @@ export default function Marche({ watchlist, setWatchlist }) {
   const upsidePct = profile?.targetMeanPrice && profile?.currentPrice
     ? ((profile.targetMeanPrice - profile.currentPrice) / profile.currentPrice) * 100
     : null;
+
+  const isFund = ["ETF", "MUTUALFUND", "INDEX"].includes(profile?.instrumentType);
+
+  // Prix affiché en tête de fiche : celui survolé sur le graphique si l'on
+  // est en train de s'y déplacer, sinon le dernier cours connu (différé ~15 min).
+  const headlinePrice = hoverPoint?.close ?? profile?.currentPrice;
+  const headlineIsHover = hoverPoint != null;
+
+  const handleChartMouseMove = (state) => {
+    if (state?.activePayload?.length) setHoverPoint(state.activePayload[0].payload);
+  };
+  const handleChartMouseLeave = () => setHoverPoint(null);
+  const handleBrushChange = (r) => {
+    if (r && r.startIndex != null && r.endIndex != null) setBrushRange([r.startIndex, r.endIndex]);
+  };
 
   return (
     <div className="relative space-y-6">
@@ -375,6 +433,11 @@ export default function Marche({ watchlist, setWatchlist }) {
                   <div className="flex items-center gap-2">
                     <h2 className="font-display text-xl text-slate-50">{profile?.name || symbol}</h2>
                     <span className="text-xs text-slate-500 font-data">{symbol}</span>
+                    {profile?.instrumentLabel && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded px-1.5 py-0.5">
+                        {profile.instrumentLabel}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                     {profile?.exchange && <span>{profile.exchange}</span>}
@@ -382,20 +445,24 @@ export default function Marche({ watchlist, setWatchlist }) {
                     {profile?.sector && <span>{profile.sector}</span>}
                     {profile?.industry && <span className="text-slate-700">·</span>}
                     {profile?.industry && <span>{profile.industry}</span>}
+                    {isFund && profile?.fundCategory && <span>{profile.fundCategory}</span>}
+                    {isFund && profile?.fundFamily && <span className="text-slate-700">· {profile.fundFamily}</span>}
                   </div>
                 </div>
               </div>
 
               <div className="text-right">
-                <div className="font-display text-2xl text-slate-100">
-                  {profileLoading ? "…" : formatPrice(profile?.currentPrice, profile?.currency)}
+                <div className={`font-display text-2xl ${headlineIsHover ? "text-violet-300" : "text-slate-100"}`}>
+                  {profileLoading ? "…" : formatPrice(headlinePrice, profile?.currency)}
                 </div>
-                {dayChange && (
+                {headlineIsHover ? (
+                  <div className="text-[11px] text-violet-300/80 mt-0.5">au {formatFullDateTime(hoverPoint.date, isIntraday)}</div>
+                ) : dayChange ? (
                   <div className={`flex items-center justify-end gap-1 text-sm font-data mt-0.5 ${dayChange.abs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                     {dayChange.abs >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                     {dayChange.abs >= 0 ? "+" : ""}{formatPrice(dayChange.abs, profile?.currency)} ({pct(dayChange.pct)})
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -451,14 +518,20 @@ export default function Marche({ watchlist, setWatchlist }) {
               </div>
             </div>
 
-            {seriesMeta?.firstTradeDate && (
-              <p className="text-[11px] text-slate-600 mb-2">
-                Première cotation connue : {formatFullDate(seriesMeta.firstTradeDate)}
-                {totalReturnSinceStart != null && (
-                  <> · Performance sur la période affichée : <span className={totalReturnSinceStart >= 0 ? "text-emerald-400" : "text-rose-400"}>{pct(totalReturnSinceStart)}</span></>
-                )}
-              </p>
-            )}
+            <p className="text-[11px] text-slate-600 mb-2 flex items-center gap-1.5 flex-wrap">
+              {seriesMeta?.firstTradeDate && <span>Première cotation connue : {formatFullDateTime(seriesMeta.firstTradeDate, false)}</span>}
+              {totalReturnOnBrush != null && (
+                <span>
+                  {seriesMeta?.firstTradeDate && "· "}Performance {brushRange ? "sur la zone sélectionnée" : "sur la période affichée"} :{" "}
+                  <span className={totalReturnOnBrush >= 0 ? "text-emerald-400" : "text-rose-400"}>{pct(totalReturnOnBrush)}</span>
+                </span>
+              )}
+              {isIntraday && (
+                <span className="flex items-center gap-1 text-violet-300/80">
+                  <Info size={11} /> Données intraday ({seriesMeta.interval}) — précision maximale sur cette échelle.
+                </span>
+              )}
+            </p>
 
             {historyLoading ? (
               <div className="h-96 flex items-center justify-center text-sm text-slate-500">Chargement de l'historique…</div>
@@ -470,7 +543,7 @@ export default function Marche({ watchlist, setWatchlist }) {
               <>
                 <div className="h-80 mt-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 10 }}>
+                    <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 10 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
                       <defs>
                         <linearGradient id="marcheCloseFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
@@ -478,27 +551,40 @@ export default function Marche({ watchlist, setWatchlist }) {
                         </linearGradient>
                       </defs>
                       <CartesianGrid stroke="#1e293b" vertical={false} />
-                      <XAxis dataKey="date" tickFormatter={(d) => formatDateForRange(d, range)} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={60} />
+                      <XAxis dataKey="date" tickFormatter={(d) => formatAxisTick(d, isIntraday, range)} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={60} />
                       <YAxis domain={["auto", "auto"]} tickFormatter={(v) => formatCompact(v)} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={55} />
-                      <Tooltip content={<ChartTooltip currency={profile?.currency} />} />
+                      <Tooltip content={<ChartTooltip currency={profile?.currency} isIntraday={isIntraday} />} cursor={{ stroke: "#a78bfa", strokeDasharray: "3 3", strokeWidth: 1 }} />
                       {profile?.fiftyTwoWeekHigh != null && (
                         <ReferenceLine y={profile.fiftyTwoWeekHigh} stroke="#34d399" strokeDasharray="3 3" strokeOpacity={0.4} />
                       )}
                       {profile?.fiftyTwoWeekLow != null && (
                         <ReferenceLine y={profile.fiftyTwoWeekLow} stroke="#fb7185" strokeDasharray="3 3" strokeOpacity={0.4} />
                       )}
-                      <Area type="monotone" dataKey="close" name="Cours de clôture" stroke="#a78bfa" strokeWidth={2} fill="url(#marcheCloseFill)" isAnimationActive={false} />
+                      {hoverPoint && <ReferenceLine x={hoverPoint.date} stroke="#a78bfa" strokeOpacity={0.5} />}
+                      <Area type="monotone" dataKey="close" name="Cours de clôture" stroke="#a78bfa" strokeWidth={2} fill="url(#marcheCloseFill)" isAnimationActive={false} dot={false} activeDot={{ r: 4, fill: "#a78bfa", stroke: "#0f172a", strokeWidth: 2 }} />
+                      <Brush
+                        dataKey="date"
+                        height={28}
+                        stroke="#7c3aed"
+                        fill="#1e1b3a"
+                        travellerWidth={9}
+                        tickFormatter={(i) => formatAxisTick(chartData[i]?.date, isIntraday, range)}
+                        onChange={handleBrushChange}
+                      />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
+                <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-1.5">
+                  <Info size={10} /> Survole le graphique pour voir le cours exact à une date, ou fais glisser les poignées du bandeau du bas pour te déplacer et zoomer sur n'importe quelle période.
+                </p>
 
                 {/* Volume */}
-                <div className="h-20 mt-1">
+                <div className="h-20 mt-3">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 0 }}>
+                    <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 0 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
                       <XAxis dataKey="date" hide />
                       <YAxis hide domain={[0, "auto"]} />
-                      <Tooltip content={<ChartTooltip currency={profile?.currency} />} />
+                      <Tooltip content={<ChartTooltip currency={profile?.currency} isIntraday={isIntraday} />} cursor={{ fill: "#a78bfa", fillOpacity: 0.08 }} />
                       <Bar dataKey="volume" name="Volume" fill="#475569" radius={[1, 1, 0, 0]} isAnimationActive={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
@@ -509,7 +595,7 @@ export default function Marche({ watchlist, setWatchlist }) {
           </Card>
 
           {/* ─── Repère 52 semaines ─── */}
-          {profile && (
+          {profile && (profile.fiftyTwoWeekLow != null || profile.fiftyTwoWeekHigh != null) && (
             <Card accent={CARD_THEMES.violet}>
               <CardLabel icon={Target}>Position dans la fourchette annuelle</CardLabel>
               <div className="mt-3">
@@ -518,19 +604,19 @@ export default function Marche({ watchlist, setWatchlist }) {
             </Card>
           )}
 
-          {/* ─── Ratios clés ─── */}
-          {profile && (
+          {/* ─── Ratios clés (actions) ─── */}
+          {profile && !isFund && (
             <Card accent={CARD_THEMES.violet}>
               <CardLabel icon={Scale}>Valorisation &amp; rentabilité</CardLabel>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
-                <StatCell icon={BarChart3} label="Capitalisation" value={formatCompact(profile.marketCap, profile.currency)} />
-                <StatCell icon={Percent} label="PER (résultats passés)" value={profile.peRatio != null ? profile.peRatio.toFixed(1) : "—"} />
-                <StatCell icon={Percent} label="PER prévisionnel" value={profile.forwardPE != null ? profile.forwardPE.toFixed(1) : "—"} />
-                <StatCell icon={Scale} label="Bêta" value={profile.beta != null ? profile.beta.toFixed(2) : "—"} sub="Sensibilité au marché" />
-                <StatCell icon={Percent} label="Rendement du dividende" value={profile.dividendYield != null ? pctPlain(profile.dividendYield * 100, 2) : "—"} />
-                <StatCell icon={Percent} label="Marge nette" value={profile.profitMargin != null ? pctPlain(profile.profitMargin * 100, 1) : "—"} />
-                <StatCell icon={TrendingUp} label="Croissance du CA" value={profile.revenueGrowth != null ? pct(profile.revenueGrowth * 100, 1) : "—"} />
-                <StatCell icon={Percent} label="Rentabilité des capitaux (ROE)" value={profile.returnOnEquity != null ? pctPlain(profile.returnOnEquity * 100, 1) : "—"} />
+                <StatCell icon={BarChart3} label="Capitalisation" value={profile.marketCap != null ? formatCompact(profile.marketCap, profile.currency) : null} />
+                <StatCell icon={Percent} label="PER (résultats passés)" value={profile.peRatio != null ? profile.peRatio.toFixed(1) : null} />
+                <StatCell icon={Percent} label="PER prévisionnel" value={profile.forwardPE != null ? profile.forwardPE.toFixed(1) : null} />
+                <StatCell icon={Scale} label="Bêta" value={profile.beta != null ? profile.beta.toFixed(2) : null} sub="Sensibilité au marché" />
+                <StatCell icon={Percent} label="Rendement du dividende" value={profile.dividendYield != null ? pctPlain(profile.dividendYield * 100, 2) : null} />
+                <StatCell icon={Percent} label="Marge nette" value={profile.profitMargin != null ? pctPlain(profile.profitMargin * 100, 1) : null} />
+                <StatCell icon={TrendingUp} label="Croissance du CA" value={profile.revenueGrowth != null ? pct(profile.revenueGrowth * 100, 1) : null} />
+                <StatCell icon={Percent} label="Rentabilité des capitaux (ROE)" value={profile.returnOnEquity != null ? pctPlain(profile.returnOnEquity * 100, 1) : null} />
               </div>
 
               {(reco || upsidePct != null) && (
@@ -554,6 +640,49 @@ export default function Marche({ watchlist, setWatchlist }) {
             </Card>
           )}
 
+          {/* ─── Composition (ETF / fonds) ─── */}
+          {profile && isFund && (profile.holdings?.length > 0 || profile.sectorWeightings?.length > 0 || profile.expenseRatio != null) && (
+            <Card accent={CARD_THEMES.violet}>
+              <CardLabel icon={PieIcon}>Composition du fonds</CardLabel>
+              <div className="grid sm:grid-cols-2 gap-6 mt-2">
+                {profile.holdings?.length > 0 && (
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Principales positions</div>
+                    <div className="space-y-1.5">
+                      {profile.holdings.map((h) => (
+                        <div key={h.symbol || h.name} className="flex items-center justify-between text-xs">
+                          <span className="text-slate-300 truncate pr-2">{h.name || h.symbol}</span>
+                          <span className="font-data tabular-nums text-slate-400 shrink-0">{h.weightPct != null ? pctPlain(h.weightPct, 1) : "—"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {profile.sectorWeightings?.length > 0 && (
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Répartition sectorielle</div>
+                    <div className="space-y-1.5">
+                      {profile.sectorWeightings.slice(0, 8).map((s) => (
+                        <div key={s.key} className="flex items-center gap-2">
+                          <span className="text-xs text-slate-300 w-32 truncate">{SECTOR_LABELS_FR[s.key] || s.key}</span>
+                          <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                            <div className="h-full rounded-full bg-violet-400" style={{ width: `${Math.min(100, s.weightPct)}%` }} />
+                          </div>
+                          <span className="text-[11px] font-data tabular-nums text-slate-400 w-10 text-right">{s.weightPct.toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {profile.expenseRatio != null && (
+                <p className="text-[11px] text-slate-500 mt-3 pt-3 border-t border-slate-800">
+                  Frais annuels du fonds : <span className="text-slate-300 font-data">{pctPlain(profile.expenseRatio * 100, 2)}</span>
+                </p>
+              )}
+            </Card>
+          )}
+
           {/* ─── Fiche entreprise / activité ─── */}
           <Card accent={CARD_THEMES.violet}>
             <CardLabel icon={Building2}>Fiche entreprise &amp; activité</CardLabel>
@@ -563,6 +692,13 @@ export default function Marche({ watchlist, setWatchlist }) {
               <EmptyState>{profileError}</EmptyState>
             ) : profile ? (
               <div className="mt-2 space-y-4">
+                {profile.limited && (
+                  <div className="flex items-start gap-2 text-[11px] text-amber-300/90 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+                    <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                    Fiche simplifiée : les données étendues (description détaillée, ratios complets) ne sont pas disponibles pour cette valeur pour le moment. Les cours et repères ci-dessus restent fiables.
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500">
                   {profile.country && (
                     <span className="flex items-center gap-1.5"><Globe size={12} /> {profile.city ? `${profile.city}, ` : ""}{profile.country}</span>
@@ -574,6 +710,10 @@ export default function Marche({ watchlist, setWatchlist }) {
 
                 {profile.description ? (
                   <p className="text-sm text-slate-300 leading-relaxed">{profile.description}</p>
+                ) : isFund ? (
+                  <p className="text-sm text-slate-600 italic">
+                    Pas de description longue disponible pour ce fonds — voir sa composition ci-dessus{profile.fundFamily ? ` (société de gestion : ${profile.fundFamily})` : ""}.
+                  </p>
                 ) : (
                   <p className="text-sm text-slate-600 italic">Aucune description disponible pour cette valeur.</p>
                 )}

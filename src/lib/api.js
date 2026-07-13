@@ -67,9 +67,10 @@ export async function parseOperationPdf(file) {
 
 /**
  * Récupère l'historique (date + OHLC + volume) pour une liste de symboles.
- * range: "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "10y" | "ytd" | "max"
- * interval (optionnel) : "1d" | "1wk" | "1mo" — sinon déduit automatiquement du range côté serveur.
- * Renvoie : [{ symbol, ok, interval, series: [{date, open, high, low, close, volume}], firstTradeDate, currency } | { symbol, ok:false, error }]
+ * range: "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "10y" | "ytd" | "max"
+ * interval (optionnel) : "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1wk" | "1mo" — sinon déduit
+ * automatiquement du range côté serveur (intraday précis sur 1d/5d/1mo, hebdo au-delà de 5 ans).
+ * Renvoie : [{ symbol, ok, interval, isIntraday, series: [{date, open, high, low, close, adjClose, volume}], firstTradeDate, currency } | { symbol, ok:false, error }]
  */
 export async function fetchHistory(symbols, range = "6mo", interval = null) {
   if (!symbols || symbols.length === 0) return [];

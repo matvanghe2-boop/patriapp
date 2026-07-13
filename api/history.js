@@ -11,14 +11,20 @@ const YF_HEADERS = {
 };
 
 const ALLOWED_RANGES = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"];
-const ALLOWED_INTERVALS = ["1d", "1wk", "1mo"];
+const ALLOWED_INTERVALS = ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "1wk", "1mo"];
+const INTRADAY_INTERVALS = ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"];
 
-// Intervalle par défaut selon la plage demandée : sur les longues périodes on
-// bascule automatiquement sur une granularité plus large, sinon la réponse
-// devient énorme (une entreprise cotée depuis 40 ans en quotidien, c'est
-// ~10 000 points) sans que ça apporte de précision utile à l'œil sur un
-// graphique. L'utilisateur peut malgré tout forcer l'intervalle via ?interval=.
+// Intervalle par défaut selon la plage demandée. Sur "1 jour"/"1 semaine"/
+// "1 mois" on descend en intraday pour un tracé précis (plusieurs dizaines à
+// centaines de points par jour) au lieu d'une seule bougie par jour ; sur les
+// longues périodes on remonte à l'hebdomadaire, sinon la réponse devient
+// énorme (une entreprise cotée depuis 40 ans en quotidien, c'est ~10 000
+// points) sans gain de précision visuelle utile. L'utilisateur peut malgré
+// tout forcer l'intervalle via ?interval=.
 function defaultIntervalFor(range) {
+  if (range === "1d") return "5m";
+  if (range === "5d") return "15m";
+  if (range === "1mo") return "30m";
   if (["5y", "10y", "max"].includes(range)) return "1wk";
   return "1d";
 }
@@ -38,7 +44,7 @@ export default async function handler(req, res) {
       try {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
           symbol
-        )}?range=${range}&interval=${interval}`;
+        )}?range=${range}&interval=${interval}&includePrePost=false`;
         const r = await fetch(url, { headers: YF_HEADERS });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
@@ -51,15 +57,25 @@ export default async function handler(req, res) {
         const timestamps = result.timestamp || [];
         const quote = result.indicators?.quote?.[0] || {};
         const { close = [], open = [], high = [], low = [], volume = [] } = quote;
+        // Cours ajusté des splits/dividendes — plus fiable que le cours brut
+        // pour juger d'une performance longue période (l'ajustement de
+        // dividende n'existe que sur l'intervalle journalier et plus large).
+        const adjClose = result.indicators?.adjclose?.[0]?.adjclose || [];
+        const isIntraday = INTRADAY_INTERVALS.includes(interval);
 
         const series = timestamps
           .map((t, i) => ({
-            date: new Date(t * 1000).toISOString().slice(0, 10),
+            // En intraday, l'horodatage complet est conservé (heure précise)
+            // pour permettre de se déplacer minute par minute sur le
+            // graphique ; au-delà, une date suffit (comparaisons/agrégats
+            // ailleurs dans l'appli reposent sur ce format "YYYY-MM-DD").
+            date: isIntraday ? new Date(t * 1000).toISOString() : new Date(t * 1000).toISOString().slice(0, 10),
             close: close[i],
             open: open[i] ?? null,
             high: high[i] ?? null,
             low: low[i] ?? null,
             volume: volume[i] ?? null,
+            adjClose: adjClose[i] ?? null,
           }))
           .filter((p) => p.close != null);
 
@@ -68,6 +84,7 @@ export default async function handler(req, res) {
           symbol,
           ok: true,
           interval,
+          isIntraday,
           series,
           currency: meta.currency || null,
           exchangeName: meta.exchangeName || null,
