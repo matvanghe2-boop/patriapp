@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   PiggyBank, ShieldCheck, Banknote, Lightbulb, Target,
   Plus, Trash2, X, ChevronDown, ChevronUp, AlertTriangle, TrendingUp,
-  ArrowUp, ArrowDown, Minus, Wallet,
+  ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid } from "../lib/finance";
@@ -464,9 +464,11 @@ function ArbitrageOptimizer({ livrets }) {
 }
 
 // ─── Livret row with smart progress bar ──────────────────────────────────────
-function LivretRow({ l, onRemove, onUpdateGoal }) {
+function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
   const [showGoalEdit, setShowGoalEdit] = useState(false);
   const [goalDraft, setGoalDraft] = useState(l.goal ?? "");
+  const [editingBalance, setEditingBalance] = useState(false);
+  const [balanceDraft, setBalanceDraft] = useState(l.balance);
 
   const hasLimit = !!l.limit;
   const hasGoal = !!l.goal;
@@ -487,10 +489,62 @@ function LivretRow({ l, onRemove, onUpdateGoal }) {
     setShowGoalEdit(false);
   };
 
+  const startEditBalance = () => {
+    setBalanceDraft(l.balance);
+    setEditingBalance(true);
+  };
+  const saveBalance = () => {
+    const v = parseFloat(balanceDraft);
+    if (Number.isFinite(v) && v >= 0) onUpdateBalance(l.id, v);
+    setEditingBalance(false);
+  };
+  const nudge = (delta) => onUpdateBalance(l.id, Math.max(0, l.balance + delta));
+
   return (
     <tr className="group">
       <td className="py-3 pr-3 text-slate-200 font-medium">{l.name}</td>
-      <td className="py-3 pr-3 font-data tabular-nums text-slate-100 ghost-blur">{eur(l.balance)}</td>
+      <td className="py-3 pr-3">
+        {editingBalance ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              value={balanceDraft}
+              onChange={(e) => setBalanceDraft(e.target.value)}
+              className="w-24 bg-slate-950 border border-indigo-400/50 rounded-lg px-1.5 py-1 text-xs font-data tabular-nums ghost-blur focus:outline-none focus:border-indigo-400"
+              autoFocus
+              onFocus={(e) => e.target.select()}
+              onKeyDown={(e) => { if (e.key === "Enter") saveBalance(); if (e.key === "Escape") setEditingBalance(false); }}
+            />
+            <button onClick={saveBalance} className="text-indigo-300 hover:text-indigo-200"><Check size={13} /></button>
+            <button onClick={() => setEditingBalance(false)} className="text-slate-600 hover:text-slate-300"><X size={13} /></button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => nudge(-50)}
+              className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-rose-400 transition-opacity"
+              title="−50 €"
+            >
+              <Minus size={12} />
+            </button>
+            <button
+              onClick={startEditBalance}
+              className="font-data tabular-nums text-slate-100 ghost-blur hover:text-indigo-300 flex items-center gap-1 transition-colors"
+              title="Modifier le solde"
+            >
+              {eur(l.balance)}
+              <Pencil size={10} className="opacity-0 group-hover:opacity-100 text-slate-600" />
+            </button>
+            <button
+              onClick={() => nudge(50)}
+              className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-emerald-400 transition-opacity"
+              title="+50 €"
+            >
+              <Plus size={12} />
+            </button>
+          </div>
+        )}
+      </td>
       <td className="py-3 pr-3 font-data tabular-nums text-amber-300/90">{(l.rate * 100).toFixed(2)} %</td>
       <td className="py-3 pr-3 font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.balance * l.rate)}</td>
       <td className="py-3 pr-3 min-w-[160px]">
@@ -563,6 +617,7 @@ export default function Livrets({
     ]);
   const removeLivret = (id) => setLivrets((l) => l.filter((x) => x.id !== id));
   const updateGoal = (id, goal) => setLivrets((l) => l.map((x) => x.id === id ? { ...x, goal } : x));
+  const updateBalance = (id, balance) => setLivrets((l) => l.map((x) => x.id === id ? { ...x, balance } : x));
 
   const totalInterets = livrets.reduce((s, l) => s + l.balance * l.rate, 0);
 
@@ -632,7 +687,7 @@ export default function Livrets({
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {livrets.map((l) => (
-                  <LivretRow key={l.id} l={l} onRemove={removeLivret} onUpdateGoal={updateGoal} />
+                  <LivretRow key={l.id} l={l} onRemove={removeLivret} onUpdateGoal={updateGoal} onUpdateBalance={updateBalance} />
                 ))}
               </tbody>
             </table>
