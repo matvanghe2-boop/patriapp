@@ -240,12 +240,49 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
   // Ouverture directe depuis un clic sur une position (Portefeuille) ou une
   // ligne de la watchlist : on charge la fiche de la valeur demandée, même si
   // c'est déjà la valeur affichée (le "ts" garantit le redéclenchement).
+  //
+  // Ce chargement et celui déclenché par un changement de `symbol` sont
+  // fusionnés dans UN SEUL effet : avoir deux effets séparés (un sur
+  // `openRequest`, un sur `symbol`) provoquait une redirection "en retard" —
+  // au premier montage de <Marche>, l'effet `[symbol]` se déclenchait avec
+  // l'ANCIENNE valeur de `symbol` (celle encore en mémoire depuis la dernière
+  // visite), pendant que l'effet `[openRequest]` planifiait seulement un
+  // `setSymbol(nouvelleValeur)` pour le rendu suivant. Les deux requêtes
+  // réseau partaient donc en parallèle (ancienne puis nouvelle valeur), et
+  // selon l'ordre de réponse du réseau, la fiche/graphique pouvaient rester
+  // bloqués sur l'ancienne valeur jusqu'au clic suivant.
   const lastHandledRequestTs = useRef(null);
+  const loadedSymbolRef = useRef(null);
   useEffect(() => {
-    if (!openRequest || openRequest.ts === lastHandledRequestTs.current) return;
-    lastHandledRequestTs.current = openRequest.ts;
-    pickSymbol(openRequest.symbol);
-  }, [openRequest]);
+    let effectiveSymbol = symbol;
+    let forceReload = false;
+
+    if (openRequest && openRequest.ts !== lastHandledRequestTs.current) {
+      lastHandledRequestTs.current = openRequest.ts;
+      effectiveSymbol = openRequest.symbol.toUpperCase();
+      forceReload = true;
+      if (effectiveSymbol !== symbol) {
+        setSymbol(effectiveSymbol);
+        setQuery("");
+        setResults([]);
+        setShowResults(false);
+      }
+    }
+
+    if (!effectiveSymbol) return;
+    // Évite un second fetch redondant quand ce même effet vient de déclencher
+    // le setSymbol ci-dessus (le rendu suivant repassera ici avec le nouveau
+    // symbole déjà chargé).
+    if (!forceReload && loadedSymbolRef.current === effectiveSymbol) return;
+    loadedSymbolRef.current = effectiveSymbol;
+
+    setBrushRange(null);
+    setHoverPoint(null);
+    loadProfile(effectiveSymbol);
+    loadHistory(effectiveSymbol, range);
+    setLastUpdated(Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, openRequest]);
 
   const loadProfile = useCallback(async (sym) => {
     setProfileLoading(true); setProfileError("");
@@ -290,15 +327,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
       setLastUpdated(Date.now());
     }
   }, []);
-
-  // Chargement initial / changement de valeur sélectionnée.
-  useEffect(() => {
-    if (!symbol) return;
-    loadProfile(symbol);
-    loadHistory(symbol, range);
-    setLastUpdated(Date.now());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol]);
 
   // Changement de plage : on ne recharge que l'historique.
   useEffect(() => {

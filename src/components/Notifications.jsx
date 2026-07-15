@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
-import { Bell, Plus, Trash2, Check, X } from "lucide-react";
+import { Bell, BellRing, Plus, Trash2, Check, X } from "lucide-react";
 import { uid } from "../lib/finance";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -19,7 +19,14 @@ export default function Notifications({ reminders = [], setReminders }) {
   const [open, setOpen] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState({ label: "", type: "monthly", day: 5, date: "" });
+  const [permission, setPermission] = useState(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
   const ref = useRef(null);
+  // Évite de renvoyer la même notification système plusieurs fois pour le
+  // même rappel pendant la même session (utile car le check tourne en boucle
+  // tant que l'onglet reste ouvert).
+  const notifiedRef = useRef(new Set());
 
   useEffect(() => {
     const onClick = (e) => {
@@ -30,6 +37,37 @@ export default function Notifications({ reminders = [], setReminders }) {
   }, []);
 
   const dueList = useMemo(() => reminders.filter(isDue), [reminders]);
+
+  const requestPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    const p = await Notification.requestPermission();
+    setPermission(p);
+  };
+
+  // Envoie une vraie notification système (via l'API Notification du
+  // navigateur) pour chaque rappel dû, une seule fois par rappel/session.
+  // Fonctionne tant que l'onglet ou l'app installée est ouvert(e) — voir
+  // l'explication "notifications push" pour les limites de cette approche.
+  useEffect(() => {
+    if (permission !== "granted") return;
+    dueList.forEach((r) => {
+      const key = `${r.id}-${r.type === "monthly" ? currentYearMonth() : "once"}`;
+      if (notifiedRef.current.has(key)) return;
+      notifiedRef.current.add(key);
+      try {
+        new Notification("Patrium — rappel", {
+          body: r.label,
+          tag: key,
+        });
+      } catch {
+        // Certains navigateurs mobiles exigent de passer par un service
+        // worker (registration.showNotification) plutôt que `new Notification`.
+        navigator.serviceWorker?.getRegistration?.().then((reg) => {
+          reg?.showNotification("Patrium — rappel", { body: r.label, tag: key });
+        });
+      }
+    });
+  }, [dueList, permission]);
 
   const addReminder = () => {
     if (!draft.label.trim()) return;
@@ -62,7 +100,7 @@ export default function Notifications({ reminders = [], setReminders }) {
         className="relative text-slate-400 hover:text-slate-100 p-1.5 rounded-lg border border-transparent hover:border-slate-800"
         title="Notifications"
       >
-        <Bell size={16} />
+        {permission === "granted" ? <BellRing size={16} /> : <Bell size={16} />}
         {dueList.length > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
             {dueList.length}
@@ -78,6 +116,18 @@ export default function Notifications({ reminders = [], setReminders }) {
               <Plus size={12} /> Ajouter
             </button>
           </div>
+
+          {permission !== "granted" && permission !== "unsupported" && (
+            <button
+              onClick={requestPermission}
+              className="w-full flex items-center justify-center gap-1.5 text-[11px] font-medium text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 rounded-lg px-2.5 py-1.5 mb-3"
+            >
+              <BellRing size={12} />
+              {permission === "denied"
+                ? "Notifications bloquées — autorise-les dans les réglages du navigateur"
+                : "Activer les notifications sur cet appareil"}
+            </button>
+          )}
 
           {showAdd && (
             <div className="mb-3 p-2.5 rounded-lg border border-slate-800 bg-slate-900 space-y-2">

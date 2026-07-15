@@ -1,0 +1,10 @@
+{
+  "name": "Patrium — Patrimoine",
+  "short_name": "Patrium",
+  "description": "Vision consolidée de patrimoine & simulation financière.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": []
+}
