@@ -8,7 +8,9 @@ import {
   Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap, ListChecks, ArrowRight, Scale,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, pct, pctPlain, compact, uid } from "../lib/finance";
+import { eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore } from "../lib/finance";
+import { exportToExcel, exportToPDF } from "../lib/exportReport";
+import { FileDown, FileSpreadsheet, PieChart as PieIcon } from "lucide-react";
 
 // ─── Time filter config ────────────────────────────────────────────────────────
 const TIME_FILTERS = [
@@ -426,12 +428,40 @@ export default function Dashboard({
     return [...histData, ...projectionPoints];
   }, [historyPast, patrimoineNet, epargneMensuelle, timeFilter]);
 
-  // Allocation data
-  const allocationData = [
-    { name: "Épargne sécurisée", value: livretsTotal, color: "#2dd4bf" },
-    { name: "Bourse (PEA)", value: bourseTotal, color: "#fbbf24" },
-  ].filter((d) => d.value > 0);
+  // Allocation data — répartition par enveloppe fiscale (PEA/CTO/AV/PER/Livret/Cash)
+  const allocationData = useMemo(() => {
+    const byEnvelope = {};
+    (livrets || []).forEach((l) => {
+      const key = l.envelope || guessEnvelope(l.name);
+      byEnvelope[key] = (byEnvelope[key] || 0) + (l.balance || 0);
+    });
+    if (bourseTotal > 0) {
+      const key = bourse?.envelope || "PEA";
+      byEnvelope[key] = (byEnvelope[key] || 0) + bourseTotal;
+    }
+    return Object.entries(byEnvelope)
+      .map(([key, value]) => ({
+        name: ENVELOPE_META[key]?.label || key,
+        value,
+        color: ENVELOPE_META[key]?.color || "#94a3b8",
+      }))
+      .filter((d) => d.value > 0);
+  }, [livrets, bourseTotal, bourse]);
   const totalAlloc = allocationData.reduce((s, d) => s + d.value, 0);
+
+  // Score de diversification globale — concentration par classe d'actif
+  // (types de positions bourse + épargne sécurisée regroupée).
+  const diversification = useMemo(() => {
+    const classes = {};
+    (bourse?.positions || []).forEach((p) => {
+      const key = p.type || "Autre";
+      classes[key] = (classes[key] || 0) + p.quantity * p.current_price;
+    });
+    if (bourse?.cash_pocket > 0) classes["Cash PEA"] = (classes["Cash PEA"] || 0) + bourse.cash_pocket;
+    if (livretsTotal > 0) classes["Épargne sécurisée"] = (classes["Épargne sécurisée"] || 0) + livretsTotal;
+    const list = Object.entries(classes).map(([name, value]) => ({ name, value }));
+    return computeDiversificationScore(list);
+  }, [bourse, livretsTotal]);
 
   // Find the join point index for reference line
   const joinIndex = historyPast.length; // index of "Aujourd'hui" in chartData
@@ -446,7 +476,31 @@ export default function Dashboard({
           </h1>
           <p className="text-sm text-slate-500 mt-1">La photographie consolidée de ton patrimoine, à date.</p>
         </div>
-        <StagnationBadge lastUpdateDate={lastUpdateDate} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() =>
+              exportToExcel({
+                patrimoineBrut, patrimoineNet, dettesTotal, livretsTotal, bourseTotal, cash: 0,
+                livrets, bourse, envelopeBreakdown: allocationData,
+              })
+            }
+            className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-emerald-300 border border-slate-800 hover:border-emerald-400/40 rounded-lg px-2.5 py-1.5 transition-colors"
+          >
+            <FileSpreadsheet size={13} /> Excel
+          </button>
+          <button
+            onClick={() =>
+              exportToPDF({
+                patrimoineBrut, patrimoineNet, dettesTotal, envelopeBreakdown: allocationData,
+                livrets, bourse, cash: 0, diversification,
+              })
+            }
+            className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-emerald-300 border border-slate-800 hover:border-emerald-400/40 rounded-lg px-2.5 py-1.5 transition-colors"
+          >
+            <FileDown size={13} /> PDF
+          </button>
+          <StagnationBadge lastUpdateDate={lastUpdateDate} />
+        </div>
       </div>
 
       {/* Actions prioritaires cross-onglets */}
@@ -579,6 +633,39 @@ export default function Dashboard({
               </div>
             </>
           )}
+          {/* Score de diversification globale */}
+          {diversification.n > 1 && (
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-xs text-slate-500 uppercase tracking-wider">
+                  <PieIcon size={11} />
+                  Score de diversification
+                </div>
+                <span
+                  className={`font-data text-sm font-semibold ${
+                    diversification.score >= 66 ? "text-emerald-400" : diversification.score >= 33 ? "text-amber-300" : "text-rose-400"
+                  }`}
+                >
+                  {Math.round(diversification.score)} / 100
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className={`h-1.5 rounded-full transition-all ${
+                    diversification.score >= 66 ? "bg-emerald-400" : diversification.score >= 33 ? "bg-amber-400" : "bg-rose-400"
+                  }`}
+                  style={{ width: `${diversification.score}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-600 mt-1.5">
+                {diversification.score >= 66
+                  ? "Bonne répartition entre tes classes d'actifs."
+                  : diversification.score >= 33
+                  ? "Concentration modérée — surveille le poids de ta plus grosse classe d'actifs."
+                  : "Patrimoine fortement concentré sur une seule classe d'actifs."}
+              </p>
+            </div>
+          )}
           {/* Allocation target section */}
           <AllocationTarget
             target={allocationTarget}
@@ -669,16 +756,9 @@ export default function Dashboard({
             ]}
           />
 
-          {historyPast.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3 max-h-24 overflow-y-auto">
-              {historyPast.map((h) => (
-                <span key={h.id} className="flex items-center gap-1.5 text-[11px] bg-slate-950 border border-slate-800 rounded-full px-2.5 py-1 text-slate-400">
-                  {h.label} · <span className="ghost-blur">{eur(h.value)}</span>
-                  <button onClick={() => removeHistoryPoint(h.id)} className="text-slate-600 hover:text-rose-400">×</button>
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Les valeurs détaillées de l'historique jour par jour ne sont plus
+              affichées ici (données conservées en mémoire / stockage local,
+              utilisées par le graphique et les calculs, simplement non listées). */}
         </Card>
       </div>
 

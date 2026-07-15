@@ -5,7 +5,7 @@ import {
   ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, uid } from "../lib/finance";
+import { eur, uid, guessEnvelope } from "../lib/finance";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
 const MARKET_ALTERNATIVES = [
@@ -502,7 +502,12 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
 
   return (
     <tr className="group">
-      <td className="py-3 pr-3 text-slate-200 font-medium">{l.name}</td>
+      <td className="py-3 pr-3 text-slate-200 font-medium">
+        {l.name}
+        <span className="ml-2 text-[10px] uppercase tracking-wide text-indigo-300/70 border border-indigo-400/30 rounded-full px-1.5 py-0.5 align-middle">
+          {l.envelope || guessEnvelope(l.name)}
+        </span>
+      </td>
       <td className="py-3 pr-3">
         {editingBalance ? (
           <div className="flex items-center gap-1">
@@ -613,7 +618,7 @@ export default function Livrets({
   const addLivret = (v) =>
     setLivrets((l) => [
       ...l,
-      { id: uid(), name: v.name, balance: parseFloat(v.balance) || 0, rate: parseFloat(v.rate) / 100, limit: parseFloat(v.limit) > 0 ? parseFloat(v.limit) : null, goal: null },
+      { id: uid(), name: v.name, balance: parseFloat(v.balance) || 0, rate: parseFloat(v.rate) / 100, limit: parseFloat(v.limit) > 0 ? parseFloat(v.limit) : null, goal: null, envelope: v.envelope || "Livret" },
     ]);
   const removeLivret = (id) => setLivrets((l) => l.filter((x) => x.id !== id));
   const updateGoal = (id, goal) => setLivrets((l) => l.map((x) => x.id === id ? { ...x, goal } : x));
@@ -703,6 +708,7 @@ export default function Livrets({
             { key: "balance", label: "Capital (€)", type: "number", step: "100", required: true },
             { key: "rate", label: "Taux annuel net (%)", type: "number", step: "0.1", required: true },
             { key: "limit", label: "Plafond légal (€, optionnel)", type: "number", step: "100", default: 0 },
+            { key: "envelope", label: "Enveloppe fiscale", type: "select", options: ["Livret", "AV", "PER", "PEA", "CTO"], default: "Livret" },
           ]}
         />
       </Card>

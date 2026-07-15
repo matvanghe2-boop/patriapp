@@ -679,6 +679,49 @@ export function computeTSR(history, operations) {
   return { withDividends, withoutDividends, dividendsInPeriod };
 }
 
+/**
+ * Devine l'enveloppe fiscale d'un support d'épargne à partir de son nom,
+ * pour les données existantes qui n'ont pas encore de champ `envelope`.
+ */
+export function guessEnvelope(name) {
+  const key = (name || "").toLowerCase();
+  if (key.includes("assurance") || key.includes(" av") || key.startsWith("av ") || key === "av") return "AV";
+  if (key.includes("per") && !key.includes("perso")) return "PER";
+  if (key.includes("pea")) return "PEA";
+  if (key.includes("cto") || key.includes("compte-titres") || key.includes("compte titres")) return "CTO";
+  return "Livret";
+}
+
+/** Libellés/couleurs standard pour les enveloppes fiscales. */
+export const ENVELOPE_META = {
+  PEA: { label: "PEA", color: "#fbbf24" },
+  CTO: { label: "CTO", color: "#f472b6" },
+  AV: { label: "Assurance-Vie", color: "#818cf8" },
+  PER: { label: "PER", color: "#22d3ee" },
+  Livret: { label: "Livrets réglementés", color: "#2dd4bf" },
+  Cash: { label: "Compte courant", color: "#94a3b8" },
+};
+
+/**
+ * Score de diversification globale basé sur l'indice de Herfindahl-Hirschman
+ * (HHI) appliqué à la répartition par classe d'actif. Renvoie un score de
+ * 0 (tout concentré sur une seule classe) à 100 (parfaitement réparti entre
+ * toutes les classes présentes).
+ */
+export function computeDiversificationScore(classes) {
+  const items = (classes || []).filter((c) => c.value > 0);
+  const total = items.reduce((s, c) => s + c.value, 0);
+  if (total <= 0 || items.length === 0) return { score: 0, hhi: 0, n: 0, weights: [] };
+  const weights = items.map((c) => ({ name: c.name, weight: c.value / total }));
+  const hhi = weights.reduce((s, w) => s + w.weight * w.weight, 0);
+  const n = items.length;
+  // HHI minimal atteignable avec n classes = 1/n (répartition parfaitement égale).
+  const hhiMin = 1 / n;
+  // Normalise entre 0 (hhi = 1, tout concentré) et 100 (hhi = hhiMin, réparti au mieux).
+  const score = n <= 1 ? 0 : Math.max(0, Math.min(100, ((1 - hhi) / (1 - hhiMin)) * 100));
+  return { score, hhi, n, weights };
+}
+
 /** Filtre un historique sur une fenêtre glissante ("1M","3M","6M","1A","YTD","MAX"). */
 export function filterHistoryByRange(history, range) {
   if (!history || history.length === 0 || range === "MAX") return history;

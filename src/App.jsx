@@ -15,11 +15,12 @@ const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "
 const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };
 
 const INITIAL_LIVRETS = [
-  { id: "la", name: "Livret A", balance: 7000, rate: 0.017, limit: 22950 },
-  { id: "av_euro", name: "Assurance-Vie (Fonds Euro)", balance: 15000, rate: 0.025, limit: null },
+  { id: "la", name: "Livret A", balance: 7000, rate: 0.017, limit: 22950, envelope: "Livret" },
+  { id: "av_euro", name: "Assurance-Vie (Fonds Euro)", balance: 15000, rate: 0.025, limit: null, envelope: "AV" },
 ];
 
 const INITIAL_BOURSE = {
+  envelope: "PEA",
   cash_pocket: 500,
   positions: [
     { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },

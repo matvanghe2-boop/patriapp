@@ -399,9 +399,23 @@ export default function Bourse({
     <div className="relative space-y-6">
       <PageGlow color="violet" />
       <div className="relative">
-        <h1 className="font-display text-2xl text-slate-50">
-          PEA &amp; <span className="text-violet-400">Bourse</span>
-        </h1>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h1 className="font-display text-2xl text-slate-50">
+            PEA &amp; <span className="text-violet-400">Bourse</span>
+          </h1>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            Enveloppe fiscale
+            <select
+              value={bourse.envelope || "PEA"}
+              onChange={(e) => setBourse((b) => ({ ...b, envelope: e.target.value }))}
+              className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-100 focus:outline-none focus:border-violet-400/60"
+            >
+              <option value="PEA">PEA</option>
+              <option value="CTO">CTO</option>
+              <option value="PER">PER</option>
+            </select>
+          </div>
+        </div>
         <p className="text-sm text-slate-500 mt-1">Positions actions / ETF — analyse de portefeuille.</p>
       </div>
 
