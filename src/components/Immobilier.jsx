@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, AlertTriangle, Shield, Wallet, Gauge } from "lucide-react";
-import { Card, CardLabel, SliderField, PageGlow, CARD_THEMES } from "./ui";
-import { monthlyPayment, eur, pctPlain } from "../lib/finance";
+import { Landmark, AlertTriangle, Shield, Wallet, Gauge, HardHat, Plus } from "lucide-react";
+import { Card, CardLabel, SliderField, PageGlow, CARD_THEMES, AddPanel, IconTrash, EmptyState, GhostButton } from "./ui";
+import { monthlyPayment, eur, pctPlain, uid } from "../lib/finance";
 
 const DURATIONS = [15, 20, 25];
 
@@ -63,7 +63,115 @@ function ResteAVivre({ revenus, mensualite }) {
   );
 }
 
-export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, profile }) {
+// ─── Suivi travaux / charges : budget prévisionnel vs réel ───────────────────
+function TravauxTracker({ items, setItems }) {
+  const [showAdd, setShowAdd] = useState(false);
+
+  const addItem = (v) =>
+    setItems((list) => [
+      ...list,
+      {
+        id: uid(),
+        label: v.label,
+        category: v.category,
+        budget: parseFloat(v.budget) || 0,
+        reel: parseFloat(v.reel) || 0,
+      },
+    ]);
+  const removeItem = (id) => setItems((list) => list.filter((x) => x.id !== id));
+  const updateReel = (id, reel) => setItems((list) => list.map((x) => (x.id === id ? { ...x, reel } : x)));
+
+  const totalBudget = items.reduce((s, i) => s + i.budget, 0);
+  const totalReel = items.reduce((s, i) => s + i.reel, 0);
+  const ecart = totalReel - totalBudget;
+
+  return (
+    <Card accent={CARD_THEMES.rose}>
+      <div className="flex items-center justify-between">
+        <CardLabel icon={HardHat}>Suivi travaux &amp; charges — prévisionnel vs réel</CardLabel>
+        <GhostButton theme="rose" onClick={() => setShowAdd((s) => !s)}>Ajouter une ligne</GhostButton>
+      </div>
+
+      {items.length === 0 ? (
+        <EmptyState>Aucune ligne de travaux ou de charges suivie pour le moment.</EmptyState>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 mb-3">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Budget prévisionnel</div>
+              <div className="font-data text-base text-slate-200 ghost-blur">{eur(totalBudget)}</div>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Dépensé réellement</div>
+              <div className="font-data text-base text-slate-200 ghost-blur">{eur(totalReel)}</div>
+            </div>
+            <div className={`rounded-lg border px-3 py-2 ${ecart > 0 ? "border-rose-400/30 bg-rose-400/5" : "border-emerald-400/30 bg-emerald-400/5"}`}>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Écart</div>
+              <div className={`font-data text-base ghost-blur ${ecart > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                {ecart > 0 ? "+" : ""}{eur(ecart)}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                  <th className="py-2 pr-3">Poste</th>
+                  <th className="py-2 pr-3">Catégorie</th>
+                  <th className="py-2 pr-3">Budget</th>
+                  <th className="py-2 pr-3">Réel</th>
+                  <th className="py-2 pr-3">Écart</th>
+                  <th className="py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {items.map((i) => {
+                  const diff = i.reel - i.budget;
+                  return (
+                    <tr key={i.id}>
+                      <td className="py-2 pr-3 text-slate-200">{i.label}</td>
+                      <td className="py-2 pr-3 text-slate-400 text-xs">{i.category}</td>
+                      <td className="py-2 pr-3 font-data tabular-nums text-slate-300 ghost-blur">{eur(i.budget)}</td>
+                      <td className="py-2 pr-3">
+                        <input
+                          type="number"
+                          value={i.reel}
+                          onChange={(e) => updateReel(i.id, parseFloat(e.target.value) || 0)}
+                          className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-1 text-xs font-data tabular-nums ghost-blur focus:outline-none focus:border-rose-400/60"
+                        />
+                      </td>
+                      <td className={`py-2 pr-3 font-data tabular-nums ${diff > 0 ? "text-rose-400" : diff < 0 ? "text-emerald-400" : "text-slate-500"}`}>
+                        {diff > 0 ? "+" : ""}{eur(diff)}
+                      </td>
+                      <td className="py-2">
+                        <IconTrash onClick={() => removeItem(i.id)} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <AddPanel
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        onSubmit={addItem}
+        fields={[
+          { key: "label", label: "Poste", type: "text", placeholder: "Cuisine, taxe foncière...", required: true },
+          { key: "category", label: "Catégorie", type: "select", options: ["Travaux", "Charges courantes", "Assurance", "Taxe foncière", "Autre"], default: "Travaux" },
+          { key: "budget", label: "Budget prévisionnel (€)", type: "number", step: "50", required: true },
+          { key: "reel", label: "Dépensé réel (€, optionnel)", type: "number", step: "50", default: 0 },
+        ]}
+      />
+    </Card>
+  );
+}
+
+export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, profile, immoTravaux = [], setImmoTravaux }) {
   const [showDetails, setShowDetails] = useState(false);
   
   const set = (key) => (v) => setImmo((s) => ({ ...s, [key]: v }));
@@ -342,6 +450,9 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           L'assurance emprunteur est incluse dans la mensualité totale.
         </p>
       </Card>
+
+      {/* Suivi travaux / charges réels vs prévisionnels */}
+      <TravauxTracker items={immoTravaux} setItems={setImmoTravaux} />
     </div>
   );
 }

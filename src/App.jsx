@@ -9,8 +9,10 @@ import Bourse from "./components/Bourse";
 import Simulation from "./components/Simulation";
 import Immobilier from "./components/Immobilier";
 import StrategieLogs from "./components/StrategieLogs";
+import GlobalSearch from "./components/GlobalSearch";
+import Notifications from "./components/Notifications";
 
-const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData", "strategyNotes"];
+const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios", "immoTravaux", "reminders"];
 
 const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };
 
@@ -107,6 +109,12 @@ export default function App() {
   const [watchlist, setWatchlist] = usePersistentState("watchlist", []);
   // Journal de bord "Stratégie & Logs" : thèses d'investissement notées à l'achat.
   const [strategyNotes, setStrategyNotes] = usePersistentState("strategyNotes", []);
+  // Scénarios de simulation sauvegardés, comparables côte à côte.
+  const [simScenarios, setSimScenarios] = usePersistentState("simScenarios", []);
+  // Suivi travaux/charges immobilier : budget prévisionnel vs réel.
+  const [immoTravaux, setImmoTravaux] = usePersistentState("immoTravaux", []);
+  // Rappels configurables (versement mensuel, échéance...).
+  const [reminders, setReminders] = usePersistentState("reminders", []);
 
   const livretsTotal = useMemo(() => livrets.reduce((s, l) => s + l.balance, 0), [livrets]);
   const livretsAvgRate = useMemo(() => weightedAverageRate(livrets) * 100, [livrets]);
@@ -131,6 +139,7 @@ export default function App() {
     bourseHistory, setBourseHistory, watchlist, setWatchlist,
     cash, setCash, enveloppes, setEnveloppes,
     strategyNotes, setStrategyNotes,
+    simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
     livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
     bourseTotal, bourseGainAbs, bourseGainPct, patrimoineBrut, patrimoineNet,
     epargneMensuelle, tauxEpargne, matelasMois,
@@ -212,6 +221,13 @@ export default function App() {
       </aside>
 
       <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl transition-colors duration-500 ${TAB_BG[tab] || ""}`}>
+        <div className="flex items-center justify-between gap-3 mb-5">
+          <GlobalSearch
+            livrets={livrets} bourse={bourse} dettes={dettes} watchlist={watchlist}
+            strategyNotes={strategyNotes} enveloppes={enveloppes} onNavigate={setTab}
+          />
+          <Notifications reminders={reminders} setReminders={setReminders} />
+        </div>
         <div key={tab} className="animate-[fadeIn_0.3s_ease-out]">
           {tab === "dashboard" && <Dashboard {...shared} />}
           {tab === "livrets" && <Livrets {...shared} />}

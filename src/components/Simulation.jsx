@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp } from "lucide-react";
+import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2 } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES } from "./ui";
-import { projectCompound, eur, pct, compact, solveMonthlyForTarget, applyInflation, generateVolatileReturns } from "../lib/finance";
+import { projectCompound, eur, pct, compact, solveMonthlyForTarget, applyInflation, generateVolatileReturns, uid } from "../lib/finance";
 
-export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, bourseTotal }) {
+export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, bourseTotal, simScenarios = [], setSimScenarios }) {
   const livretsCapital = sim.livrets.capital ?? livretsTotal;
   const livretsRate = sim.livrets.rate ?? Math.max(livretsAvgRate, 0.5);
   const bourseCapital = sim.bourse.capital ?? bourseTotal;
@@ -105,6 +105,39 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
   const showBand = sim.years >= 6;
   const isCustom = sim.livrets.capital != null || sim.livrets.rate != null || sim.bourse.capital != null;
 
+  // ─── Scénarios sauvegardés, comparables côte à côte ───────────────────────
+  const [scenarioName, setScenarioName] = useState("");
+  const [showSaveScenario, setShowSaveScenario] = useState(false);
+  const [selectedScenarioIds, setSelectedScenarioIds] = useState([]);
+
+  const saveScenario = () => {
+    const name = scenarioName.trim();
+    if (!name) return;
+    setSimScenarios((list) => [
+      ...list,
+      {
+        id: uid(),
+        name,
+        createdAt: new Date().toISOString().slice(0, 10),
+        sim: { years: sim.years, livrets: { ...sim.livrets, capital: livretsCapital, rate: livretsRate }, bourse: { ...sim.bourse, capital: bourseCapital } },
+        inflationRate,
+        finalTotal: Math.round(final.total),
+        finalVersed: Math.round(final.versed),
+        finalInterets: Math.round(totalInterets),
+      },
+    ]);
+    setScenarioName("");
+    setShowSaveScenario(false);
+  };
+  const removeScenario = (id) => {
+    setSimScenarios((list) => list.filter((s) => s.id !== id));
+    setSelectedScenarioIds((ids) => ids.filter((x) => x !== id));
+  };
+  const toggleCompare = (id) =>
+    setSelectedScenarioIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : ids.length >= 3 ? ids : [...ids, id]));
+
+  const comparedScenarios = simScenarios.filter((s) => selectedScenarioIds.includes(s.id));
+
   return (
     <div className="relative space-y-6">
       <PageGlow color="amber" />
@@ -118,15 +151,37 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
             {showStress && " — Mode Volatile (simulation historique)"}
           </p>
         </div>
-        {isCustom && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {isCustom && (
+            <button
+              onClick={resyncFromPortfolio}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-300 border border-slate-700 rounded-lg px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+            >
+              <RotateCcw size={13} /> Resynchroniser depuis mon patrimoine actuel
+            </button>
+          )}
           <button
-            onClick={resyncFromPortfolio}
+            onClick={() => setShowSaveScenario((s) => !s)}
             className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-300 border border-slate-700 rounded-lg px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
           >
-            <RotateCcw size={13} /> Resynchroniser depuis mon patrimoine actuel
+            <Save size={13} /> Sauvegarder ce scénario
           </button>
-        )}
+        </div>
       </div>
+
+      {showSaveScenario && (
+        <div className="flex items-center gap-2 -mt-2 relative">
+          <input
+            value={scenarioName}
+            onChange={(e) => setScenarioName(e.target.value)}
+            placeholder="Nom du scénario (ex: Prudent, Agressif...)"
+            className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-400/60 w-72"
+          />
+          <button onClick={saveScenario} className="text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-3 py-1.5">
+            Enregistrer
+          </button>
+        </div>
+      )}
 
       {/* ─── Controls ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -356,6 +411,76 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
           {showInflation && " — La ligne violette montre le pouvoir d'achat réel, corrigé de l'inflation."}
         </p>
       </Card>
+      {/* ─── Scénarios sauvegardés ────────────────────────────────────────────── */}
+      {simScenarios.length > 0 && (
+        <Card accent={CARD_THEMES.amber}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardLabel icon={GitCompare}>Scénarios sauvegardés</CardLabel>
+            <span className="text-[11px] text-slate-500">Sélectionne jusqu'à 3 scénarios à comparer côte à côte.</span>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {simScenarios.map((s) => (
+              <div
+                key={s.id}
+                className={`flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5 cursor-pointer transition-colors ${
+                  selectedScenarioIds.includes(s.id)
+                    ? "border-amber-400/60 bg-amber-400/10 text-amber-200"
+                    : "border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-700"
+                }`}
+                onClick={() => toggleCompare(s.id)}
+              >
+                <span>{s.name}</span>
+                <span className="text-slate-600">·</span>
+                <span className="font-data tabular-nums ghost-blur">{eur(s.finalTotal)}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeScenario(s.id); }}
+                  className="text-slate-600 hover:text-rose-400"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {comparedScenarios.length > 0 && (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                    <th className="py-2 pr-4">Scénario</th>
+                    <th className="py-2 pr-4">Durée</th>
+                    <th className="py-2 pr-4">Capital initial</th>
+                    <th className="py-2 pr-4">Versement mensuel</th>
+                    <th className="py-2 pr-4">Inflation</th>
+                    <th className="py-2 pr-4">Total versé</th>
+                    <th className="py-2 pr-4">Intérêts générés</th>
+                    <th className="py-2">Valeur finale</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {comparedScenarios.map((s) => (
+                    <tr key={s.id}>
+                      <td className="py-2 pr-4 text-slate-200 font-medium">{s.name}</td>
+                      <td className="py-2 pr-4 font-data tabular-nums text-slate-300">{s.sim.years} ans</td>
+                      <td className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">
+                        {eur((s.sim.livrets.capital || 0) + (s.sim.bourse.capital || 0))}
+                      </td>
+                      <td className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">
+                        {eur((s.sim.livrets.monthly || 0) + (s.sim.bourse.monthly || 0))}
+                      </td>
+                      <td className="py-2 pr-4 font-data tabular-nums text-slate-300">{s.inflationRate.toFixed(1)} %</td>
+                      <td className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">{eur(s.finalVersed)}</td>
+                      <td className="py-2 pr-4 font-data tabular-nums text-emerald-400 ghost-blur">{eur(s.finalInterets)}</td>
+                      <td className="py-2 font-data tabular-nums text-amber-300 font-semibold ghost-blur">{eur(s.finalTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }
