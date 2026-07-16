@@ -1,11 +1,31 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
+import Login from "./components/Login.jsx";
+import { AuthProvider, useAuth } from "./lib/AuthContext";
 import "./index.css";
+
+function AuthGate() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="text-sm text-slate-500">Chargement…</div>
+      </div>
+    );
+  }
+  // Tant qu'aucune déconnexion explicite n'a eu lieu, la session Supabase
+  // persiste automatiquement (voir supabaseClient.js) — donc `user` reste
+  // renseigné d'une visite à l'autre, sans repasser par cet écran de connexion.
+  return user ? <App /> : <Login />;
+}
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   </React.StrictMode>
 );
 

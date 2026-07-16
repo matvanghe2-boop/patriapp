@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen, Download, Upload, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen, Download, Upload, RotateCcw, Eye, EyeOff, LogOut } from "lucide-react";
 import { usePersistentState, exportAllData, importAllData, clearAllData } from "./lib/storage";
 import { weightedAverageRate } from "./lib/finance";
 import { NavButton } from "./components/ui";
@@ -11,6 +11,7 @@ import Immobilier from "./components/Immobilier";
 import StrategieLogs from "./components/StrategieLogs";
 import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
+import { useAuth } from "./lib/AuthContext";
 
 const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios", "immoTravaux", "reminders"];
 
@@ -81,6 +82,7 @@ const TAB_BG = {
 export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [ghostMode, setGhostMode] = useState(false);
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     document.title = `${TAB_LABELS[tab] || ""} · Patrium`;
@@ -227,6 +229,13 @@ export default function App() {
             strategyNotes={strategyNotes} enveloppes={enveloppes} onNavigate={setTab}
           />
           <Notifications reminders={reminders} setReminders={setReminders} />
+          <button
+            onClick={() => signOut()}
+            title={user?.email ? `Déconnecter ${user.email}` : "Se déconnecter"}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg px-2 py-1.5"
+          >
+            <LogOut size={14} />
+          </button>
         </div>
         <div key={tab} className="animate-[fadeIn_0.3s_ease-out]">
           {tab === "dashboard" && <Dashboard {...shared} />}
