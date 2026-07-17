@@ -12,6 +12,7 @@ import StrategieLogs from "./components/StrategieLogs";
 import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
 import { useAuth } from "./lib/AuthContext";
+import StickySummaryHeader from "./components/StickySummaryHeader";
 
 const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios", "immoTravaux", "reminders"];
 
@@ -136,6 +137,13 @@ export default function App() {
   const epargneMensuelle = profile.monthly_income - profile.monthly_expenses;
   const tauxEpargne = profile.monthly_income > 0 ? (epargneMensuelle / profile.monthly_income) * 100 : 0;
   const matelasMois = profile.monthly_expenses > 0 ? livretsTotal / profile.monthly_expenses : 0;
+// Performance globale vs le dernier point d'historique connu — même logique
+  // que le badge du Dashboard, réutilisée ici pour le header collant.
+  const globalDeltaPct = useMemo(() => {
+    const lastPoint = historyPast[historyPast.length - 1]?.value;
+    if (!lastPoint || lastPoint <= 0) return null;
+    return ((patrimoineNet - lastPoint) / lastPoint) * 100;
+  }, [historyPast, patrimoineNet]);
 
   const shared = {
     profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
@@ -226,6 +234,12 @@ export default function App() {
 
       <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl transition-colors duration-500 ${TAB_BG[tab] || ""}`}>
         <div className="flex items-center justify-between gap-3 mb-5">
+          <StickySummaryHeader
+          patrimoineNet={patrimoineNet}
+          deltaPct={globalDeltaPct}
+          ghostMode={ghostMode}
+          onToggleGhost={() => setGhostMode((g) => !g)}
+        >
           <GlobalSearch
             livrets={livrets} bourse={bourse} dettes={dettes} watchlist={watchlist}
             strategyNotes={strategyNotes} enveloppes={enveloppes} onNavigate={setTab}
@@ -234,10 +248,11 @@ export default function App() {
           <button
             onClick={() => signOut()}
             title={user?.email ? `Déconnecter ${user.email}` : "Se déconnecter"}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg px-2 py-1.5"
+            className="btn-flash flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg px-2 py-1.5"
           >
             <LogOut size={14} />
           </button>
+        </StickySummaryHeader>        
         </div>
         <div key={tab} className="animate-[fadeIn_0.3s_ease-out]">
           {tab === "dashboard" && <Dashboard {...shared} />}
