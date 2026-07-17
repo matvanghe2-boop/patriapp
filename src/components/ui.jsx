@@ -11,13 +11,15 @@ const NAV_THEMES = {
   cyan: { active: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30", bar: "bg-cyan-400" },
 };
 
+// Navigation : changement d'état brut, sans transition fluide — sensation
+// de réactivité immédiate (btn-hard-switch désactive les transitions CSS).
 export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber" }) {
   const t = NAV_THEMES[theme] || NAV_THEMES.amber;
   return (
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
+      className={`btn-hard-switch relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
         ${disabled ? "text-slate-600 cursor-not-allowed" : active ? t.active : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
       {active && <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
@@ -108,12 +110,13 @@ const GHOST_THEMES = {
   cyan: "text-cyan-300 hover:text-cyan-100 bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/40 hover:border-cyan-400/70 focus-visible:ring-cyan-400/40",
 };
 
+// Bouton d'action secondaire — enfoncement 2px + flash de bordure ambre au clic.
 export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, theme = "amber" }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${GHOST_THEMES[theme] || GHOST_THEMES.amber}`}
+      className={`btn-press btn-border-flash flex items-center gap-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${GHOST_THEMES[theme] || GHOST_THEMES.amber}`}
     >
       <Icon size={14} />
       {children}
@@ -121,9 +124,10 @@ export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, th
   );
 }
 
+// Icône cliquable sans fond — flash d'opacité pur (style iOS).
 export function IconTrash({ onClick }) {
   return (
-    <button onClick={onClick} className="text-slate-600 hover:text-rose-400 transition-colors p-1">
+    <button onClick={onClick} className="btn-flash text-slate-600 hover:text-rose-400 p-1">
       <Trash2 size={14} />
     </button>
   );
@@ -223,10 +227,10 @@ export function AddPanel({ open, onClose, fields, onSubmit }) {
         </div>
       ))}
       <div className="col-span-2 sm:col-span-4 flex gap-2 justify-end mt-1">
-        <button type="button" onClick={onClose} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">
+        <button type="button" onClick={onClose} className="btn-flash flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">
           <X size={13} /> Annuler
         </button>
-        <button type="submit" className="text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors">
+        <button type="submit" className="btn-shadow-invert text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-4 py-1.5">
           Enregistrer
         </button>
       </div>
