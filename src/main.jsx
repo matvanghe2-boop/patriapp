@@ -25,9 +25,9 @@ function AuthGate() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
-     <ToastProvider>
-      <AuthGate />
-     <ToastProvider>
+      <ToastProvider>
+        <AuthGate />
+      </ToastProvider> 
     </AuthProvider>
   </React.StrictMode>
 );
