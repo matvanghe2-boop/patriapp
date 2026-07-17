@@ -213,6 +213,82 @@ function HistoryTooltip({ active, payload, label, mode }) {
   );
 }
 
+
+import { computePeaAge, PEA_PLAFOND_VERSEMENTS } from "../lib/finance";
+// ... imports existants inchangés ...
+
+function PeaFiscalWidget({ bourse, setBourse }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ peaOuverture: bourse.peaOuverture || "", peaVersements: bourse.peaVersements || 0 });
+
+  const versements = bourse.peaVersements || 0;
+  const pctPlafond = Math.min(100, (versements / PEA_PLAFOND_VERSEMENTS) * 100);
+  const age = computePeaAge(bourse.peaOuverture);
+
+  const save = () => {
+    setBourse((b) => ({ ...b, peaOuverture: draft.peaOuverture, peaVersements: parseFloat(draft.peaVersements) || 0 }));
+    setEditing(false);
+  };
+
+  return (
+    <Card accent={CARD_THEMES.violet}>
+      <div className="flex items-center justify-between mb-2">
+        <CardLabel>Plafond de versements PEA</CardLabel>
+        <button onClick={() => { setDraft({ peaOuverture: bourse.peaOuverture || "", peaVersements: versements }); setEditing((e) => !e); }} className="text-[11px] text-violet-300/80 hover:text-violet-200">
+          {editing ? "Fermer" : "Modifier"}
+        </button>
+      </div>
+
+      {editing ? (
+        <div className="flex flex-wrap items-end gap-3 mb-3">
+          <div>
+            <label className="text-[11px] text-slate-500 block mb-1">Date d'ouverture du PEA</label>
+            <input type="date" value={draft.peaOuverture} onChange={(e) => setDraft((d) => ({ ...d, peaOuverture: e.target.value }))} className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-500 block mb-1">Total versé (€)</label>
+            <input type="number" step="100" value={draft.peaVersements} onChange={(e) => setDraft((d) => ({ ...d, peaVersements: e.target.value }))} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
+          </div>
+          <button onClick={save} className="text-xs font-semibold bg-violet-400 hover:bg-violet-300 text-slate-950 rounded-lg px-3 py-1.5">Enregistrer</button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-slate-400 font-data ghost-blur">{eur(versements, 0)} versés</span>
+            <span className="text-slate-500 font-data">{eur(PEA_PLAFOND_VERSEMENTS, 0)} plafond</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-slate-800 overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${pctPlafond >= 90 ? "bg-rose-400" : pctPlafond >= 70 ? "bg-amber-400" : "bg-violet-400"}`} style={{ width: `${pctPlafond}%` }} />
+          </div>
+          <div className="text-[11px] text-slate-500 mt-1">{pctPlafond.toFixed(1)} % du plafond — reste <span className="ghost-blur">{eur(PEA_PLAFOND_VERSEMENTS - versements, 0)}</span> de marge de versement</div>
+        </>
+      )}
+
+      <div className="mt-4 pt-3 border-t border-slate-800 flex items-center gap-3">
+        {age ? (
+          <>
+            <span className="text-2xl">{age.eligible ? "🟢" : "🔴"}</span>
+            <div>
+              <div className="text-sm text-slate-200 font-medium">
+                {age.eligible ? "PEA de plus de 5 ans" : "PEA de moins de 5 ans"}
+              </div>
+              <div className="text-[11px] text-slate-500">
+                {age.eligible
+                  ? "Exonération d'impôt sur les plus-values — seuls 17,2 % de prélèvements sociaux restent dus."
+                  : `Clôture entraînerait imposition spécifique — encore ${age.monthsRemaining} mois avant l'exonération.`}
+              </div>
+              <div className="text-[10px] text-slate-600 font-data mt-0.5">Ouvert depuis {age.years} an(s) {age.months} mois</div>
+            </div>
+          </>
+        ) : (
+          <span className="text-[11px] text-slate-600">Renseigne la date d'ouverture pour voir le décompte fiscal.</span>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+
 export default function Bourse({
   bourse, setBourse, bourseTotal, bourseInvested, bourseGainAbs, bourseGainPct,
   bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
@@ -479,6 +555,9 @@ export default function Bourse({
           </div>
         </Card>
       </div>
+        <div className="mt-6">
+         <PeaFiscalWidget bourse={bourse} setBourse={setBourse} />
+          </div>
 
       {/* Dividendes */}
       <Card accent={CARD_THEMES.violet}>
@@ -723,6 +802,7 @@ export default function Bourse({
       <PerformanceTab
         bourse={bourse}
         bourseHistory={bourseHistory}
+	setBourseHistory={setBourseHistory}
         bourseGainAbs={bourseGainAbs}
         trackLoading={trackLoading}
         trackError={trackError}
@@ -738,7 +818,7 @@ export default function Bourse({
       />
       )}
 
-      {subTab === "marche" && <Marche watchlist={watchlist} setWatchlist={setWatchlist} openRequest={marcheRequest} />}
+      {subTab === "marche" && <Marche watchlist={watchlist} setWatchlist={setWatchlist} openRequest={marcheRequest} positions={bourse.positions} />}
 
       {panicPosition && (
         <AntiPanicModal
@@ -856,14 +936,17 @@ function BenchmarkCompareTooltip({ active, payload, label }) {
 }
 
 function PerformanceTab({
-  bourse, bourseHistory, bourseGainAbs, trackLoading, trackError, captureSnapshot,
+  bourse, bourseHistory, setBourseHistory, bourseGainAbs, trackLoading, trackError, captureSnapshot,
   hasEnoughHistory, hasEnoughBase100, perfRange, setPerfRange,
   selectedBenchmarks, setSelectedBenchmarks, showDividendsReinvested, setShowDividendsReinvested,
 }) {
   const operations = bourse.operations || [];
 
   const rangedHistory = useMemo(() => filterHistoryByRange(bourseHistory, perfRange), [bourseHistory, perfRange]);
-
+   const deleteHistoryPoint = (date) => {
+    if (!window.confirm(`Supprimer le point du ${formatDateShort(date)} de l'historique ?`)) return;
+    setBourseHistory((h) => h.filter((e) => e.date !== date));
+  };
   const twr = useMemo(() => computeTWR(bourseHistory), [bourseHistory]);
   const xirr = useMemo(() => computeXIRR(bourseHistory), [bourseHistory]);
   const volatility = useMemo(() => computeVolatility(bourseHistory), [bourseHistory]);
@@ -937,6 +1020,24 @@ function PerformanceTab({
         </button>
       </div>
       {trackError && <p className="text-[11px] text-amber-300/80">{trackError}</p>}
+       
+       {/* Gestion des points d'historique (suppression d'un jour aberrant) */}
+      {bourseHistory.length > 0 && (
+        <details className="text-xs text-slate-500">
+          <summary className="cursor-pointer hover:text-slate-300 select-none">Gérer les points d'historique ({bourseHistory.length})</summary>
+          <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-slate-800 divide-y divide-slate-800">
+            {[...bourseHistory].reverse().map((e) => (
+              <div key={e.date} className="flex items-center justify-between px-3 py-1.5">
+                <span className="font-data">{formatDateShort(e.date)}</span>
+                <span className="font-data ghost-blur text-slate-400">{eur(e.valeur)}</span>
+                <button onClick={() => deleteHistoryPoint(e.date)} className="text-slate-600 hover:text-rose-400 p-1">
+                  <XIcon size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
 
       {!hasEnoughHistory ? (
         <Card accent={CARD_THEMES.violet}>

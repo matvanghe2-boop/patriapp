@@ -25,6 +25,8 @@ const INITIAL_LIVRETS = [
 const INITIAL_BOURSE = {
   envelope: "PEA",
   cash_pocket: 500,
+  peaOuverture: "2021-01-15", // date d'ouverture du plan — à ajuster par l'utilisateur
+  peaVersements: 25000,        // total versé cumulé (espèces entrantes), plafonné à 150 000 €
   positions: [
     { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
     { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },

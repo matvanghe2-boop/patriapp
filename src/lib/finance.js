@@ -736,3 +736,19 @@ export function filterHistoryByRange(history, range) {
   }
   return history.filter((h) => toDate(h.date) >= from);
 }
+
+
+export const PEA_PLAFOND_VERSEMENTS = 150000;
+
+/** Âge du PEA en années/mois + statut fiscal (règle des 5 ans). */
+export function computePeaAge(dateOuverture) {
+  if (!dateOuverture) return null;
+  const start = new Date(`${dateOuverture}T00:00:00`);
+  const now = new Date();
+  const totalMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  const eligible = totalMonths >= 60;
+  const monthsRemaining = Math.max(0, 60 - totalMonths);
+  return { years, months, eligible, monthsRemaining };
+}

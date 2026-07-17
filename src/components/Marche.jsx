@@ -1,3 +1,9 @@
+const INDICES = [
+  { symbol: "^FCHI", label: "CAC 40" },
+  { symbol: "^GSPC", label: "S&P 500" },
+  { symbol: "^IXIC", label: "Nasdaq" },
+];
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Search, Building2, Globe, Users, TrendingUp, TrendingDown, RefreshCw, Clock,
@@ -174,7 +180,102 @@ const RECO_LABELS = {
   sell: { label: "Vente", tone: "text-rose-400" },
 };
 
-export default function Marche({ watchlist, setWatchlist, openRequest }) {
+
+function IndicesBar({ positions = [] }) {
+  const [indexData, setIndexData] = useState({});
+  const [movers, setMovers] = useState({ best: [], worst: [] });
+  const [openPopover, setOpenPopover] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const quotes = await fetchQuotes(INDICES.map((i) => i.symbol));
+        if (cancelled) return;
+        const map = {};
+        quotes.forEach((q) => {
+          if (q.ok && q.previousClose) map[q.symbol] = { price: q.price, changePct: ((q.price - q.previousClose) / q.previousClose) * 100 };
+        });
+        setIndexData(map);
+
+        if (positions.length > 0) {
+          const posQuotes = await fetchQuotes(positions.map((p) => p.ticker));
+          if (cancelled) return;
+          const withChange = posQuotes
+            .filter((q) => q.ok && q.previousClose)
+            .map((q) => ({ ticker: q.symbol, changePct: ((q.price - q.previousClose) / q.previousClose) * 100 }))
+            .sort((a, b) => b.changePct - a.changePct);
+          setMovers({ best: withChange.slice(0, 3), worst: withChange.slice(-3).reverse() });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="relative mb-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        {INDICES.map((idx) => {
+          const d = indexData[idx.symbol];
+          return (
+            <button
+              key={idx.symbol}
+              onClick={() => setOpenPopover((o) => !o)}
+              onMouseEnter={() => setOpenPopover(true)}
+              className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 hover:border-violet-500/40 px-3 py-1.5 transition-colors"
+            >
+              <span className="text-xs text-slate-400">{idx.label}</span>
+              {d ? (
+                <span className={`font-data text-xs font-bold ${d.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {d.changePct >= 0 ? "+" : ""}{d.changePct.toFixed(2)}%
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-600">{loading ? "…" : "—"}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {openPopover && (movers.best.length > 0 || movers.worst.length > 0) && (
+        <div
+          onMouseLeave={() => setOpenPopover(false)}
+          className="absolute z-20 mt-2 w-72 rounded-xl border border-slate-700 bg-slate-900 shadow-2xl p-3"
+        >
+          <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Meilleures / pires performances (ton portefeuille)</p>
+          <div className="space-y-1">
+            {movers.best.map((m) => (
+              <div key={m.ticker} className="flex items-center justify-between text-xs">
+                <span className="text-slate-300">{m.ticker}</span>
+                <span className="text-emerald-400 font-data">+{m.changePct.toFixed(2)}%</span>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-1 mt-2 pt-2 border-t border-slate-800">
+            {movers.worst.map((m) => (
+              <div key={m.ticker} className="flex items-center justify-between text-xs">
+                <span className="text-slate-300">{m.ticker}</span>
+                <span className="text-rose-400 font-data">{m.changePct.toFixed(2)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+
+export default function Marche({ watchlist, setWatchlist, openRequest, positions=[] }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -401,6 +502,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
 
   return (
     <div className="relative space-y-6">
+     <IndicesBar positions={positions} />
       {/* ─── Barre de recherche ─── */}
       <Card accent={CARD_THEMES.violet}>
         <div className="relative" ref={searchBoxRef}>
