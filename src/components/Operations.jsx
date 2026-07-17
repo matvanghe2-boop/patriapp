@@ -5,6 +5,7 @@ import { eur, pctPlain, computeBuyOperation, computeSellOperation, generateOpera
 import { parseOperationPdf } from "../lib/api";
 import OperationForm from "./OperationForm";
 import OperationList from "./OperationList";
+import OrderSimulator from "./OrderSimulator"
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -238,6 +239,7 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
 
   return (
     <div className="flex flex-col gap-5">
+     <OrderSimulator bourse={bourse} bourseTotal={(bourse?.positions || []).reduce((s, p) => s + p.quantity * p.current_price, 0) + (bourse?.cash_pocket || 0)} />
       {/* En-tête d'action & import */}
       <Card>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
