@@ -5,7 +5,8 @@ import { eur, pctPlain, computeBuyOperation, computeSellOperation, generateOpera
 import { parseOperationPdf } from "../lib/api";
 import OperationForm from "./OperationForm";
 import OperationList from "./OperationList";
-import OrderSimulator from "./OrderSimulator"
+import OrderSimulator from "./OrderSimulator";
+import { useToast } from "../lib/ToastContext";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -22,10 +23,16 @@ function uid() {
  * Anti-doublons : un `transactionId` déjà présent dans l'historique (ou un
  * hash généré à partir des données de l'ordre si l'ID est absent) rejette
  * l'import silencieusement — le fichier n'est jamais comptabilisé deux fois.
+ *
+ * Toutes les suppressions (opération, purge complète) passent par le Toast
+ * Manager avec un bouton "Annuler" (5 secondes) plutôt qu'un window.confirm
+ * bloquant — l'état précédent est capturé avant la mutation et restauré tel
+ * quel si l'utilisateur clique sur Annuler.
  */
 export default function Operations({ bourse, setBourse, presetOperation, onConsumePreset, onOpenThesis }) {
   const positions = bourse?.positions || [];
   const operations = bourse?.operations || [];
+  const { showToast } = useToast();
 
   const [formOpen, setFormOpen] = useState(false);
   const [formPreset, setFormPreset] = useState(null);
@@ -33,6 +40,13 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
   const [importing, setImporting] = useState(false);
   const [feedback, setFeedback] = useState(null); // { type: "success"|"error", message }
   const fileInputRef = useRef(null);
+
+  // Valeur totale du portefeuille (positions + cash) — utilisée par le
+  // simulateur d'ordre pour calculer les poids cibles.
+  const bourseTotalForSim = useMemo(
+    () => positions.reduce((s, p) => s + p.quantity * p.current_price, 0) + (bourse?.cash_pocket || 0),
+    [positions, bourse]
+  );
 
   // Ouverture externe de la modale (passerelle Thèse ➔ Ordre).
   React.useEffect(() => {
@@ -225,21 +239,36 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     setFormOpen(true);
   };
 
+  // Suppression d'une opération — capture l'état précédent et propose un
+  // Undo via le Toast Manager (5 secondes) plutôt qu'une confirmation
+  // bloquante. Les positions/PRU actuels ne sont pas recalculés (comme avant).
   const deleteOperation = (id) => {
-    if (window.confirm("Supprimer cette opération de l'historique ? Les positions/PRU actuels ne seront pas recalculés automatiquement.")) {
-      setBourse((b) => ({ ...b, operations: (b.operations || []).filter((op) => op.id !== id) }));
-    }
+    const removed = operations.find((op) => op.id === id);
+    if (!removed) return;
+    setBourse((b) => ({ ...b, operations: (b.operations || []).filter((op) => op.id !== id) }));
+    showToast({
+      message: `Opération supprimée : ${removed.type} ${removed.asset || ""}.`.trim(),
+      onUndo: () => setBourse((b) => ({ ...b, operations: [removed, ...(b.operations || [])] })),
+    });
   };
 
+  // Purge complète de l'historique — même logique d'Undo, on restaure le
+  // tableau entier tel quel si l'utilisateur annule.
   const clearAllOperations = () => {
-    if (window.confirm("Effacer tout l'historique des opérations (et les frais associés) ? Les positions actuelles ne seront pas modifiées.")) {
-      setBourse((b) => ({ ...b, operations: [] }));
-    }
+    if (operations.length === 0) return;
+    const previousOperations = operations;
+    setBourse((b) => ({ ...b, operations: [] }));
+    showToast({
+      message: `Historique effacé (${previousOperations.length} opération(s)).`,
+      onUndo: () => setBourse((b) => ({ ...b, operations: previousOperations })),
+    });
   };
 
   return (
     <div className="flex flex-col gap-5">
-     <OrderSimulator bourse={bourse} bourseTotal={(bourse?.positions || []).reduce((s, p) => s + p.quantity * p.current_price, 0) + (bourse?.cash_pocket || 0)} />
+      {/* Simulateur d'ordre — calculs instantanés avant de passer un ordre */}
+      <OrderSimulator bourse={bourse} bourseTotal={bourseTotalForSim} />
+
       {/* En-tête d'action & import */}
       <Card>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -328,7 +357,7 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <CardLabel icon={UploadCloud}>Historique des opérations</CardLabel>
           {operations.length > 0 && (
-            <button onClick={clearAllOperations} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-400 transition-colors">
+            <button onClick={clearAllOperations} className="btn-flash flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-400 transition-colors">
               <Trash2 size={13} /> Tout effacer
             </button>
           )}

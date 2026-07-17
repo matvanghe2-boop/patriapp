@@ -1,16 +1,10 @@
-const INDICES = [
-  { symbol: "^FCHI", label: "CAC 40" },
-  { symbol: "^GSPC", label: "S&P 500" },
-  { symbol: "^IXIC", label: "Nasdaq" },
-];
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Search, Building2, Globe, Users, TrendingUp, TrendingDown, RefreshCw, Clock,
   BarChart3, Target, Percent, Scale, Info, ExternalLink, Star, PieChart as PieIcon, AlertCircle,
 } from "lucide-react";
 import {
-  ResponsiveContainer, ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid,
+  ResponsiveContainer, ComposedChart, Area, Bar, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, Brush,
 } from "recharts";
 import { Card, CardLabel, EmptyState, CARD_THEMES } from "./ui";
@@ -18,6 +12,7 @@ import AssetLogo from "./AssetLogo";
 import { pct, pctPlain } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchCompanyProfile, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
+import { FocusToggleButton, FocusOverlay, useFocusHotkey } from "./FocusChart";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 // Le "différé léger" réglementaire des places boursières se situe en général
@@ -119,6 +114,14 @@ function timeAgo(ts) {
   return `il y a ${h} h`;
 }
 
+// Couleur du volume selon le sens de la bougie (clôture vs ouverture) — vert
+// = volume plutôt acheteur, rouge = plutôt vendeur. Gris si l'OHLC n'est pas
+// disponible sur ce point (certains agrégats intraday très longue période).
+function volumeColor(point) {
+  if (point?.open == null || point?.close == null) return "#475569";
+  return point.close >= point.open ? "#34d399" : "#fb7185";
+}
+
 // ─── Petite jauge 52 semaines ────────────────────────────────────────────
 function FiftyTwoWeekGauge({ low, high, current, currency }) {
   if (low == null || high == null || current == null || high <= low) return null;
@@ -165,9 +168,27 @@ function ChartTooltip({ active, payload, label, currency, isIntraday }) {
       <div className="text-slate-400">{formatFullDateTime(label, isIntraday)}</div>
       {close != null && <div className="text-violet-300 font-data tabular-nums">Clôture : {formatPrice(close, currency)}</div>}
       {point?.open != null && point?.close != null && (
-        <div className="text-slate-500 font-data tabular-nums">O {formatPrice(point.open, currency)} · H {formatPrice(point.high, currency)} · B {formatPrice(point.low, currency)}</div>
+        <div className="text-slate-500 font-data tabular-nums">
+          O {formatPrice(point.open, currency)} · H {formatPrice(point.high, currency)} · B {formatPrice(point.low, currency)}
+          {point.high > point.low && (
+            <span className="ml-1 text-[10px] text-slate-600">
+              (amplitude {(((point.high - point.low) / point.low) * 100).toFixed(2)}%)
+            </span>
+          )}
+        </div>
       )}
-      {volume != null && <div className="text-slate-500 font-data tabular-nums">Volume : {formatCompact(volume)}</div>}
+      {volume != null && (
+        <div className="text-slate-500 font-data tabular-nums flex items-center gap-1.5">
+          Volume : {formatCompact(volume)}
+          {point?.open != null && point?.close != null && (
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full"
+              style={{ background: volumeColor(point) }}
+              title={point.close >= point.open ? "Volume plutôt acheteur" : "Volume plutôt vendeur"}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -180,102 +201,7 @@ const RECO_LABELS = {
   sell: { label: "Vente", tone: "text-rose-400" },
 };
 
-
-function IndicesBar({ positions = [] }) {
-  const [indexData, setIndexData] = useState({});
-  const [movers, setMovers] = useState({ best: [], worst: [] });
-  const [openPopover, setOpenPopover] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const quotes = await fetchQuotes(INDICES.map((i) => i.symbol));
-        if (cancelled) return;
-        const map = {};
-        quotes.forEach((q) => {
-          if (q.ok && q.previousClose) map[q.symbol] = { price: q.price, changePct: ((q.price - q.previousClose) / q.previousClose) * 100 };
-        });
-        setIndexData(map);
-
-        if (positions.length > 0) {
-          const posQuotes = await fetchQuotes(positions.map((p) => p.ticker));
-          if (cancelled) return;
-          const withChange = posQuotes
-            .filter((q) => q.ok && q.previousClose)
-            .map((q) => ({ ticker: q.symbol, changePct: ((q.price - q.previousClose) / q.previousClose) * 100 }))
-            .sort((a, b) => b.changePct - a.changePct);
-          setMovers({ best: withChange.slice(0, 3), worst: withChange.slice(-3).reverse() });
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <div className="relative mb-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        {INDICES.map((idx) => {
-          const d = indexData[idx.symbol];
-          return (
-            <button
-              key={idx.symbol}
-              onClick={() => setOpenPopover((o) => !o)}
-              onMouseEnter={() => setOpenPopover(true)}
-              className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 hover:border-violet-500/40 px-3 py-1.5 transition-colors"
-            >
-              <span className="text-xs text-slate-400">{idx.label}</span>
-              {d ? (
-                <span className={`font-data text-xs font-bold ${d.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                  {d.changePct >= 0 ? "+" : ""}{d.changePct.toFixed(2)}%
-                </span>
-              ) : (
-                <span className="text-[10px] text-slate-600">{loading ? "…" : "—"}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {openPopover && (movers.best.length > 0 || movers.worst.length > 0) && (
-        <div
-          onMouseLeave={() => setOpenPopover(false)}
-          className="absolute z-20 mt-2 w-72 rounded-xl border border-slate-700 bg-slate-900 shadow-2xl p-3"
-        >
-          <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Meilleures / pires performances (ton portefeuille)</p>
-          <div className="space-y-1">
-            {movers.best.map((m) => (
-              <div key={m.ticker} className="flex items-center justify-between text-xs">
-                <span className="text-slate-300">{m.ticker}</span>
-                <span className="text-emerald-400 font-data">+{m.changePct.toFixed(2)}%</span>
-              </div>
-            ))}
-          </div>
-          <div className="space-y-1 mt-2 pt-2 border-t border-slate-800">
-            {movers.worst.map((m) => (
-              <div key={m.ticker} className="flex items-center justify-between text-xs">
-                <span className="text-slate-300">{m.ticker}</span>
-                <span className="text-rose-400 font-data">{m.changePct.toFixed(2)}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-
-
-
-export default function Marche({ watchlist, setWatchlist, openRequest, positions=[] }) {
+export default function Marche({ watchlist, setWatchlist, openRequest, positions = [] }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -302,6 +228,15 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
   // toute l'échelle et de voir le cours exact à n'importe quelle date.
   const [hoverPoint, setHoverPoint] = useState(null);
   const [brushRange, setBrushRange] = useState(null); // [startIndex, endIndex]
+
+  // ─── Mode Focus (plein écran, touche F) ────────────────────────────────
+  const [focusMode, setFocusMode] = useState(false);
+  useFocusHotkey(() => setFocusMode((f) => !f));
+
+  // ─── Zoom molette fin, en plus du Brush existant (navigation macro) ────
+  // zoomDomain = [startIdx, endIdx] sur chartData, ou null = vue complète.
+  const [zoomDomain, setZoomDomain] = useState(null);
+  const resetZoom = () => setZoomDomain(null);
 
   // Ferme la liste de résultats au clic extérieur.
   useEffect(() => {
@@ -336,6 +271,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
     setShowResults(false);
     setBrushRange(null);
     setHoverPoint(null);
+    setZoomDomain(null);
   };
 
   // Ouverture directe depuis un clic sur une position (Portefeuille) ou une
@@ -379,6 +315,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
 
     setBrushRange(null);
     setHoverPoint(null);
+    setZoomDomain(null);
     loadProfile(effectiveSymbol);
     loadHistory(effectiveSymbol, range);
     setLastUpdated(Date.now());
@@ -402,6 +339,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
   const loadHistory = useCallback(async (sym, r) => {
     setHistoryLoading(true); setHistoryError("");
     setBrushRange(null);
+    setZoomDomain(null);
     try {
       const [res] = await fetchHistory([sym], r);
       if (!res?.ok) throw new Error(res?.error || "Historique indisponible");
@@ -459,14 +397,39 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
   const isIntraday = !!seriesMeta?.isIntraday;
   const chartData = series;
 
+  // Vue actuellement affichée : recadrée par le zoom molette si actif.
+  const visibleData = useMemo(() => {
+    if (!zoomDomain) return chartData;
+    const [start, end] = zoomDomain;
+    return chartData.slice(start, end + 1);
+  }, [chartData, zoomDomain]);
+
+  // Zoom à la molette : centré sur le curseur/le centre de la vue actuelle,
+  // zoom avant sur défilement vers le haut, arrière sur défilement vers le bas.
+  const handleWheelZoom = useCallback((e) => {
+    if (!chartData || chartData.length < 20) return; // pas utile sur un historique trop court
+    e.preventDefault();
+    setZoomDomain((current) => {
+      const [start, end] = current || [0, chartData.length - 1];
+      const range = end - start;
+      const factor = e.deltaY < 0 ? 0.85 : 1.18; // molette haut = zoom in, bas = zoom out
+      const center = start + range / 2;
+      const newRange = Math.max(10, Math.min(chartData.length - 1, range * factor));
+      const newStart = Math.max(0, Math.round(center - newRange / 2));
+      const newEnd = Math.min(chartData.length - 1, Math.round(center + newRange / 2));
+      if (newEnd - newStart >= chartData.length - 1) return null; // retour à la vue complète
+      return [newStart, newEnd];
+    });
+  }, [chartData]);
+
   const totalReturnOnBrush = useMemo(() => {
-    const data = brushRange ? chartData.slice(brushRange[0], brushRange[1] + 1) : chartData;
+    const data = brushRange ? chartData.slice(brushRange[0], brushRange[1] + 1) : visibleData;
     if (data.length < 2) return null;
     const first = data[0].close;
     const last = data[data.length - 1].close;
     if (!first) return null;
     return ((last - first) / first) * 100;
-  }, [chartData, brushRange]);
+  }, [chartData, visibleData, brushRange]);
 
   const isInWatchlist = useMemo(
     () => (watchlist || []).some((w) => w.ticker?.toUpperCase() === symbol?.toUpperCase()),
@@ -502,7 +465,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
 
   return (
     <div className="relative space-y-6">
-     <IndicesBar positions={positions} />
       {/* ─── Barre de recherche ─── */}
       <Card accent={CARD_THEMES.violet}>
         <div className="relative" ref={searchBoxRef}>
@@ -623,7 +585,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
                   <button
                     onClick={addToWatchlist}
                     disabled={isInWatchlist}
-                    className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:text-slate-600 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors"
+                    className="btn-press btn-border-flash flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:text-slate-600 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors"
                   >
                     <Star size={13} /> {isInWatchlist ? "Dans la watchlist" : "Ajouter à la watchlist"}
                   </button>
@@ -631,7 +593,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
                 <button
                   onClick={() => { loadProfile(symbol); refreshQuote(symbol); }}
                   disabled={profileLoading}
-                  className="flex items-center gap-1.5 text-xs font-medium text-violet-300 hover:text-violet-200 disabled:opacity-40 border border-slate-700 hover:border-violet-400/50 rounded-lg px-3 py-1.5 transition-colors"
+                  className="btn-press btn-border-flash flex items-center gap-1.5 text-xs font-medium text-violet-300 hover:text-violet-200 disabled:opacity-40 border border-slate-700 hover:border-violet-400/50 rounded-lg px-3 py-1.5 transition-colors"
                 >
                   <RefreshCw size={13} className={profileLoading ? "animate-spin" : ""} /> Actualiser
                 </button>
@@ -643,18 +605,26 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
           <Card accent={CARD_THEMES.violet}>
             <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
               <CardLabel icon={BarChart3}>Graphique historique</CardLabel>
-              <div className="flex items-center gap-1 rounded-lg border border-slate-800 p-0.5 bg-slate-950/60 flex-wrap">
-                {RANGE_OPTIONS.map((r) => (
-                  <button
-                    key={r.key}
-                    onClick={() => setRange(r.key)}
-                    className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${
-                      range === r.key ? "bg-violet-500/20 text-violet-300 border border-violet-500/40" : "text-slate-500 hover:text-slate-300"
-                    }`}
-                  >
-                    {r.label}
+              <div className="flex items-center gap-2 flex-wrap">
+                <FocusToggleButton onClick={() => setFocusMode(true)} />
+                {zoomDomain && (
+                  <button onClick={resetZoom} className="btn-flash text-[11px] font-medium text-violet-300 hover:text-violet-200 border border-violet-500/40 rounded-lg px-2.5 py-1">
+                    Réinitialiser le zoom
                   </button>
-                ))}
+                )}
+                <div className="flex items-center gap-1 rounded-lg border border-slate-800 p-0.5 bg-slate-950/60 flex-wrap">
+                  {RANGE_OPTIONS.map((r) => (
+                    <button
+                      key={r.key}
+                      onClick={() => setRange(r.key)}
+                      className={`btn-hard-switch text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${
+                        range === r.key ? "bg-violet-500/20 text-violet-300 border border-violet-500/40" : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -662,7 +632,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
               {seriesMeta?.firstTradeDate && <span>Première cotation connue : {formatFullDateTime(seriesMeta.firstTradeDate, false)}</span>}
               {totalReturnOnBrush != null && (
                 <span>
-                  {seriesMeta?.firstTradeDate && "· "}Performance {brushRange ? "sur la zone sélectionnée" : "sur la période affichée"} :{" "}
+                  {seriesMeta?.firstTradeDate && "· "}Performance {brushRange ? "sur la zone sélectionnée" : zoomDomain ? "sur la zone zoomée" : "sur la période affichée"} :{" "}
                   <span className={totalReturnOnBrush >= 0 ? "text-emerald-400" : "text-rose-400"}>{pct(totalReturnOnBrush)}</span>
                 </span>
               )}
@@ -671,6 +641,9 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
                   <Info size={11} /> Données intraday ({seriesMeta.interval}) — précision maximale sur cette échelle.
                 </span>
               )}
+              <span className="flex items-center gap-1 text-slate-700">
+                <Info size={11} /> Molette de la souris = zoom fin sur le graphique.
+              </span>
             </p>
 
             {historyLoading ? (
@@ -681,9 +654,9 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
               <EmptyState>Historique insuffisant pour cette valeur sur la période sélectionnée.</EmptyState>
             ) : (
               <>
-                <div className="h-80 mt-2">
+                <div className="h-80 mt-2" onWheel={handleWheelZoom}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 10 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
+                    <ComposedChart data={visibleData} margin={{ left: 0, right: 10, top: 10 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
                       <defs>
                         <linearGradient id="marcheCloseFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
@@ -715,21 +688,29 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
                   </ResponsiveContainer>
                 </div>
                 <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-1.5">
-                  <Info size={10} /> Survole le graphique pour voir le cours exact à une date, ou fais glisser les poignées du bandeau du bas pour te déplacer et zoomer sur n'importe quelle période.
+                  <Info size={10} /> Survole le graphique pour voir le cours exact à une date, utilise la molette pour zoomer finement, ou fais glisser les poignées du bandeau du bas pour naviguer sur toute la période.
                 </p>
 
-                {/* Volume */}
+                {/* Volume — coloré selon le sens de la bougie (achat/vente) */}
                 <div className="h-20 mt-3">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 0 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
+                    <ComposedChart data={visibleData} margin={{ left: 0, right: 10, top: 0 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
                       <XAxis dataKey="date" hide />
                       <YAxis hide domain={[0, "auto"]} />
                       <Tooltip content={<ChartTooltip currency={profile?.currency} isIntraday={isIntraday} />} cursor={{ fill: "#a78bfa", fillOpacity: 0.08 }} />
-                      <Bar dataKey="volume" name="Volume" fill="#475569" radius={[1, 1, 0, 0]} isAnimationActive={false} />
+                      <Bar dataKey="volume" name="Volume" radius={[1, 1, 0, 0]} isAnimationActive={false}>
+                        {visibleData.map((d, i) => (
+                          <Cell key={i} fill={volumeColor(d)} fillOpacity={0.75} />
+                        ))}
+                      </Bar>
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
-                <p className="text-[10px] text-slate-600 mt-1">Volume échangé par période</p>
+                <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-3">
+                  <span>Volume échangé par période</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400/75" /> Plutôt acheteur</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rose-400/75" /> Plutôt vendeur</span>
+                </p>
               </>
             )}
           </Card>
@@ -883,6 +864,59 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
           </Card>
         </>
       )}
+
+      {/* ─── Mode Focus : graphique seul, plein écran, sans distraction ─── */}
+      <FocusOverlay active={focusMode} onClose={() => setFocusMode(false)}>
+        {symbol && chartData.length >= 2 && (
+          <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <h2 className="font-display text-xl text-slate-50 flex items-center gap-2">
+                {profile?.name || symbol} <span className="text-sm text-slate-500 font-data">{symbol}</span>
+              </h2>
+              <div className="flex items-center gap-2">
+                {zoomDomain && (
+                  <button onClick={resetZoom} className="btn-flash text-[11px] font-medium text-violet-300 hover:text-violet-200 border border-violet-500/40 rounded-lg px-2.5 py-1">
+                    Réinitialiser le zoom
+                  </button>
+                )}
+                <span className="font-data text-lg text-slate-100">{formatPrice(headlinePrice, profile?.currency)}</span>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0" onWheel={handleWheelZoom}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={visibleData} margin={{ left: 0, right: 10, top: 10 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
+                  <defs>
+                    <linearGradient id="marcheCloseFillFocus" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={(d) => formatAxisTick(d, isIntraday, range)} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={60} />
+                  <YAxis domain={["auto", "auto"]} tickFormatter={(v) => formatCompact(v)} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={55} />
+                  <Tooltip content={<ChartTooltip currency={profile?.currency} isIntraday={isIntraday} />} cursor={{ stroke: "#a78bfa", strokeDasharray: "3 3" }} />
+                  {hoverPoint && <ReferenceLine x={hoverPoint.date} stroke="#a78bfa" strokeOpacity={0.5} />}
+                  <Area type="monotone" dataKey="close" stroke="#a78bfa" strokeWidth={2} fill="url(#marcheCloseFillFocus)" isAnimationActive={false} dot={false} activeDot={{ r: 4, fill: "#a78bfa", stroke: "#0f172a", strokeWidth: 2 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="h-16 mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={visibleData} margin={{ left: 0, right: 10, top: 0 }}>
+                  <XAxis dataKey="date" hide />
+                  <YAxis hide domain={[0, "auto"]} />
+                  <Bar dataKey="volume" radius={[1, 1, 0, 0]} isAnimationActive={false}>
+                    {visibleData.map((d, i) => (
+                      <Cell key={i} fill={volumeColor(d)} fillOpacity={0.75} />
+                    ))}
+                  </Bar>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[10px] text-slate-600 mt-2">Molette = zoom · Échap ou bouton en haut à droite pour quitter.</p>
+          </div>
+        )}
+      </FocusOverlay>
     </div>
   );
 }

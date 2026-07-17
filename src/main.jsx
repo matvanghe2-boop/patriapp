@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import Login from "./components/Login.jsx";
 import { AuthProvider, useAuth } from "./lib/AuthContext";
 import "./index.css";
+import { ToastProvider } from "./lib/ToastContext";
 
 function AuthGate() {
   const { user, loading } = useAuth();
@@ -24,7 +25,9 @@ function AuthGate() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
+     <ToastProvider>
       <AuthGate />
+     <ToastProvider>
     </AuthProvider>
   </React.StrictMode>
 );
