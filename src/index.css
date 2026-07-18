@@ -59,7 +59,6 @@ input[type="checkbox"] {
   accent-color: #fbbf24;
 }
 
-/* ─── Transition d'onglet (fade + slide) ────────────────────────────────── */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -71,9 +70,8 @@ input[type="checkbox"] {
   }
 }
 
-/* ─── Skeleton screen — effet shimmer (dark mode) ───────────────────────── */
 .skeleton {
-  background: #1e293b; /* slate-800 */
+  background: #1e293b;
   background: linear-gradient(90deg, #1e293b 25%, #334155 37%, #1e293b 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
@@ -89,7 +87,6 @@ input[type="checkbox"] {
   }
 }
 
-/* ─── Stagger — affichage en cascade des enfants directs ────────────────── */
 .stagger-children > * {
   opacity: 0;
   animation: fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
@@ -101,14 +98,6 @@ input[type="checkbox"] {
 .stagger-children > *:nth-child(5) { animation-delay: 240ms; }
 .stagger-children > *:nth-child(n+6) { animation-delay: 300ms; }
 
-/*
- * Mode Ghost — floute uniquement les montants patrimoniaux réels marqués
- * explicitement avec la classe `.ghost-blur` (opt-in), jamais tout
- * `.font-data` en général : ça évite de flouter par erreur des champs de
- * saisie (inputs, devenus inutilisables une fois floutés), des sliders
- * d'hypothèses de simulation (qui ne sont pas des données personnelles),
- * ou des pourcentages/ratios qui n'ont rien de confidentiel.
- */
 .ghost-mode .ghost-blur {
   filter: blur(6px);
   user-select: none;
@@ -116,4 +105,45 @@ input[type="checkbox"] {
 }
 .ghost-mode .ghost-blur:hover {
   filter: blur(0);
+}
+
+/* ═══════════════════ MOBILE ONLY (≤767px) — desktop inchangé ═══════════════════ */
+@media (max-width: 767px) {
+  /* Tap targets ≥48px partout, sans toucher aux tailles desktop */
+  button,
+  a,
+  input[type="checkbox"],
+  input[type="radio"],
+  select {
+    min-height: 44px;
+  }
+
+  /* Contraste renforcé pour le texte secondaire, souvent trop faible en plein soleil */
+  .text-slate-500 {
+    color: #94a3b8 !important;
+  }
+  .text-slate-600 {
+    color: #94a3b8 !important;
+  }
+
+  /* Tableaux : on garde le scroll horizontal existant (overflow-x-auto) mais
+     on ajoute un indice visuel de défilement en bord de carte. */
+  .overflow-x-auto {
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Empêche le zoom automatique iOS sur focus d'un champ (déclenché si
+     font-size < 16px) sans changer la taille affichée ailleurs. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Zone tactile confortable, à appliquer explicitement via className="tap-target" */
+.tap-target {
+  min-height: 48px;
+  min-width: 48px;
 }

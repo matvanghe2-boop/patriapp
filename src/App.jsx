@@ -3,6 +3,7 @@ import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookP
 import { usePersistentState, exportAllData, importAllData, clearAllData, clearCloudData, pushAllToCloud } from "./lib/storage";
 import { weightedAverageRate } from "./lib/finance";
 import { NavButton } from "./components/ui";
+import BottomNav from "./components/BottomNav";
 import Dashboard from "./components/Dashboard";
 import Livrets from "./components/Livrets";
 import Bourse from "./components/Bourse";
@@ -29,8 +30,6 @@ const INITIAL_BOURSE = {
     { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
     { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },
   ],
-  // Historique des opérations (achats/ventes) — alimenté par l'import PDF ou
-  // la saisie manuelle depuis le sous-onglet "Opérations" de Stratégie & Logs.
   operations: [],
 };
 
@@ -68,8 +67,6 @@ const TAB_LABELS = {
   strategie: "Stratégie & Logs",
 };
 
-// Fond de page teinté par domaine — même esprit que le bouton de nav actif :
-// un fond dégradé bien visible derrière les cartes, pas juste un glow discret.
 const TAB_BG = {
   dashboard: "bg-gradient-to-br from-emerald-950/70 via-slate-950 to-slate-950",
   livrets: "bg-gradient-to-br from-indigo-950/70 via-slate-950 to-slate-950",
@@ -78,6 +75,17 @@ const TAB_BG = {
   immobilier: "bg-gradient-to-br from-rose-950/70 via-slate-950 to-slate-950",
   strategie: "bg-gradient-to-br from-cyan-950/70 via-slate-950 to-slate-950",
 };
+
+// Config partagée sidebar desktop + bottom nav mobile (mêmes clés/icônes,
+// labels courts dédiés pour la barre basse où l'espace est réduit).
+const NAV_ITEMS = [
+  { key: "dashboard", icon: LayoutDashboard, label: "Dashboard", shortLabel: "Accueil", theme: "emerald" },
+  { key: "livrets", icon: PiggyBank, label: "Livrets & Épargne", shortLabel: "Épargne", theme: "indigo" },
+  { key: "bourse", icon: TrendingUp, label: "PEA & Bourse", shortLabel: "Bourse", theme: "violet" },
+  { key: "simulation", icon: Calculator, label: "Simulation", shortLabel: "Simu", theme: "amber" },
+  { key: "immobilier", icon: Landmark, label: "Immobilier & Crédit", shortLabel: "Immo", theme: "rose" },
+  { key: "strategie", icon: NotebookPen, label: "Stratégie & Logs", shortLabel: "Stratégie", theme: "cyan" },
+];
 
 export default function App() {
   const [tab, setTab] = useState("dashboard");
@@ -96,26 +104,17 @@ export default function App() {
   const [historyPast, setHistoryPast] = usePersistentState("historyPast", INITIAL_HISTORY_PAST);
   const [sim, setSim] = usePersistentState("sim", INITIAL_SIM);
   const [immo, setImmo] = usePersistentState("immo", INITIAL_IMMO);
-  // Suivi quotidien réel du portefeuille (une entrée par jour, alimentée au fil
-  // du temps — aucune donnée passée n'est reconstituée, aucune projection future).
   const [bourseHistory, setBourseHistory] = usePersistentState("bourseHistory", []);
-  // Cash disponible sur compte courant
   const [cash, setCash] = usePersistentState("cash", 0);
-  // Enveloppes de ventilation de l'épargne
   const [enveloppes, setEnveloppes] = usePersistentState("enveloppes", [
     { id: "env1", label: "Matelas d'urgence", amount: 3000, colorIdx: 0 },
     { id: "env2", label: "Projet Immo", amount: 3000, colorIdx: 1 },
     { id: "env3", label: "Plaisir / Voyage", amount: 950, colorIdx: 2 },
   ]);
-  // Watchlist : produits suivis en vue d'un achat (distincts des positions détenues).
   const [watchlist, setWatchlist] = usePersistentState("watchlist", []);
-  // Journal de bord "Stratégie & Logs" : thèses d'investissement notées à l'achat.
   const [strategyNotes, setStrategyNotes] = usePersistentState("strategyNotes", []);
-  // Scénarios de simulation sauvegardés, comparables côte à côte.
   const [simScenarios, setSimScenarios] = usePersistentState("simScenarios", []);
-  // Suivi travaux/charges immobilier : budget prévisionnel vs réel.
   const [immoTravaux, setImmoTravaux] = usePersistentState("immoTravaux", []);
-  // Rappels configurables (versement mensuel, échéance...).
   const [reminders, setReminders] = usePersistentState("reminders", []);
 
   const livretsTotal = useMemo(() => livrets.reduce((s, l) => s + l.balance, 0), [livrets]);
@@ -166,7 +165,7 @@ export default function App() {
       try {
         const dump = JSON.parse(reader.result);
         importAllData(dump);
-        await pushAllToCloud(dump); // pousse aussi vers le compte Supabase, pas seulement le navigateur
+        await pushAllToCloud(dump);
         window.location.reload();
       } catch {
         alert("Fichier de sauvegarde invalide.");
@@ -186,8 +185,9 @@ export default function App() {
 
   return (
     <div className={`flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100 ${ghostMode ? "ghost-mode" : ""}`}>
-      <aside className="md:w-60 md:h-screen md:sticky md:top-0 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950 flex md:flex-col">
-        <div className="hidden md:block px-5 pt-6 pb-4">
+      {/* Sidebar desktop — inchangée, masquée sur mobile (bottom nav prend le relais) */}
+      <aside className="hidden md:flex md:w-60 md:h-screen md:sticky md:top-0 border-r border-slate-800 bg-slate-950 flex-col">
+        <div className="px-5 pt-6 pb-4">
           <div className="flex items-center justify-between">
             <div className="font-display text-lg text-slate-50">Patrium</div>
             <button onClick={() => setGhostMode((g) => !g)} title="Mode Ghost (flouter les montants)" className="text-slate-500 hover:text-slate-200 p-1">
@@ -196,18 +196,19 @@ export default function App() {
           </div>
           <div className="text-xs text-slate-500 mt-0.5">Vision consolidée &amp; simulation</div>
         </div>
-        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible p-2 md:p-3 flex-1 items-center">
-          <button onClick={() => setGhostMode((g) => !g)} className="md:hidden text-slate-500 hover:text-slate-200 p-2 shrink-0">
-            {ghostMode ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-          <NavButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" theme="emerald" />
-          <NavButton active={tab === "livrets"} onClick={() => setTab("livrets")} icon={PiggyBank} label="Livrets & Épargne" theme="indigo" />
-          <NavButton active={tab === "bourse"} onClick={() => setTab("bourse")} icon={TrendingUp} label="PEA & Bourse" theme="violet" />
-          <NavButton active={tab === "simulation"} onClick={() => setTab("simulation")} icon={Calculator} label="Simulation" theme="amber" />
-          <NavButton active={tab === "immobilier"} onClick={() => setTab("immobilier")} icon={Landmark} label="Immobilier & Crédit" theme="rose" />
-          <NavButton active={tab === "strategie"} onClick={() => setTab("strategie")} icon={NotebookPen} label="Stratégie & Logs" theme="cyan" />
+        <nav className="flex flex-col gap-1 p-3 flex-1">
+          {NAV_ITEMS.map((item) => (
+            <NavButton
+              key={item.key}
+              active={tab === item.key}
+              onClick={() => setTab(item.key)}
+              icon={item.icon}
+              label={item.label}
+              theme={item.theme}
+            />
+          ))}
         </nav>
-        <div className="hidden md:flex flex-col gap-2 px-4 py-4 border-t border-slate-800">
+        <div className="flex flex-col gap-2 px-4 py-4 border-t border-slate-800">
           <button onClick={handleExport} className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded">
             <Download size={13} /> Exporter mes données
           </button>
@@ -224,24 +225,36 @@ export default function App() {
         </div>
       </aside>
 
-      <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl transition-colors duration-500 ${TAB_BG[tab] || ""}`}>
+      {/* Header mobile — logo + ghost toggle, remplace l'ancienne nav horizontale en haut */}
+      <header className="md:hidden flex items-center justify-between px-4 pt-4 pb-2">
+        <div className="font-display text-lg text-slate-50">Patrium</div>
+        <button
+          onClick={() => setGhostMode((g) => !g)}
+          className="min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-400"
+        >
+          {ghostMode ? <EyeOff size={20} /> : <Eye size={20} />}
+        </button>
+      </header>
+
+      <main
+        className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl transition-colors duration-500 pb-24 md:pb-8 text-base md:text-sm ${TAB_BG[tab] || ""}`}
+      >
         <div className="flex items-center justify-between gap-3 mb-5">
           <GlobalSearch
             livrets={livrets} bourse={bourse} dettes={dettes} watchlist={watchlist}
             strategyNotes={strategyNotes} enveloppes={enveloppes} onNavigate={setTab}
           />
-          <Notifications reminders={reminders} setReminders={setReminders} />
-          <button
-            onClick={() => signOut()}
-            title={user?.email ? `Déconnecter ${user.email}` : "Se déconnecter"}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg px-2 py-1.5"
-          >
-            <LogOut size={14} />
-          </button>
+          <div className="flex items-center gap-1">
+            <Notifications reminders={reminders} setReminders={setReminders} />
+            <button
+              onClick={() => signOut()}
+              title={user?.email ? `Déconnecter ${user.email}` : "Se déconnecter"}
+              className="min-h-[48px] min-w-[48px] md:min-h-0 md:min-w-0 flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg md:px-2 md:py-1.5"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
-        {/* Transition d'onglet : le remount via key déclenche fadeIn (fade + slide,
-            voir index.css) sur le conteneur, et stagger-children fait apparaître
-            les cartes de premier niveau en cascade plutôt que toutes d'un coup. */}
         <div key={tab} className="animate-[fadeIn_0.3s_cubic-bezier(0.4,0,0.2,1)] stagger-children">
           {tab === "dashboard" && <Dashboard {...shared} />}
           {tab === "livrets" && <Livrets {...shared} />}
@@ -251,6 +264,8 @@ export default function App() {
           {tab === "strategie" && <StrategieLogs {...shared} />}
         </div>
       </main>
+
+      <BottomNav tabs={NAV_ITEMS} active={tab} onChange={setTab} />
     </div>
   );
 }
