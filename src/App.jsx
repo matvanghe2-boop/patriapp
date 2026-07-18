@@ -13,6 +13,7 @@ import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
 import { useAuth } from "./lib/AuthContext";
 import StickySummaryHeader from "./components/StickySummaryHeader";
+import { usePersistentState, exportAllData, importAllData, clearAllData, clearCloudData, pushAllToCloud } from "./lib/storage";
 
 const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios", "immoTravaux", "reminders"];
 
@@ -176,6 +177,7 @@ export default function App() {
       try {
         const dump = JSON.parse(reader.result);
         importAllData(dump);
+	await pushAllToCloud(dump); // pousse aussi vers le compte Supabase
         window.location.reload();
       } catch {
         alert("Fichier de sauvegarde invalide.");
@@ -188,6 +190,7 @@ export default function App() {
   const handleReset = () => {
     if (window.confirm("Réinitialiser toutes les données locales ? Cette action est irréversible.")) {
       clearAllData(STORAGE_KEYS);
+      await clearCloudData(STORAGE_KEYS);
       window.location.reload();
     }
   };

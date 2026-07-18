@@ -133,3 +133,22 @@ export function importAllData(dump) {
 export function clearAllData(keys) {
   keys.forEach((k) => localStorage.removeItem(PREFIX + k));
 }
+
+export async function clearCloudData(keys) {
+  if (!isSupabaseConfigured) return;
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData?.user;
+  if (!user) return;
+  await supabase.from(TABLE).delete().in("id", keys.map((k) => `${user.id}:${k}`));
+}
+
+export async function pushAllToCloud(dump) {
+  if (!isSupabaseConfigured) return;
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData?.user;
+  if (!user) return;
+  const rows = Object.entries(dump).map(([key, value]) => ({
+    id: `${user.id}:${key}`, user_id: user.id, key, value, updated_at: new Date().toISOString(),
+  }));
+  if (rows.length) await supabase.from(TABLE).upsert(rows);
+}

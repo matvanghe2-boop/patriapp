@@ -23,6 +23,7 @@ import { usePersistentState } from "../lib/storage";
 import Watchlist from "./Watchlist";
 import FinancialCalendar from "./FinancialCalendar";
 import Marche from "./Marche";
+import OrderSimulator from "./OrderSimulator";
 
 // Reprend le même code couleur que le module Stratégie & Logs pour que le
 // statut d'une thèse se reconnaisse d'un coup d'œil, qu'on le voie dans le
@@ -752,6 +753,10 @@ export default function Bourse({
           La variation journalière est calculée par rapport au cours de clôture de la veille, récupéré lors du dernier « Actualiser les cours ».
         </p>
       </Card>
+      
+      <OrderSimulator positions={bourse.positions} cashPocket={bourse.cash_pocket} />
+
+
 
       <Watchlist watchlist={watchlist} setWatchlist={setWatchlist} onOpenMarket={openInMarche} />
 
