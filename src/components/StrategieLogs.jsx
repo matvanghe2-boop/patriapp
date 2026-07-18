@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { NotebookPen, Plus, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal, Layers } from "lucide-react";
+import { NotebookPen, Plus, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal, Layers, Clock } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, CARD_THEMES } from "./ui";
 import { eur, pct } from "../lib/finance";
 import Operations from "./Operations";
 import AssetStats from "./AssetStats";
+import Timeline from "./Timeline";
 
 // Statuts de thèse — inspirés du tableau "Performance vs Thèse" : un simple
 // code couleur suffit à se souvenir de l'état sans relire toute la note.
@@ -401,25 +402,30 @@ function PerformanceTable({ notes, positions }) {
  * cours, conditions de vente) pour pouvoir s'y référer froidement lors
  * d'une secousse de marché plutôt que de réagir dans l'émotion.
  *
- * Trois briques :
+ * Quatre briques :
  * - Journal de bord : création/édition/recherche des notes.
  * - Performance vs Thèse : croise les notes actives avec les positions
  *   réelles du portefeuille (par ticker) pour comparer objectif et réalité.
  * - Post-Mortem : à la clôture d'une thèse (vente réelle ou décision
  *   d'abandon), on fige un bilan chiffré + qualitatif, conservé dans
  *   l'historique plutôt que supprimé.
+ * - Timeline : fil d'actualité chronologique du patrimoine (jalons,
+ *   dividendes, arbitrages) généré automatiquement depuis les opérations.
  *
  * Persisté via usePersistentState côté App.jsx (props strategyNotes/setStrategyNotes).
  * bourse.positions est lu en lecture seule pour le rapprochement par ticker —
  * aucune écriture n'est faite sur le portefeuille depuis cet écran.
  */
-export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bourse, setBourse }) {
+export default function StrategieLogs({
+  strategyNotes = [], setStrategyNotes, bourse, setBourse,
+  historyPast, patrimoineNet, epargneMensuelle, tauxEpargne,
+}) {
   const notes = strategyNotes;
   const setNotes = setStrategyNotes;
   const positions = bourse?.positions || [];
 
   // ─── Sous-onglets & passerelles Thèse ⇄ Opérations ──────────────────────
-  const [subTab, setSubTab] = useState("strategie"); // "strategie" | "operations"
+  const [subTab, setSubTab] = useState("strategie"); // "strategie" | "operations" | "stats" | "timeline"
   const [presetOperation, setPresetOperation] = useState(null); // { asset, type } pour ouvrir la modale d'opération pré-remplie
   const [highlightTicker, setHighlightTicker] = useState(null);
 
@@ -498,7 +504,7 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bo
       </div>
 
       {/* Sous-onglets */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-1">
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-1 flex-wrap">
         <button
           onClick={() => setSubTab("strategie")}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
@@ -523,6 +529,14 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bo
         >
           <Layers size={14} /> Statistiques
         </button>
+        <button
+          onClick={() => setSubTab("timeline")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "timeline" ? "text-cyan-300 border-b-2 border-cyan-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Clock size={14} /> Timeline
+        </button>
       </div>
 
       {subTab === "operations" ? (
@@ -535,6 +549,14 @@ export default function StrategieLogs({ strategyNotes = [], setStrategyNotes, bo
         />
       ) : subTab === "stats" ? (
         <AssetStats bourse={bourse} />
+      ) : subTab === "timeline" ? (
+        <Timeline
+          bourse={bourse}
+          historyPast={historyPast}
+          patrimoineNet={patrimoineNet}
+          epargneMensuelle={epargneMensuelle}
+          tauxEpargne={tauxEpargne}
+        />
       ) : (
       <>
       {/* Performance vs Thèse */}
