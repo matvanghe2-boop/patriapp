@@ -207,8 +207,6 @@ export default function OrderSimulator({ bourse, bourseTotal }) {
 
 
 
-
-export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
   const [tickerId, setTickerId] = useState(positions[0]?.id || "");
   const [mode, setMode] = useState("vente"); // "vente" | "achat"
   const [targetWeight, setTargetWeight] = useState(10);
