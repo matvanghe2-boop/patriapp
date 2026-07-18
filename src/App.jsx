@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen, Download, Upload, RotateCcw, Eye, EyeOff, LogOut } from "lucide-react";
-import { usePersistentState, exportAllData, importAllData, clearAllData } from "./lib/storage";
 import { weightedAverageRate } from "./lib/finance";
 import { NavButton } from "./components/ui";
 import Dashboard from "./components/Dashboard";
@@ -173,7 +172,7 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+     reader.onload = async () => {
       try {
         const dump = JSON.parse(reader.result);
         importAllData(dump);
