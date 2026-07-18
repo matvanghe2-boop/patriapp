@@ -206,10 +206,7 @@ export default function OrderSimulator({ bourse, bourseTotal }) {
 }
 
 
-import React, { useMemo, useState } from "react";
-import { Sliders, TrendingUp, TrendingDown } from "lucide-react";
-import { Card, CardLabel, EmptyState } from "./ui";
-import { eur, pctPlain } from "../lib/finance";
+
 
 export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
   const [tickerId, setTickerId] = useState(positions[0]?.id || "");
