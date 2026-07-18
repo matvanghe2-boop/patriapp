@@ -8,6 +8,11 @@ function pctChange(q) {
   return ((q.price - q.previousClose) / q.previousClose) * 100;
 }
 
+function shortLabel(name, symbol) {
+  if (!name) return symbol;
+  return name.length > 22 ? `${name.slice(0, 20)}…` : name;
+}
+
 export default function IndicesWidget() {
   const [active, setActive] = useState("cac40");
   const [indexQuotes, setIndexQuotes] = useState({});
@@ -15,7 +20,6 @@ export default function IndicesWidget() {
   const [moversLoading, setMoversLoading] = useState(false);
   const [openPanel, setOpenPanel] = useState(false);
 
-  // Cours des 3 indices, rafraîchi toutes les 5 min.
   useEffect(() => {
     let stop = false;
     const load = async () => {
@@ -39,7 +43,7 @@ export default function IndicesWidget() {
       const tickers = INDEX_CONSTITUENTS[key];
       const quotes = await fetchQuotes(tickers);
       const rows = quotes
-        .map((q) => ({ symbol: q.symbol, pct: pctChange(q) }))
+        .map((q) => ({ symbol: q.symbol, name: shortLabel(q.name, q.symbol), pct: pctChange(q) }))
         .filter((r) => r.pct != null)
         .sort((a, b) => b.pct - a.pct);
       setMoversByIndex((m) => ({ ...m, [key]: { best: rows.slice(0, 3), worst: rows.slice(-3).reverse() } }));
@@ -97,9 +101,9 @@ export default function IndicesWidget() {
             ) : (
               <div className="space-y-1">
                 {(movers?.best || []).map((r) => (
-                  <div key={r.symbol} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-300 font-data">{r.symbol}</span>
-                    <span className="text-emerald-400 font-data">+{r.pct.toFixed(2)}%</span>
+                  <div key={r.symbol} className="flex items-center justify-between text-xs gap-2">
+                    <span className="text-slate-300 truncate">{r.name}</span>
+                    <span className="text-emerald-400 font-data shrink-0">+{r.pct.toFixed(2)}%</span>
                   </div>
                 ))}
               </div>
@@ -112,9 +116,9 @@ export default function IndicesWidget() {
             ) : (
               <div className="space-y-1">
                 {(movers?.worst || []).map((r) => (
-                  <div key={r.symbol} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-300 font-data">{r.symbol}</span>
-                    <span className="text-rose-400 font-data">{r.pct.toFixed(2)}%</span>
+                  <div key={r.symbol} className="flex items-center justify-between text-xs gap-2">
+                    <span className="text-slate-300 truncate">{r.name}</span>
+                    <span className="text-rose-400 font-data shrink-0">{r.pct.toFixed(2)}%</span>
                   </div>
                 ))}
               </div>

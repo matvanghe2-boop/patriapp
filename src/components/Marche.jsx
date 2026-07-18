@@ -5,7 +5,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import {
-  ResponsiveContainer, ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid,
+  ResponsiveContainer, ComposedChart, Area, Bar, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, Brush,
 } from "recharts";
 import { Card, CardLabel, EmptyState, CARD_THEMES, SkeletonChart } from "./ui";
@@ -16,16 +16,8 @@ import { pct, pctPlain } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchCompanyProfile, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 
-// ─── Config ───────────────────────────────────────────────────────────────
-// Le "différé léger" réglementaire des places boursières se situe en général
-// autour de 15 minutes pour les flux gratuits — on affiche donc ce délai et on
-// ré-interroge automatiquement à la même cadence, sans jamais prétendre à du
-// temps réel strict (ce serait faux pour une source gratuite).
 const AUTO_REFRESH_MS = 15 * 60 * 1000;
 
-// Échelles de temps : les trois premières descendent en intraday (bougies de
-// quelques minutes) pour un tracé fin ; les suivantes remontent en quotidien
-// puis en hebdomadaire sur les très longues périodes.
 const RANGE_OPTIONS = [
   { key: "1d", label: "1 J", intraday: true },
   { key: "5d", label: "1 S", intraday: true },
@@ -38,7 +30,6 @@ const RANGE_OPTIONS = [
   { key: "max", label: "Historique complet" },
 ];
 
-// Quelques valeurs connues pour un accès direct sans avoir à taper de recherche.
 const QUICK_PICKS = [
   { symbol: "AI.PA", label: "Air Liquide" },
   { symbol: "MC.PA", label: "LVMH" },
@@ -55,9 +46,6 @@ const SECTOR_LABELS_FR = {
   energy: "Énergie", healthcare: "Santé",
 };
 
-// Précision adaptée à l'ordre de grandeur du cours : un ETF à 480 € n'a pas
-// besoin de 4 décimales, mais un titre à 0,85 € en perd tout son sens arrondi
-// à 2 décimales seulement — c'était la cause du rendu "arrondi" signalé.
 function priceDigits(n) {
   const abs = Math.abs(n ?? 0);
   if (abs === 0) return 2;
@@ -116,7 +104,16 @@ function timeAgo(ts) {
   return `il y a ${h} h`;
 }
 
-// ─── Petite jauge 52 semaines ────────────────────────────────────────────
+// Ajoute un flag haussier/baissier à chaque bougie (clôture vs clôture
+// précédente) pour colorer le volume achat (vert) / vente (rouge).
+function withVolumeColor(series) {
+  return series.map((p, i) => {
+    const prevClose = i > 0 ? series[i - 1].close : p.open ?? p.close;
+    const up = p.close >= (prevClose ?? p.close);
+    return { ...p, volUp: up };
+  });
+}
+
 function FiftyTwoWeekGauge({ low, high, current, currency }) {
   if (low == null || high == null || current == null || high <= low) return null;
   const posPct = Math.min(100, Math.max(0, ((current - low) / (high - low)) * 100));
@@ -164,7 +161,11 @@ function ChartTooltip({ active, payload, label, currency, isIntraday }) {
       {point?.open != null && point?.close != null && (
         <div className="text-slate-500 font-data tabular-nums">O {formatPrice(point.open, currency)} · H {formatPrice(point.high, currency)} · B {formatPrice(point.low, currency)}</div>
       )}
-      {volume != null && <div className="text-slate-500 font-data tabular-nums">Volume : {formatCompact(volume)}</div>}
+      {volume != null && (
+        <div className={`font-data tabular-nums ${point?.volUp ? "text-emerald-400" : "text-rose-400"}`}>
+          Volume : {formatCompact(volume)} {point?.volUp ? "(achat)" : "(vente)"}
+        </div>
+      )}
     </div>
   );
 }
@@ -198,24 +199,19 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
   const [historyError, setHistoryError] = useState("");
 
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [, forceTick] = useState(0); // pour rafraîchir l'affichage "il y a N min"
+  const [, forceTick] = useState(0);
 
-  // Point survolé/sélectionné sur le graphique — permet de se déplacer sur
-  // toute l'échelle et de voir le cours exact à n'importe quelle date.
   const [hoverPoint, setHoverPoint] = useState(null);
-  const [brushRange, setBrushRange] = useState(null); // [startIndex, endIndex]
+  const [brushRange, setBrushRange] = useState(null);
 
-  // Fenêtre plein écran (analyse sans superposition + outil de tracé).
   const [focusOpen, setFocusOpen] = useState(false);
 
-  // Ferme la liste de résultats au clic extérieur.
   useEffect(() => {
     const handler = (e) => { if (searchBoxRef.current && !searchBoxRef.current.contains(e.target)) setShowResults(false); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Recherche instantanée avec anti-rebond, sur le même modèle que l'ajout de position.
   useEffect(() => {
     if (query.trim().length < 2) { setResults([]); return; }
     setSearching(true); setSearchError("");
@@ -243,20 +239,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
     setHoverPoint(null);
   };
 
-  // Ouverture directe depuis un clic sur une position (Portefeuille) ou une
-  // ligne de la watchlist : on charge la fiche de la valeur demandée, même si
-  // c'est déjà la valeur affichée (le "ts" garantit le redéclenchement).
-  //
-  // Ce chargement et celui déclenché par un changement de `symbol` sont
-  // fusionnés dans UN SEUL effet : avoir deux effets séparés (un sur
-  // `openRequest`, un sur `symbol`) provoquait une redirection "en retard" —
-  // au premier montage de <Marche>, l'effet `[symbol]` se déclenchait avec
-  // l'ANCIENNE valeur de `symbol` (celle encore en mémoire depuis la dernière
-  // visite), pendant que l'effet `[openRequest]` planifiait seulement un
-  // `setSymbol(nouvelleValeur)` pour le rendu suivant. Les deux requêtes
-  // réseau partaient donc en parallèle (ancienne puis nouvelle valeur), et
-  // selon l'ordre de réponse du réseau, la fiche/graphique pouvaient rester
-  // bloqués sur l'ancienne valeur jusqu'au clic suivant.
   const lastHandledRequestTs = useRef(null);
   const loadedSymbolRef = useRef(null);
   useEffect(() => {
@@ -276,9 +258,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
     }
 
     if (!effectiveSymbol) return;
-    // Évite un second fetch redondant quand ce même effet vient de déclencher
-    // le setSymbol ci-dessus (le rendu suivant repassera ici avec le nouveau
-    // symbole déjà chargé).
     if (!forceReload && loadedSymbolRef.current === effectiveSymbol) return;
     loadedSymbolRef.current = effectiveSymbol;
 
@@ -310,7 +289,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
     try {
       const [res] = await fetchHistory([sym], r);
       if (!res?.ok) throw new Error(res?.error || "Historique indisponible");
-      setSeries(res.series);
+      setSeries(withVolumeColor(res.series));
       setSeriesMeta(res);
     } catch (err) {
       setSeries([]);
@@ -328,27 +307,24 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
         setProfile((p) => (p ? { ...p, currentPrice: q.price, previousClose: q.previousClose ?? p.previousClose } : p));
       }
     } catch {
-      // Silencieux : l'échec d'une actualisation en tâche de fond n'a pas besoin d'interrompre l'utilisateur.
+      // silencieux
     } finally {
       setLastUpdated(Date.now());
     }
   }, []);
 
-  // Changement de plage : on ne recharge que l'historique.
   useEffect(() => {
     if (!symbol) return;
     loadHistory(symbol, range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
-  // Actualisation automatique du cours toutes les 15 minutes (différé léger des flux gratuits).
   useEffect(() => {
     if (!symbol) return;
     const id = setInterval(() => refreshQuote(symbol), AUTO_REFRESH_MS);
     return () => clearInterval(id);
   }, [symbol, refreshQuote]);
 
-  // Petit ticker pour rafraîchir le texte "il y a N min" sans re-fetcher.
   useEffect(() => {
     const id = setInterval(() => forceTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -392,8 +368,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
 
   const isFund = ["ETF", "MUTUALFUND", "INDEX"].includes(profile?.instrumentType);
 
-  // Prix affiché en tête de fiche : celui survolé sur le graphique si l'on
-  // est en train de s'y déplacer, sinon le dernier cours connu (différé ~15 min).
   const headlinePrice = hoverPoint?.close ?? profile?.currentPrice;
   const headlineIsHover = hoverPoint != null;
 
@@ -407,10 +381,8 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
 
   return (
     <div className="relative space-y-6">
-      {/* ─── Widget indices CAC40 / S&P 500 / Nasdaq ─── */}
       <IndicesWidget />
 
-      {/* ─── Barre de recherche ─── */}
       <Card accent={CARD_THEMES.violet}>
         <div className="relative" ref={searchBoxRef}>
           <div className="flex items-center gap-2">
@@ -438,8 +410,8 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                 >
                   <AssetLogo ticker={r.symbol} size="xs" />
                   <div className="min-w-0">
-                    <div className="text-sm text-slate-100 font-medium">{r.symbol}</div>
-                    <div className="text-[11px] text-slate-500 truncate">{r.name} {r.exchange ? `· ${r.exchange}` : ""}</div>
+                    <div className="text-sm text-slate-100 font-medium">{r.name}</div>
+                    <div className="text-[11px] text-slate-500 truncate">{r.symbol} {r.exchange ? `· ${r.exchange}` : ""}</div>
                   </div>
                 </button>
               ))}
@@ -447,7 +419,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
           )}
         </div>
 
-        {/* Accès rapides */}
         <div className="flex flex-wrap gap-1.5 mt-3">
           {QUICK_PICKS.map((q) => (
             <button
@@ -471,7 +442,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
         </Card>
       ) : (
         <>
-          {/* ─── En-tête valeur sélectionnée ─── */}
           <Card accent={CARD_THEMES.violet}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -546,7 +516,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
             </div>
           </Card>
 
-          {/* ─── Graphique historique ─── */}
+          {/* ─── Graphique historique (bougies + volume achat/vente) ─── */}
           <Card accent={CARD_THEMES.violet}>
             <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
               <CardLabel icon={BarChart3}>Graphique historique</CardLabel>
@@ -569,7 +539,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   disabled={chartData.length < 2}
                   className="flex items-center gap-1.5 text-[11px] font-medium text-violet-300 hover:text-violet-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-violet-500/50 rounded-lg px-2.5 py-1"
                 >
-                  <Maximize2 size={12} /> Plein écran
+                  <Maximize2 size={12} /> Plein écran &amp; outils de tracé
                 </button>
               </div>
             </div>
@@ -634,26 +604,32 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   </ResponsiveContainer>
                 </div>
                 <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-1.5">
-                  <Info size={10} /> Survole le graphique pour voir le cours exact à une date, fais glisser les poignées du bandeau du bas pour te déplacer et zoomer, ou passe en « Plein écran » pour tracer des supports et lignes de tendance sans superposition.
+                  <Info size={10} /> Survole le graphique pour voir le cours exact, glisse le bandeau du bas pour zoomer, ou passe en « Plein écran » pour tracer librement.
                 </p>
 
-                {/* Volume */}
+                {/* Volume coloré : vert = clôture en hausse (achat), rouge = en baisse (vente) */}
                 <div className="h-20 mt-3">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 0 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
                       <XAxis dataKey="date" hide />
                       <YAxis hide domain={[0, "auto"]} />
-                      <Tooltip content={<ChartTooltip currency={profile?.currency} isIntraday={isIntraday} />} cursor={{ fill: "#a78bfa", fillOpacity: 0.08 }} />
-                      <Bar dataKey="volume" name="Volume" fill="#475569" radius={[1, 1, 0, 0]} isAnimationActive={false} />
+                      <Tooltip content={<ChartTooltip currency={profile?.currency} isIntraday={isIntraday} />} cursor={{ fill: "#94a3b8", fillOpacity: 0.08 }} />
+                      <Bar dataKey="volume" name="Volume" radius={[1, 1, 0, 0]} isAnimationActive={false}>
+                        {chartData.map((p, i) => (
+                          <Cell key={i} fill={p.volUp ? "#34d399" : "#fb7185"} />
+                        ))}
+                      </Bar>
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
-                <p className="text-[10px] text-slate-600 mt-1">Volume échangé par période</p>
+                <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-3">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400" /> Volume en hausse (achat)</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rose-400" /> Volume en baisse (vente)</span>
+                </p>
               </>
             )}
           </Card>
 
-          {/* ─── Repère 52 semaines ─── */}
           {profile && (profile.fiftyTwoWeekLow != null || profile.fiftyTwoWeekHigh != null) && (
             <Card accent={CARD_THEMES.violet}>
               <CardLabel icon={Target}>Position dans la fourchette annuelle</CardLabel>
@@ -663,7 +639,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
             </Card>
           )}
 
-          {/* ─── Ratios clés (actions) ─── */}
           {profile && !isFund && (
             <Card accent={CARD_THEMES.violet}>
               <CardLabel icon={Scale}>Valorisation &amp; rentabilité</CardLabel>
@@ -699,7 +674,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
             </Card>
           )}
 
-          {/* ─── Composition (ETF / fonds) ─── */}
           {profile && isFund && (profile.holdings?.length > 0 || profile.sectorWeightings?.length > 0 || profile.expenseRatio != null) && (
             <Card accent={CARD_THEMES.violet}>
               <CardLabel icon={PieIcon}>Composition du fonds</CardLabel>
@@ -742,7 +716,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
             </Card>
           )}
 
-          {/* ─── Fiche entreprise / activité ─── */}
           <Card accent={CARD_THEMES.violet}>
             <CardLabel icon={Building2}>Fiche entreprise &amp; activité</CardLabel>
             {profileLoading ? (

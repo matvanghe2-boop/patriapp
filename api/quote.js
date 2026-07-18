@@ -1,7 +1,6 @@
 // Fonction serverless Vercel — GET /api/quote?symbols=AAPL,CW8.PA,...
-// Renvoie le dernier cours connu pour chaque ticker. Chaque ticker est
-// interrogé individuellement afin qu'un échec isolé n'empêche pas la
-// mise à jour des autres lignes du portefeuille.
+// Renvoie le dernier cours connu pour chaque ticker, avec le nom de
+// l'entreprise (shortName/longName) pour affichage au lieu du ticker brut.
 
 const YF_HEADERS = {
   "User-Agent":
@@ -29,6 +28,7 @@ export default async function handler(req, res) {
           price: meta.regularMarketPrice,
           currency: meta.currency,
           previousClose: meta.previousClose ?? meta.chartPreviousClose ?? null,
+          name: meta.shortName || meta.longName || symbol,
         };
       } catch (err) {
         return { symbol, ok: false, error: err.message };
