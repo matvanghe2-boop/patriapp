@@ -186,7 +186,7 @@ export default function App() {
     e.target.value = "";
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (window.confirm("Réinitialiser toutes les données locales ? Cette action est irréversible.")) {
       clearAllData(STORAGE_KEYS);
       await clearCloudData(STORAGE_KEYS);
