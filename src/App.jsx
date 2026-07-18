@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen, Download, Upload, RotateCcw, Eye, EyeOff, LogOut } from "lucide-react";
+import { usePersistentState, exportAllData, importAllData, clearAllData, clearCloudData, pushAllToCloud } from "./lib/storage";
 import { weightedAverageRate } from "./lib/finance";
 import { NavButton } from "./components/ui";
 import Dashboard from "./components/Dashboard";
@@ -11,8 +12,6 @@ import StrategieLogs from "./components/StrategieLogs";
 import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
 import { useAuth } from "./lib/AuthContext";
-import StickySummaryHeader from "./components/StickySummaryHeader";
-import { usePersistentState, exportAllData, importAllData, clearAllData, clearCloudData, pushAllToCloud } from "./lib/storage";
 
 const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios", "immoTravaux", "reminders"];
 
@@ -26,8 +25,6 @@ const INITIAL_LIVRETS = [
 const INITIAL_BOURSE = {
   envelope: "PEA",
   cash_pocket: 500,
-  peaOuverture: "2021-01-15", // date d'ouverture du plan — à ajuster par l'utilisateur
-  peaVersements: 25000,        // total versé cumulé (espèces entrantes), plafonné à 150 000 €
   positions: [
     { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
     { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },
@@ -137,13 +134,6 @@ export default function App() {
   const epargneMensuelle = profile.monthly_income - profile.monthly_expenses;
   const tauxEpargne = profile.monthly_income > 0 ? (epargneMensuelle / profile.monthly_income) * 100 : 0;
   const matelasMois = profile.monthly_expenses > 0 ? livretsTotal / profile.monthly_expenses : 0;
-// Performance globale vs le dernier point d'historique connu — même logique
-  // que le badge du Dashboard, réutilisée ici pour le header collant.
-  const globalDeltaPct = useMemo(() => {
-    const lastPoint = historyPast[historyPast.length - 1]?.value;
-    if (!lastPoint || lastPoint <= 0) return null;
-    return ((patrimoineNet - lastPoint) / lastPoint) * 100;
-  }, [historyPast, patrimoineNet]);
 
   const shared = {
     profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
@@ -172,11 +162,11 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-     reader.onload = async () => {
+    reader.onload = async () => {
       try {
         const dump = JSON.parse(reader.result);
         importAllData(dump);
-	await pushAllToCloud(dump); // pousse aussi vers le compte Supabase
+        await pushAllToCloud(dump); // pousse aussi vers le compte Supabase, pas seulement le navigateur
         window.location.reload();
       } catch {
         alert("Fichier de sauvegarde invalide.");
@@ -187,7 +177,7 @@ export default function App() {
   };
 
   const handleReset = async () => {
-    if (window.confirm("Réinitialiser toutes les données locales ? Cette action est irréversible.")) {
+    if (window.confirm("Réinitialiser toutes les données (navigateur ET compte) ? Cette action est irréversible.")) {
       clearAllData(STORAGE_KEYS);
       await clearCloudData(STORAGE_KEYS);
       window.location.reload();
@@ -229,19 +219,13 @@ export default function App() {
             <RotateCcw size={13} /> Réinitialiser
           </button>
           <p className="text-[11px] text-slate-600 leading-relaxed mt-1">
-            Données stockées localement dans ce navigateur. Aucun envoi vers un serveur externe.
+            Données stockées localement dans ce navigateur, et synchronisées avec ton compte si connecté.
           </p>
         </div>
       </aside>
 
       <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl transition-colors duration-500 ${TAB_BG[tab] || ""}`}>
         <div className="flex items-center justify-between gap-3 mb-5">
-          <StickySummaryHeader
-          patrimoineNet={patrimoineNet}
-          deltaPct={globalDeltaPct}
-          ghostMode={ghostMode}
-          onToggleGhost={() => setGhostMode((g) => !g)}
-        >
           <GlobalSearch
             livrets={livrets} bourse={bourse} dettes={dettes} watchlist={watchlist}
             strategyNotes={strategyNotes} enveloppes={enveloppes} onNavigate={setTab}
@@ -250,13 +234,15 @@ export default function App() {
           <button
             onClick={() => signOut()}
             title={user?.email ? `Déconnecter ${user.email}` : "Se déconnecter"}
-            className="btn-flash flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg px-2 py-1.5"
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg px-2 py-1.5"
           >
             <LogOut size={14} />
           </button>
-        </StickySummaryHeader>        
         </div>
-        <div key={tab} className="animate-[fadeIn_0.3s_ease-out]">
+        {/* Transition d'onglet : le remount via key déclenche fadeIn (fade + slide,
+            voir index.css) sur le conteneur, et stagger-children fait apparaître
+            les cartes de premier niveau en cascade plutôt que toutes d'un coup. */}
+        <div key={tab} className="animate-[fadeIn_0.3s_cubic-bezier(0.4,0,0.2,1)] stagger-children">
           {tab === "dashboard" && <Dashboard {...shared} />}
           {tab === "livrets" && <Livrets {...shared} />}
           {tab === "bourse" && <Bourse {...shared} />}

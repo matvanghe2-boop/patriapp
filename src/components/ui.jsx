@@ -11,15 +11,13 @@ const NAV_THEMES = {
   cyan: { active: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30", bar: "bg-cyan-400" },
 };
 
-// Navigation : changement d'état brut, sans transition fluide — sensation
-// de réactivité immédiate (btn-hard-switch désactive les transitions CSS).
 export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber" }) {
   const t = NAV_THEMES[theme] || NAV_THEMES.amber;
   return (
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`btn-hard-switch relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
+      className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
         ${disabled ? "text-slate-600 cursor-not-allowed" : active ? t.active : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
       {active && <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
@@ -110,13 +108,12 @@ const GHOST_THEMES = {
   cyan: "text-cyan-300 hover:text-cyan-100 bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/40 hover:border-cyan-400/70 focus-visible:ring-cyan-400/40",
 };
 
-// Bouton d'action secondaire — enfoncement 2px + flash de bordure ambre au clic.
 export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, theme = "amber" }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`btn-press btn-border-flash flex items-center gap-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${GHOST_THEMES[theme] || GHOST_THEMES.amber}`}
+      className={`flex items-center gap-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${GHOST_THEMES[theme] || GHOST_THEMES.amber}`}
     >
       <Icon size={14} />
       {children}
@@ -124,10 +121,9 @@ export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, th
   );
 }
 
-// Icône cliquable sans fond — flash d'opacité pur (style iOS).
 export function IconTrash({ onClick }) {
   return (
-    <button onClick={onClick} className="btn-flash text-slate-600 hover:text-rose-400 p-1">
+    <button onClick={onClick} className="text-slate-600 hover:text-rose-400 transition-colors p-1">
       <Trash2 size={14} />
     </button>
   );
@@ -227,13 +223,63 @@ export function AddPanel({ open, onClose, fields, onSubmit }) {
         </div>
       ))}
       <div className="col-span-2 sm:col-span-4 flex gap-2 justify-end mt-1">
-        <button type="button" onClick={onClose} className="btn-flash flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">
+        <button type="button" onClick={onClose} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">
           <X size={13} /> Annuler
         </button>
-        <button type="submit" className="btn-shadow-invert text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-4 py-1.5">
+        <button type="submit" className="text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors">
           Enregistrer
         </button>
       </div>
     </form>
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SKELETON SCREENS — versions "fantôme" animées (effet shimmer) affichées
+   pendant le chargement de données (cours, historique, fiches...).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/** Bloc rectangulaire générique. Utiliser via les helpers ci-dessous de préférence. */
+export function Skeleton({ className = "", style }) {
+  return <div className={`skeleton ${className}`} style={style} />;
+}
+
+/** Ligne de texte fantôme (largeur variable pour un rendu plus naturel). */
+export function SkeletonText({ width = "100%", height = 12, className = "" }) {
+  return <Skeleton className={className} style={{ width, height, borderRadius: 4 }} />;
+}
+
+/** Carte fantôme complète (titre + quelques lignes) — remplace un <Card> le temps du chargement. */
+export function SkeletonCard({ lines = 3, className = "" }) {
+  return (
+    <div className={`rounded-2xl border border-slate-800 bg-slate-900 p-5 ${className}`}>
+      <SkeletonText width="40%" height={10} className="mb-3" />
+      <SkeletonText width="65%" height={22} className="mb-2" />
+      {Array.from({ length: lines }).map((_, i) => (
+        <SkeletonText key={i} width={`${85 - i * 12}%`} height={12} className="mb-1.5" />
+      ))}
+    </div>
+  );
+}
+
+/** Tableau fantôme : en-tête + N lignes à colonnes proportionnelles. */
+export function SkeletonTable({ rows = 4, columns = 5 }) {
+  const widths = ["20%", "15%", "15%", "30%", "20%", "18%", "22%"];
+  return (
+    <div className="flex flex-col gap-2.5">
+      <Skeleton style={{ height: 32, width: "100%" }} />
+      {Array.from({ length: rows }).map((_, r) => (
+        <div key={r} className="flex items-center gap-3">
+          {Array.from({ length: columns }).map((__, c) => (
+            <Skeleton key={c} style={{ height: 20, width: widths[c % widths.length] }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Zone de graphique fantôme (hauteur configurable). */
+export function SkeletonChart({ height = 240 }) {
+  return <Skeleton style={{ width: "100%", height, borderRadius: 12 }} />;
 }
