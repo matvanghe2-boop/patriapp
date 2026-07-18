@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, EmptyState } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
 import AssetLogo from "./AssetLogo";
 import { eur, pct, uid, computeReturnMetrics } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
@@ -200,6 +200,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
   }, [watchlist, dailyData]);
 
   const isLoading = loading || refreshingQuotes;
+  const isInitialLoad = isLoading && Object.keys(metricsBySymbol).length === 0 && watchlist.length > 0;
 
   return (
     <Card accent="border-fuchsia-500/40 bg-gradient-to-br from-fuchsia-950/40 via-slate-900 to-slate-900 hover:border-fuchsia-400/60">
@@ -234,6 +235,8 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
 
       {watchlist.length === 0 ? (
         <EmptyState>Aucun produit suivi — ajoute une valeur que tu envisages d'acheter.</EmptyState>
+      ) : isInitialLoad ? (
+        <SkeletonTable rows={Math.min(watchlist.length, 5)} columns={7} />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

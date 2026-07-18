@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { CalendarDays, List, ChevronLeft, ChevronRight, RefreshCw, CircleDollarSign, FileBarChart, Users, X } from "lucide-react";
 import { fetchCalendarEvents } from "../lib/api";
+import { SkeletonChart } from "./ui";
 
 // ─── Types d'événements : couleurs très vives et saturées pour un contraste maximal sur fond noir ───
 const EVENT_TYPES = {
@@ -342,6 +343,10 @@ export default function FinancialCalendar({ positions = [] }) {
     });
   };
 
+  // Skeleton uniquement au tout premier chargement (aucun événement encore connu) —
+  // les actualisations suivantes gardent l'affichage existant pendant le refetch.
+  const isInitialLoad = loading && events.length === 0 && tickers.length > 0;
+
   return (
     <div className="rounded-2xl border border-[#1a1a1a] bg-black p-5 text-white">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -393,6 +398,8 @@ export default function FinancialCalendar({ positions = [] }) {
         <p className="text-sm text-[#888] py-8 text-center border border-dashed border-[#2a2a2a] rounded-xl">
           Ajoute des positions à ton portefeuille pour voir apparaître leurs événements.
         </p>
+      ) : isInitialLoad ? (
+        <SkeletonChart height={280} />
       ) : error && events.length === 0 ? (
         <p className="text-sm text-[#ff5c5c] py-8 text-center border border-dashed border-[#2a2a2a] rounded-xl">
           {error}
@@ -414,4 +421,3 @@ export default function FinancialCalendar({ positions = [] }) {
     </div>
   );
 }
-

@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, Brush,
 } from "recharts";
-import { Card, CardLabel, EmptyState, CARD_THEMES } from "./ui";
+import { Card, CardLabel, EmptyState, CARD_THEMES, SkeletonChart } from "./ui";
 import AssetLogo from "./AssetLogo";
 import IndicesWidget from "./IndicesWidget";
 import ChartFocusModal from "./ChartFocusModal";
@@ -590,7 +590,10 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
             </p>
 
             {historyLoading ? (
-              <div className="h-96 flex items-center justify-center text-sm text-slate-500">Chargement de l'historique…</div>
+              <div className="mt-2 flex flex-col gap-3">
+                <SkeletonChart height={320} />
+                <SkeletonChart height={80} />
+              </div>
             ) : historyError ? (
               <EmptyState>{historyError}</EmptyState>
             ) : chartData.length < 2 ? (
@@ -743,7 +746,15 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
           <Card accent={CARD_THEMES.violet}>
             <CardLabel icon={Building2}>Fiche entreprise &amp; activité</CardLabel>
             {profileLoading ? (
-              <p className="text-sm text-slate-500 mt-2">Chargement…</p>
+              <div className="mt-2 flex flex-col gap-2">
+                <div className="flex gap-6">
+                  <div className="skeleton" style={{ width: 140, height: 12, borderRadius: 4 }} />
+                  <div className="skeleton" style={{ width: 100, height: 12, borderRadius: 4 }} />
+                </div>
+                <div className="skeleton" style={{ width: "100%", height: 12, borderRadius: 4, marginTop: 8 }} />
+                <div className="skeleton" style={{ width: "95%", height: 12, borderRadius: 4 }} />
+                <div className="skeleton" style={{ width: "80%", height: 12, borderRadius: 4 }} />
+              </div>
             ) : profileError ? (
               <EmptyState>{profileError}</EmptyState>
             ) : profile ? (
