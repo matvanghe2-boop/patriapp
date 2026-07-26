@@ -1,60 +1,60 @@
-import React, { useRef, useState } from "react";
-import { X, Minus, TrendingUp as DiagIcon, Eraser, Pencil, Undo2 } from "lucide-react";
-import {
-  ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-} from "recharts";
+import React, { useEffect, useRef, useState } from "react";
+import { X, Minus, TrendingUp as DiagIcon, Eraser, Pencil, Undo2, Move } from "lucide-react";
+import ProChart from "./ProChart";
 
 /**
- * Outils de tracé simplifiés, tous en glisser-déposer (mousedown → drag →
- * mouseup), sans séquence de clics à retenir :
- * - "trend"      : ligne droite libre (tendance/tangente), suit la souris.
- * - "horizontal" : support/résistance horizontal, posé au clic.
- * - "freehand"   : tracé à main levée, liberté totale.
+ * Plein écran d'analyse : le même graphique professionnel que dans l'onglet
+ * Marché, avec par-dessus des outils de tracé en glisser-déposer.
+ *
+ * Les tracés sont mémorisés en coordonnées de données (index de bougie +
+ * prix), pas en pixels : ils restent donc collés aux cours quand on zoome ou
+ * qu'on se déplace dans le temps, comme sur TradingView. Une droite posée sur
+ * un support le reste, quelle que soit l'échelle.
+ *
+ * - "nav"        : navigation seule (zoom/déplacement), aucun tracé.
+ * - "trend"      : droite libre (tendance / tangente).
+ * - "horizontal" : support ou résistance, posé au clic à un prix donné.
+ * - "freehand"   : tracé à main levée.
  */
-export default function ChartFocusModal({ open, onClose, chartData, currency, formatPrice, formatAxisTick, isIntraday, range }) {
-  const [tool, setTool] = useState("trend"); // "trend" | "horizontal" | "freehand"
+export default function ChartFocusModal({
+  open, onClose, chartData, title, currency, formatPrice, formatAxisTick, formatFullDateTime,
+  isIntraday, range, priceLines, chartStyle, onChartStyleChange,
+}) {
+  const [tool, setTool] = useState("nav");
   const [lines, setLines] = useState([]);
-  const [drawing, setDrawing] = useState(null); // ligne en cours de tracé
-  const containerRef = useRef(null);
+  const [drawing, setDrawing] = useState(null);
   const isDragging = useRef(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   if (!open) return null;
 
-  const getRelCoords = (e) => {
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    return { x: Math.min(100, Math.max(0, x)), y: Math.min(100, Math.max(0, y)) };
-  };
+  const drawingMode = tool !== "nav";
 
-  const handleMouseDown = (e) => {
-    const { x, y } = getRelCoords(e);
+  const handleDown = (coords) => {
+    if (!drawingMode || !coords) return;
     if (tool === "horizontal") {
-      setLines((l) => [...l, { type: "horizontal", y }]);
+      setLines((l) => [...l, { type: "horizontal", price: coords.price }]);
       return;
     }
     isDragging.current = true;
-    if (tool === "freehand") {
-      setDrawing({ type: "freehand", points: [{ x, y }] });
-    } else {
-      setDrawing({ type: "trend", x1: x, y1: y, x2: x, y2: y });
-    }
+    if (tool === "freehand") setDrawing({ type: "freehand", points: [coords] });
+    else setDrawing({ type: "trend", from: coords, to: coords });
   };
 
-  const handleMouseMove = (e) => {
-    if (!isDragging.current || !drawing) return;
-    const { x, y } = getRelCoords(e);
-    if (drawing.type === "freehand") {
-      setDrawing((d) => ({ ...d, points: [...d.points, { x, y }] }));
-    } else {
-      setDrawing((d) => ({ ...d, x2: x, y2: y }));
-    }
+  const handleMove = (coords) => {
+    if (!isDragging.current || !drawing || !coords) return;
+    if (drawing.type === "freehand") setDrawing((d) => ({ ...d, points: [...d.points, coords] }));
+    else setDrawing((d) => ({ ...d, to: coords }));
   };
 
-  const handleMouseUp = () => {
-    if (isDragging.current && drawing) {
-      setLines((l) => [...l, drawing]);
-    }
+  const handleUp = () => {
+    if (isDragging.current && drawing) setLines((l) => [...l, drawing]);
     isDragging.current = false;
     setDrawing(null);
   };
@@ -62,50 +62,58 @@ export default function ChartFocusModal({ open, onClose, chartData, currency, fo
   const undoLast = () => setLines((l) => l.slice(0, -1));
   const clearLines = () => { setLines([]); setDrawing(null); };
 
-  const renderLine = (l, key, live = false) => {
+  const renderLine = (l, key, api, live = false) => {
     const color = live ? "#fbbf24" : l.type === "horizontal" ? "#fbbf24" : l.type === "freehand" ? "#38bdf8" : "#34d399";
     if (l.type === "horizontal") {
-      return <line key={key} x1={0} y1={l.y} x2={100} y2={l.y} stroke={color} strokeWidth={0.3} strokeDasharray="1.5 1" vectorEffect="non-scaling-stroke" />;
+      const { y } = api.toPx({ index: 0, price: l.price });
+      if (!Number.isFinite(y)) return null;
+      return (
+        <g key={key}>
+          <line x1={api.plot.left} y1={y} x2={api.plot.right} y2={y} stroke={color} strokeWidth={1.2} strokeDasharray="5 3" />
+          <text x={api.plot.left + 6} y={y - 5} fill={color} fontSize={10} className="font-data">
+            {formatPrice ? formatPrice(l.price, currency) : l.price.toFixed(2)}
+          </text>
+        </g>
+      );
     }
     if (l.type === "freehand") {
-      const d = l.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-      return <path key={key} d={d} stroke={color} strokeWidth={0.35} fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />;
+      const d = l.points
+        .map((p, i) => {
+          const { x, y } = api.toPx(p);
+          return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+        })
+        .join(" ");
+      return <path key={key} d={d} stroke={color} strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
     }
-    return <line key={key} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={color} strokeWidth={0.3} vectorEffect="non-scaling-stroke" />;
+    const a = api.toPx(l.from);
+    const b = api.toPx(l.to);
+    return <line key={key} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color} strokeWidth={1.4} />;
   };
+
+  const toolButton = (key, Icon, label, activeClass) => (
+    <button
+      onClick={() => setTool(key)}
+      className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+        tool === key ? activeClass : "border-slate-700 text-slate-400 hover:text-slate-200"
+      }`}
+    >
+      <Icon size={13} /> {label}
+    </button>
+  );
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-6xl h-[80vh] rounded-2xl border border-violet-500/30 bg-slate-950 flex flex-col shadow-2xl"
+        className="w-full max-w-6xl h-[86vh] rounded-2xl border border-violet-500/30 bg-slate-950 flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setTool("trend")}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border ${
-                tool === "trend" ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300" : "border-slate-700 text-slate-400"
-              }`}
-            >
-              <DiagIcon size={13} /> Tendance / tangente
-            </button>
-            <button
-              onClick={() => setTool("horizontal")}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border ${
-                tool === "horizontal" ? "border-amber-500/50 bg-amber-500/10 text-amber-300" : "border-slate-700 text-slate-400"
-              }`}
-            >
-              <Minus size={13} /> Support / résistance
-            </button>
-            <button
-              onClick={() => setTool("freehand")}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border ${
-                tool === "freehand" ? "border-sky-500/50 bg-sky-500/10 text-sky-300" : "border-slate-700 text-slate-400"
-              }`}
-            >
-              <Pencil size={13} /> Dessin libre
-            </button>
+            {title && <span className="font-display text-sm text-slate-200 mr-1">{title}</span>}
+            {toolButton("nav", Move, "Navigation", "border-violet-500/50 bg-violet-500/10 text-violet-300")}
+            {toolButton("trend", DiagIcon, "Tendance / tangente", "border-emerald-500/50 bg-emerald-500/10 text-emerald-300")}
+            {toolButton("horizontal", Minus, "Support / résistance", "border-amber-500/50 bg-amber-500/10 text-amber-300")}
+            {toolButton("freehand", Pencil, "Dessin libre", "border-sky-500/50 bg-sky-500/10 text-sky-300")}
             <button
               onClick={undoLast}
               className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-amber-300 hover:border-amber-500/40"
@@ -118,44 +126,41 @@ export default function ChartFocusModal({ open, onClose, chartData, currency, fo
             >
               <Eraser size={13} /> Effacer tout
             </button>
-            <span className="text-[11px] text-slate-500">Clique-glisse pour tracer, relâche pour valider.</span>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white p-1">
+          <button onClick={onClose} className="text-slate-500 hover:text-white p-1" aria-label="Fermer">
             <X size={18} />
           </button>
         </div>
 
-        <div
-          ref={containerRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          className="relative flex-1 cursor-crosshair select-none"
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ left: 0, right: 20, top: 20, bottom: 10 }}>
-              <defs>
-                <linearGradient id="focusFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={(d) => formatAxisTick(d, isIntraday, range)} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={70} />
-              <YAxis domain={["auto", "auto"]} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={60} tickFormatter={(v) => formatPrice(v, currency)} />
-              <Tooltip
-                contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
-                formatter={(v) => [formatPrice(v, currency), "Clôture"]}
-              />
-              <Area type="monotone" dataKey="close" stroke="#a78bfa" strokeWidth={2} fill="url(#focusFill)" isAnimationActive={false} dot={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-            {lines.map((l, i) => renderLine(l, i))}
-            {drawing && renderLine(drawing, "live", true)}
-          </svg>
+        <div className={`flex-1 min-h-0 px-4 py-3 ${drawingMode ? "cursor-crosshair" : ""}`}>
+          <ProChart
+            data={chartData}
+            currency={currency}
+            isIntraday={isIntraday}
+            range={range}
+            height={Math.max(280, Math.round(window.innerHeight * 0.86) - 150)}
+            formatPrice={formatPrice}
+            formatX={formatAxisTick}
+            formatXFull={formatFullDateTime}
+            chartStyle={chartStyle}
+            onChartStyleChange={onChartStyleChange}
+            priceLines={priceLines}
+            panEnabled={!drawingMode}
+            onPlotMouseDown={handleDown}
+            onPlotMouseMove={handleMove}
+            onPlotMouseUp={handleUp}
+            renderOverlay={(api) => (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" width={api.size.width} height={api.size.height}>
+                {lines.map((l, i) => renderLine(l, i, api))}
+                {drawing && renderLine(drawing, "live", api, true)}
+              </svg>
+            )}
+          />
+          <p className="text-[11px] text-slate-500 mt-2">
+            {drawingMode
+              ? "Clique-glisse sur le graphique pour tracer, relâche pour valider. Les tracés restent accrochés aux cours quand tu zoomes."
+              : "Molette pour zoomer, clic-glisser pour te déplacer, double-clic pour revenir à la vue complète. Choisis un outil pour dessiner."}
+          </p>
         </div>
       </div>
     </div>

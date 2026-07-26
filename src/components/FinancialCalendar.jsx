@@ -23,8 +23,10 @@ const typeOf = (type) => EVENT_TYPES[type] || EVENT_TYPES.Communication;
 
 // ─── Origine d'un événement ─────────────────────────────────────────────────
 // Une ligne réellement détenue et une simple valeur surveillée n'ont pas la
-// même importance : le portefeuille est mis en surbrillance, la watchlist
-// reste sobre pour ne pas capter l'attention à tort.
+// même importance : le portefeuille est mis en surbrillance franche (fond
+// coloré, bordure pleine, halo, texte blanc), la watchlist reste volontairement
+// neutre (contour gris, aucun fond, aucun halo). L'écart doit se voir en un
+// coup d'œil, sans avoir à lire les pastilles.
 const SOURCES = {
   portefeuille: {
     label: "Portefeuille",
@@ -39,6 +41,10 @@ const SOURCES = {
     cardClass: "bg-[#070707]",
   },
 };
+
+// Gris neutres réservés à la watchlist : aucune teinte du type d'événement ne
+// vient les colorer, c'est ce qui crée le contraste avec le portefeuille.
+const NEUTRAL = { border: "#2e2e2e", text: "#8a8a8a", bg: "#0d0d0d" };
 
 const MONTH_NAMES = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -85,8 +91,9 @@ function EventDot({ type }) {
 
 // Badge affiché DANS une case du calendrier : montre le texte de l'événement
 // (ticker + type abrégé), cliquable pour ouvrir le détail complet.
-// Une ligne détenue reçoit une bordure pleine et un halo ; une valeur
-// surveillée garde une bordure discontinue et atténuée.
+//   • Portefeuille : fond coloré, bordure pleine épaisse, halo, texte blanc gras.
+//   • Watchlist    : aucun fond, contour gris neutre, texte gris — seule une
+//                    micro-pastille rappelle la couleur du type d'événement.
 function EventChip({ ev, onClick }) {
   const t = typeOf(ev.type);
   const Icon = t.icon;
@@ -94,18 +101,31 @@ function EventChip({ ev, onClick }) {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(ev); }}
-      className={`w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[9px] sm:text-[10px] leading-tight truncate transition-transform hover:scale-[1.03] ${
-        isPortfolio ? "font-bold" : "font-medium"
+      className={`w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[9px] sm:text-[10px] leading-tight truncate transition-transform hover:scale-[1.04] ${
+        isPortfolio ? "font-extrabold" : "font-medium"
       }`}
-      style={{
-        background: isPortfolio ? `${t.color}26` : "transparent",
-        border: isPortfolio ? `1px solid ${t.color}` : `1px dashed ${t.color}55`,
-        color: isPortfolio ? t.color : `${t.color}B0`,
-        boxShadow: isPortfolio ? `0 0 8px ${t.glow}` : "none",
-      }}
+      style={
+        isPortfolio
+          ? {
+              background: `linear-gradient(90deg, ${t.color}4D, ${t.color}1F)`,
+              border: `1.5px solid ${t.color}`,
+              color: "#ffffff",
+              boxShadow: `0 0 10px ${t.glow}`,
+            }
+          : {
+              background: "transparent",
+              border: `1px solid ${NEUTRAL.border}`,
+              color: NEUTRAL.text,
+              boxShadow: "none",
+            }
+      }
       title={`${ev.ticker} — ${ev.label} (${SOURCES[ev.source]?.label ?? ""})`}
     >
-      <Icon size={9} strokeWidth={2.5} className="shrink-0" />
+      {isPortfolio ? (
+        <Icon size={9} strokeWidth={3} className="shrink-0" style={{ color: t.color }} />
+      ) : (
+        <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: `${t.color}70` }} />
+      )}
       <span className="truncate">{ev.ticker}</span>
     </button>
   );
@@ -120,11 +140,30 @@ function SourceBadge({ source, size = "sm" }) {
     <span
       className={`inline-flex items-center gap-1 rounded uppercase tracking-wide ${
         size === "sm" ? "text-[9px] px-1.5 py-0.5" : "text-[10px] px-2 py-0.5"
-      } ${isPortfolio ? "font-bold text-white bg-white/15 border border-white/40" : "font-medium text-[#888] border border-[#333]"}`}
+      } ${isPortfolio ? "font-black text-black bg-white border border-white" : "font-medium text-[#8a8a8a] border border-[#2e2e2e]"}`}
     >
       <Icon size={size === "sm" ? 9 : 11} strokeWidth={2.5} />
       {s.label}
     </span>
+  );
+}
+
+/** Rappel du code visuel des deux origines, sous les filtres. */
+function SourceLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-[10px] text-[#777] mb-4">
+      <span className="flex items-center gap-1.5">
+        <span
+          className="inline-block w-6 h-3 rounded"
+          style={{ background: "linear-gradient(90deg,#ffffff40,#ffffff14)", border: "1.5px solid #fff", boxShadow: "0 0 8px rgba(255,255,255,0.35)" }}
+        />
+        Détenu en portefeuille — surligné et coloré
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block w-6 h-3 rounded" style={{ border: `1px solid ${NEUTRAL.border}` }} />
+        Simplement en watchlist — contour neutre
+      </span>
+    </div>
   );
 }
 
@@ -133,6 +172,7 @@ function EventModal({ ev, onClose }) {
   if (!ev) return null;
   const t = typeOf(ev.type);
   const Icon = t.icon;
+  const isPortfolio = ev.source === "portefeuille";
   const today = isoToday();
   const d = new Date(`${ev.date}T00:00:00`);
   const todayD = new Date(`${today}T00:00:00`);
@@ -149,15 +189,23 @@ function EventModal({ ev, onClose }) {
     >
       <div
         className="w-full max-w-sm rounded-2xl border p-5 bg-black"
-        style={{ borderColor: `${t.color}66`, boxShadow: `0 0 40px ${t.glow}` }}
+        style={
+          isPortfolio
+            ? { borderColor: t.color, borderWidth: 1.5, boxShadow: `0 0 40px ${t.glow}` }
+            : { borderColor: NEUTRAL.border, boxShadow: "none" }
+        }
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <div
             className="flex items-center justify-center w-12 h-12 rounded-full shrink-0"
-            style={{ background: `${t.color}1A`, border: `1.5px solid ${t.color}` }}
+            style={{
+              background: isPortfolio ? `${t.color}26` : NEUTRAL.bg,
+              border: `1.5px solid ${isPortfolio ? t.color : NEUTRAL.border}`,
+              boxShadow: isPortfolio ? `0 0 14px ${t.glow}` : "none",
+            }}
           >
-            <Icon size={22} style={{ color: t.color }} strokeWidth={2.5} />
+            <Icon size={22} style={{ color: isPortfolio ? t.color : NEUTRAL.text }} strokeWidth={2.5} />
           </div>
           <button onClick={onClose} className="text-[#888] hover:text-white transition-colors" aria-label="Fermer">
             <X size={20} />
@@ -269,14 +317,22 @@ function MonthGrid({ year, month, eventsByDate, onMonthChange, onEventClick }) {
           const isToday = iso === today;
           const visible = dayEvents.slice(0, MAX_VISIBLE);
           const hiddenCount = dayEvents.length - visible.length;
+          // Un jour qui contient au moins une ligne détenue est lui-même mis en
+          // avant : on repère les échéances qui comptent vraiment sans lire
+          // chaque pastille.
+          const hasPortfolio = dayEvents.some((ev) => ev.source === "portefeuille");
           return (
             <div
               key={i}
-              className={`min-h-[64px] sm:min-h-[92px] rounded-lg p-1 flex flex-col gap-0.5 border ${
-                isToday ? "border-white bg-white/[0.06]" : "border-[#1a1a1a] bg-[#0a0a0a]"
-              } overflow-hidden`}
+              className={`min-h-[64px] sm:min-h-[92px] rounded-lg p-1 flex flex-col gap-0.5 border overflow-hidden ${
+                isToday
+                  ? "border-white bg-white/[0.06]"
+                  : hasPortfolio
+                  ? "border-[#3d3d3d] bg-[#131313]"
+                  : "border-[#1a1a1a] bg-[#0a0a0a]"
+              }`}
             >
-              <div className={`text-[11px] font-data ${isToday ? "text-white font-bold" : "text-[#999]"}`}>{d}</div>
+              <div className={`text-[11px] font-data ${isToday ? "text-white font-bold" : hasPortfolio ? "text-[#ddd] font-semibold" : "text-[#999]"}`}>{d}</div>
               <div className="flex flex-col gap-0.5 flex-1 min-h-0">
                 {visible.map((ev, idx) => (
                   <EventChip key={idx} ev={ev} onClick={onEventClick} />
@@ -326,44 +382,55 @@ function TimelineView({ events, onEventClick }) {
           <button
             key={idx}
             onClick={() => onEventClick(ev)}
-            className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-[#111] ${
+            className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-[#141414] ${
               SOURCES[ev.source]?.cardClass ?? "bg-[#0a0a0a]"
             }`}
             style={{
-              // Ligne détenue : bordure marquée + halo. Valeur surveillée :
-              // bordure neutre, aucun halo — elle ne doit pas rivaliser
-              // visuellement avec une position réelle.
-              borderColor: isPortfolio ? `${t.color}AA` : "#242424",
-              boxShadow: isPortfolio ? `0 0 16px ${t.glow}` : "none",
+              // Ligne détenue : bordure pleine colorée, épaisse à gauche, fond
+              // teinté et halo. Valeur surveillée : contour gris neutre, aucun
+              // fond, aucun halo — elle ne doit pas rivaliser visuellement avec
+              // une position réellement détenue.
+              borderColor: isPortfolio ? t.color : NEUTRAL.border,
+              borderWidth: isPortfolio ? 1.5 : 1,
+              borderLeftWidth: isPortfolio ? 5 : 1,
+              background: isPortfolio ? `linear-gradient(90deg, ${t.color}1F, transparent 55%)` : undefined,
+              boxShadow: isPortfolio ? `0 0 18px ${t.glow}` : "none",
             }}
           >
             <div
               className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
               style={{
-                background: isPortfolio ? `${t.color}1A` : "#101010",
-                border: `1.5px solid ${isPortfolio ? t.color : "#2e2e2e"}`,
+                background: isPortfolio ? `${t.color}26` : NEUTRAL.bg,
+                border: `1.5px solid ${isPortfolio ? t.color : NEUTRAL.border}`,
+                boxShadow: isPortfolio ? `0 0 12px ${t.glow}` : "none",
               }}
             >
-              <Icon size={18} style={{ color: isPortfolio ? t.color : "#777" }} strokeWidth={2.5} />
+              <Icon size={18} style={{ color: isPortfolio ? t.color : NEUTRAL.text }} strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`text-sm ${isPortfolio ? "font-bold text-white" : "font-semibold text-[#c8c8c8]"}`}>
+                <span className={`text-sm ${isPortfolio ? "font-extrabold text-white" : "font-medium text-[#9a9a9a]"}`}>
                   {ev.ticker}
                 </span>
                 <span
-                  className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
-                  style={{ background: `${t.color}22`, color: isPortfolio ? t.color : `${t.color}C0` }}
+                  className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded"
+                  style={
+                    isPortfolio
+                      ? { background: `${t.color}2E`, color: t.color, border: `1px solid ${t.color}80`, fontWeight: 800 }
+                      : { background: "transparent", color: NEUTRAL.text, border: `1px solid ${NEUTRAL.border}`, fontWeight: 500 }
+                  }
                 >
                   {ev.type}
                 </span>
                 <SourceBadge source={ev.source} />
               </div>
-              <div className="text-xs text-[#999] truncate">{ev.name} · {ev.label}</div>
+              <div className={`text-xs truncate ${isPortfolio ? "text-[#bbb]" : "text-[#6f6f6f]"}`}>{ev.name} · {ev.label}</div>
             </div>
             <div className="text-right shrink-0">
-              <div className="font-data text-sm text-white font-bold">{formatDateFr(ev.date)}</div>
-              <div className="text-[10px] text-[#888] font-data">
+              <div className={`font-data text-sm ${isPortfolio ? "text-white font-bold" : "text-[#9a9a9a] font-medium"}`}>
+                {formatDateFr(ev.date)}
+              </div>
+              <div className={`text-[10px] font-data ${isPortfolio ? "text-[#aaa]" : "text-[#6f6f6f]"}`}>
                 {daysLeft === 0 ? "Aujourd'hui" : daysLeft === 1 ? "Demain" : `Dans ${daysLeft} j`}
               </div>
             </div>
@@ -378,12 +445,16 @@ function TimelineView({ events, onEventClick }) {
 function SourceFilter({ source, active, count, onToggle }) {
   const s = SOURCES[source];
   const Icon = s.icon;
+  const isPortfolio = source === "portefeuille";
+  const activeClass = isPortfolio
+    ? "border-white bg-white text-black font-bold"
+    : "border-[#4a4a4a] text-[#ddd] bg-transparent";
   return (
     <button
       onClick={onToggle}
       aria-pressed={active}
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
-        active ? "border-white/60 text-white bg-white/10" : "border-[#2a2a2a] text-[#666] hover:text-[#999]"
+        active ? activeClass : "border-[#2a2a2a] text-[#666] hover:text-[#999]"
       }`}
     >
       <Icon size={11} strokeWidth={2.5} />
@@ -561,6 +632,8 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
           onToggle={() => toggleSource("watchlist")}
         />
       </div>
+
+      <SourceLegend />
 
       {/* Légende / filtres par type d'événement */}
       <div className="flex flex-wrap gap-2 mb-4">

@@ -4,14 +4,11 @@ import {
   BarChart3, Target, Percent, Scale, Info, ExternalLink, Star, PieChart as PieIcon, AlertCircle,
   Maximize2,
 } from "lucide-react";
-import {
-  ResponsiveContainer, ComposedChart, Area, Bar, Cell, XAxis, YAxis, CartesianGrid,
-  Tooltip, ReferenceLine, Brush,
-} from "recharts";
 import { Card, CardLabel, EmptyState, CARD_THEMES, SkeletonChart } from "./ui";
 import AssetLogo from "./AssetLogo";
 import IndicesWidget from "./IndicesWidget";
 import ChartFocusModal from "./ChartFocusModal";
+import ProChart from "./ProChart";
 import { pct, pctPlain } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchCompanyProfile, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -104,16 +101,6 @@ function timeAgo(ts) {
   return `il y a ${h} h`;
 }
 
-// Ajoute un flag haussier/baissier à chaque bougie (clôture vs clôture
-// précédente) pour colorer le volume achat (vert) / vente (rouge).
-function withVolumeColor(series) {
-  return series.map((p, i) => {
-    const prevClose = i > 0 ? series[i - 1].close : p.open ?? p.close;
-    const up = p.close >= (prevClose ?? p.close);
-    return { ...p, volUp: up };
-  });
-}
-
 function FiftyTwoWeekGauge({ low, high, current, currency }) {
   if (low == null || high == null || current == null || high <= low) return null;
   const posPct = Math.min(100, Math.max(0, ((current - low) / (high - low)) * 100));
@@ -145,27 +132,6 @@ function StatCell({ icon: Icon, label, value, sub }) {
       </div>
       <div className="font-display text-base text-slate-100">{value}</div>
       {sub && <div className="text-[11px] text-slate-500 mt-0.5">{sub}</div>}
-    </div>
-  );
-}
-
-function ChartTooltip({ active, payload, label, currency, isIntraday }) {
-  if (!active || !payload?.length) return null;
-  const close = payload.find((p) => p.dataKey === "close")?.value;
-  const volume = payload.find((p) => p.dataKey === "volume")?.value;
-  const point = payload[0]?.payload;
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl space-y-1">
-      <div className="text-slate-400">{formatFullDateTime(label, isIntraday)}</div>
-      {close != null && <div className="text-violet-300 font-data tabular-nums">Clôture : {formatPrice(close, currency)}</div>}
-      {point?.open != null && point?.close != null && (
-        <div className="text-slate-500 font-data tabular-nums">O {formatPrice(point.open, currency)} · H {formatPrice(point.high, currency)} · B {formatPrice(point.low, currency)}</div>
-      )}
-      {volume != null && (
-        <div className={`font-data tabular-nums ${point?.volUp ? "text-emerald-400" : "text-rose-400"}`}>
-          Volume : {formatCompact(volume)} {point?.volUp ? "(achat)" : "(vente)"}
-        </div>
-      )}
     </div>
   );
 }
@@ -202,7 +168,9 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
   const [, forceTick] = useState(0);
 
   const [hoverPoint, setHoverPoint] = useState(null);
-  const [brushRange, setBrushRange] = useState(null);
+  // Style de tracé conservé d'une session à l'autre — un habitué des bougies
+  // ne veut pas les ré-activer à chaque visite.
+  const [chartStyle, setChartStyle] = usePersistentState("marcheChartStyle", "candle");
 
   const [focusOpen, setFocusOpen] = useState(false);
 
@@ -235,7 +203,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
     setQuery("");
     setResults([]);
     setShowResults(false);
-    setBrushRange(null);
     setHoverPoint(null);
   };
 
@@ -261,7 +228,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
     if (!forceReload && loadedSymbolRef.current === effectiveSymbol) return;
     loadedSymbolRef.current = effectiveSymbol;
 
-    setBrushRange(null);
     setHoverPoint(null);
     loadProfile(effectiveSymbol);
     loadHistory(effectiveSymbol, range);
@@ -285,11 +251,10 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
 
   const loadHistory = useCallback(async (sym, r) => {
     setHistoryLoading(true); setHistoryError("");
-    setBrushRange(null);
     try {
       const [res] = await fetchHistory([sym], r);
       if (!res?.ok) throw new Error(res?.error || "Historique indisponible");
-      setSeries(withVolumeColor(res.series));
+      setSeries(res.series);
       setSeriesMeta(res);
     } catch (err) {
       setSeries([]);
@@ -340,14 +305,15 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
   const isIntraday = !!seriesMeta?.isIntraday;
   const chartData = series;
 
-  const totalReturnOnBrush = useMemo(() => {
-    const data = brushRange ? chartData.slice(brushRange[0], brushRange[1] + 1) : chartData;
-    if (data.length < 2) return null;
-    const first = data[0].close;
-    const last = data[data.length - 1].close;
+  // Performance sur toute la période chargée. La performance de la seule
+  // fenêtre zoomée est affichée en direct par le graphique lui-même.
+  const totalReturnOnRange = useMemo(() => {
+    if (chartData.length < 2) return null;
+    const first = chartData[0].close;
+    const last = chartData[chartData.length - 1].close;
     if (!first) return null;
     return ((last - first) / first) * 100;
-  }, [chartData, brushRange]);
+  }, [chartData]);
 
   const isInWatchlist = useMemo(
     () => (watchlist || []).some((w) => w.ticker?.toUpperCase() === symbol?.toUpperCase()),
@@ -371,13 +337,15 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
   const headlinePrice = hoverPoint?.close ?? profile?.currentPrice;
   const headlineIsHover = hoverPoint != null;
 
-  const handleChartMouseMove = (state) => {
-    if (state?.activePayload?.length) setHoverPoint(state.activePayload[0].payload);
-  };
-  const handleChartMouseLeave = () => setHoverPoint(null);
-  const handleBrushChange = (r) => {
-    if (r && r.startIndex != null && r.endIndex != null) setBrushRange([r.startIndex, r.endIndex]);
-  };
+  // Repères tracés sur le graphique : bornes des 52 dernières semaines et
+  // objectif de cours moyen des analystes quand il est connu.
+  const priceLines = useMemo(() => {
+    const lines = [];
+    if (profile?.fiftyTwoWeekHigh != null) lines.push({ price: profile.fiftyTwoWeekHigh, color: "#34d399", label: "+ haut 52 s." });
+    if (profile?.fiftyTwoWeekLow != null) lines.push({ price: profile.fiftyTwoWeekLow, color: "#fb7185", label: "+ bas 52 s." });
+    if (profile?.targetMeanPrice != null) lines.push({ price: profile.targetMeanPrice, color: "#fbbf24", label: "objectif analystes" });
+    return lines;
+  }, [profile]);
 
   return (
     <div className="relative space-y-6">
@@ -546,10 +514,10 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
 
             <p className="text-[11px] text-slate-600 mb-2 flex items-center gap-1.5 flex-wrap">
               {seriesMeta?.firstTradeDate && <span>Première cotation connue : {formatFullDateTime(seriesMeta.firstTradeDate, false)}</span>}
-              {totalReturnOnBrush != null && (
+              {totalReturnOnRange != null && (
                 <span>
-                  {seriesMeta?.firstTradeDate && "· "}Performance {brushRange ? "sur la zone sélectionnée" : "sur la période affichée"} :{" "}
-                  <span className={totalReturnOnBrush >= 0 ? "text-emerald-400" : "text-rose-400"}>{pct(totalReturnOnBrush)}</span>
+                  {seriesMeta?.firstTradeDate && "· "}Performance sur la période chargée :{" "}
+                  <span className={totalReturnOnRange >= 0 ? "text-emerald-400" : "text-rose-400"}>{pct(totalReturnOnRange)}</span>
                 </span>
               )}
               {isIntraday && (
@@ -570,61 +538,25 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               <EmptyState>Historique insuffisant pour cette valeur sur la période sélectionnée.</EmptyState>
             ) : (
               <>
-                <div className="h-80 mt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 10 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
-                      <defs>
-                        <linearGradient id="marcheCloseFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
-                          <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="#1e293b" vertical={false} />
-                      <XAxis dataKey="date" tickFormatter={(d) => formatAxisTick(d, isIntraday, range)} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={60} />
-                      <YAxis domain={["auto", "auto"]} tickFormatter={(v) => formatCompact(v)} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={55} />
-                      <Tooltip content={<ChartTooltip currency={profile?.currency} isIntraday={isIntraday} />} cursor={{ stroke: "#a78bfa", strokeDasharray: "3 3", strokeWidth: 1 }} />
-                      {profile?.fiftyTwoWeekHigh != null && (
-                        <ReferenceLine y={profile.fiftyTwoWeekHigh} stroke="#34d399" strokeDasharray="3 3" strokeOpacity={0.4} />
-                      )}
-                      {profile?.fiftyTwoWeekLow != null && (
-                        <ReferenceLine y={profile.fiftyTwoWeekLow} stroke="#fb7185" strokeDasharray="3 3" strokeOpacity={0.4} />
-                      )}
-                      {hoverPoint && <ReferenceLine x={hoverPoint.date} stroke="#a78bfa" strokeOpacity={0.5} />}
-                      <Area type="monotone" dataKey="close" name="Cours de clôture" stroke="#a78bfa" strokeWidth={2} fill="url(#marcheCloseFill)" isAnimationActive={false} dot={false} activeDot={{ r: 4, fill: "#a78bfa", stroke: "#0f172a", strokeWidth: 2 }} />
-                      <Brush
-                        dataKey="date"
-                        height={28}
-                        stroke="#7c3aed"
-                        fill="#1e1b3a"
-                        travellerWidth={9}
-                        tickFormatter={(i) => formatAxisTick(chartData[i]?.date, isIntraday, range)}
-                        onChange={handleBrushChange}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-                <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-1.5">
-                  <Info size={10} /> Survole le graphique pour voir le cours exact, glisse le bandeau du bas pour zoomer, ou passe en « Plein écran » pour tracer librement.
-                </p>
-
-                {/* Volume coloré : vert = clôture en hausse (achat), rouge = en baisse (vente) */}
-                <div className="h-20 mt-3">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ left: 0, right: 10, top: 0 }} onMouseMove={handleChartMouseMove} onMouseLeave={handleChartMouseLeave}>
-                      <XAxis dataKey="date" hide />
-                      <YAxis hide domain={[0, "auto"]} />
-                      <Tooltip content={<ChartTooltip currency={profile?.currency} isIntraday={isIntraday} />} cursor={{ fill: "#94a3b8", fillOpacity: 0.08 }} />
-                      <Bar dataKey="volume" name="Volume" radius={[1, 1, 0, 0]} isAnimationActive={false}>
-                        {chartData.map((p, i) => (
-                          <Cell key={i} fill={p.volUp ? "#34d399" : "#fb7185"} />
-                        ))}
-                      </Bar>
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-                <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-3">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400" /> Volume en hausse (achat)</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rose-400" /> Volume en baisse (vente)</span>
+                <ProChart
+                  data={chartData}
+                  currency={profile?.currency}
+                  isIntraday={isIntraday}
+                  range={range}
+                  height={420}
+                  formatPrice={formatPrice}
+                  formatX={formatAxisTick}
+                  formatXFull={formatFullDateTime}
+                  chartStyle={chartStyle}
+                  onChartStyleChange={setChartStyle}
+                  priceLines={priceLines}
+                  onHoverBar={setHoverPoint}
+                />
+                <p className="text-[10px] text-slate-600 mt-2 flex items-center gap-1.5 flex-wrap">
+                  <Info size={10} />
+                  Molette = zoom sur le curseur · clic-glisser = déplacement dans le temps · double-clic = vue complète.
+                  Volume coloré : <span className="text-emerald-400">vert</span> = clôture en hausse,{" "}
+                  <span className="text-rose-400">rouge</span> = en baisse.
                 </p>
               </>
             )}
@@ -788,11 +720,16 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
         open={focusOpen}
         onClose={() => setFocusOpen(false)}
         chartData={chartData}
+        title={profile?.name ? `${profile.name} · ${symbol}` : symbol}
         currency={profile?.currency}
         formatPrice={formatPrice}
         formatAxisTick={formatAxisTick}
+        formatFullDateTime={formatFullDateTime}
         isIntraday={isIntraday}
         range={range}
+        priceLines={priceLines}
+        chartStyle={chartStyle}
+        onChartStyleChange={setChartStyle}
       />
     </div>
   );
