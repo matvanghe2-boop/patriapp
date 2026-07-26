@@ -2,10 +2,11 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   PiggyBank, ShieldCheck, Banknote, Lightbulb, Target,
   Plus, Trash2, X, ChevronDown, ChevronUp, AlertTriangle, TrendingUp,
-  ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check,
+  ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, guessEnvelope } from "../lib/finance";
+import RatesHub from "./RatesHub";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
 const MARKET_ALTERNATIVES = [
@@ -614,6 +615,7 @@ export default function Livrets({
   cash, setCash, enveloppes, setEnveloppes,
 }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [subTab, setSubTab] = useState("mes-livrets"); // "mes-livrets" | "taux"
 
   const addLivret = (v) =>
     setLivrets((l) => [
@@ -636,6 +638,32 @@ export default function Livrets({
         <p className="text-sm text-slate-500 mt-1">Capital garanti : Livrets réglementés, fonds en euros, cash disponible.</p>
       </div>
 
+      {/* Sous-onglets */}
+      <div className="relative flex items-center gap-2 border-b border-slate-800 pb-1">
+        <button
+          onClick={() => setSubTab("mes-livrets")}
+          aria-current={subTab === "mes-livrets" ? "page" : undefined}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "mes-livrets" ? "text-indigo-300 border-b-2 border-indigo-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <PiggyBank size={14} /> Mes livrets
+        </button>
+        <button
+          onClick={() => setSubTab("taux")}
+          aria-current={subTab === "taux" ? "page" : undefined}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "taux" ? "text-indigo-300 border-b-2 border-indigo-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Percent size={14} /> Taux
+        </button>
+      </div>
+
+      {subTab === "taux" && <RatesHub livrets={livrets} />}
+
+      {subTab === "mes-livrets" && (
+      <>
       {/* KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card accent={CARD_THEMES.indigo} className="flex items-center gap-4">
@@ -721,6 +749,8 @@ export default function Livrets({
 
       {/* Arbitrage optimizer */}
       <ArbitrageOptimizer livrets={livrets} />
+      </>
+      )}
     </div>
   );
 }

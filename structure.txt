@@ -15,6 +15,8 @@ api/_lib/http.js
 api/_lib/http.test.js
 api/_lib/pdfParsing.js
 api/_lib/pdfParsing.test.js
+api/_lib/webstat.js
+api/_lib/webstat.test.js
 api/_lib/yahoo.js
 api/calendar.js
 api/calendar.test.js
@@ -22,6 +24,8 @@ api/history.js
 api/parse-pdf.js
 api/profile.js
 api/quote.js
+api/rates.js
+api/rates.test.js
 api/search.js
 env.example
 index.html
@@ -61,6 +65,8 @@ src/components/OperationForm.jsx
 src/components/OperationList.jsx
 src/components/Operations.jsx
 src/components/OrderSimulator.jsx
+src/components/RatesHub.jsx
+src/components/RatesHub.test.jsx
 src/components/SectorHeatmap.jsx
 src/components/Simulation.jsx
 src/components/StickySummaryHeader.jsx
@@ -75,12 +81,15 @@ src/lib/ConfirmContext.jsx
 src/lib/PatrimoineContext.jsx
 src/lib/ToastContext.jsx
 src/lib/api.js
+src/lib/api.test.js
 src/lib/authErrors.js
 src/lib/authErrors.test.js
 src/lib/exportReport.js
 src/lib/finance.js
 src/lib/finance.test.js
 src/lib/indexConstituents.js
+src/lib/ratesCatalog.js
+src/lib/ratesCatalog.test.js
 src/lib/sectors.js
 src/lib/storage.js
 src/lib/supabaseClient.js

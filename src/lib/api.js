@@ -95,3 +95,24 @@ export async function fetchCompanyProfile(symbol) {
   return body;
 }
 
+/**
+ * Récupère le catalogue des taux financiers (épargne réglementée, crédit,
+ * banques centrales, inflation, fiscalité). Best-effort côté serveur : en
+ * cas d'échec réseau total, on retombe côté client sur le catalogue de
+ * référence embarqué (src/lib/ratesCatalog.js) plutôt que d'afficher un
+ * onglet vide.
+ * Renvoie : { rates: [...], liveEnabled: boolean, generatedAt: string }
+ */
+export async function fetchRates() {
+  const res = await fetch(`${BASE}/rates`);
+  // En dev sans `vercel dev` (simple `npm run dev`), une route /api/* inconnue
+  // renvoie le HTML de l'app (statut 200) plutôt qu'une vraie 404 : le corps
+  // n'est alors pas du JSON valide. On ne peut donc pas se contenter de
+  // `res.ok` — il faut vérifier la FORME de la réponse avant de la utiliser.
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body || !Array.isArray(body.rates)) {
+    throw new Error(body?.error || "Catalogue des taux indisponible");
+  }
+  return body;
+}
+
