@@ -33,6 +33,11 @@ export function AuthProvider({ children }) {
     signInWithPassword: (email, password) => supabase.auth.signInWithPassword({ email, password }),
     signUp: (email, password) => supabase.auth.signUp({ email, password }),
     signOut: () => supabase.auth.signOut(),
+    // Le lien de réinitialisation ramène sur l'app avec un jeton de session
+    // dans l'URL ; `detectSessionInUrl` (voir supabaseClient.js) l'échange
+    // automatiquement contre une session, ce qui connecte l'utilisateur.
+    resetPassword: (email) =>
+      supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

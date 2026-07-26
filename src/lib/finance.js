@@ -582,7 +582,11 @@ export function computeAlphaBeta(history, benchmarkKey = "sp500") {
     varB += (p.rb - meanB) ** 2;
   });
   cov /= n; varB /= n;
-  if (varB === 0) return null;
+  // Un indice de référence sans variance (valeur figée, ou série trop lisse)
+  // rend la régression indéterminée : le rapport cov/varB n'y mesure plus que
+  // du bruit de calcul flottant et produit un bêta arbitraire. On préfère
+  // n'afficher aucune valeur plutôt qu'un chiffre faux.
+  if (!(varB > 1e-18)) return null;
 
   const beta = cov / varB;
   const alphaDaily = meanP - beta * meanB;

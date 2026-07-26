@@ -304,35 +304,20 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-// ─── Snapshot: auto-save today's value ───────────────────────────────────────
-function useDailySnapshot(patrimoineNet, historyPast, setHistoryPast, lastSnapshotDate, setLastSnapshotDate) {
-  useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    if (lastSnapshotDate === today) return;
-    if (patrimoineNet <= 0) return;
-    const todayLabel = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-    const exists = historyPast.find((h) => h.date === today);
-    if (!exists) {
-      setHistoryPast((h) => [...h, { id: uid(), label: todayLabel, value: Math.round(patrimoineNet), date: today }]);
-    }
-    setLastSnapshotDate(today);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patrimoineNet]);
-}
+// Le relevé quotidien du patrimoine net a été remonté au niveau de <App>
+// (voir src/lib/useDailySnapshot.js) : ici, il ne se déclenchait que si
+// l'utilisateur ouvrait cet onglet-là dans la journée.
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard({
   profile, setProfile, patrimoineBrut, patrimoineNet, bourseGainAbs, bourseGainPct,
   epargneMensuelle, tauxEpargne, dettes, setDettes, dettesTotal,
   historyPast, setHistoryPast, livretsTotal, bourseTotal,
-  bourseInvested, livrets, bourse, matelasMois,
+  bourseInvested, livrets, bourse, matelasMois, setLastSnapshotDate,
 }) {
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
   const [timeFilter, setTimeFilter] = useState("ALL");
-  const [lastSnapshotDate, setLastSnapshotDate] = useState(() => {
-    try { return localStorage.getItem("patrimoine:lastSnapshotDate") || null; } catch { return null; }
-  });
 
   // Allocation target state
   const [allocationTarget, setAllocationTarget] = useState(() => {
@@ -348,21 +333,14 @@ export default function Dashboard({
     try { localStorage.setItem("patrimoine:allocationTarget", JSON.stringify(t)); } catch {}
   };
 
-  // Persist lastSnapshotDate
-  const saveLastSnapshotDate = (d) => {
-    setLastSnapshotDate(d);
-    try { localStorage.setItem("patrimoine:lastSnapshotDate", d); } catch {}
-  };
-
-  // Auto daily snapshot
-  useDailySnapshot(patrimoineNet, historyPast, setHistoryPast, lastSnapshotDate, saveLastSnapshotDate);
-
   const addDette = (v) => setDettes((d) => [...d, { id: uid(), name: v.name, amount: v.amount }]);
   const removeDette = (id) => setDettes((d) => d.filter((x) => x.id !== id));
   const addHistoryPoint = (v) => {
     const today = new Date().toISOString().slice(0, 10);
     setHistoryPast((h) => [...h, { id: uid(), label: v.label, value: parseFloat(v.value), date: v.date || today }]);
-    saveLastSnapshotDate(v.date || today);
+    // Un point saisi à la main pour aujourd'hui tient lieu de relevé du jour :
+    // sans ça, le relevé automatique en ajouterait un second en doublon.
+    setLastSnapshotDate(v.date || today);
   };
   const removeHistoryPoint = (id) => setHistoryPast((h) => h.filter((x) => x.id !== id));
 

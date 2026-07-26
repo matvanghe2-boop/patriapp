@@ -3,11 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Dashboard personnel de gestion de patrimoine et de simulation financière — 100% local, déployable sur Vercel.",
+  "description": "Dashboard personnel de gestion de patrimoine et de simulation financière, déployable sur Vercel (stockage local + synchronisation Supabase optionnelle).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .js,.jsx",
+    "lint:fix": "eslint . --ext .js,.jsx --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run lint && npm run test && npm run build",
+    "structure": "node scripts/generate-structure.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",
@@ -18,11 +26,20 @@
     "recharts": "^2.12.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^29.1.1",
     "postcss": "^8.4.0",
+    "prettier": "^3.9.6",
     "tailwindcss": "^3.4.0",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=18.0.0"

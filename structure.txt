@@ -1,28 +1,92 @@
-C:\Users\matva\OneDrive\Bureau\Projet App\patrimoine-app
-├── api
-|  ├── quote.js
-|  └── search.js
-├── index.html
-├── package.json
-├── postcss.config.cjs
-├── README.md
-├── src
-|  ├── App.jsx
-|  ├── components
-|  |  ├── Bourse.jsx
-|  |  ├── Dashboard.jsx
-|  |  ├── Immobilier.jsx
-|  |  ├── Livrets.jsx
-|  |  ├── Simulation.jsx
-|  |  └── ui.jsx
-|  ├── index.css
-|  ├── lib
-|  |  ├── api.js
-|  |  ├── finance.js
-|  |  └── storage.js
-|  └── main.jsx
-├── tailwind.config.cjs
-└── vite.config.js
+Arborescence du projet Patrium — généré le 2026-07-26.
+Ce fichier est un instantané : le regénérer après tout ajout de fichier avec
+  npm run structure
+La description commentée de l'arborescence se trouve dans README.md.
 
-directory: 4 file: 20
-
+.claude/launch.json
+.claude/settings.local.json
+.eslintrc.cjs
+.github/workflows/ci.yml
+.gitignore
+.prettierignore
+.prettierrc.json
+README.md
+api/_lib/http.js
+api/_lib/http.test.js
+api/_lib/pdfParsing.js
+api/_lib/pdfParsing.test.js
+api/_lib/yahoo.js
+api/calendar.js
+api/history.js
+api/parse-pdf.js
+api/profile.js
+api/quote.js
+api/search.js
+env.example
+index.html
+package-lock.json
+package.json
+postcss.config.cjs
+public/apple-touch-icon.png
+public/favicon.ico
+public/icon-192.png
+public/icon-512.png
+public/manifest.json
+public/sw.js
+scripts/generate-structure.mjs
+sql/schema.sql
+src/App.jsx
+src/App.test.jsx
+src/components/Abonnements.jsx
+src/components/AssetLogo.jsx
+src/components/AssetStats.jsx
+src/components/BackupReminder.jsx
+src/components/BottomNav.jsx
+src/components/Bourse.jsx
+src/components/ChartFocusModal.jsx
+src/components/Dashboard.jsx
+src/components/ErrorBoundary.jsx
+src/components/FinancialCalendar.jsx
+src/components/FocusChart.jsx
+src/components/GlobalSearch.jsx
+src/components/Immobilier.jsx
+src/components/IndicesWidget.jsx
+src/components/Livrets.jsx
+src/components/Login.jsx
+src/components/Marche.jsx
+src/components/Notifications.jsx
+src/components/OperationForm.jsx
+src/components/OperationList.jsx
+src/components/Operations.jsx
+src/components/OrderSimulator.jsx
+src/components/SectorHeatmap.jsx
+src/components/Simulation.jsx
+src/components/StickySummaryHeader.jsx
+src/components/StrategieLogs.jsx
+src/components/SyncIndicator.jsx
+src/components/Timeline.jsx
+src/components/Watchlist.jsx
+src/components/ui.jsx
+src/index.css
+src/lib/AuthContext.jsx
+src/lib/ConfirmContext.jsx
+src/lib/PatrimoineContext.jsx
+src/lib/ToastContext.jsx
+src/lib/api.js
+src/lib/authErrors.js
+src/lib/authErrors.test.js
+src/lib/exportReport.js
+src/lib/finance.js
+src/lib/finance.test.js
+src/lib/indexConstituents.js
+src/lib/sectors.js
+src/lib/storage.js
+src/lib/supabaseClient.js
+src/lib/syncStatus.js
+src/lib/useDailySnapshot.js
+src/lib/useHashRoute.js
+src/main.jsx
+src/test/setup.js
+structure.txt
+tailwind.config.cjs
+vite.config.js

@@ -16,11 +16,15 @@
 // qu'un onglet Marché utilisable s'affiche même quand la fiche détaillée est
 // partiellement indisponible.
 
-const YF_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-  Accept: "application/json,text/plain,*/*",
-};
+import { withApi, httpError, cached } from "./_lib/http.js";
+import { YF_HEADERS as BASE_HEADERS, getYahooSession, isValidSymbol } from "./_lib/yahoo.js";
+
+const YF_HEADERS = { ...BASE_HEADERS, Accept: "application/json,text/plain,*/*" };
+
+// Une fiche entreprise (secteur, dirigeants, description) ne change pas d'une
+// heure à l'autre ; seuls les repères de cours bougent, et ils sont assez
+// approximatifs pour tolérer 5 minutes de retard.
+const CACHE_MS = 5 * 60_000;
 
 const MODULES = [
   "assetProfile",
@@ -112,39 +116,41 @@ function translateTitle(title) {
 // Appel à un service de traduction gratuit, sans clé. Best-effort : toute
 // erreur (réseau, quota, format inattendu) renvoie simplement le texte
 // d'origine plutôt que de faire échouer la fiche entière.
+//
+// ⚠️ Ce service (endpoint interne de Google Translate) n'est ni officiel ni
+// contractuel : il peut disparaître ou limiter les appels du jour au
+// lendemain. Le texte envoyé est une description publique d'entreprise
+// fournie par Yahoo — aucune donnée personnelle de l'utilisateur ne transite
+// par ce service (voir la section « Vie privée » du README).
+//
+// Les résultats sont mis en cache : une description d'entreprise ne change
+// pratiquement jamais, et sans cache la même chaîne était retraduite à chaque
+// consultation de fiche.
+const TRANSLATION_TTL_MS = 24 * 60 * 60_000;
+
 async function translateToFrench(text) {
   if (!text || !text.trim()) return text;
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fr&dt=t&q=${encodeURIComponent(text)}`;
-    const r = await fetch(url, { headers: { "User-Agent": YF_HEADERS["User-Agent"] } });
-    if (!r.ok) return text;
-    const data = await r.json();
-    const translated = (data?.[0] || []).map((chunk) => chunk?.[0] || "").join("");
-    return translated.trim() || text;
+    return await cached(`tr:${text.slice(0, 120)}:${text.length}`, TRANSLATION_TTL_MS, async () => {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fr&dt=t&q=${encodeURIComponent(text)}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      try {
+        const r = await fetch(url, {
+          headers: { "User-Agent": YF_HEADERS["User-Agent"] },
+          signal: controller.signal,
+        });
+        if (!r.ok) return text;
+        const data = await r.json();
+        const translated = (data?.[0] || []).map((chunk) => chunk?.[0] || "").join("");
+        return translated.trim() || text;
+      } finally {
+        clearTimeout(timer);
+      }
+    });
   } catch {
     return text;
   }
-}
-
-// ─── Négociation d'une session Yahoo (cookie + crumb) ──────────────────────
-// Ce flux change parfois côté Yahoo ; il est entièrement encapsulé dans un
-// try/catch en amont pour ne jamais faire échouer la requête si Yahoo modifie
-// ou bloque ce mécanisme un jour.
-async function getYahooSession() {
-  const r1 = await fetch("https://fc.yahoo.com", { headers: YF_HEADERS, redirect: "manual" });
-  const cookies =
-    typeof r1.headers.getSetCookie === "function"
-      ? r1.headers.getSetCookie()
-      : [r1.headers.get("set-cookie")].filter(Boolean);
-  const cookie = cookies.map((c) => c.split(";")[0]).join("; ");
-  if (!cookie) throw new Error("Cookie de session indisponible");
-
-  const r2 = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
-    headers: { ...YF_HEADERS, Cookie: cookie },
-  });
-  const crumb = (await r2.text()).trim();
-  if (!crumb || crumb.includes("<")) throw new Error("Crumb indisponible");
-  return { cookie, crumb };
 }
 
 async function fetchQuoteSummary(symbol) {
@@ -193,13 +199,13 @@ async function fetchChartMeta(symbol) {
   return result.meta || {};
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const symbol = req.query.symbol;
-  if (!symbol) return res.status(400).json({ error: "Paramètre symbol manquant" });
+  if (!isValidSymbol(symbol)) throw httpError(400, "Paramètre `symbol` manquant ou invalide.");
 
   const [quoteSummary, chartMeta] = await Promise.all([
-    fetchQuoteSummary(symbol).catch(() => null),
-    fetchChartMeta(symbol).catch(() => null),
+    cached(`qs:${symbol}`, CACHE_MS, () => fetchQuoteSummary(symbol)).catch(() => null),
+    cached(`cm:${symbol}`, CACHE_MS, () => fetchChartMeta(symbol)).catch(() => null),
   ]);
 
   if (!quoteSummary && !chartMeta) {
@@ -325,3 +331,7 @@ export default async function handler(req, res) {
 
   res.status(200).json(payload);
 }
+
+// Endpoint lourd (jusqu'à 4 traductions + 2 appels Yahoo par requête) :
+// quota volontairement bas, compensé par un cache de 5 minutes.
+export default withApi(handler, { methods: ["GET"], limit: 30, windowMs: 60_000, sMaxAge: 300 });

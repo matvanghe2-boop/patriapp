@@ -1,10 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
-import Login from "./components/Login.jsx";
+import Login, { LOCAL_ONLY_FLAG } from "./components/Login.jsx";
+import { isSupabaseConfigured } from "./lib/supabaseClient";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { AuthProvider, useAuth } from "./lib/AuthContext";
-import "./index.css";
 import { ToastProvider } from "./lib/ToastContext";
+import { ConfirmProvider } from "./lib/ConfirmContext";
+import { PatrimoineProvider } from "./lib/PatrimoineContext";
+import "./index.css";
 
 function AuthGate() {
   const { user, loading } = useAuth();
@@ -12,23 +16,42 @@ function AuthGate() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="text-sm text-slate-500">Chargement…</div>
+        <div role="status" className="text-sm text-slate-500">
+          Chargement…
+        </div>
       </div>
     );
   }
   // Tant qu'aucune déconnexion explicite n'a eu lieu, la session Supabase
   // persiste automatiquement (voir supabaseClient.js) — donc `user` reste
   // renseigné d'une visite à l'autre, sans repasser par cet écran de connexion.
-  return user ? <App /> : <Login />;
+  // Sans Supabase configuré, l'app reste pleinement utilisable en stockage
+  // local : une variable d'environnement oubliée au déploiement ne doit pas
+  // transformer l'écran de connexion en cul-de-sac.
+  const localOnly = !isSupabaseConfigured && sessionStorage.getItem(LOCAL_ONLY_FLAG) === "1";
+  if (!user && !localOnly) return <Login />;
+
+  // Le provider patrimonial n'est monté qu'une fois l'utilisateur connu :
+  // usePersistentState interroge Supabase dès son montage, il ne doit pas
+  // partir avant que la session soit établie.
+  return (
+    <PatrimoineProvider>
+      <App />
+    </PatrimoineProvider>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <AuthProvider>
-      <ToastProvider>
-        <AuthGate />
-      </ToastProvider> 
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <AuthGate />
+          </ConfirmProvider>
+        </ToastProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
 

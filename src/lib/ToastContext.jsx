@@ -24,7 +24,15 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 items-end">
+      {/* role="status" + aria-live : les notifications sont lues par les
+          lecteurs d'écran au lieu d'apparaître silencieusement dans un coin.
+          "polite" évite d'interrompre la lecture en cours. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="false"
+        className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 items-end"
+      >
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
         ))}
@@ -38,18 +46,22 @@ function ToastItem({ toast, onDismiss }) {
   const tone = toast.type === "error" ? "border-rose-500/40 text-rose-300" : "border-emerald-500/40 text-emerald-300";
   return (
     <div className={`btn-press flex items-center gap-3 rounded-xl border bg-slate-900 shadow-2xl px-4 py-2.5 text-sm animate-[fadeIn_0.2s_ease-out] ${tone}`}>
-      <Icon size={15} className="shrink-0" />
+      <Icon size={15} className="shrink-0" aria-hidden="true" />
       <span className="text-slate-200">{toast.message}</span>
       {toast.onUndo && (
         <button
           onClick={() => { toast.onUndo(); onDismiss(); }}
-          className="btn-flash text-xs font-semibold text-amber-300 hover:text-amber-200 border border-amber-400/40 rounded-lg px-2.5 py-1 ml-1"
+          className="btn-flash text-xs font-semibold text-amber-300 hover:text-amber-200 border border-amber-400/40 rounded-lg px-2.5 py-1 ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
         >
           Annuler
         </button>
       )}
-      <button onClick={onDismiss} className="btn-flash text-slate-600 hover:text-slate-300 ml-1">
-        <X size={14} />
+      <button
+        onClick={onDismiss}
+        aria-label="Fermer la notification"
+        className="btn-flash text-slate-600 hover:text-slate-300 ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+      >
+        <X size={14} aria-hidden="true" />
       </button>
     </div>
   );

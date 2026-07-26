@@ -1,74 +1,46 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen, Repeat, Download, Upload, RotateCcw, Eye, EyeOff, LogOut } from "lucide-react";
-import { usePersistentState, exportAllData, importAllData, clearAllData } from "./lib/storage";
-import { weightedAverageRate } from "./lib/finance";
-import { NavButton } from "./components/ui";
-import Dashboard from "./components/Dashboard";
-import Livrets from "./components/Livrets";
-import Bourse from "./components/Bourse";
-import Simulation from "./components/Simulation";
-import Immobilier from "./components/Immobilier";
-import StrategieLogs from "./components/StrategieLogs";
-import Abonnements from "./components/Abonnements";
+import React, { useEffect, Suspense, lazy } from "react";
+import {
+  LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen,
+  Repeat, Download, Upload, RotateCcw, Eye, EyeOff, LogOut,
+} from "lucide-react";
+import {
+  exportAllData, importAllData, clearAllData, markBackupDone,
+} from "./lib/storage";
+import { usePatrimoine, STORAGE_KEYS } from "./lib/PatrimoineContext";
+import { useDailySnapshot } from "./lib/useDailySnapshot";
+import { useHashRoute } from "./lib/useHashRoute";
+import { useToast } from "./lib/ToastContext";
+import { useConfirm } from "./lib/ConfirmContext";
+import { NavButton, SkeletonCard } from "./components/ui";
 import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
+import SyncIndicator from "./components/SyncIndicator";
+import BackupReminder from "./components/BackupReminder";
 import { useAuth } from "./lib/AuthContext";
 
-const STORAGE_KEYS = ["profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo", "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort", "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios", "immoTravaux", "reminders", "contracts", "subs"];
+// Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
+// que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
+// recharts de « Marché » et le simulateur ne sont téléchargés que si
+// l'utilisateur ouvre effectivement l'onglet correspondant.
+const Dashboard = lazy(() => import("./components/Dashboard"));
+const Livrets = lazy(() => import("./components/Livrets"));
+const Bourse = lazy(() => import("./components/Bourse"));
+const Simulation = lazy(() => import("./components/Simulation"));
+const Immobilier = lazy(() => import("./components/Immobilier"));
+const StrategieLogs = lazy(() => import("./components/StrategieLogs"));
+const Abonnements = lazy(() => import("./components/Abonnements"));
 
-const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };
-
-const INITIAL_LIVRETS = [
-  { id: "la", name: "Livret A", balance: 7000, rate: 0.017, limit: 22950, envelope: "Livret" },
-  { id: "av_euro", name: "Assurance-Vie (Fonds Euro)", balance: 15000, rate: 0.025, limit: null, envelope: "AV" },
+const TABS = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, theme: "emerald", Page: Dashboard },
+  { id: "livrets", label: "Livrets & Épargne", icon: PiggyBank, theme: "indigo", Page: Livrets },
+  { id: "bourse", label: "PEA & Bourse", icon: TrendingUp, theme: "violet", Page: Bourse },
+  { id: "simulation", label: "Simulation", icon: Calculator, theme: "amber", Page: Simulation },
+  { id: "immobilier", label: "Immobilier & Crédit", icon: Landmark, theme: "rose", Page: Immobilier },
+  { id: "strategie", label: "Stratégie & Logs", icon: NotebookPen, theme: "cyan", Page: StrategieLogs },
+  { id: "abonnements", label: "Abonnements", icon: Repeat, theme: "cyan", Page: Abonnements },
 ];
 
-const INITIAL_BOURSE = {
-  envelope: "PEA",
-  cash_pocket: 500,
-  positions: [
-    { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
-    { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },
-  ],
-  // Historique des opérations (achats/ventes) — alimenté par l'import PDF ou
-  // la saisie manuelle depuis le sous-onglet "Opérations" de Stratégie & Logs.
-  operations: [],
-};
-
-const INITIAL_HISTORY_PAST = [
-  { id: "h1", label: "Janv.", value: 34800 },
-  { id: "h2", label: "Févr.", value: 35400 },
-  { id: "h3", label: "Mars", value: 36500 },
-  { id: "h4", label: "Avr.", value: 37200 },
-  { id: "h5", label: "Mai", value: 38100 },
-];
-
-const INITIAL_SIM = {
-  years: 7,
-  livrets: { capital: null, rate: null, monthly: 200 },
-  bourse: { capital: null, rate: 6, monthly: 300 },
-};
-
-const INITIAL_IMMO = {
-  prix_achat: 250000,
-  frais_notaire_pct: 8,
-  revenus_foyer: 2100,
-  taux_interet: 3.5,
-  inclure_livrets: true,
-  inclure_bourse: false,
-  apport_manuel: null,
-  assurance_rate: 0.20,
-};
-
-const TAB_LABELS = {
-  dashboard: "Dashboard",
-  livrets: "Livrets & Épargne",
-  bourse: "PEA & Bourse",
-  simulation: "Simulation",
-  immobilier: "Immobilier & Crédit",
-  strategie: "Stratégie & Logs",
-  abonnements: "Abonnements",
-};
+const TAB_IDS = TABS.map((t) => t.id);
 
 // Fond de page teinté par domaine — même esprit que le bouton de nav actif :
 // un fond dégradé bien visible derrière les cartes, pas juste un glow discret.
@@ -83,78 +55,27 @@ const TAB_BG = {
 };
 
 export default function App() {
-  const [tab, setTab] = useState("dashboard");
-  const [ghostMode, setGhostMode] = useState(false);
+  const [tab, setTab] = useHashRoute(TAB_IDS, "dashboard");
+  const [ghostMode, setGhostMode] = React.useState(false);
   const { user, signOut } = useAuth();
+  const { showToast } = useToast();
+  const confirm = useConfirm();
+  const patrimoine = usePatrimoine();
+
+  const activeTab = TABS.find((t) => t.id === tab) || TABS[0];
 
   useEffect(() => {
-    document.title = `${TAB_LABELS[tab] || ""} · Patrium`;
-  }, [tab]);
+    document.title = `${activeTab.label} · Patrium`;
+  }, [activeTab.label]);
 
-
-  const [profile, setProfile] = usePersistentState("profile", INITIAL_PROFILE);
-  const [livrets, setLivrets] = usePersistentState("livrets", INITIAL_LIVRETS);
-  const [dettes, setDettes] = usePersistentState("dettes", []);
-  const [bourse, setBourse] = usePersistentState("bourse", INITIAL_BOURSE);
-  const [historyPast, setHistoryPast] = usePersistentState("historyPast", INITIAL_HISTORY_PAST);
-  const [sim, setSim] = usePersistentState("sim", INITIAL_SIM);
-  const [immo, setImmo] = usePersistentState("immo", INITIAL_IMMO);
-  // Suivi quotidien réel du portefeuille (une entrée par jour, alimentée au fil
-  // du temps — aucune donnée passée n'est reconstituée, aucune projection future).
-  const [bourseHistory, setBourseHistory] = usePersistentState("bourseHistory", []);
-  // Cash disponible sur compte courant
-  const [cash, setCash] = usePersistentState("cash", 0);
-  // Enveloppes de ventilation de l'épargne
-  const [enveloppes, setEnveloppes] = usePersistentState("enveloppes", [
-    { id: "env1", label: "Matelas d'urgence", amount: 3000, colorIdx: 0 },
-    { id: "env2", label: "Projet Immo", amount: 3000, colorIdx: 1 },
-    { id: "env3", label: "Plaisir / Voyage", amount: 950, colorIdx: 2 },
-  ]);
-  // Watchlist : produits suivis en vue d'un achat (distincts des positions détenues).
-  const [watchlist, setWatchlist] = usePersistentState("watchlist", []);
-  // Journal de bord "Stratégie & Logs" : thèses d'investissement notées à l'achat.
-  const [strategyNotes, setStrategyNotes] = usePersistentState("strategyNotes", []);
-  // Scénarios de simulation sauvegardés, comparables côte à côte.
-  const [simScenarios, setSimScenarios] = usePersistentState("simScenarios", []);
-  // Suivi travaux/charges immobilier : budget prévisionnel vs réel.
-  const [immoTravaux, setImmoTravaux] = usePersistentState("immoTravaux", []);
-  // Rappels configurables (versement mensuel, échéance...).
-  const [reminders, setReminders] = usePersistentState("reminders", []);
-  // Contrats & échéances de résiliation (bail, assurances, garanties...).
-  const [contracts, setContracts] = usePersistentState("contracts", []);
-  // Dépenses récurrentes / abonnements (streaming, logiciels, sport...).
-  const [subs, setSubs] = usePersistentState("subs", []);
-
-  const livretsTotal = useMemo(() => livrets.reduce((s, l) => s + l.balance, 0), [livrets]);
-  const livretsAvgRate = useMemo(() => weightedAverageRate(livrets) * 100, [livrets]);
-  const dettesTotal = useMemo(() => dettes.reduce((s, d) => s + d.amount, 0), [dettes]);
-
-  const bourseInvested = useMemo(() => bourse.positions.reduce((s, p) => s + p.quantity * p.pru, 0), [bourse]);
-  const bourseValuePositions = useMemo(() => bourse.positions.reduce((s, p) => s + p.quantity * p.current_price, 0), [bourse]);
-  const bourseTotal = bourse.cash_pocket + bourseValuePositions;
-  const bourseGainAbs = bourseValuePositions - bourseInvested;
-  const bourseGainPct = bourseInvested > 0 ? (bourseGainAbs / bourseInvested) * 100 : 0;
-
-  const patrimoineBrut = livretsTotal + bourseTotal + (cash ?? 0);
-  const patrimoineNet = patrimoineBrut - dettesTotal;
-
-  const epargneMensuelle = profile.monthly_income - profile.monthly_expenses;
-  const tauxEpargne = profile.monthly_income > 0 ? (epargneMensuelle / profile.monthly_income) * 100 : 0;
-  const matelasMois = profile.monthly_expenses > 0 ? livretsTotal / profile.monthly_expenses : 0;
-
-  const shared = {
-    profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
-    historyPast, setHistoryPast, sim, setSim, immo, setImmo,
-    bourseHistory, setBourseHistory, watchlist, setWatchlist,
-    cash, setCash, enveloppes, setEnveloppes,
-    strategyNotes, setStrategyNotes,
-    simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
-    reminders, setReminders,
-    contracts, setContracts, subs, setSubs,
-    livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
-    bourseTotal, bourseGainAbs, bourseGainPct, patrimoineBrut, patrimoineNet,
-    epargneMensuelle, tauxEpargne, matelasMois,
-  };
+  // Relevé quotidien du patrimoine net, quel que soit l'onglet ouvert.
+  useDailySnapshot({
+    patrimoineNet: patrimoine.patrimoineNet,
+    historyPast: patrimoine.historyPast,
+    setHistoryPast: patrimoine.setHistoryPast,
+    lastSnapshotDate: patrimoine.lastSnapshotDate,
+    setLastSnapshotDate: patrimoine.setLastSnapshotDate,
+  });
 
   const handleExport = () => {
     const dump = exportAllData(STORAGE_KEYS);
@@ -165,98 +86,184 @@ export default function App() {
     a.download = `patrimoine-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    markBackupDone();
+    showToast({ message: "Sauvegarde exportée." });
   };
 
-  const handleImport = (e) => {
+  const handleImport = async (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const dump = JSON.parse(reader.result);
-        importAllData(dump);
-        window.location.reload();
-      } catch {
-        alert("Fichier de sauvegarde invalide.");
-      }
-    };
-    reader.readAsText(file);
     e.target.value = "";
+    if (!file) return;
+
+    let dump;
+    try {
+      dump = JSON.parse(await file.text());
+    } catch {
+      showToast({ type: "error", message: "Fichier de sauvegarde illisible (JSON invalide)." });
+      return;
+    }
+    // Un JSON valide n'est pas forcément une sauvegarde Patrium : sans ce
+    // contrôle, importer n'importe quel fichier .json écrasait les données
+    // avec des clés qui n'ont aucun sens pour l'app.
+    const keys = Object.keys(dump || {});
+    const known = keys.filter((k) => STORAGE_KEYS.includes(k));
+    if (!dump || typeof dump !== "object" || Array.isArray(dump) || known.length === 0) {
+      showToast({ type: "error", message: "Ce fichier ne ressemble pas à une sauvegarde Patrium." });
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Restaurer cette sauvegarde ?",
+      message: `${known.length} section(s) seront remplacées par le contenu du fichier. Les données actuelles de cet appareil seront écrasées.`,
+      confirmLabel: "Restaurer",
+      danger: true,
+    });
+    if (!ok) return;
+
+    importAllData(Object.fromEntries(known.map((k) => [k, dump[k]])));
+    window.location.reload();
   };
 
-  const handleReset = () => {
-    if (window.confirm("Réinitialiser toutes les données locales ? Cette action est irréversible.")) {
-      clearAllData(STORAGE_KEYS);
-      window.location.reload();
-    }
+  const handleReset = async () => {
+    const ok = await confirm({
+      title: "Tout réinitialiser ?",
+      message:
+        "Toutes les données de cet appareil seront effacées : livrets, portefeuille, historique, abonnements. Cette action est irréversible — pense à exporter une sauvegarde avant.",
+      confirmLabel: "Effacer définitivement",
+      danger: true,
+    });
+    if (!ok) return;
+    clearAllData(STORAGE_KEYS);
+    window.location.reload();
   };
 
   return (
     <div className={`flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100 ${ghostMode ? "ghost-mode" : ""}`}>
+      <a
+        href="#contenu-principal"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:bg-amber-400 focus:text-slate-950 focus:px-3 focus:py-2 focus:rounded-lg focus:text-sm focus:font-semibold"
+      >
+        Aller au contenu principal
+      </a>
+
       <aside className="md:w-60 md:h-screen md:sticky md:top-0 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950 flex md:flex-col">
         <div className="hidden md:block px-5 pt-6 pb-4">
           <div className="flex items-center justify-between">
             <div className="font-display text-lg text-slate-50">Patrium</div>
-            <button onClick={() => setGhostMode((g) => !g)} title="Mode Ghost (flouter les montants)" className="text-slate-500 hover:text-slate-200 p-1">
-              {ghostMode ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
+            <GhostToggle ghostMode={ghostMode} setGhostMode={setGhostMode} />
           </div>
           <div className="text-xs text-slate-500 mt-0.5">Vision consolidée &amp; simulation</div>
         </div>
-        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible p-2 md:p-3 flex-1 items-center">
-          <button onClick={() => setGhostMode((g) => !g)} className="md:hidden text-slate-500 hover:text-slate-200 p-2 shrink-0">
-            {ghostMode ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-          <NavButton active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" theme="emerald" />
-          <NavButton active={tab === "livrets"} onClick={() => setTab("livrets")} icon={PiggyBank} label="Livrets & Épargne" theme="indigo" />
-          <NavButton active={tab === "bourse"} onClick={() => setTab("bourse")} icon={TrendingUp} label="PEA & Bourse" theme="violet" />
-          <NavButton active={tab === "simulation"} onClick={() => setTab("simulation")} icon={Calculator} label="Simulation" theme="amber" />
-          <NavButton active={tab === "immobilier"} onClick={() => setTab("immobilier")} icon={Landmark} label="Immobilier & Crédit" theme="rose" />
-          <NavButton active={tab === "strategie"} onClick={() => setTab("strategie")} icon={NotebookPen} label="Stratégie & Logs" theme="cyan" />
-          <NavButton active={tab === "abonnements"} onClick={() => setTab("abonnements")} icon={Repeat} label="Abonnements" theme="cyan" />
+
+        <nav
+          aria-label="Navigation principale"
+          className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible p-2 md:p-3 flex-1 items-center"
+        >
+          <span className="md:hidden shrink-0">
+            <GhostToggle ghostMode={ghostMode} setGhostMode={setGhostMode} />
+          </span>
+          {TABS.map((t) => (
+            <NavButton
+              key={t.id}
+              active={tab === t.id}
+              onClick={() => setTab(t.id)}
+              icon={t.icon}
+              label={t.label}
+              theme={t.theme}
+              current={tab === t.id}
+            />
+          ))}
         </nav>
+
         <div className="hidden md:flex flex-col gap-2 px-4 py-4 border-t border-slate-800">
-          <button onClick={handleExport} className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded">
-            <Download size={13} /> Exporter mes données
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
+          >
+            <Download size={13} aria-hidden="true" /> Exporter mes données
           </button>
-          <label className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 cursor-pointer">
-            <Upload size={13} /> Importer une sauvegarde
-            <input type="file" accept="application/json" onChange={handleImport} className="hidden" />
+          <label className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 cursor-pointer focus-within:ring-2 focus-within:ring-amber-400/40 rounded">
+            <Upload size={13} aria-hidden="true" /> Importer une sauvegarde
+            <input type="file" accept="application/json" onChange={handleImport} className="sr-only" />
           </label>
-          <button onClick={handleReset} className="flex items-center gap-2 text-xs text-slate-600 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded">
-            <RotateCcw size={13} /> Réinitialiser
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 text-xs text-slate-600 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
+          >
+            <RotateCcw size={13} aria-hidden="true" /> Réinitialiser
           </button>
           <p className="text-[11px] text-slate-600 leading-relaxed mt-1">
-            Données stockées localement dans ce navigateur. Aucun envoi vers un serveur externe.
+            Données stockées sur cet appareil et synchronisées sur ton compte. Les cours de bourse
+            sont récupérés via un service externe.
           </p>
         </div>
       </aside>
 
-      <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl transition-colors duration-500 ${TAB_BG[tab] || ""}`}>
+      <main
+        id="contenu-principal"
+        className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl transition-colors duration-500 ${TAB_BG[tab] || ""}`}
+      >
         <div className="flex items-center justify-between gap-3 mb-5">
           <GlobalSearch
-            livrets={livrets} bourse={bourse} dettes={dettes} watchlist={watchlist}
-            strategyNotes={strategyNotes} enveloppes={enveloppes} onNavigate={setTab}
+            livrets={patrimoine.livrets}
+            bourse={patrimoine.bourse}
+            dettes={patrimoine.dettes}
+            watchlist={patrimoine.watchlist}
+            strategyNotes={patrimoine.strategyNotes}
+            enveloppes={patrimoine.enveloppes}
+            onNavigate={setTab}
           />
-          <Notifications reminders={reminders} setReminders={setReminders} />
-          <button
-            onClick={() => signOut()}
-            title={user?.email ? `Déconnecter ${user.email}` : "Se déconnecter"}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg px-2 py-1.5"
-          >
-            <LogOut size={14} />
-          </button>
+          <SyncIndicator />
+          <Notifications reminders={patrimoine.reminders} setReminders={patrimoine.setReminders} />
+          {/* En mode local (sans compte), il n'y a rien à déconnecter. */}
+          {user && (
+            <button
+              onClick={() => signOut()}
+              aria-label={`Se déconnecter (${user.email})`}
+              title={`Déconnecter ${user.email}`}
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 border border-transparent hover:border-rose-500/30 rounded-lg px-2 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+            >
+              <LogOut size={14} aria-hidden="true" />
+            </button>
+          )}
         </div>
+
+        <BackupReminder onExport={handleExport} />
+
+        {/* La clé force le remontage — et donc l'animation d'entrée — à chaque
+            changement d'onglet. aria-live annonce le changement de section aux
+            lecteurs d'écran, qui n'ont sinon aucun repère de navigation. */}
         <div key={tab} className="animate-[fadeIn_0.3s_ease-out]">
-          {tab === "dashboard" && <Dashboard {...shared} />}
-          {tab === "livrets" && <Livrets {...shared} />}
-          {tab === "bourse" && <Bourse {...shared} />}
-          {tab === "simulation" && <Simulation {...shared} />}
-          {tab === "immobilier" && <Immobilier {...shared} />}
-          {tab === "strategie" && <StrategieLogs {...shared} />}
-          {tab === "abonnements" && <Abonnements {...shared} />}
+          <h1 className="sr-only">{activeTab.label}</h1>
+          <Suspense fallback={<TabSkeleton />}>
+            <activeTab.Page {...patrimoine} />
+          </Suspense>
         </div>
       </main>
+    </div>
+  );
+}
+
+function GhostToggle({ ghostMode, setGhostMode }) {
+  return (
+    <button
+      onClick={() => setGhostMode((g) => !g)}
+      aria-pressed={ghostMode}
+      aria-label={ghostMode ? "Afficher les montants" : "Masquer les montants (mode ghost)"}
+      title="Mode Ghost (flouter les montants)"
+      className="text-slate-500 hover:text-slate-200 p-1 md:p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+    >
+      {ghostMode ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+    </button>
+  );
+}
+
+function TabSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de la section" className="grid gap-4 sm:grid-cols-2">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard lines={5} className="sm:col-span-2" />
     </div>
   );
 }

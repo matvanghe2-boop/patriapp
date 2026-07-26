@@ -11,19 +11,22 @@ const NAV_THEMES = {
   cyan: { active: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30", bar: "bg-cyan-400" },
 };
 
-export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber" }) {
+export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber", current }) {
   const t = NAV_THEMES[theme] || NAV_THEMES.amber;
   return (
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
+      // L'onglet actif n'était signalé que par la couleur : un lecteur d'écran
+      // n'avait aucun moyen de savoir où l'utilisateur se trouve.
+      aria-current={current ? "page" : undefined}
       className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
         ${disabled ? "text-slate-600 cursor-not-allowed" : active ? t.active : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
-      {active && <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
-      <Icon size={17} strokeWidth={2} />
+      {active && <span aria-hidden="true" className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
+      <Icon size={17} strokeWidth={2} aria-hidden="true" />
       <span className="font-medium">{label}</span>
-      {disabled && <Lock size={12} className="ml-auto opacity-60" />}
+      {disabled && <Lock size={12} className="ml-auto opacity-60" aria-hidden="true" />}
     </button>
   );
 }
@@ -121,10 +124,15 @@ export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, th
   );
 }
 
-export function IconTrash({ onClick }) {
+export function IconTrash({ onClick, label = "Supprimer" }) {
   return (
-    <button onClick={onClick} className="text-slate-600 hover:text-rose-400 transition-colors p-1">
-      <Trash2 size={14} />
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="text-slate-600 hover:text-rose-400 transition-colors p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+    >
+      <Trash2 size={14} aria-hidden="true" />
     </button>
   );
 }

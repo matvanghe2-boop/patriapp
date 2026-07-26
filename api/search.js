@@ -2,24 +2,19 @@
 // Recherche un produit (action/ETF) par ticker, ISIN ou nom.
 // Exécutée côté serveur pour éviter les soucis de CORS côté navigateur.
 
-const YF_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-};
+import { withApi, httpError, cached } from "./_lib/http.js";
+import { fetchJson, sanitizeQuery } from "./_lib/yahoo.js";
 
-export default async function handler(req, res) {
-  const q = req.query.q;
-  if (!q) return res.status(400).json({ error: "Paramètre q manquant" });
+const CACHE_MS = 5 * 60_000;
 
-  try {
-    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
-      q
-    )}&quotesCount=8&newsCount=0`;
-    const r = await fetch(url, { headers: YF_HEADERS });
-    if (!r.ok) throw new Error(`Réponse HTTP ${r.status}`);
-    const data = await r.json();
+async function handler(req, res) {
+  const q = sanitizeQuery(req.query.q);
+  if (q.length < 1) throw httpError(400, "Paramètre `q` manquant.");
 
-    const results = (data.quotes || [])
+  const results = await cached(`search:${q.toLowerCase()}`, CACHE_MS, async () => {
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`;
+    const data = await fetchJson(url);
+    return (data.quotes || [])
       .filter((item) => item.symbol)
       .map((item) => ({
         symbol: item.symbol,
@@ -27,13 +22,12 @@ export default async function handler(req, res) {
         exchange: item.exchDisp || item.exchange || "",
         type: item.quoteType || "",
       }));
+  });
 
-    res.status(200).json(results);
-  } catch (err) {
-    console.error("Erreur /api/search :", err.message);
-    res.status(502).json({
-      error: "Recherche indisponible pour le moment. Vérifiez votre connexion internet.",
-      detail: err.message,
-    });
-  }
+  res.status(200).json(results);
 }
+
+// La recherche part à chaque frappe côté client (avec debounce) : la limite
+// est plus haute que sur les autres endpoints, mais le cache absorbe
+// l'essentiel des requêtes répétées.
+export default withApi(handler, { methods: ["GET"], limit: 90, windowMs: 60_000, sMaxAge: 300 });

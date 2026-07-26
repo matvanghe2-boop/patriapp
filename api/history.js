@@ -5,10 +5,8 @@
 // graphique historique complet du sous-onglet "Marché" (depuis l'introduction
 // en bourse, via range=max).
 
-const YF_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-};
+import { withApi, httpError, cached } from "./_lib/http.js";
+import { fetchJson, parseSymbols } from "./_lib/yahoo.js";
 
 const ALLOWED_RANGES = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"];
 const ALLOWED_INTERVALS = ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "1wk", "1mo"];
@@ -29,69 +27,74 @@ function defaultIntervalFor(range) {
   return "1d";
 }
 
-export default async function handler(req, res) {
-  const symbolsParam = req.query.symbols;
+// L'historique intraday se périme vite, l'historique long quasiment jamais
+// dans la journée : deux durées de cache distinctes.
+const cacheMsFor = (interval) => (INTRADAY_INTERVALS.includes(interval) ? 60_000 : 15 * 60_000);
+
+async function handler(req, res) {
+  const symbols = parseSymbols(req.query.symbols);
+  if (symbols.length === 0) {
+    throw httpError(400, "Paramètre `symbols` manquant ou invalide.");
+  }
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : "6mo";
   const interval = ALLOWED_INTERVALS.includes(req.query.interval)
     ? req.query.interval
     : defaultIntervalFor(range);
-  if (!symbolsParam) return res.status(400).json({ error: "Paramètre symbols manquant" });
-
-  const symbols = symbolsParam.split(",").map((s) => s.trim()).filter(Boolean);
+  const isIntraday = INTRADAY_INTERVALS.includes(interval);
 
   const results = await Promise.all(
     symbols.map(async (symbol) => {
       try {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-          symbol
-        )}?range=${range}&interval=${interval}&includePrePost=false`;
-        const r = await fetch(url, { headers: YF_HEADERS });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        const result = data?.chart?.result?.[0];
-        if (!result) {
-          const yahooError = data?.chart?.error?.description;
-          throw new Error(yahooError || "Réponse inattendue");
-        }
+        return await cached(`history:${symbol}:${range}:${interval}`, cacheMsFor(interval), async () => {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+            symbol
+          )}?range=${range}&interval=${interval}&includePrePost=false`;
+          const data = await fetchJson(url, { timeoutMs: 12_000 });
+          const result = data?.chart?.result?.[0];
+          if (!result) {
+            throw new Error(data?.chart?.error?.description || "Réponse inattendue");
+          }
 
-        const timestamps = result.timestamp || [];
-        const quote = result.indicators?.quote?.[0] || {};
-        const { close = [], open = [], high = [], low = [], volume = [] } = quote;
-        // Cours ajusté des splits/dividendes — plus fiable que le cours brut
-        // pour juger d'une performance longue période (l'ajustement de
-        // dividende n'existe que sur l'intervalle journalier et plus large).
-        const adjClose = result.indicators?.adjclose?.[0]?.adjclose || [];
-        const isIntraday = INTRADAY_INTERVALS.includes(interval);
+          const timestamps = result.timestamp || [];
+          const quote = result.indicators?.quote?.[0] || {};
+          const { close = [], open = [], high = [], low = [], volume = [] } = quote;
+          // Cours ajusté des splits/dividendes — plus fiable que le cours brut
+          // pour juger d'une performance longue période (l'ajustement de
+          // dividende n'existe que sur l'intervalle journalier et plus large).
+          const adjClose = result.indicators?.adjclose?.[0]?.adjclose || [];
 
-        const series = timestamps
-          .map((t, i) => ({
-            // En intraday, l'horodatage complet est conservé (heure précise)
-            // pour permettre de se déplacer minute par minute sur le
-            // graphique ; au-delà, une date suffit (comparaisons/agrégats
-            // ailleurs dans l'appli reposent sur ce format "YYYY-MM-DD").
-            date: isIntraday ? new Date(t * 1000).toISOString() : new Date(t * 1000).toISOString().slice(0, 10),
-            close: close[i],
-            open: open[i] ?? null,
-            high: high[i] ?? null,
-            low: low[i] ?? null,
-            volume: volume[i] ?? null,
-            adjClose: adjClose[i] ?? null,
-          }))
-          .filter((p) => p.close != null);
+          const series = timestamps
+            .map((t, i) => ({
+              // En intraday, l'horodatage complet est conservé (heure précise)
+              // pour permettre de se déplacer minute par minute sur le
+              // graphique ; au-delà, une date suffit (comparaisons/agrégats
+              // ailleurs dans l'appli reposent sur ce format "YYYY-MM-DD").
+              date: isIntraday
+                ? new Date(t * 1000).toISOString()
+                : new Date(t * 1000).toISOString().slice(0, 10),
+              close: close[i],
+              open: open[i] ?? null,
+              high: high[i] ?? null,
+              low: low[i] ?? null,
+              volume: volume[i] ?? null,
+              adjClose: adjClose[i] ?? null,
+            }))
+            .filter((p) => p.close != null);
 
-        const meta = result.meta || {};
-        return {
-          symbol,
-          ok: true,
-          interval,
-          isIntraday,
-          series,
-          currency: meta.currency || null,
-          exchangeName: meta.exchangeName || null,
-          firstTradeDate: meta.firstTradeDate
-            ? new Date(meta.firstTradeDate * 1000).toISOString().slice(0, 10)
-            : (series[0]?.date ?? null),
-        };
+          const meta = result.meta || {};
+          return {
+            symbol,
+            ok: true,
+            interval,
+            isIntraday,
+            series,
+            currency: meta.currency || null,
+            exchangeName: meta.exchangeName || null,
+            firstTradeDate: meta.firstTradeDate
+              ? new Date(meta.firstTradeDate * 1000).toISOString().slice(0, 10)
+              : (series[0]?.date ?? null),
+          };
+        });
       } catch (err) {
         return { symbol, ok: false, error: err.message, series: [] };
       }
@@ -100,3 +103,5 @@ export default async function handler(req, res) {
 
   res.status(200).json(results);
 }
+
+export default withApi(handler, { methods: ["GET"], limit: 60, windowMs: 60_000, sMaxAge: 60 });
