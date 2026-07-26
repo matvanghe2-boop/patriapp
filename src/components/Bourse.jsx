@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon,
   PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, LayoutGrid, Briefcase,
-  Info, TrendingDown, Target, Percent, Scale, Search,
+  Info, TrendingDown, Target, Percent, Scale, Search, CalendarDays,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -522,6 +522,14 @@ export default function Bourse({
         >
           <Search size={14} /> Marché
         </button>
+        <button
+          onClick={() => setSubTab("calendrier")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "calendrier" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <CalendarDays size={14} /> Calendrier
+        </button>
       </div>
 
       {subTab === "portefeuille" && (
@@ -824,6 +832,14 @@ export default function Bourse({
       )}
 
       {subTab === "marche" && <Marche watchlist={watchlist} setWatchlist={setWatchlist} openRequest={marcheRequest} positions={bourse.positions} />}
+
+      {/* Le calendrier a désormais son propre sous-onglet. Il était auparavant
+          accroché en bas de l'onglet Performance, où on ne le trouvait pas, et
+          il déclenchait ses appels réseau même quand on venait consulter la
+          performance. Il couvre maintenant le portefeuille ET la watchlist. */}
+      {subTab === "calendrier" && (
+        <FinancialCalendar positions={bourse.positions} watchlist={watchlist} />
+      )}
 
       {panicPosition && (
         <AntiPanicModal
@@ -1368,8 +1384,6 @@ function PerformanceTab({
           )}
         </>
       )}
-
-      <FinancialCalendar positions={bourse.positions} />
     </>
   );
 }

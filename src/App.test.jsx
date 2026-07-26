@@ -58,13 +58,41 @@ describe("App", () => {
   });
 
   it("ouvre directement le bon onglet quand l'URL en désigne un", () => {
-    window.location.hash = "#/immobilier";
+    window.location.hash = "#/strategie";
     renderApp();
     const nav = screen.getByRole("navigation", { name: /navigation principale/i });
-    expect(within(nav).getByRole("button", { name: "Immobilier & Crédit" })).toHaveAttribute(
+    expect(within(nav).getByRole("button", { name: "Stratégie & Logs" })).toHaveAttribute(
       "aria-current",
       "page"
     );
+  });
+
+  it("ne propose plus « Immobilier & Crédit » dans le menu principal", () => {
+    renderApp();
+    const nav = screen.getByRole("navigation", { name: /navigation principale/i });
+    expect(within(nav).queryByRole("button", { name: /immobilier/i })).not.toBeInTheDocument();
+  });
+
+  it("redirige un ancien lien #/immobilier vers Simulation plutôt que vers l'accueil", () => {
+    window.location.hash = "#/immobilier";
+    renderApp();
+    const nav = screen.getByRole("navigation", { name: /navigation principale/i });
+    expect(within(nav).getByRole("button", { name: "Simulation" })).toHaveAttribute("aria-current", "page");
+    // L'URL est réécrite : elle ne doit pas contredire l'onglet affiché.
+    expect(window.location.hash).toBe("#/simulation");
+  });
+
+  it("expose Immobilier & Crédit en sous-onglet de Simulation", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole("button", { name: "Simulation" }));
+
+    const sousOnglet = await screen.findByRole("button", { name: /immobilier & crédit/i });
+    await user.click(sousOnglet);
+
+    // Le contenu du module immobilier est bien rendu, avec son propre titre.
+    expect(await screen.findByRole("heading", { name: /immobilier|crédit/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/endettement/i).length).toBeGreaterThan(0);
   });
 
   it("retombe sur le Dashboard si l'URL désigne un onglet inexistant", () => {

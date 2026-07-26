@@ -1,10 +1,26 @@
 import React, { useMemo, useState } from "react";
-import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2 } from "lucide-react";
+import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES } from "./ui";
 import { projectCompound, eur, pct, compact, solveMonthlyForTarget, applyInflation, generateVolatileReturns, uid } from "../lib/finance";
+import Immobilier from "./Immobilier";
 
-export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, bourseTotal, simScenarios = [], setSimScenarios }) {
+/**
+ * Onglet « Simulation ».
+ *
+ * Projection et immobilier relèvent du même geste — projeter une décision
+ * financière dans le temps — et se lisent mieux côte à côte : le simulateur
+ * de crédit était auparavant une entrée de menu séparée, alors qu'on y
+ * arrive presque toujours depuis une projection d'épargne. Il devient donc
+ * un sous-onglet ici, sans que son contenu ni son identité visuelle (thème
+ * rose, jauge d'endettement, suivi des travaux) ne changent.
+ */
+export default function Simulation({
+  sim, setSim, livretsTotal, livretsAvgRate, bourseTotal, simScenarios = [], setSimScenarios,
+  // Props transmises telles quelles au sous-onglet Immobilier & Crédit.
+  immo, setImmo, profile, immoTravaux = [], setImmoTravaux,
+}) {
+  const [subTab, setSubTab] = useState("projection"); // "projection" | "immobilier"
   const livretsCapital = sim.livrets.capital ?? livretsTotal;
   const livretsRate = sim.livrets.rate ?? Math.max(livretsAvgRate, 0.5);
   const bourseCapital = sim.bourse.capital ?? bourseTotal;
@@ -140,7 +156,46 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
 
   return (
     <div className="relative space-y-6">
-      <PageGlow color="amber" />
+      {/* La lueur d'ambiance suit le sous-onglet actif : Immobilier garde son
+          identité rose, la projection son ambre. */}
+      {subTab === "projection" && <PageGlow color="amber" />}
+
+      {/* Sous-onglets */}
+      <div className="relative flex items-center gap-2 border-b border-slate-800 pb-1">
+        <button
+          onClick={() => setSubTab("projection")}
+          aria-current={subTab === "projection" ? "page" : undefined}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "projection" ? "text-amber-300 border-b-2 border-amber-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Calculator size={14} /> Projection
+        </button>
+        <button
+          onClick={() => setSubTab("immobilier")}
+          aria-current={subTab === "immobilier" ? "page" : undefined}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "immobilier" ? "text-rose-300 border-b-2 border-rose-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Landmark size={14} /> Immobilier &amp; Crédit
+        </button>
+      </div>
+
+      {subTab === "immobilier" && (
+        <Immobilier
+          immo={immo}
+          setImmo={setImmo}
+          livretsTotal={livretsTotal}
+          bourseTotal={bourseTotal}
+          profile={profile}
+          immoTravaux={immoTravaux}
+          setImmoTravaux={setImmoTravaux}
+        />
+      )}
+
+      {subTab === "projection" && (
+      <>
       <div className="flex items-start justify-between flex-wrap gap-2 relative">
         <div>
           <h1 className="font-display text-2xl text-slate-50">
@@ -480,6 +535,8 @@ export default function Simulation({ sim, setSim, livretsTotal, livretsAvgRate, 
             </div>
           )}
         </Card>
+      )}
+      </>
       )}
     </div>
   );

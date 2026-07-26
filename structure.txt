@@ -17,6 +17,7 @@ api/_lib/pdfParsing.js
 api/_lib/pdfParsing.test.js
 api/_lib/yahoo.js
 api/calendar.js
+api/calendar.test.js
 api/history.js
 api/parse-pdf.js
 api/profile.js
@@ -47,6 +48,7 @@ src/components/ChartFocusModal.jsx
 src/components/Dashboard.jsx
 src/components/ErrorBoundary.jsx
 src/components/FinancialCalendar.jsx
+src/components/FinancialCalendar.test.jsx
 src/components/FocusChart.jsx
 src/components/GlobalSearch.jsx
 src/components/Immobilier.jsx

@@ -1,6 +1,6 @@
 import React, { useEffect, Suspense, lazy } from "react";
 import {
-  LayoutDashboard, PiggyBank, TrendingUp, Calculator, Landmark, NotebookPen,
+  LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
   Repeat, Download, Upload, RotateCcw, Eye, EyeOff, LogOut,
 } from "lucide-react";
 import {
@@ -26,21 +26,28 @@ const Dashboard = lazy(() => import("./components/Dashboard"));
 const Livrets = lazy(() => import("./components/Livrets"));
 const Bourse = lazy(() => import("./components/Bourse"));
 const Simulation = lazy(() => import("./components/Simulation"));
-const Immobilier = lazy(() => import("./components/Immobilier"));
 const StrategieLogs = lazy(() => import("./components/StrategieLogs"));
 const Abonnements = lazy(() => import("./components/Abonnements"));
 
+// « Immobilier & Crédit » n'est plus une entrée de menu : c'est un sous-onglet
+// de Simulation (voir Simulation.jsx). Les deux modules répondent à la même
+// question — projeter une décision financière dans le temps — et le
+// simulateur de crédit se consultait presque toujours dans la foulée d'une
+// projection d'épargne.
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, theme: "emerald", Page: Dashboard },
   { id: "livrets", label: "Livrets & Épargne", icon: PiggyBank, theme: "indigo", Page: Livrets },
   { id: "bourse", label: "PEA & Bourse", icon: TrendingUp, theme: "violet", Page: Bourse },
   { id: "simulation", label: "Simulation", icon: Calculator, theme: "amber", Page: Simulation },
-  { id: "immobilier", label: "Immobilier & Crédit", icon: Landmark, theme: "rose", Page: Immobilier },
   { id: "strategie", label: "Stratégie & Logs", icon: NotebookPen, theme: "cyan", Page: StrategieLogs },
   { id: "abonnements", label: "Abonnements", icon: Repeat, theme: "cyan", Page: Abonnements },
 ];
 
 const TAB_IDS = TABS.map((t) => t.id);
+
+// Un lien ou un favori vers #/immobilier doit continuer à mener quelque part
+// de sensé plutôt que de retomber silencieusement sur le Dashboard.
+const TAB_ALIASES = { immobilier: "simulation" };
 
 // Fond de page teinté par domaine — même esprit que le bouton de nav actif :
 // un fond dégradé bien visible derrière les cartes, pas juste un glow discret.
@@ -55,7 +62,7 @@ const TAB_BG = {
 };
 
 export default function App() {
-  const [tab, setTab] = useHashRoute(TAB_IDS, "dashboard");
+  const [tab, setTab] = useHashRoute(TAB_IDS, "dashboard", TAB_ALIASES);
   const [ghostMode, setGhostMode] = React.useState(false);
   const { user, signOut } = useAuth();
   const { showToast } = useToast();

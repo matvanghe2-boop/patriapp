@@ -1,13 +1,43 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { CalendarDays, List, ChevronLeft, ChevronRight, RefreshCw, CircleDollarSign, FileBarChart, Users, X } from "lucide-react";
+import {
+  CalendarDays, List, ChevronLeft, ChevronRight, RefreshCw, CircleDollarSign,
+  FileBarChart, Users, X, Briefcase, Eye, Megaphone, BarChart3,
+} from "lucide-react";
 import { fetchCalendarEvents } from "../lib/api";
 import { SkeletonChart } from "./ui";
 
-// ─── Types d'événements : couleurs très vives et saturées pour un contraste maximal sur fond noir ───
+// ─── Types d'événements ─────────────────────────────────────────────────────
+// Code couleur demandé : vert pour les dividendes, bleu pour tout ce qui
+// touche aux résultats et au chiffre d'affaires, violet pour les assemblées
+// générales. Les teintes restent très saturées pour garder le contraste du
+// calendrier sur fond noir.
 const EVENT_TYPES = {
   Dividende: { color: "#00FF6A", glow: "rgba(0,255,106,0.35)", icon: CircleDollarSign },
-  Résultats: { color: "#FF2ED1", glow: "rgba(255,46,209,0.35)", icon: FileBarChart },
-  "Assemblée Générale": { color: "#00D1FF", glow: "rgba(0,209,255,0.35)", icon: Users },
+  Résultats: { color: "#2E9BFF", glow: "rgba(46,155,255,0.35)", icon: FileBarChart },
+  "Chiffre d'affaires": { color: "#38D6FF", glow: "rgba(56,214,255,0.35)", icon: BarChart3 },
+  "Assemblée Générale": { color: "#A855F7", glow: "rgba(168,85,247,0.38)", icon: Users },
+  Communication: { color: "#94A3B8", glow: "rgba(148,163,184,0.30)", icon: Megaphone },
+};
+
+const typeOf = (type) => EVENT_TYPES[type] || EVENT_TYPES.Communication;
+
+// ─── Origine d'un événement ─────────────────────────────────────────────────
+// Une ligne réellement détenue et une simple valeur surveillée n'ont pas la
+// même importance : le portefeuille est mis en surbrillance, la watchlist
+// reste sobre pour ne pas capter l'attention à tort.
+const SOURCES = {
+  portefeuille: {
+    label: "Portefeuille",
+    icon: Briefcase,
+    chipClass: "font-bold",
+    cardClass: "bg-[#0a0a0a]",
+  },
+  watchlist: {
+    label: "Watchlist",
+    icon: Eye,
+    chipClass: "font-medium opacity-80",
+    cardClass: "bg-[#070707]",
+  },
 };
 
 const MONTH_NAMES = [
@@ -24,6 +54,15 @@ function formatDateFr(iso) {
   return `${d}/${m}/${y}`;
 }
 
+/** Montants d'estimation : Yahoo renvoie des unités brutes (ex: 2.7e10). */
+function formatEstimate(n) {
+  if (n == null || !Number.isFinite(n)) return null;
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `${(n / 1e9).toFixed(2)} Md€`;
+  if (abs >= 1e6) return `${(n / 1e6).toFixed(1)} M€`;
+  return n.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+}
+
 function daysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate();
 }
@@ -35,7 +74,7 @@ function firstWeekdayOffset(year, month) {
 }
 
 function EventDot({ type }) {
-  const t = EVENT_TYPES[type] || EVENT_TYPES.Dividende;
+  const t = typeOf(type);
   return (
     <span
       className="inline-block w-2 h-2 rounded-full shrink-0"
@@ -46,15 +85,25 @@ function EventDot({ type }) {
 
 // Badge affiché DANS une case du calendrier : montre le texte de l'événement
 // (ticker + type abrégé), cliquable pour ouvrir le détail complet.
+// Une ligne détenue reçoit une bordure pleine et un halo ; une valeur
+// surveillée garde une bordure discontinue et atténuée.
 function EventChip({ ev, onClick }) {
-  const t = EVENT_TYPES[ev.type] || EVENT_TYPES.Dividende;
+  const t = typeOf(ev.type);
   const Icon = t.icon;
+  const isPortfolio = ev.source === "portefeuille";
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(ev); }}
-      className="w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[9px] sm:text-[10px] font-bold leading-tight truncate transition-transform hover:scale-[1.03]"
-      style={{ background: `${t.color}22`, border: `1px solid ${t.color}88`, color: t.color }}
-      title={`${ev.ticker} — ${ev.label}`}
+      className={`w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[9px] sm:text-[10px] leading-tight truncate transition-transform hover:scale-[1.03] ${
+        isPortfolio ? "font-bold" : "font-medium"
+      }`}
+      style={{
+        background: isPortfolio ? `${t.color}26` : "transparent",
+        border: isPortfolio ? `1px solid ${t.color}` : `1px dashed ${t.color}55`,
+        color: isPortfolio ? t.color : `${t.color}B0`,
+        boxShadow: isPortfolio ? `0 0 8px ${t.glow}` : "none",
+      }}
+      title={`${ev.ticker} — ${ev.label} (${SOURCES[ev.source]?.label ?? ""})`}
     >
       <Icon size={9} strokeWidth={2.5} className="shrink-0" />
       <span className="truncate">{ev.ticker}</span>
@@ -62,15 +111,34 @@ function EventChip({ ev, onClick }) {
   );
 }
 
+/** Pastille « Portefeuille » / « Watchlist ». */
+function SourceBadge({ source, size = "sm" }) {
+  const s = SOURCES[source] || SOURCES.watchlist;
+  const Icon = s.icon;
+  const isPortfolio = source === "portefeuille";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded uppercase tracking-wide ${
+        size === "sm" ? "text-[9px] px-1.5 py-0.5" : "text-[10px] px-2 py-0.5"
+      } ${isPortfolio ? "font-bold text-white bg-white/15 border border-white/40" : "font-medium text-[#888] border border-[#333]"}`}
+    >
+      <Icon size={size === "sm" ? 9 : 11} strokeWidth={2.5} />
+      {s.label}
+    </span>
+  );
+}
+
 // ─── Modal de détail d'un événement ─────────────────────────────────────────
 function EventModal({ ev, onClose }) {
   if (!ev) return null;
-  const t = EVENT_TYPES[ev.type] || EVENT_TYPES.Dividende;
+  const t = typeOf(ev.type);
   const Icon = t.icon;
   const today = isoToday();
   const d = new Date(`${ev.date}T00:00:00`);
   const todayD = new Date(`${today}T00:00:00`);
   const daysLeft = Math.round((d - todayD) / (1000 * 60 * 60 * 24));
+  const ca = formatEstimate(ev.estimates?.chiffreAffairesAttendu);
+  const bnpa = formatEstimate(ev.estimates?.beneficeAttendu);
 
   return (
     <div
@@ -96,12 +164,15 @@ function EventModal({ ev, onClose }) {
           </button>
         </div>
 
-        <span
-          className="inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded mb-2"
-          style={{ background: `${t.color}22`, color: t.color }}
-        >
-          {ev.type}
-        </span>
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <span
+            className="inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded"
+            style={{ background: `${t.color}22`, color: t.color }}
+          >
+            {ev.type}
+          </span>
+          <SourceBadge source={ev.source} size="md" />
+        </div>
 
         <h3 className="text-xl font-bold text-white mb-0.5">{ev.ticker}</h3>
         <p className="text-sm text-[#999] mb-4">{ev.name}</p>
@@ -110,6 +181,26 @@ function EventModal({ ev, onClose }) {
           <div className="text-[11px] text-[#888] mb-0.5">Événement</div>
           <div className="text-sm text-white font-semibold">{ev.label}</div>
         </div>
+
+        {(ca || bnpa) && (
+          <div className="rounded-xl border border-[#222] bg-[#0a0a0a] p-3 mb-2">
+            <div className="text-[11px] text-[#888] mb-1.5">Attentes du consensus</div>
+            <div className="flex items-center justify-between gap-3">
+              {ca && (
+                <div>
+                  <div className="text-[10px] text-[#777]">Chiffre d'affaires</div>
+                  <div className="font-data text-sm text-white font-bold">{ca}</div>
+                </div>
+              )}
+              {bnpa && (
+                <div className="text-right">
+                  <div className="text-[10px] text-[#777]">Bénéfice par action</div>
+                  <div className="font-data text-sm text-white font-bold">{bnpa}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-between rounded-xl border border-[#222] bg-[#0a0a0a] p-3">
           <div>
@@ -202,7 +293,7 @@ function MonthGrid({ year, month, eventsByDate, onMonthChange, onEventClick }) {
   );
 }
 
-// ─── Vue Timeline : 5 prochains événements ─────────────────────────────────
+// ─── Vue Timeline : prochains événements ────────────────────────────────────
 function TimelineView({ events, onEventClick }) {
   const today = isoToday();
   const upcoming = useMemo(
@@ -210,14 +301,14 @@ function TimelineView({ events, onEventClick }) {
       events
         .filter((e) => e.date >= today)
         .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
-        .slice(0, 5),
+        .slice(0, 12),
     [events, today]
   );
 
   if (upcoming.length === 0) {
     return (
       <p className="text-sm text-[#888] py-8 text-center border border-dashed border-[#2a2a2a] rounded-xl">
-        Aucun événement à venir détecté pour les lignes de ton portefeuille.
+        Aucun événement à venir détecté pour les valeurs suivies.
       </p>
     );
   }
@@ -225,8 +316,9 @@ function TimelineView({ events, onEventClick }) {
   return (
     <div className="space-y-2">
       {upcoming.map((ev, idx) => {
-        const t = EVENT_TYPES[ev.type] || EVENT_TYPES.Dividende;
+        const t = typeOf(ev.type);
         const Icon = t.icon;
+        const isPortfolio = ev.source === "portefeuille";
         const d = new Date(`${ev.date}T00:00:00`);
         const todayD = new Date(`${today}T00:00:00`);
         const daysLeft = Math.round((d - todayD) / (1000 * 60 * 60 * 24));
@@ -234,24 +326,38 @@ function TimelineView({ events, onEventClick }) {
           <button
             key={idx}
             onClick={() => onEventClick(ev)}
-            className="w-full flex items-center gap-3 rounded-xl border p-3 bg-[#0a0a0a] text-left transition-colors hover:bg-[#111]"
-            style={{ borderColor: `${t.color}44` }}
+            className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-[#111] ${
+              SOURCES[ev.source]?.cardClass ?? "bg-[#0a0a0a]"
+            }`}
+            style={{
+              // Ligne détenue : bordure marquée + halo. Valeur surveillée :
+              // bordure neutre, aucun halo — elle ne doit pas rivaliser
+              // visuellement avec une position réelle.
+              borderColor: isPortfolio ? `${t.color}AA` : "#242424",
+              boxShadow: isPortfolio ? `0 0 16px ${t.glow}` : "none",
+            }}
           >
             <div
               className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
-              style={{ background: `${t.color}1A`, border: `1.5px solid ${t.color}` }}
+              style={{
+                background: isPortfolio ? `${t.color}1A` : "#101010",
+                border: `1.5px solid ${isPortfolio ? t.color : "#2e2e2e"}`,
+              }}
             >
-              <Icon size={18} style={{ color: t.color }} strokeWidth={2.5} />
+              <Icon size={18} style={{ color: isPortfolio ? t.color : "#777" }} strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-white text-sm">{ev.ticker}</span>
+                <span className={`text-sm ${isPortfolio ? "font-bold text-white" : "font-semibold text-[#c8c8c8]"}`}>
+                  {ev.ticker}
+                </span>
                 <span
                   className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
-                  style={{ background: `${t.color}22`, color: t.color }}
+                  style={{ background: `${t.color}22`, color: isPortfolio ? t.color : `${t.color}C0` }}
                 >
                   {ev.type}
                 </span>
+                <SourceBadge source={ev.source} />
               </div>
               <div className="text-xs text-[#999] truncate">{ev.name} · {ev.label}</div>
             </div>
@@ -268,18 +374,41 @@ function TimelineView({ events, onEventClick }) {
   );
 }
 
+/** Bouton de filtre par origine (portefeuille / watchlist). */
+function SourceFilter({ source, active, count, onToggle }) {
+  const s = SOURCES[source];
+  const Icon = s.icon;
+  return (
+    <button
+      onClick={onToggle}
+      aria-pressed={active}
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+        active ? "border-white/60 text-white bg-white/10" : "border-[#2a2a2a] text-[#666] hover:text-[#999]"
+      }`}
+    >
+      <Icon size={11} strokeWidth={2.5} />
+      {s.label}
+      <span className="font-data opacity-70">{count}</span>
+    </button>
+  );
+}
+
 // ─── Composant principal ────────────────────────────────────────────────────
 /**
- * Calendrier financier mode sombre. Les événements sont dérivés automatiquement
- * des tickers présents dans `positions` (lignes du portefeuille) via l'API
- * Yahoo Finance (v7/finance/quote, authentifiée par cookie+crumb côté
- * serveur). Se ré-actualise dès que la liste des tickers change (ajout /
- * suppression d'une ligne).
+ * Calendrier financier mode sombre, alimenté automatiquement par les tickers
+ * du portefeuille ET ceux de la watchlist, via l'API Yahoo Finance
+ * (v7/finance/quote + v10/quoteSummary, authentifiés côté serveur).
+ * Se ré-actualise dès que la liste des tickers change.
  *
- * positions attendu : [{ ticker, name }, ...] — un simple sous-ensemble des
- * positions du portefeuille suffit.
+ * Deux niveaux de lecture volontairement distincts :
+ *   - les lignes réellement détenues ressortent (bordure pleine + halo coloré) ;
+ *   - les valeurs seulement surveillées restent sobres (bordure discontinue,
+ *     couleurs atténuées), pour ne pas détourner l'attention des vrais actifs.
+ *
+ * positions : [{ ticker, name }, ...]  — lignes du portefeuille
+ * watchlist : [{ ticker, name }, ...]  — valeurs surveillées
  */
-export default function FinancialCalendar({ positions = [] }) {
+export default function FinancialCalendar({ positions = [], watchlist = [] }) {
   const [view, setView] = useState("grid"); // "grid" | "timeline"
   const [cursor, setCursor] = useState(() => {
     const now = new Date();
@@ -290,11 +419,21 @@ export default function FinancialCalendar({ positions = [] }) {
   const [error, setError] = useState("");
   const [lastSync, setLastSync] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-
-  const tickers = useMemo(
-    () => [...new Set(positions.map((p) => p.ticker).filter(Boolean))],
-    [positions]
+  const [visibleSources, setVisibleSources] = useState({ portefeuille: true, watchlist: true });
+  const [visibleTypes, setVisibleTypes] = useState(() =>
+    Object.fromEntries(Object.keys(EVENT_TYPES).map((k) => [k, true]))
   );
+
+  // Un même titre peut être à la fois détenu et surveillé : le portefeuille
+  // l'emporte, sinon la ligne s'afficherait en sobre alors qu'elle est détenue.
+  const sourceByTicker = useMemo(() => {
+    const map = {};
+    watchlist.forEach((w) => { if (w.ticker) map[w.ticker] = "watchlist"; });
+    positions.forEach((p) => { if (p.ticker) map[p.ticker] = "portefeuille"; });
+    return map;
+  }, [positions, watchlist]);
+
+  const tickers = useMemo(() => Object.keys(sourceByTicker), [sourceByTicker]);
   const tickersKey = tickers.join(",");
 
   const load = useCallback(async () => {
@@ -306,10 +445,12 @@ export default function FinancialCalendar({ positions = [] }) {
     setError("");
     try {
       const results = await fetchCalendarEvents(tickers);
-      const merged = results.flatMap((r) => (r.ok ? r.events : []));
+      const merged = results.flatMap((r) =>
+        r.ok ? r.events.map((ev) => ({ ...ev, source: sourceByTicker[ev.ticker] || "watchlist" })) : []
+      );
       setEvents(merged);
       const failed = results.filter((r) => !r.ok).length;
-      if (failed > 0) setError(`${failed} ligne(s) sur ${results.length} sans calendrier disponible.`);
+      if (failed > 0) setError(`${failed} valeur(s) sur ${results.length} sans calendrier disponible.`);
       setLastSync(new Date());
     } catch {
       setError("Calendrier indisponible — vérifie ta connexion internet.");
@@ -319,19 +460,37 @@ export default function FinancialCalendar({ positions = [] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickersKey]);
 
-  // Se relance automatiquement dès que la composition du portefeuille change.
+  // Se relance automatiquement dès que la composition du portefeuille ou de
+  // la watchlist change.
   useEffect(() => {
     load();
   }, [load]);
 
+  const counts = useMemo(
+    () => ({
+      portefeuille: events.filter((e) => e.source === "portefeuille").length,
+      watchlist: events.filter((e) => e.source === "watchlist").length,
+    }),
+    [events]
+  );
+
+  const filteredEvents = useMemo(
+    () => events.filter((e) => visibleSources[e.source] !== false && visibleTypes[e.type] !== false),
+    [events, visibleSources, visibleTypes]
+  );
+
   const eventsByDate = useMemo(() => {
     const map = {};
-    events.forEach((ev) => {
-      if (!map[ev.date]) map[ev.date] = [];
-      map[ev.date].push(ev);
-    });
+    // Les lignes détenues passent devant dans une case chargée : ce sont
+    // elles qui doivent rester visibles quand le jour est tronqué à 3 chips.
+    [...filteredEvents]
+      .sort((a, b) => (a.source === b.source ? 0 : a.source === "portefeuille" ? -1 : 1))
+      .forEach((ev) => {
+        if (!map[ev.date]) map[ev.date] = [];
+        map[ev.date].push(ev);
+      });
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const changeMonth = (delta) => {
     setCursor((c) => {
@@ -342,6 +501,9 @@ export default function FinancialCalendar({ positions = [] }) {
       return { year, month };
     });
   };
+
+  const toggleSource = (key) => setVisibleSources((s) => ({ ...s, [key]: !s[key] }));
+  const toggleType = (key) => setVisibleTypes((t) => ({ ...t, [key]: !t[key] }));
 
   // Skeleton uniquement au tout premier chargement (aucun événement encore connu) —
   // les actualisations suivantes gardent l'affichage existant pendant le refetch.
@@ -384,19 +546,46 @@ export default function FinancialCalendar({ positions = [] }) {
         </div>
       </div>
 
-      {/* Légende types d'événements */}
-      <div className="flex flex-wrap gap-3 mb-4">
+      {/* Filtres par origine — portefeuille mis en avant, watchlist en retrait */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <SourceFilter
+          source="portefeuille"
+          active={visibleSources.portefeuille}
+          count={counts.portefeuille}
+          onToggle={() => toggleSource("portefeuille")}
+        />
+        <SourceFilter
+          source="watchlist"
+          active={visibleSources.watchlist}
+          count={counts.watchlist}
+          onToggle={() => toggleSource("watchlist")}
+        />
+      </div>
+
+      {/* Légende / filtres par type d'événement */}
+      <div className="flex flex-wrap gap-2 mb-4">
         {Object.entries(EVENT_TYPES).map(([type, t]) => (
-          <span key={type} className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: t.color }}>
+          <button
+            key={type}
+            onClick={() => toggleType(type)}
+            aria-pressed={visibleTypes[type]}
+            className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-2 py-1 border transition-colors"
+            style={{
+              color: visibleTypes[type] ? t.color : "#555",
+              borderColor: visibleTypes[type] ? `${t.color}55` : "#222",
+              background: visibleTypes[type] ? `${t.color}12` : "transparent",
+            }}
+          >
             <EventDot type={type} />
             {type}
-          </span>
+          </button>
         ))}
       </div>
 
       {tickers.length === 0 ? (
         <p className="text-sm text-[#888] py-8 text-center border border-dashed border-[#2a2a2a] rounded-xl">
-          Ajoute des positions à ton portefeuille pour voir apparaître leurs événements.
+          Ajoute des positions à ton portefeuille ou des valeurs à ta watchlist pour voir apparaître
+          leurs événements.
         </p>
       ) : isInitialLoad ? (
         <SkeletonChart height={280} />
@@ -407,15 +596,21 @@ export default function FinancialCalendar({ positions = [] }) {
       ) : view === "grid" ? (
         <MonthGrid year={cursor.year} month={cursor.month} eventsByDate={eventsByDate} onMonthChange={changeMonth} onEventClick={setSelectedEvent} />
       ) : (
-        <TimelineView events={events} onEventClick={setSelectedEvent} />
+        <TimelineView events={filteredEvents} onEventClick={setSelectedEvent} />
       )}
 
       {error && events.length > 0 && <p className="text-[11px] text-[#ffb020] mt-3">{error}</p>}
       {lastSync && (
         <p className="text-[10px] text-[#666] mt-3">
-          Dernière synchro : {lastSync.toLocaleTimeString("fr-FR")} · {tickers.length} ligne(s) suivie(s) automatiquement
+          Dernière synchro : {lastSync.toLocaleTimeString("fr-FR")} · {positions.length} ligne(s) en
+          portefeuille et {watchlist.length} valeur(s) surveillée(s) suivies automatiquement.
         </p>
       )}
+      <p className="text-[10px] text-[#555] mt-1">
+        Source : Yahoo Finance. Les dates d'assemblée générale ne sont publiées par aucun endpoint
+        Yahoo public : aucune n'est donc inventée ici. Le chiffre d'affaires attendu apparaît comme
+        estimation rattachée à la publication des résultats.
+      </p>
 
       <EventModal ev={selectedEvent} onClose={() => setSelectedEvent(null)} />
     </div>
