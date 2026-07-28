@@ -13,8 +13,14 @@
     <meta name="apple-mobile-web-app-title" content="Patrium" />
 
     <title>Patrium</title>
+
+    <!-- Signature du réseau Orbit — composant hébergé par le hub -->
+    <script src="https://orbit-umber-sigma.vercel.app/orbit-header.js" defer></script>
   </head>
   <body class="bg-slate-950">
+    <!-- "static" au lieu de "compact" : le header défile au lieu de rester
+         collé, pour ne pas doubler la barre de navigation de l'app. -->
+    <orbit-header app-name="Patrium" theme="finance" static></orbit-header>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
