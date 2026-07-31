@@ -87,10 +87,63 @@ async function pushToCloud(key, value, userId, updatedAt) {
 // en ligne sans dépendre du cycle de vie des composants.
 const latestValues = new Map();
 
+// setState de chaque clé actuellement montée, pour pouvoir lui appliquer une
+// valeur cloud plus récente sans repasser par un remontage du composant (voir
+// pullAllFromCloud plus bas — c'est ce qui permet à la PWA du téléphone de se
+// mettre à jour sans que l'utilisateur ait à fermer/rouvrir l'app).
+const activeSetters = new Map();
+
 async function currentUserId() {
   const { data } = await supabase.auth.getUser();
   return data?.user?.id ?? null;
 }
+
+/**
+ * Va chercher la version cloud d'UNE clé et l'applique localement si elle est
+ * plus récente que ce qu'on a déjà (même arbitrage updated_at que dans l'effet
+ * de montage de usePersistentState).
+ */
+async function pullOneFromCloud(key, userId, setState) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("value, updated_at")
+    .eq("id", `${userId}:${key}`)
+    .maybeSingle();
+  if (error || !data) return;
+
+  const localUpdatedAt = readLocalUpdatedAt(key);
+  if (localUpdatedAt && data.updated_at && data.updated_at <= localUpdatedAt) return;
+
+  writeLocal(key, data.value, data.updated_at);
+  latestValues.set(key, { value: data.value, updatedAt: data.updated_at });
+  if (setState) setState(data.value);
+  markSynced(key);
+}
+
+/**
+ * Revérifie le cloud pour toutes les clés actuellement affichées. Déclenché
+ * quand l'onglet/l'app revient au premier plan et à intervalles réguliers tant
+ * qu'elle est visible — sans abonnement temps réel, juste de simples lectures
+ * périodiques, pour que deux appareils connectés au même compte finissent
+ * toujours par converger sans action manuelle.
+ */
+let isPolling = false;
+async function pullAllFromCloud() {
+  if (!isSupabaseConfigured || isPolling) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  isPolling = true;
+  try {
+    const userId = await currentUserId();
+    if (!userId) return;
+    for (const [key, setState] of activeSetters) {
+      await pullOneFromCloud(key, userId, setState);
+    }
+  } finally {
+    isPolling = false;
+  }
+}
+
+const POLL_INTERVAL_MS = 20_000;
 
 if (isSupabaseConfigured && typeof window !== "undefined") {
   markSyncEnabled();
@@ -101,6 +154,13 @@ if (isSupabaseConfigured && typeof window !== "undefined") {
       pushToCloud(key, entry.value, userId, entry.updatedAt);
     }
   });
+  // Retour au premier plan (on rouvre la PWA, on change d'onglet) : on revérifie
+  // tout de suite plutôt que d'attendre le prochain tick d'intervalle.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") pullAllFromCloud();
+  });
+  window.addEventListener("focus", pullAllFromCloud);
+  setInterval(pullAllFromCloud, POLL_INTERVAL_MS);
 }
 
 /**
@@ -125,6 +185,13 @@ export function usePersistentState(key, initialValue) {
   const hasHydrated = useRef(false);
   const skipNextPush = useRef(false);
   const pushTimer = useRef(null);
+
+  // Le poll périodique (pullAllFromCloud) a besoin de pouvoir appliquer une
+  // valeur cloud plus récente à ce composant précis, d'où cet enregistrement.
+  useEffect(() => {
+    activeSetters.set(key, setState);
+    return () => activeSetters.delete(key);
+  }, [key]);
 
   // Au montage : on compare la version cloud et la version locale, et on garde
   // la plus récente des deux.
