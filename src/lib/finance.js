@@ -73,7 +73,10 @@ export function upsertByDate(arr, entry) {
  * dont l'historique disponible peut démarrer à des dates différentes.
  */
 export function rebaseTo100(merged, keys) {
-  const startIndex = merged.findIndex((row) => keys.every((k) => row[k] != null));
+  // La date de départ doit avoir une base EXPLOITABLE pour chaque série, pas
+  // seulement une valeur non nulle : une base à 0 rend le rebasage impossible
+  // (division par zéro) et faisait disparaître la série sans le moindre signal.
+  const startIndex = merged.findIndex((row) => keys.every((k) => row[k] != null && row[k] !== 0));
   if (startIndex === -1) return [];
   const bases = {};
   keys.forEach((k) => {
@@ -86,6 +89,21 @@ export function rebaseTo100(merged, keys) {
     });
     return out;
   });
+}
+
+/**
+ * Date du jour au format ISO (AAAA-MM-JJ), dans le fuseau LOCAL.
+ *
+ * `new Date().toISOString().slice(0, 10)` renvoie la date UTC : en France
+ * (UTC+1/+2), tout ce qui se passe entre minuit et 2 h du matin était donc
+ * daté de la veille, alors que les libellés affichés à côté utilisent l'heure
+ * locale. Un relevé pris à 00 h 30 écrasait celui de la veille.
+ */
+export function todayIso(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /**
@@ -136,12 +154,26 @@ export function computeReturnMetrics(series) {
  * Résout l'équation : target = currentTotal * (1 + t)^n + (P * ((1 + t)^n - 1) / t)
  * en inversant pour trouver P (épargne mensuelle).
  */
-export function solveMonthlyForTarget({ target, currentTotal, livretsRate, bourseRate, years }) {
+export function solveMonthlyForTarget({
+  target,
+  currentTotal,
+  livretsRate,
+  bourseRate,
+  years,
+  livretsCapital,
+  bourseCapital,
+}) {
   const n = Math.max(1, years);
-  // On calcule le rendement moyen pondéré entre livrets et bourse
-  const avgRate = (livretsRate + bourseRate) / 2;
-  const t = avgRate;
-  
+  // Rendement moyen réellement pondéré par les montants placés sur chaque
+  // poche. La moyenne arithmétique simple (livretsRate + bourseRate) / 2
+  // utilisée avant supposait implicitement 50/50 : sur un patrimoine composé
+  // à 90 % de livrets, elle surestimait largement le rendement attendu et
+  // sous-estimait donc l'effort d'épargne nécessaire.
+  const wL = Number.isFinite(livretsCapital) ? Math.max(0, livretsCapital) : null;
+  const wB = Number.isFinite(bourseCapital) ? Math.max(0, bourseCapital) : null;
+  const totalWeight = wL != null && wB != null ? wL + wB : 0;
+  const t = totalWeight > 0 ? (livretsRate * wL + bourseRate * wB) / totalWeight : (livretsRate + bourseRate) / 2;
+
   // Croissance du capital existant
   const growth = Math.pow(1 + t, n);
   const capitalGrowth = currentTotal * growth;
@@ -268,9 +300,17 @@ export function computeBuyOperation(position, { quantity, price, fees = 0 }) {
 
 /**
  * VENTE — les frais se déduisent du montant récupéré. Une vente ne modifie
- * jamais le PRU des titres restants. La plus-value réalisée est définitive
- * et nette des frais d'achat (alloués au prorata des titres vendus) et de
- * vente.
+ * jamais le PRU des titres restants.
+ *
+ * La plus-value réalisée vaut (prix de vente − PRU) × quantité − frais de
+ * vente. Les frais d'ACHAT ne sont PAS re-soustraits ici : `computeBuyOperation`
+ * les a déjà incorporés au PRU. L'ancienne version les retranchait une seconde
+ * fois via `feesAchatAlloues`, ce qui doublait leur impact — achat de 10 titres
+ * à 100 € avec 5 € de frais (PRU 100,50) revendus à 100 € donnait une
+ * moins-value de 10 € au lieu des 5 € réellement perdus.
+ *
+ * `totalBuyFees` continue d'être décrémenté au prorata : il ne sert plus au
+ * calcul de la plus-value, seulement au suivi du total des frais payés.
  */
 export function computeSellOperation(position, { quantity, price, fees = 0 }) {
   const q = Number(quantity) || 0;
@@ -286,10 +326,355 @@ export function computeSellOperation(position, { quantity, price, fees = 0 }) {
 
   const montantNet = q * p - f;
   const newQuantity = currentQty - q;
-  const plusValueRealisee = (p - currentPru) * q - feesAchatAlloues - f;
+  const plusValueRealisee = (p - currentPru) * q - f;
   const newTotalBuyFees = Math.max(0, currentTotalBuyFees - feesAchatAlloues);
 
   return { montantNet, newQuantity, plusValueRealisee, newTotalBuyFees };
+}
+
+// ─── COMPTABILITÉ DÉRIVÉE DU JOURNAL D'OPÉRATIONS ────────────────────────────
+// `bourse.operations` est la source de vérité. Les positions (quantité, PRU)
+// et les mouvements de cash en sont DÉDUITS, plutôt que mis à jour par petites
+// touches à chaque ordre. Avant, supprimer ou modifier une opération ne
+// rejouait rien : le journal et le portefeuille divergeaient définitivement,
+// sans aucun moyen de les réconcilier.
+
+/** Quantité en dessous de laquelle une position est considérée soldée. */
+const QTY_EPSILON = 1e-9;
+
+const normalizeTicker = (s) => String(s ?? "").trim().toUpperCase();
+
+/**
+ * Ordonne les opérations du plus ancien au plus récent.
+ *
+ * Le tableau stocké est ANTI-chronologique (chaque nouvel ordre est ajouté en
+ * tête). À date égale, on rejoue donc les indices décroissants pour retrouver
+ * l'ordre de saisie réel — sans quoi deux ordres du même jour sur le même
+ * titre (un achat puis une vente) se rejouaient à l'envers, et la vente était
+ * rejetée faute de titres.
+ */
+function chronologicalOperations(operations) {
+  return (operations || [])
+    .map((op, index) => ({ op, index }))
+    .filter(({ op }) => op && op.date)
+    .sort((a, b) => {
+      if (a.op.date !== b.op.date) return a.op.date < b.op.date ? -1 : 1;
+      return b.index - a.index;
+    })
+    .map(({ op }) => op);
+}
+
+/**
+ * Mouvement de trésorerie d'une opération, du point de vue de la poche de
+ * cash du compte-titres. Un achat sort de l'argent (prix + frais), une vente
+ * en fait rentrer (prix − frais), un dividende le crédite.
+ *
+ * Avant, seuls les dividendes touchaient `cash_pocket` : une vente retirait
+ * les titres du portefeuille sans que le produit de la vente réapparaisse
+ * nulle part. La valeur totale du portefeuille chutait donc du montant vendu,
+ * comme si l'argent s'était évaporé.
+ */
+export function operationCashDelta(op) {
+  if (!op) return 0;
+  const q = Number(op.quantity) || 0;
+  const p = Number(op.price) || 0;
+  const f = Number(op.fees) || 0;
+  const amount = Number(op.amount ?? op.montantNet ?? 0) || 0;
+  if (op.type === "DIVIDENDE") return amount;
+  if (op.type === "VERSEMENT") return Math.abs(amount);
+  if (op.type === "RETRAIT") return -Math.abs(amount);
+  if (op.type === "ACHAT") return -(q * p + f);
+  if (op.type === "VENTE") return q * p - f;
+  return 0;
+}
+
+/** Types d'opérations qui font entrer ou sortir de l'argent du compte. */
+export const CASH_MOVEMENT_TYPES = ["VERSEMENT", "RETRAIT"];
+
+/** Somme des mouvements de trésorerie de tout un journal. */
+export function totalCashDelta(operations) {
+  return (operations || []).reduce((s, op) => s + operationCashDelta(op), 0);
+}
+
+/**
+ * Ligne de base du grand livre.
+ *
+ * Reconstruire les positions à partir du journal ne peut pas s'appliquer
+ * rétroactivement sans risque : jusqu'ici les positions étaient tenues à la
+ * main ET par le journal, sans garantie que les deux se recoupent (lignes
+ * saisies directement dans l'onglet Bourse, portefeuille antérieur à la tenue
+ * du journal, imports partiels). Rejouer l'existant écraserait donc des
+ * quantités et des PRU saisis manuellement.
+ *
+ * La ligne de base fige l'état actuel comme point de départ : les positions
+ * et la poche de cash du jour de la migration sont conservées telles quelles,
+ * les opérations déjà enregistrées sont marquées « déjà comptabilisées », et
+ * seules les opérations ajoutées ENSUITE sont rejouées par-dessus. Aucune
+ * donnée existante n'est réinterprétée, et la comptabilité devient exacte à
+ * partir de maintenant.
+ */
+export function createLedgerBaseline(bourse) {
+  const lots = {};
+  for (const p of bourse?.positions || []) {
+    const ticker = normalizeTicker(p.ticker);
+    if (!ticker) continue;
+    lots[ticker] = {
+      quantity: Number(p.quantity) || 0,
+      pru: Number(p.pru) || 0,
+      totalBuyFees: Number(p.totalBuyFees) || 0,
+    };
+  }
+  // Versements déjà effectués au moment de la migration : prix de revient des
+  // titres détenus + cash disponible. C'est la meilleure estimation possible
+  // de « ce qui est sorti de la poche » pour un portefeuille antérieur à la
+  // tenue du journal, et l'ancrage de départ de la courbe Capital investi.
+  const investedOpening =
+    (bourse?.positions || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.pru) || 0), 0) +
+    (bourse?.cash_pocket || 0);
+
+  return {
+    at: todayIso(),
+    operationIds: (bourse?.operations || []).map((op) => op.id).filter(Boolean),
+    cashOpening: bourse?.cash_pocket || 0,
+    investedOpening,
+    // Uniquement les quantités/PRU de départ : surtout PAS un instantané
+    // complet des positions. Les métadonnées (cours actuel rafraîchi, nom,
+    // dividende annuel) continuent de vivre dans `bourse.positions` et seraient
+    // ramenées en arrière à chaque rejeu si elles étaient figées ici.
+    lots,
+  };
+}
+
+/** Opérations à rejouer : celles qui ne font pas partie de la ligne de base. */
+export function operationsAfterBaseline(operations, baseline) {
+  if (!baseline) return operations || [];
+  const frozen = new Set(baseline.operationIds || []);
+  return (operations || []).filter((op) => !frozen.has(op.id));
+}
+
+/**
+ * Reconstruit les positions en rejouant le journal d'opérations dans l'ordre
+ * chronologique, par-dessus les positions de la ligne de base.
+ *
+ * Ce que la fonction NE touche PAS, pour ne jamais écraser une saisie manuelle :
+ *  - les métadonnées de chaque position (nom, type, cours actuel, dividende
+ *    annuel, identifiant, secteur…) sont reprises telles quelles de la position
+ *    existante du même ticker ; seuls quantité / PRU / frais cumulés bougent ;
+ *  - une position qu'AUCUNE opération rejouée ne concerne est conservée
+ *    intacte, quantité et PRU compris — y compris une ligne ajoutée à la main
+ *    dans l'onglet Bourse après la mise en place de la ligne de base ;
+ *  - les lots de la ligne de base servent de socle : un achat rejoué s'y
+ *    ajoute en moyenne pondérée au lieu de repartir de zéro.
+ */
+export function rebuildPositionsFromOperations(operations, currentPositions = [], baselineLots = {}) {
+  const replayed = new Map(); // ticker normalisé -> { quantity, pru, totalBuyFees }
+
+  // Socle : les quantités/PRU figés au moment de la mise en place de la ligne
+  // de base. Un ticker absent du socle démarre à zéro — sa position actuelle
+  // est alors entièrement décrite par les opérations rejouées.
+  for (const [ticker, lot] of Object.entries(baselineLots || {})) {
+    replayed.set(normalizeTicker(ticker), {
+      quantity: Number(lot.quantity) || 0,
+      pru: Number(lot.pru) || 0,
+      totalBuyFees: Number(lot.totalBuyFees) || 0,
+      touched: false,
+      // Un titre présent dans le socle est TOUJOURS gouverné par le rejeu,
+      // même si aucune opération ne le concerne : c'est ce qui permet à la
+      // suppression d'un ordre de ramener réellement la position à son état
+      // de départ, au lieu de laisser en place la quantité déjà appliquée.
+      inBaseline: true,
+    });
+  }
+
+  for (const op of chronologicalOperations(operations)) {
+    if (op.type !== "ACHAT" && op.type !== "VENTE") continue; // les dividendes ne touchent aucune position
+    const ticker = normalizeTicker(op.asset);
+    if (!ticker) continue;
+    const current = replayed.get(ticker) || null;
+
+    if (op.type === "ACHAT") {
+      const { newQuantity, newPru, newTotalBuyFees } = computeBuyOperation(current, op);
+      replayed.set(ticker, { ...current, quantity: newQuantity, pru: newPru, totalBuyFees: newTotalBuyFees, touched: true });
+    } else {
+      // Vente sans titres au compteur : le journal est incohérent (ordre
+      // supprimé, import partiel). On l'ignore plutôt que de fabriquer une
+      // quantité négative qui rendrait tous les calculs aval absurdes.
+      if (!current || current.quantity <= QTY_EPSILON) continue;
+      const q = Math.min(Number(op.quantity) || 0, current.quantity);
+      const { newQuantity, newTotalBuyFees } = computeSellOperation(current, { ...op, quantity: q });
+      replayed.set(ticker, { ...current, quantity: newQuantity, pru: current.pru, totalBuyFees: newTotalBuyFees, touched: true });
+    }
+  }
+
+  const out = [];
+
+  // On repart de l'ordre d'affichage actuel pour ne pas réorganiser la liste
+  // sous les yeux de l'utilisateur à chaque ajout d'ordre.
+  for (const position of currentPositions || []) {
+    const ticker = normalizeTicker(position.ticker);
+    const state = replayed.get(ticker);
+    replayed.delete(ticker);
+    if (!state || (!state.touched && !state.inBaseline)) {
+      // Ni socle ni opération rejouée : ligne ajoutée à la main après la mise
+      // en place de la ligne de base, on n'y touche pas.
+      out.push(position);
+      continue;
+    }
+    if (state.quantity <= QTY_EPSILON) continue; // position intégralement soldée
+    out.push({ ...position, quantity: state.quantity, pru: state.pru, totalBuyFees: state.totalBuyFees });
+  }
+
+  // Titres apparus dans le journal mais absents du portefeuille.
+  for (const [ticker, state] of replayed) {
+    if (!state.touched || state.quantity <= QTY_EPSILON) continue;
+    out.push({
+      id: uid(),
+      ticker,
+      name: ticker,
+      type: "Action",
+      current_price: state.pru,
+      annual_dividend: 0,
+      quantity: state.quantity,
+      pru: state.pru,
+      totalBuyFees: state.totalBuyFees,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Cumul des versements réellement apportés au compte, jour par jour — la
+ * courbe « Capital investi ».
+ *
+ * Elle se déduit du journal d'opérations, PAS de l'état courant des positions.
+ * L'ancienne version traçait `Σ quantité × PRU`, c'est-à-dire le prix de
+ * revient des titres détenus à l'instant T : toute vente la faisait chuter, et
+ * un simple arbitrage (vendre A pour acheter B) creusait un trou dans une
+ * courbe qui ne peut, par définition, que croître.
+ *
+ * Conventions — seuls les mouvements d'argent AVEC L'EXTÉRIEUR comptent :
+ *  - un VERSEMENT augmente le cumul ;
+ *  - un RETRAIT le diminue — le seul cas où la courbe peut descendre ;
+ *  - un ACHAT ne change rien : l'argent était déjà sur le compte, il change
+ *    seulement de forme (cash → titres). C'est précisément l'erreur de
+ *    l'ancienne courbe, qui traitait chaque achat comme un apport ;
+ *  - une VENTE ne change rien non plus (titres → cash) ;
+ *  - un DIVIDENDE ne change rien : c'est un rendement, pas un apport personnel.
+ *
+ * La série est donc monotone non-décroissante en l'absence de retrait, par
+ * construction et non par accident.
+ */
+export function computeCumulativeContributions(operations) {
+  const byDate = new Map();
+  let cumul = 0;
+
+  for (const op of chronologicalOperations(operations)) {
+    if (op.type !== "VERSEMENT" && op.type !== "RETRAIT") continue;
+    cumul += operationCashDelta(op);
+    byDate.set(op.date, cumul); // une seule valeur par jour : la dernière
+  }
+
+  return [...byDate.entries()].map(([date, capital]) => ({ date, capital }));
+}
+
+/**
+ * Valeur du cumul des versements à une date donnée, pour aligner la courbe
+ * « Capital investi » sur les dates de l'historique de valorisation (qui a sa
+ * propre cadence, quotidienne). Renvoie le dernier palier atteint à cette date.
+ */
+export function contributionsAsOf(series, date) {
+  let value = 0;
+  for (const point of series) {
+    if (point.date > date) break;
+    value = point.capital;
+  }
+  return value;
+}
+
+/**
+ * Courbe « Capital investi » prête à l'emploi pour un état `bourse` complet :
+ * l'ancrage de départ (versements antérieurs au journal) plus le cumul des
+ * versements rejoués par-dessus.
+ *
+ * Remplace l'ancien `Σ quantité × PRU + cash`, qui mesurait le prix de revient
+ * des titres DÉTENUS à l'instant T : toute vente le faisait chuter, et un
+ * arbitrage (vendre A pour acheter B) creusait un trou dans une courbe qui ne
+ * peut, par construction, que croître.
+ */
+export function computeInvestedCapital(bourse) {
+  const baseline = bourse?.ledgerBaseline;
+  const replayable = baseline ? operationsAfterBaseline(bourse?.operations, baseline) : bourse?.operations || [];
+  const opening = baseline
+    ? baseline.investedOpening || 0
+    : (bourse?.positions || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.pru) || 0), 0) +
+      (bourse?.cash_pocket || 0);
+  return { opening, series: computeCumulativeContributions(replayable) };
+}
+
+/** Valeur de la courbe « Capital investi » à une date donnée. */
+export function investedCapitalAsOf({ opening, series }, date) {
+  return (opening || 0) + contributionsAsOf(series || [], date);
+}
+
+/**
+ * Applique un nouveau journal d'opérations à l'état `bourse`, en redéduisant
+ * positions, PRU et poche de cash.
+ *
+ * C'est le SEUL chemin par lequel `bourse.operations` doit être modifié :
+ * toute mutation (ajout, édition, suppression, purge) repasse par ici, ce qui
+ * garantit que le journal et le portefeuille ne peuvent plus diverger.
+ */
+export function applyOperationsToBourse(bourse, nextOperations) {
+  const baseline = bourse?.ledgerBaseline || createLedgerBaseline(bourse);
+  const replayable = operationsAfterBaseline(nextOperations, baseline);
+  return {
+    ...bourse,
+    ledgerBaseline: baseline,
+    operations: nextOperations,
+    positions: rebuildPositionsFromOperations(replayable, bourse?.positions, baseline.lots),
+    cash_pocket: (baseline.cashOpening || 0) + totalCashDelta(replayable),
+  };
+}
+
+/**
+ * Refixe la ligne de base sur l'état courant.
+ *
+ * À appeler après toute modification MANUELLE des positions (ajout, édition
+ * de quantité/PRU, suppression depuis l'onglet Bourse) : la saisie de
+ * l'utilisateur devient le nouveau point de départ, et les opérations déjà
+ * enregistrées passent en « déjà comptabilisées ».
+ *
+ * Sans ça, le prochain rejeu du journal recalculerait la position à partir de
+ * l'ancien socle et écraserait purement et simplement la correction manuelle.
+ */
+export function rebaselineLedger(bourse) {
+  return { ...bourse, ledgerBaseline: createLedgerBaseline(bourse) };
+}
+
+/**
+ * Enregistre un ajustement manuel de la poche de cash comme un vrai mouvement
+ * daté (VERSEMENT ou RETRAIT) plutôt que comme une écriture silencieuse.
+ *
+ * Sans ça, l'app n'aurait plus aucun moyen de distinguer « j'ai alimenté mon
+ * PEA » (un apport, qui doit faire monter la courbe Capital investi sans
+ * compter comme une performance) de « mes titres ont pris de la valeur ».
+ */
+export function buildCashAdjustment(currentCash, targetCash, date = todayIso()) {
+  const delta = Number(targetCash) - Number(currentCash);
+  if (!Number.isFinite(delta) || Math.abs(delta) < 0.005) return null;
+  return {
+    id: uid(),
+    date,
+    type: delta > 0 ? "VERSEMENT" : "RETRAIT",
+    asset: null,
+    amount: Math.abs(delta),
+    montantNet: Math.abs(delta),
+    quantity: null,
+    price: null,
+    fees: 0,
+    plusValueRealisee: null,
+  };
 }
 
 export function computeDividendSummary(positions) {
@@ -438,13 +823,28 @@ export function computeXIRR(history) {
       return sum + f.amount / Math.pow(1 + rate, years);
     }, 0);
 
-  let lo = -0.99, hi = 5;
+  // La dichotomie n'a de sens que si la racine est encadrée par les bornes.
+  // Sans cette vérification, un portefeuille hors intervalle (perte quasi
+  // totale, ou performance supérieure à +500 %/an) faisait converger la boucle
+  // vers une borne, et cette borne était renvoyée comme un taux valide.
+  let lo = -0.9999, hi = 5;
+  let npvLo = npv(lo);
+  let npvHi = npv(hi);
+  if (!Number.isFinite(npvLo) || !Number.isFinite(npvHi) || npvLo * npvHi > 0) return null;
+
   let mid = 0;
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 200; i++) {
     mid = (lo + hi) / 2;
     const val = npv(mid);
-    if (Math.abs(val) < 1e-6) break;
-    if (npv(lo) * val < 0) hi = mid; else lo = mid;
+    if (Math.abs(val) < 1e-7 || hi - lo < 1e-9) break;
+    // On ne recalcule que la borne effectivement déplacée.
+    if (npvLo * val < 0) {
+      hi = mid;
+      npvHi = val;
+    } else {
+      lo = mid;
+      npvLo = val;
+    }
   }
   return Number.isFinite(mid) ? mid * 100 : null;
 }
@@ -467,6 +867,7 @@ export function computeVolatility(history) {
 export function computeMaxDrawdown(history) {
   if (!history || history.length < 2) return null;
   let peak = history[0].valeur;
+  let peakDate = history[0].date;
   let maxDD = 0, maxDDDate = null, maxDDPeakDate = null, recoveryDate = null;
   let inDrawdown = false, currentPeakForDD = peak;
 
@@ -474,12 +875,17 @@ export function computeMaxDrawdown(history) {
     if (h.valeur >= peak) {
       if (inDrawdown && h.valeur >= currentPeakForDD) inDrawdown = false;
       peak = h.valeur;
+      peakDate = h.date;
     }
     const dd = peak > 0 ? ((h.valeur - peak) / peak) * 100 : 0;
     if (dd < maxDD) {
       maxDD = dd;
       maxDDDate = h.date;
-      maxDDPeakDate = history.find((x) => x.valeur === peak)?.date ?? null;
+      // `peakDate` doit être la date où ce sommet a été atteint le plus
+      // récemment AVANT le creux. Chercher la première valeur égale dans tout
+      // l'historique pouvait renvoyer une date des mois trop tôt, dès que deux
+      // journées partageaient la même valeur arrondie à l'euro.
+      maxDDPeakDate = peakDate;
       currentPeakForDD = peak;
       inDrawdown = true;
       recoveryDate = null;
@@ -613,8 +1019,15 @@ export function computeContribution(positions) {
 
 /**
  * Performance glissante sur plusieurs fenêtres (1M/3M/6M/1A/YTD/depuis
- * l'origine), en % de variation de `valeur`, mesurée par comparaison au
- * premier point disponible sur ou après la date cible.
+ * l'origine).
+ *
+ * Chaque fenêtre est mesurée en Time-Weighted Return, exactement comme
+ * `computeTWR` : les apports et retraits de capital survenus pendant la
+ * fenêtre sont neutralisés. L'ancienne version comparait brutalement la
+ * `valeur` de fin à celle de début, si bien qu'un versement de 1 000 € sur un
+ * portefeuille de 10 000 € s'affichait « +10 % de performance sur 1 mois »
+ * ici, alors que le TWR du même onglet indiquait ~0 %. Les deux chiffres
+ * étaient visibles côte à côte et se contredisaient.
  */
 export function computeRollingPerformance(history) {
   if (!history || history.length === 0) return null;
@@ -622,7 +1035,6 @@ export function computeRollingPerformance(history) {
   const latestDate = toDate(latest.date);
   const earliestDate = toDate(history[0].date);
 
-  const findOnOrAfter = (targetDate) => history.find((p) => toDate(p.date) >= targetDate) || history[0];
   const back = (months, years = 0) => {
     const d = new Date(latestDate);
     d.setFullYear(d.getFullYear() - years);
@@ -634,10 +1046,18 @@ export function computeRollingPerformance(history) {
   const changeFrom = (refDate) => {
     const tooShort = earliestDate.getTime() > refDate.getTime() + 5 * DAY_MS;
     if (tooShort) return null;
-    const ref = findOnOrAfter(refDate);
-    if (!ref || !ref.valeur) return null;
-    return ((latest.valeur - ref.valeur) / ref.valeur) * 100;
+    const startIndex = history.findIndex((p) => toDate(p.date) >= refDate);
+    if (startIndex === -1) return null;
+    // On démarre un cran avant la fenêtre quand c'est possible : le premier
+    // rendement quotidien a besoin d'un point de référence antérieur.
+    const slice = history.slice(Math.max(0, startIndex - 1));
+    if (slice.length < 2) return null;
+    const returns = computeDailyReturns(slice);
+    if (returns.length === 0) return null;
+    return (returns.reduce((acc, { r }) => acc * (1 + r / 100), 1) - 1) * 100;
   };
+
+  const overall = computeTWR(history);
 
   return {
     m1: changeFrom(back(1)),
@@ -645,7 +1065,7 @@ export function computeRollingPerformance(history) {
     m6: changeFrom(back(6)),
     y1: changeFrom(back(0, 1)),
     ytd: changeFrom(ytdStart),
-    sinceOrigin: history[0].valeur > 0 ? ((latest.valeur - history[0].valeur) / history[0].valeur) * 100 : null,
+    sinceOrigin: overall ? overall.totalReturnPct : null,
   };
 }
 
@@ -675,12 +1095,26 @@ export function computeTSR(history, operations) {
     .filter((op) => op.type === "DIVIDENDE" && op.date >= start && op.date <= end)
     .reduce((s, op) => s + (op.amount || op.montantNet || 0), 0);
 
-  const capitalStart = history[0].capital || history[0].valeur;
-  const valueEnd = history[history.length - 1].valeur;
-  const withoutDividends = capitalStart > 0 ? ((valueEnd - capitalStart) / capitalStart) * 100 : 0;
-  const withDividends = capitalStart > 0 ? ((valueEnd + dividendsInPeriod - capitalStart) / capitalStart) * 100 : 0;
+  // Le rendement de référence est le TWR de la période, neutralisé des
+  // apports. L'ancienne version rapportait la valeur finale au capital de
+  // départ : chaque versement effectué pendant la période était compté comme
+  // du rendement, ce qui surévaluait massivement le chiffre sur un plan
+  // d'investissement programmé.
+  const twr = computeTWR(history);
+  if (!twr) return null;
 
-  return { withDividends, withoutDividends, dividendsInPeriod };
+  // Les dividendes sont crédités sur la poche de cash : ils sont donc DÉJÀ
+  // dans la valeur du portefeuille, et donc déjà dans le TWR. C'est le
+  // rendement « hors dividendes » qu'il faut reconstituer en les retirant, et
+  // non l'inverse.
+  const values = history.map((h) => h.valeur).filter((v) => Number.isFinite(v) && v > 0);
+  const averageValue = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+  const dividendContributionPct = averageValue > 0 ? (dividendsInPeriod / averageValue) * 100 : 0;
+
+  const withDividends = twr.totalReturnPct;
+  const withoutDividends = withDividends - dividendContributionPct;
+
+  return { withDividends, withoutDividends, dividendsInPeriod, dividendContributionPct };
 }
 
 /**

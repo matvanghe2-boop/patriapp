@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Check, TrendingUp, TrendingDown, Coins } from "lucide-react";
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return todayIso();
 }
 
 /**

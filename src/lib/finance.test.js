@@ -163,13 +163,35 @@ describe("opérations boursières", () => {
   });
 
   it("VENTE : ne modifie pas le PRU et déduit les frais du montant reçu", () => {
-    const pos = { quantity: 10, pru: 100, totalBuyFees: 10 };
-    const r = computeSellOperation(pos, { quantity: 5, price: 120, fees: 3 });
+    // Position cohérente avec computeBuyOperation : 10 titres achetés à 99 €
+    // avec 10 € de frais donnent un PRU de 100 € — les frais d'achat sont
+    // DANS le PRU. L'ancienne fixture (pru 100 + totalBuyFees 10) était
+    // impossible à produire, ce qui masquait le double comptage des frais.
+    const pos = computeBuyOperation(null, { quantity: 10, price: 99, fees: 10 });
+    expect(pos.newPru).toBeCloseTo(100, 10);
+
+    const r = computeSellOperation(
+      { quantity: pos.newQuantity, pru: pos.newPru, totalBuyFees: pos.newTotalBuyFees },
+      { quantity: 5, price: 120, fees: 3 }
+    );
     expect(r.montantNet).toBe(597); // 5*120 - 3
     expect(r.newQuantity).toBe(5);
-    // PV = (120-100)*5 - frais achat alloués (10/10*5=5) - frais vente 3 = 92
-    expect(r.plusValueRealisee).toBeCloseTo(92, 10);
+    // PV = (120 - 100) * 5 - frais de vente 3 = 97.
+    // Les frais d'ACHAT ne sont pas re-soustraits : le PRU les contient déjà.
+    expect(r.plusValueRealisee).toBeCloseTo(97, 10);
     expect(r.newTotalBuyFees).toBeCloseTo(5, 10);
+  });
+
+  it("VENTE : les frais d'achat ne sont comptés qu'une seule fois", () => {
+    // Achat de 10 titres à 100 € + 5 € de frais = 1005 € décaissés.
+    // Revente immédiate des 10 titres à 100 € sans frais = 1000 € reçus.
+    // La perte réelle est donc de 5 € — exactement les frais d'achat.
+    const buy = computeBuyOperation(null, { quantity: 10, price: 100, fees: 5 });
+    const sell = computeSellOperation(
+      { quantity: buy.newQuantity, pru: buy.newPru, totalBuyFees: buy.newTotalBuyFees },
+      { quantity: 10, price: 100, fees: 0 }
+    );
+    expect(sell.plusValueRealisee).toBeCloseTo(-5, 10);
   });
 
   it("VENTE à perte : plus-value négative", () => {
@@ -447,9 +469,25 @@ describe("computeTSR", () => {
       { date: "2026-06-01", valeur: 1100, capital: 1000 },
     ];
     const r = computeTSR(history, [{ type: "DIVIDENDE", date: "2026-03-01", amount: 50 }]);
-    expect(r.withoutDividends).toBeCloseTo(10, 6);
-    expect(r.withDividends).toBeCloseTo(15, 6);
+    // Les dividendes sont crédités sur la poche de cash : ils sont donc déjà
+    // dans la valeur du portefeuille, et donc dans le TWR (+10 % ici). C'est
+    // le rendement HORS dividendes qui se reconstitue en les retranchant.
+    expect(r.withDividends).toBeCloseTo(10, 6);
+    expect(r.withDividends).toBeGreaterThan(r.withoutDividends);
     expect(r.dividendsInPeriod).toBe(50);
+  });
+
+  it("ne compte plus un versement comme du rendement", () => {
+    // Portefeuille strictement stable, mais alimenté de 1 000 € en cours de
+    // route. L'ancienne version rapportait la valeur finale au capital de
+    // départ et affichait +100 % de rendement.
+    const history = [
+      { date: "2026-01-01", valeur: 1000, capital: 1000 },
+      { date: "2026-06-01", valeur: 2000, capital: 2000 },
+    ];
+    const r = computeTSR(history, []);
+    expect(r.withDividends).toBeCloseTo(0, 6);
+    expect(r.withoutDividends).toBeCloseTo(0, 6);
   });
 
   it("ignore les dividendes hors période", () => {

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES } from "./ui";
-import { projectCompound, eur, pct, compact, solveMonthlyForTarget, applyInflation, generateVolatileReturns, uid } from "../lib/finance";
+import { projectCompound, eur, pct, compact, solveMonthlyForTarget, applyInflation, generateVolatileReturns, uid, todayIso } from "../lib/finance";
 import Immobilier from "./Immobilier";
 
 /**
@@ -111,6 +111,10 @@ export default function Simulation({
       livretsRate: livretsRate / 100,
       bourseRate: sim.bourse.rate / 100,
       years: targetYears,
+      // Pondération réelle des deux poches, pour que le rendement moyen
+      // reflète la composition du patrimoine et non un 50/50 implicite.
+      livretsCapital,
+      bourseCapital,
     });
     return result;
   }, [showInverse, targetCapital, targetYears, livretsCapital, bourseCapital, livretsRate, sim.bourse.rate]);
@@ -134,7 +138,7 @@ export default function Simulation({
       {
         id: uid(),
         name,
-        createdAt: new Date().toISOString().slice(0, 10),
+        createdAt: todayIso(),
         sim: { years: sim.years, livrets: { ...sim.livrets, capital: livretsCapital, rate: livretsRate }, bourse: { ...sim.bourse, capital: bourseCapital } },
         inflationRate,
         finalTotal: Math.round(final.total),

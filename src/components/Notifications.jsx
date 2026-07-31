@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Bell, BellRing, Plus, Trash2, Check, X } from "lucide-react";
-import { uid } from "../lib/finance";
+import { uid, todayIso } from "../lib/finance";
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => todayIso();
 const currentYearMonth = () => todayStr().slice(0, 7);
 
 /** Un rappel est dû si : mensuel et le jour du mois est atteint sans avoir

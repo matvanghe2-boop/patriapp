@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { TrendingUp, Coins, ShoppingCart, TrendingDown, Repeat, Sparkles } from "lucide-react";
 import { Card, EmptyState } from "./ui";
-import { eur } from "../lib/finance";
+import { eur, todayIso } from "../lib/finance";
 
 const MILESTONE_THRESHOLDS = [
   1000, 5000, 10000, 25000, 50000, 75000, 100000, 150000, 200000, 250000, 500000, 750000, 1000000,
@@ -12,7 +12,7 @@ function toDate(iso) {
 }
 
 function relativeLabel(iso) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const diffDays = Math.round((toDate(today) - toDate(iso)) / (1000 * 60 * 60 * 24));
   if (diffDays <= 0) return "Aujourd'hui";
   if (diffDays === 1) return "Hier";
@@ -41,7 +41,7 @@ const EVENT_STYLES = {
  * plus haut et chaque seuil rond franchi à la hausse.
  */
 function buildMilestoneEvents(historyPast, patrimoineNet) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const points = [...(historyPast || [])]
     .filter((h) => h.date && Number.isFinite(h.value))
     .sort((a, b) => (a.date < b.date ? -1 : 1));

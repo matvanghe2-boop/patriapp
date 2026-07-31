@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { uid } from "./finance";
+import { uid, todayIso } from "./finance";
 
 /**
  * Enregistre une fois par jour la valeur du patrimoine net dans l'historique.
@@ -16,7 +16,7 @@ import { uid } from "./finance";
  */
 export function useDailySnapshot({ patrimoineNet, historyPast, setHistoryPast, lastSnapshotDate, setLastSnapshotDate }) {
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso();
     if (lastSnapshotDate === today) return;
     // Un patrimoine à 0 signifie presque toujours « données pas encore
     // chargées » plutôt qu'un patrimoine réellement nul : on ne fige pas ça

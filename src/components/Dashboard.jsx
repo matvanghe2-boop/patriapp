@@ -8,7 +8,11 @@ import {
   Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap, ListChecks, ArrowRight, Scale,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore } from "../lib/finance";
+import {
+  eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore,
+  computeInvestedCapital, investedCapitalAsOf, todayIso,
+} from "../lib/finance";
+import { usePersistentState } from "../lib/storage";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import { FileDown, FileSpreadsheet, PieChart as PieIcon } from "lucide-react";
 
@@ -319,25 +323,25 @@ export default function Dashboard({
   const [showAddHistory, setShowAddHistory] = useState(false);
   const [timeFilter, setTimeFilter] = useState("ALL");
 
-  // Allocation target state
-  const [allocationTarget, setAllocationTarget] = useState(() => {
-    try {
-      const raw = localStorage.getItem("patrimoine:allocationTarget");
-      return raw ? JSON.parse(raw) : { bourse: 60 };
-    } catch { return { bourse: 60 }; }
-  });
-
-  // Persist allocation target
-  const saveAllocationTarget = (t) => {
-    setAllocationTarget(t);
-    try { localStorage.setItem("patrimoine:allocationTarget", JSON.stringify(t)); } catch {}
-  };
+  // Allocation cible — passe par l'état persistant, et donc par la
+  // synchronisation cloud. Elle était écrite en direct dans le localStorage :
+  // c'était la seule donnée de l'app à ne jamais suivre d'un appareil à
+  // l'autre, sans que rien ne le signale.
+  const [allocationTarget, saveAllocationTarget] = usePersistentState("allocationTarget", { bourse: 60 });
 
   const addDette = (v) => setDettes((d) => [...d, { id: uid(), name: v.name, amount: v.amount }]);
   const removeDette = (id) => setDettes((d) => d.filter((x) => x.id !== id));
   const addHistoryPoint = (v) => {
-    const today = new Date().toISOString().slice(0, 10);
-    setHistoryPast((h) => [...h, { id: uid(), label: v.label, value: parseFloat(v.value), date: v.date || today }]);
+    const today = todayIso();
+    // Tri chronologique à l'insertion : un point saisi avec une date passée
+    // atterrissait en fin de tableau, ce qui faisait faire des allers-retours
+    // dans le temps à la courbe et désignait le dernier point SAISI (et non le
+    // plus récent) comme référence du delta mensuel.
+    setHistoryPast((h) =>
+      [...h, { id: uid(), label: v.label, value: parseFloat(v.value), date: v.date || today }].sort((a, b) =>
+        (a.date || "") < (b.date || "") ? -1 : 1
+      )
+    );
     // Un point saisi à la main pour aujourd'hui tient lieu de relevé du jour :
     // sans ça, le relevé automatique en ajouterait un second en doublon.
     setLastSnapshotDate(v.date || today);
@@ -354,19 +358,30 @@ export default function Dashboard({
     return datesFromHistory[0] || null;
   }, [historyPast]);
 
-  // Delta vs last month
-  const lastPastPoint = historyPast[historyPast.length - 1]?.value ?? patrimoineNet;
+  // Delta vs last month — on prend le point le plus RÉCENT par date, et non le
+  // dernier inséré dans le tableau.
+  const lastPastPoint = useMemo(() => {
+    const dated = historyPast.filter((h) => h.date);
+    if (dated.length === 0) return patrimoineNet;
+    return dated.reduce((latest, h) => (h.date > latest.date ? h : latest)).value ?? patrimoineNet;
+  }, [historyPast, patrimoineNet]);
   const deltaVsLastMonth = patrimoineNet - lastPastPoint;
 
-  // Savings effort vs market gains
-  const versementsCumules = bourseInvested || 0;
+  // Effort d'épargne vs gains de marché. `versementsCumules` se lit désormais
+  // sur le journal d'opérations : `bourseInvested` (Σ quantité × PRU) est le
+  // prix de revient des titres DÉTENUS, qui chute à chaque vente et ne mesure
+  // donc pas ce qui a été versé.
+  const versementsCumules = useMemo(
+    () => investedCapitalAsOf(computeInvestedCapital(bourse), todayIso()),
+    [bourse]
+  );
   const gainsMarcheReels = bourseGainAbs || 0;
 
   // Build chart data with time filter + projection
   const chartData = useMemo(() => {
     const allPoints = [
       ...historyPast.map((h) => ({ label: h.label, value: h.value, date: h.date })),
-      { label: "Aujourd'hui", value: Math.round(patrimoineNet), date: new Date().toISOString().slice(0, 10) },
+      { label: "Aujourd'hui", value: Math.round(patrimoineNet), date: todayIso() },
     ];
 
     // Apply time filter

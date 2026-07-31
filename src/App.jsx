@@ -7,6 +7,7 @@ import {
   exportAllData, importAllData, clearAllData, markBackupDone,
 } from "./lib/storage";
 import { usePatrimoine, STORAGE_KEYS } from "./lib/PatrimoineContext";
+import { todayIso } from "./lib/finance";
 import { useDailySnapshot } from "./lib/useDailySnapshot";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
@@ -90,7 +91,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `patrimoine-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `patrimoine-sauvegarde-${todayIso()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     markBackupDone();

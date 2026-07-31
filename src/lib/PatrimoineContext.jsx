@@ -23,7 +23,7 @@ export const STORAGE_KEYS = [
   "profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo",
   "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort",
   "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios",
-  "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate",
+  "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate", "allocationTarget",
 ];
 
 const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };

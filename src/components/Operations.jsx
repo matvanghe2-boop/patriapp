@@ -1,7 +1,10 @@
 import React, { useMemo, useRef, useState } from "react";
 import { UploadCloud, Plus, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles, Trash2, Coins } from "lucide-react";
 import { Card, CardLabel, GhostButton, EmptyState } from "./ui";
-import { eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash, sanitizeOperation } from "../lib/finance";
+import {
+  eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash, sanitizeOperation,
+  applyOperationsToBourse,
+} from "../lib/finance";
 import { parseOperationPdf } from "../lib/api";
 import OperationForm from "./OperationForm";
 import OperationList from "./OperationList";
@@ -57,6 +60,22 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     }
   }, [presetOperation, onConsumePreset]);
 
+  /**
+   * Applique un nouveau journal d'opérations à l'état `bourse`.
+   *
+   * C'est le SEUL chemin par lequel `operations` est modifié : positions,
+   * PRU et poche de cash en sont systématiquement redéduits. Avant, chaque
+   * ordre appliquait une petite retouche à `positions`, mais supprimer ou
+   * modifier une opération ne rejouait rien — le journal et le portefeuille
+   * divergeaient alors définitivement, sans moyen de les réconcilier.
+   *
+   * La ligne de base (créée à la première mutation) fige l'état existant :
+   * les opérations déjà enregistrées et les positions/cash du jour ne sont
+   * jamais réinterprétés, seules les opérations ajoutées ensuite sont
+   * rejouées par-dessus.
+   */
+  const applyLedger = applyOperationsToBourse;
+
   // ─── Comptabilisation d'un ordre (commune import PDF / saisie manuelle) ──
   const commitOperation = (order) => {
     const dedupeKey = order.transactionId || generateOperationHash(order);
@@ -66,15 +85,11 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
       return false;
     }
 
-    // Dividende / coupon perçu : vient créditer la poche de cash, ne touche
-    // à aucune position ni PRU.
+    // Dividende / coupon perçu : crédite la poche de cash (via applyLedger),
+    // ne touche à aucune position ni PRU.
     if (order.type === "DIVIDENDE") {
       const newOperation = sanitizeOperation({ id: uid(), ...order, montantNet: order.amount, plusValueRealisee: null });
-      setBourse((b) => ({
-        ...b,
-        cash_pocket: (b.cash_pocket || 0) + (order.amount || 0),
-        operations: [newOperation, ...(b.operations || [])],
-      }));
+      setBourse((b) => applyLedger(b, [newOperation, ...(b.operations || [])]));
       setFeedback({ type: "success", message: `Dividende enregistré : +${eur(order.amount, 2)} (${order.asset || "n/c"}).` });
       return true;
     }
@@ -83,48 +98,24 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     const existingPosition = positions.find((p) => p.ticker?.toUpperCase() === tickerKey);
 
     let montantNet, plusValueRealisee = null;
-    let newPositions;
 
     if (order.type === "ACHAT") {
-      const { montantNet: m, newQuantity, newPru, newTotalBuyFees } = computeBuyOperation(existingPosition, order);
-      montantNet = m;
-      if (existingPosition) {
-        newPositions = positions.map((p) =>
-          p.id === existingPosition.id ? { ...p, quantity: newQuantity, pru: newPru, totalBuyFees: newTotalBuyFees } : p
-        );
-      } else {
-        newPositions = [
-          ...positions,
-          {
-            id: uid(),
-            ticker: order.asset,
-            name: order.asset,
-            quantity: newQuantity,
-            pru: newPru,
-            current_price: order.price,
-            type: "Action",
-            annual_dividend: 0,
-            totalBuyFees: newTotalBuyFees,
-          },
-        ];
-      }
+      montantNet = computeBuyOperation(existingPosition, order).montantNet;
     } else {
       if (!existingPosition || existingPosition.quantity < order.quantity) {
         setFeedback({ type: "error", message: `Vente rejetée : quantité détenue insuffisante pour ${order.asset}.` });
         return false;
       }
-      const { montantNet: m, newQuantity, plusValueRealisee: pv, newTotalBuyFees } = computeSellOperation(existingPosition, order);
-      montantNet = m;
-      plusValueRealisee = pv;
-      newPositions =
-        newQuantity <= 0
-          ? positions.filter((p) => p.id !== existingPosition.id)
-          : positions.map((p) => (p.id === existingPosition.id ? { ...p, quantity: newQuantity, totalBuyFees: newTotalBuyFees } : p));
+      const sell = computeSellOperation(existingPosition, order);
+      montantNet = sell.montantNet;
+      plusValueRealisee = sell.plusValueRealisee;
     }
 
     const newOperation = sanitizeOperation({ id: uid(), ...order, montantNet, plusValueRealisee });
 
-    setBourse((b) => ({ ...b, positions: newPositions, operations: [newOperation, ...(b.operations || [])] }));
+    // Les positions ne sont plus retouchées à la main ici : `applyLedger` les
+    // redéduit intégralement du journal mis à jour.
+    setBourse((b) => applyLedger(b, [newOperation, ...(b.operations || [])]));
     setFeedback({ type: "success", message: `Opération enregistrée : ${order.type} ${order.quantity} ${order.asset}.` });
     return true;
   };
@@ -219,7 +210,12 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     if (!original) return false;
 
     let updated;
-    if (order.type === "DIVIDENDE") {
+    if (original.type === "VERSEMENT" || original.type === "RETRAIT") {
+      // Mouvement de trésorerie : seul le montant (et la date) a un sens ;
+      // le formulaire d'ordre ne sait pas les représenter, on préserve le type.
+      const amount = Math.abs(Number(order.amount ?? original.amount) || 0);
+      updated = { ...original, date: order.date || original.date, amount, montantNet: amount };
+    } else if (order.type === "DIVIDENDE") {
       updated = sanitizeOperation({ ...order, montantNet: order.amount, plusValueRealisee: null });
     } else {
       const montantNet =
@@ -229,8 +225,8 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
       updated = sanitizeOperation({ ...order, montantNet, plusValueRealisee: order.type === "VENTE" ? original.plusValueRealisee : null });
     }
 
-    setBourse((b) => ({ ...b, operations: (b.operations || []).map((op) => (op.id === order.id ? updated : op)) }));
-    setFeedback({ type: "success", message: "Opération modifiée. Les positions/PRU actuels n'ont pas été recalculés automatiquement." });
+    setBourse((b) => applyLedger(b, (b.operations || []).map((op) => (op.id === order.id ? updated : op))));
+    setFeedback({ type: "success", message: "Opération modifiée — positions, PRU et cash recalculés." });
     return true;
   };
 
@@ -241,14 +237,16 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
 
   // Suppression d'une opération — capture l'état précédent et propose un
   // Undo via le Toast Manager (5 secondes) plutôt qu'une confirmation
-  // bloquante. Les positions/PRU actuels ne sont pas recalculés (comme avant).
+  // bloquante. Positions, PRU et cash sont redéduits du journal restant : une
+  // suppression annule bien l'effet comptable de l'ordre, ce qui n'était pas
+  // le cas avant (le journal changeait, le portefeuille non).
   const deleteOperation = (id) => {
     const removed = operations.find((op) => op.id === id);
     if (!removed) return;
-    setBourse((b) => ({ ...b, operations: (b.operations || []).filter((op) => op.id !== id) }));
+    setBourse((b) => applyLedger(b, (b.operations || []).filter((op) => op.id !== id)));
     showToast({
       message: `Opération supprimée : ${removed.type} ${removed.asset || ""}.`.trim(),
-      onUndo: () => setBourse((b) => ({ ...b, operations: [removed, ...(b.operations || [])] })),
+      onUndo: () => setBourse((b) => applyLedger(b, [removed, ...(b.operations || [])])),
     });
   };
 
@@ -257,10 +255,10 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
   const clearAllOperations = () => {
     if (operations.length === 0) return;
     const previousOperations = operations;
-    setBourse((b) => ({ ...b, operations: [] }));
+    setBourse((b) => applyLedger(b, []));
     showToast({
       message: `Historique effacé (${previousOperations.length} opération(s)).`,
-      onUndo: () => setBourse((b) => ({ ...b, operations: previousOperations })),
+      onUndo: () => setBourse((b) => applyLedger(b, previousOperations)),
     });
   };
 

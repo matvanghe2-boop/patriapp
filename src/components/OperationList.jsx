@@ -52,10 +52,15 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
             >
               <td className="py-2.5 px-1 font-data tabular-nums text-slate-400">{formatDateShortFr(op.date)}</td>
               <td className="py-2.5 px-1 font-data font-semibold text-slate-100">
-                <div className="flex items-center gap-2">
-                  <AssetLogo ticker={op.asset} size="xs" />
-                  {op.asset}
-                </div>
+                {op.asset ? (
+                  <div className="flex items-center gap-2">
+                    <AssetLogo ticker={op.asset} size="xs" />
+                    {op.asset}
+                  </div>
+                ) : (
+                  // Versements et retraits ne portent sur aucun titre.
+                  <span className="text-slate-600">—</span>
+                )}
               </td>
               <td className="py-2.5 px-1">
                 <span
@@ -64,6 +69,10 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                       : op.type === "DIVIDENDE"
                       ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-300"
+                      : op.type === "VERSEMENT"
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                      : op.type === "RETRAIT"
+                      ? "bg-slate-500/10 border-slate-500/30 text-slate-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                   }`}
                 >

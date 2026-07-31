@@ -18,6 +18,8 @@ import {
   computeDrawdownSeries, computeSharpeRatio, computeBestWorst, computeAlphaBeta,
   computeContribution, computeRollingPerformance, computeFeeEfficiency, computeTSR,
   filterHistoryByRange, MIN_DAYS_FOR_ANNUALIZATION, MIN_POINTS_FOR_STATS,
+  computeInvestedCapital, investedCapitalAsOf, todayIso,
+  applyOperationsToBourse, buildCashAdjustment, rebaselineLedger,
 } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -49,7 +51,7 @@ const BENCHMARKS = [
 const BENCHMARK_KEYS = { "^GSPC": "sp500", "^FCHI": "cac40", URTH: "msciWorld" };
 const PIE_PALETTE = ["#a78bfa", "#d946ef", "#818cf8", "#c084fc", "#22d3ee", "#f472b6", "#8b5cf6", "#e879f9"];
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayIso();
 const formatDateShort = (d) => {
   if (!d) return "";
   const [y, m, day] = d.split("-");
@@ -291,6 +293,83 @@ function PeaFiscalWidget({ bourse, setBourse }) {
 }
 
 
+/**
+ * Avertit quand des positions sont cotées dans une autre devise que l'euro.
+ *
+ * Toute l'application additionne les `current_price` comme des euros et ne
+ * convertit jamais : sans ce signal, un titre coté en dollars était compté à
+ * parité 1:1 et faussait silencieusement la valeur du portefeuille, la
+ * plus-value et la répartition. Mieux vaut le dire que de laisser croire à un
+ * chiffre juste.
+ */
+function ForeignCurrencyWarning({ positions }) {
+  const foreign = (positions || []).filter((p) => p.currency && p.currency !== "EUR");
+  if (foreign.length === 0) return null;
+  const devises = [...new Set(foreign.map((p) => p.currency))].join(", ");
+
+  return (
+    <div className="flex items-start gap-2 text-xs rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 px-3 py-2">
+      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+      <span>
+        {foreign.length} position(s) cotée(s) en {devises} ({foreign.map((p) => p.ticker).join(", ")}).
+        Les montants sont additionnés sans conversion de change : la valeur totale, la plus-value et la
+        répartition sont approximatives tant que ces lignes ne sont pas converties en euros à la main.
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Poche de cash — modifiable à la main, mais tout écart est enregistré comme
+ * un mouvement daté (VERSEMENT ou RETRAIT) dans le journal d'opérations.
+ *
+ * Sans cette trace, l'application n'a aucun moyen de distinguer « j'ai
+ * alimenté mon PEA » d'« un gain de marché » : le versement serait compté
+ * comme de la performance dans le TWR, et la courbe Capital investi ne
+ * bougerait pas alors que de l'argent vient d'entrer.
+ *
+ * La saisie n'est validée qu'à la sortie du champ (ou sur Entrée) : sinon
+ * chaque frappe créerait sa propre écriture.
+ */
+function CashPocketCard({ bourse, setBourse }) {
+  const current = bourse.cash_pocket || 0;
+  const [draft, setDraft] = useState(String(current));
+
+  useEffect(() => {
+    setDraft(String(current));
+  }, [current]);
+
+  const commit = () => {
+    const target = parseFloat(draft);
+    if (!Number.isFinite(target)) {
+      setDraft(String(current));
+      return;
+    }
+    const movement = buildCashAdjustment(current, target);
+    if (!movement) return;
+    setBourse((b) => applyOperationsToBourse(b, [movement, ...(b.operations || [])]));
+  };
+
+  return (
+    <Card accent={CARD_THEMES.violet}>
+      <CardLabel icon={Wallet}>Poche cash disponible</CardLabel>
+      <div className="flex items-center gap-2 mt-1">
+        <input
+          type="number"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          title="Un changement est enregistré comme versement ou retrait daté dans le journal d'opérations."
+          className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
+        />
+        <span className="text-xs text-slate-600">€</span>
+      </div>
+      <p className="text-[11px] text-slate-600 mt-1">Versement ou retrait enregistré dans le journal</p>
+    </Card>
+  );
+}
+
 export default function Bourse({
   bourse, setBourse, bourseTotal, bourseInvested, bourseGainAbs, bourseGainPct,
   bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
@@ -333,25 +412,34 @@ export default function Bourse({
   const [trackLoading, setTrackLoading] = useState(false);
   const [trackError, setTrackError] = useState("");
 
+  // Toute retouche MANUELLE des positions refixe la ligne de base : la saisie
+  // de l'utilisateur devient le nouveau point de départ du grand livre. Sans
+  // ça, le prochain rejeu du journal repartirait de l'ancien socle et
+  // écraserait la correction qui vient d'être faite.
   const addPosition = (v) =>
-    setBourse((b) => ({
-      ...b,
-      positions: [
-        ...b.positions,
-        { id: uid(), ticker: v.ticker, name: v.name, quantity: v.quantity, pru: v.pru, current_price: v.current_price, type: v.type, annual_dividend: v.annual_dividend || 0 },
-      ],
-    }));
-  const removePosition = (id) => setBourse((b) => ({ ...b, positions: b.positions.filter((x) => x.id !== id) }));
+    setBourse((b) =>
+      rebaselineLedger({
+        ...b,
+        positions: [
+          ...b.positions,
+          { id: uid(), ticker: v.ticker, name: v.name, quantity: v.quantity, pru: v.pru, current_price: v.current_price, type: v.type, annual_dividend: v.annual_dividend || 0, currency: v.currency || "EUR" },
+        ],
+      })
+    );
+  const removePosition = (id) =>
+    setBourse((b) => rebaselineLedger({ ...b, positions: b.positions.filter((x) => x.id !== id) }));
 
   const startEdit = (p) => { setEditingId(p.id); setEditValues({ quantity: String(p.quantity), pru: String(p.pru), current_price: String(p.current_price), annual_dividend: String(p.annual_dividend || 0) }); };
   const cancelEdit = () => setEditingId(null);
   const saveEdit = (id) => {
-    setBourse((b) => ({
-      ...b,
-      positions: b.positions.map((p) =>
-        p.id === id ? { ...p, quantity: parseFloat(editValues.quantity) || 0, pru: parseFloat(editValues.pru) || 0, current_price: parseFloat(editValues.current_price) || 0, annual_dividend: parseFloat(editValues.annual_dividend) || 0 } : p
-      ),
-    }));
+    setBourse((b) =>
+      rebaselineLedger({
+        ...b,
+        positions: b.positions.map((p) =>
+          p.id === id ? { ...p, quantity: parseFloat(editValues.quantity) || 0, pru: parseFloat(editValues.pru) || 0, current_price: parseFloat(editValues.current_price) || 0, annual_dividend: parseFloat(editValues.annual_dividend) || 0 } : p
+        ),
+      })
+    );
     setEditingId(null);
   };
 
@@ -375,7 +463,12 @@ export default function Bourse({
                 changePct: ((q.price - q.previousClose) / q.previousClose) * 100,
               };
             }
-            return { ...p, current_price: q.price };
+            // La devise de cotation est mémorisée : tous les agrégats de
+            // l'app additionnent les `current_price` comme des euros, sans
+            // jamais convertir. Sans cette trace, un titre coté en USD était
+            // compté à parité 1:1 et faussait silencieusement valeur,
+            // plus-value et répartition.
+            return { ...p, current_price: q.price, currency: q.currency || p.currency || "EUR" };
           }
           return p;
         }),
@@ -408,7 +501,10 @@ export default function Bourse({
       quotes.forEach((q) => { if (q.ok) priceMap[q.symbol] = q.price; });
 
       const valeur = bourse.positions.reduce((sum, p) => sum + (priceMap[p.ticker] ?? p.current_price) * p.quantity, 0) + bourse.cash_pocket;
-      const capital = bourseInvested + bourse.cash_pocket;
+      // Cumul des versements, dérivé du journal d'opérations — et non plus
+      // `Σ quantité × PRU + cash`, qui chutait à chaque vente alors qu'aucun
+      // argent n'était sorti du compte.
+      const capital = investedCapitalAsOf(computeInvestedCapital(bourse), today());
 
       const entry = {
         date: today(),
@@ -497,6 +593,8 @@ export default function Bourse({
         <p className="text-sm text-slate-500 mt-1">Positions actions / ETF — analyse de portefeuille.</p>
       </div>
 
+      <ForeignCurrencyWarning positions={bourse.positions} />
+
       {/* Sous-onglets */}
       <div className="relative flex items-center gap-2 border-b border-slate-800 pb-1">
         <button
@@ -552,18 +650,7 @@ export default function Bourse({
           <div className={`font-display text-xl ghost-blur ${bourseGainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(bourseGainAbs)}</div>
           <div className={`text-xs mt-1 ${bourseGainAbs >= 0 ? "text-emerald-400/80" : "text-rose-400/80"}`}>{pct(bourseGainPct)}</div>
         </Card>
-        <Card accent={CARD_THEMES.violet}>
-          <CardLabel icon={Wallet}>Poche cash disponible</CardLabel>
-          <div className="flex items-center gap-2 mt-1">
-            <input
-              type="number"
-              value={bourse.cash_pocket}
-              onChange={(e) => setBourse((b) => ({ ...b, cash_pocket: parseFloat(e.target.value) || 0 }))}
-              className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
-            />
-            <span className="text-xs text-slate-600">€</span>
-          </div>
-        </Card>
+        <CashPocketCard bourse={bourse} setBourse={setBourse} />
       </div>
         <div className="mt-6">
          <PeaFiscalWidget bourse={bourse} setBourse={setBourse} />
@@ -1061,24 +1148,33 @@ function PerformanceTab({
 }) {
   const operations = bourse.operations || [];
 
-  const rangedHistory = useMemo(() => filterHistoryByRange(bourseHistory, perfRange), [bourseHistory, perfRange]);
+  // La courbe « Capital investi » est recalculée à l'affichage à partir du
+  // journal d'opérations, pour TOUS les points de l'historique — y compris
+  // ceux enregistrés avant le correctif, qui portent encore l'ancien
+  // `Σ quantité × PRU + cash` et faisaient plonger la courbe à chaque vente.
+  const history = useMemo(() => {
+    const invested = computeInvestedCapital(bourse);
+    return (bourseHistory || []).map((h) => ({ ...h, capital: Math.round(investedCapitalAsOf(invested, h.date)) }));
+  }, [bourseHistory, bourse]);
+
+  const rangedHistory = useMemo(() => filterHistoryByRange(history, perfRange), [history, perfRange]);
    const deleteHistoryPoint = (date) => {
     if (!window.confirm(`Supprimer le point du ${formatDateShort(date)} de l'historique ?`)) return;
     setBourseHistory((h) => h.filter((e) => e.date !== date));
   };
-  const twr = useMemo(() => computeTWR(bourseHistory), [bourseHistory]);
-  const xirr = useMemo(() => computeXIRR(bourseHistory), [bourseHistory]);
-  const volatility = useMemo(() => computeVolatility(bourseHistory), [bourseHistory]);
-  const maxDD = useMemo(() => computeMaxDrawdown(bourseHistory), [bourseHistory]);
+  const twr = useMemo(() => computeTWR(history), [history]);
+  const xirr = useMemo(() => computeXIRR(history), [history]);
+  const volatility = useMemo(() => computeVolatility(history), [history]);
+  const maxDD = useMemo(() => computeMaxDrawdown(history), [history]);
   const drawdownSeries = useMemo(() => computeDrawdownSeries(rangedHistory), [rangedHistory]);
   const drawdownByDate = useMemo(() => Object.fromEntries(drawdownSeries.map((d) => [d.date, d.ddPct])), [drawdownSeries]);
-  const sharpe = useMemo(() => computeSharpeRatio(bourseHistory), [bourseHistory]);
-  const bestWorst = useMemo(() => computeBestWorst(bourseHistory), [bourseHistory]);
-  const alphaBeta = useMemo(() => computeAlphaBeta(bourseHistory, "sp500"), [bourseHistory]);
+  const sharpe = useMemo(() => computeSharpeRatio(history), [history]);
+  const bestWorst = useMemo(() => computeBestWorst(history), [history]);
+  const alphaBeta = useMemo(() => computeAlphaBeta(history, "sp500"), [history]);
   const contribution = useMemo(() => computeContribution(bourse.positions), [bourse.positions]);
-  const rolling = useMemo(() => computeRollingPerformance(bourseHistory), [bourseHistory]);
+  const rolling = useMemo(() => computeRollingPerformance(history), [history]);
   const feeEfficiency = useMemo(() => computeFeeEfficiency(operations, bourseGainAbs), [operations, bourseGainAbs]);
-  const tsr = useMemo(() => computeTSR(bourseHistory, operations), [bourseHistory, operations]);
+  const tsr = useMemo(() => computeTSR(history, operations), [history, operations]);
 
   const base100Data = useMemo(() => rebaseTo100(rangedHistory, ["valeur", ...selectedBenchmarks.map((s) => ALL_BENCHMARK_KEYS[s])]), [rangedHistory, selectedBenchmarks]);
 
@@ -1648,7 +1744,7 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
     if (manual) {
       onSubmit({ ticker: query.toUpperCase(), name: query, type: "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: parseFloat(pru), annual_dividend: parseFloat(annualDividend) || 0 });
     } else {
-      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: selected.current_price || 0, annual_dividend: parseFloat(annualDividend) || 0 });
+      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: selected.current_price || 0, annual_dividend: parseFloat(annualDividend) || 0, currency: selected.currency || "EUR" });
     }
     onClose();
   };

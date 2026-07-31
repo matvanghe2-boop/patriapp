@@ -1,3 +1,5 @@
+import { todayIso } from "./finance";
+
 // Export "1 clic" du patrimoine, sans dépendance externe :
 // - Excel : table HTML servie avec l'extension .xls, qu'Excel/LibreOffice
 //   ouvrent nativement (méthode standard sans librairie).
@@ -45,7 +47,7 @@ export function exportToExcel(data) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `patrimoine-export-${new Date().toISOString().slice(0, 10)}.xls`;
+  a.download = `patrimoine-export-${todayIso()}.xls`;
   a.click();
   URL.revokeObjectURL(url);
 }

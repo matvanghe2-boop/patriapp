@@ -5,7 +5,7 @@ import {
   ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, uid, guessEnvelope } from "../lib/finance";
+import { eur, uid, guessEnvelope, todayIso } from "../lib/finance";
 import RatesHub from "./RatesHub";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
@@ -39,7 +39,7 @@ function useMatelasTrend(matelasMois) {
 
   useEffect(() => {
     if (!Number.isFinite(matelasMois)) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso();
     try {
       const raw = localStorage.getItem("patrimoine:matelasHistory");
       const stored = raw ? JSON.parse(raw) : null;

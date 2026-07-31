@@ -4,6 +4,7 @@ import {
   FileBarChart, Users, X, Briefcase, Eye, Megaphone, BarChart3,
 } from "lucide-react";
 import { fetchCalendarEvents } from "../lib/api";
+import { todayIso } from "../lib/finance";
 import { SkeletonChart } from "./ui";
 
 // ─── Types d'événements ─────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ const MONTH_NAMES = [
 ];
 const DAY_NAMES = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
-const isoToday = () => new Date().toISOString().slice(0, 10);
+const isoToday = () => todayIso();
 
 function formatDateFr(iso) {
   if (!iso) return "";
