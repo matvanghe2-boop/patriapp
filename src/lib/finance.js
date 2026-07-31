@@ -424,13 +424,18 @@ export function createLedgerBaseline(bourse) {
       totalBuyFees: Number(p.totalBuyFees) || 0,
     };
   }
-  // Versements déjà effectués au moment de la migration : prix de revient des
-  // titres détenus + cash disponible. C'est la meilleure estimation possible
-  // de « ce qui est sorti de la poche » pour un portefeuille antérieur à la
-  // tenue du journal, et l'ancrage de départ de la courbe Capital investi.
+  // Ancrage de la courbe Capital investi : le total versé saisi à la main dans
+  // « Plafond de versements PEA ». C'est le seul chiffre exact — l'utilisateur
+  // le connaît, contrairement à toute reconstitution automatique.
+  //
+  // À défaut (champ jamais renseigné), on retombe sur la meilleure estimation
+  // possible : prix de revient des titres détenus + cash disponible.
+  const declared = Number(bourse?.peaVersements) || 0;
   const investedOpening =
-    (bourse?.positions || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.pru) || 0), 0) +
-    (bourse?.cash_pocket || 0);
+    declared > 0
+      ? declared
+      : (bourse?.positions || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.pru) || 0), 0) +
+        (bourse?.cash_pocket || 0);
 
   return {
     at: todayIso(),
@@ -605,10 +610,14 @@ export function contributionsAsOf(series, date) {
 export function computeInvestedCapital(bourse) {
   const baseline = bourse?.ledgerBaseline;
   const replayable = baseline ? operationsAfterBaseline(bourse?.operations, baseline) : bourse?.operations || [];
+  // Avant toute écriture au grand livre, l'ancrage est le total versé saisi à
+  // la main : la courbe est donc correcte dès le premier affichage, sans
+  // attendre qu'une opération vienne créer la ligne de base.
   const opening = baseline
     ? baseline.investedOpening || 0
-    : (bourse?.positions || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.pru) || 0), 0) +
-      (bourse?.cash_pocket || 0);
+    : Number(bourse?.peaVersements) ||
+      (bourse?.positions || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.pru) || 0), 0) +
+        (bourse?.cash_pocket || 0);
   return { opening, series: computeCumulativeContributions(replayable) };
 }
 
@@ -628,13 +637,20 @@ export function investedCapitalAsOf({ opening, series }, date) {
 export function applyOperationsToBourse(bourse, nextOperations) {
   const baseline = bourse?.ledgerBaseline || createLedgerBaseline(bourse);
   const replayable = operationsAfterBaseline(nextOperations, baseline);
-  return {
+  const next = {
     ...bourse,
     ledgerBaseline: baseline,
     operations: nextOperations,
     positions: rebuildPositionsFromOperations(replayable, bourse?.positions, baseline.lots),
     cash_pocket: (baseline.cashOpening || 0) + totalCashDelta(replayable),
   };
+
+  // Le total versé PEA suit désormais les mouvements de trésorerie : il part
+  // du chiffre saisi à la main et monte à chaque versement, descend à chaque
+  // retrait. La jauge de plafond et la courbe Capital investi affichent donc
+  // le même nombre, au lieu de vivre chacune de leur côté.
+  next.peaVersements = Math.max(0, Math.round(investedCapitalAsOf(computeInvestedCapital(next), todayIso())));
+  return next;
 }
 
 /**

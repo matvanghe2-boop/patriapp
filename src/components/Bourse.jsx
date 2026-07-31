@@ -229,8 +229,14 @@ function PeaFiscalWidget({ bourse, setBourse }) {
   const pctPlafond = Math.min(100, (versements / PEA_PLAFOND_VERSEMENTS) * 100);
   const age = computePeaAge(bourse.peaOuverture);
 
+  // Le total versé saisi ici est l'ancrage de la courbe « Capital investi » :
+  // on refixe donc la ligne de base pour qu'il devienne le nouveau point de
+  // départ. Sans ça, le chiffre serait immédiatement recalculé à partir de
+  // l'ancien ancrage et la correction manuelle serait perdue.
   const save = () => {
-    setBourse((b) => ({ ...b, peaOuverture: draft.peaOuverture, peaVersements: parseFloat(draft.peaVersements) || 0 }));
+    setBourse((b) =>
+      rebaselineLedger({ ...b, peaOuverture: draft.peaOuverture, peaVersements: parseFloat(draft.peaVersements) || 0 })
+    );
     setEditing(false);
   };
 
@@ -252,6 +258,9 @@ function PeaFiscalWidget({ bourse, setBourse }) {
           <div>
             <label className="text-[11px] text-slate-500 block mb-1">Total versé (€)</label>
             <input type="number" step="100" value={draft.peaVersements} onChange={(e) => setDraft((d) => ({ ...d, peaVersements: e.target.value }))} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
+            <p className="text-[10px] text-slate-600 mt-1 max-w-[13rem]">
+              Point de départ de la courbe « Capital investi ». Il évoluera ensuite tout seul à chaque versement ou retrait de cash.
+            </p>
           </div>
           <button onClick={save} className="text-xs font-semibold bg-violet-400 hover:bg-violet-300 text-slate-950 rounded-lg px-3 py-1.5">Enregistrer</button>
         </div>

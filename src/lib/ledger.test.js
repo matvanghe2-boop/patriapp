@@ -156,6 +156,7 @@ describe("applyOperationsToBourse", () => {
   it("cree une ligne de base qui fige l'existant", () => {
     const next = applyOperationsToBourse(bourse, []);
     expect(next.ledgerBaseline.cashOpening).toBe(500);
+    // Pas de total verse declare : on retombe sur l'estimation titres + cash.
     expect(next.ledgerBaseline.investedOpening).toBe(10 * 160 + 500);
     expect(next.positions).toHaveLength(1);
     expect(next.positions[0]).toMatchObject({
@@ -220,6 +221,59 @@ describe("buildCashAdjustment", () => {
 
   it("ignore un non-changement", () => {
     expect(buildCashAdjustment(500, 500)).toBeNull();
+  });
+});
+
+describe("ancrage sur le total verse PEA saisi a la main", () => {
+  // Le portefeuille vaut 1600 EUR de titres + 500 de cash, mais l'utilisateur
+  // sait qu'il a reellement verse 12 000 EUR (le reste est de la plus-value,
+  // ou des titres revendus). C'est SON chiffre qui fait foi.
+  const bourse = {
+    cash_pocket: 500,
+    peaVersements: 12000,
+    positions: [{ id: "p1", ticker: "AI.PA", quantity: 10, pru: 160, current_price: 175 }],
+    operations: [],
+  };
+
+  it("ancre la courbe sur peaVersements plutot que sur une reconstitution", () => {
+    expect(computeInvestedCapital(bourse).opening).toBe(12000);
+    const next = applyOperationsToBourse(bourse, []);
+    expect(next.ledgerBaseline.investedOpening).toBe(12000);
+    expect(next.peaVersements).toBe(12000);
+  });
+
+  it("la courbe est correcte des le premier affichage, sans ligne de base", () => {
+    expect(investedCapitalAsOf(computeInvestedCapital(bourse), "2026-01-01")).toBe(12000);
+  });
+
+  it("le total verse monte avec un apport de cash et descend avec un retrait", () => {
+    const base = applyOperationsToBourse(bourse, []);
+    const versement = { id: "v", date: "2026-02-01", type: "VERSEMENT", amount: 1000 };
+    const apres = applyOperationsToBourse(base, [versement]);
+    expect(apres.peaVersements).toBe(13000);
+    expect(apres.cash_pocket).toBe(1500);
+
+    const retrait = { id: "r", date: "2026-03-01", type: "RETRAIT", amount: 400 };
+    const apres2 = applyOperationsToBourse(apres, [retrait, versement]);
+    expect(apres2.peaVersements).toBe(12600);
+    expect(apres2.cash_pocket).toBe(1100);
+  });
+
+  it("un achat ne gonfle pas le total verse : l'argent etait deja la", () => {
+    const base = applyOperationsToBourse(bourse, []);
+    const achat = { id: "a", date: "2026-02-01", type: "ACHAT", asset: "AI.PA", quantity: 2, price: 150, fees: 1 };
+    const apres = applyOperationsToBourse(base, [achat]);
+    expect(apres.peaVersements).toBe(12000);
+    expect(apres.cash_pocket).toBe(500 - 301);
+  });
+
+  it("une vente ne fait pas descendre le total verse", () => {
+    const base = applyOperationsToBourse(bourse, []);
+    const vente = { id: "s", date: "2026-02-01", type: "VENTE", asset: "AI.PA", quantity: 10, price: 200, fees: 0 };
+    const apres = applyOperationsToBourse(base, [vente]);
+    expect(apres.peaVersements).toBe(12000);
+    expect(apres.positions).toEqual([]);
+    expect(apres.cash_pocket).toBe(2500);
   });
 });
 
