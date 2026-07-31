@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, Check } from "lucide-react";
-import { useSyncStatus, useRetrySync } from "../lib/storage";
+import { useSyncStatus, useRetrySync, useManualRefresh } from "../lib/storage";
 
 /**
  * Petit témoin d'état de la synchronisation multi-appareils.
@@ -14,16 +14,27 @@ import { useSyncStatus, useRetrySync } from "../lib/storage";
 export default function SyncIndicator() {
   const { status, pending, failed, lastSyncedAt, lastError } = useSyncStatus();
   const retry = useRetrySync();
+  const manualRefresh = useManualRefresh();
+  const [refreshing, setRefreshing] = useState(false);
 
   if (status === "off") return null;
 
   const relative = lastSyncedAt ? formatRelative(lastSyncedAt) : null;
 
+  // Toujours actionnable, quel que soit l'état affiché : on relit le cloud
+  // (pour récupérer ce qu'un autre appareil a écrit) ET on repousse ce qui
+  // serait resté coincé localement (utile en cas d'échec).
+  const handleClick = async () => {
+    setRefreshing(true);
+    await Promise.all([manualRefresh(), retry()]);
+    setRefreshing(false);
+  };
+
   const VIEWS = {
     idle: {
       Icon: lastSyncedAt ? Check : Cloud,
       tone: "text-slate-500 hover:text-slate-300",
-      label: lastSyncedAt ? `Synchronisé ${relative}` : "Synchronisation active",
+      label: lastSyncedAt ? `Synchronisé ${relative} — cliquer pour actualiser` : "Synchronisation active — cliquer pour actualiser",
       spin: false,
     },
     syncing: {
@@ -47,22 +58,19 @@ export default function SyncIndicator() {
   };
 
   const view = VIEWS[status] || VIEWS.idle;
-  const actionable = status === "error";
 
   return (
     <button
       type="button"
-      onClick={actionable ? retry : undefined}
+      onClick={handleClick}
       aria-label={view.label}
       title={view.label}
       // L'état est annoncé aux lecteurs d'écran quand il change, mais sans
       // interrompre : "polite" attend une pause dans la lecture en cours.
       aria-live="polite"
-      className={`flex items-center gap-1.5 text-xs rounded-lg px-2 py-1.5 border border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 ${view.tone} ${
-        actionable ? "hover:border-rose-500/30 cursor-pointer" : "cursor-default"
-      }`}
+      className={`flex items-center gap-1.5 text-xs rounded-lg px-2 py-1.5 border border-transparent transition-colors cursor-pointer hover:border-slate-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 ${view.tone}`}
     >
-      <view.Icon size={14} className={view.spin ? "animate-spin" : ""} aria-hidden="true" />
+      <view.Icon size={14} className={view.spin || refreshing ? "animate-spin" : ""} aria-hidden="true" />
       {status === "error" && <span className="hidden sm:inline">Non synchronisé</span>}
     </button>
   );

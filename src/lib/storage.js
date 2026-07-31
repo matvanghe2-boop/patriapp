@@ -143,22 +143,37 @@ async function pullAllFromCloud() {
   }
 }
 
-const POLL_INTERVAL_MS = 20_000;
+const POLL_INTERVAL_MS = 10_000;
+
+/**
+ * Pousse immédiatement tout ce qu'on a en mémoire, sans attendre le débounce
+ * de 800ms. Sans ça, fermer l'onglet/l'app juste après une saisie (cas très
+ * courant sur ordi : on modifie une valeur puis on referme direct) pouvait
+ * perdre la modification côté cloud — elle restait bien en local sur cet
+ * appareil, mais un autre appareil ne la verrait jamais tant que celui-ci ne
+ * rouvrait pas l'app pour la repousser.
+ */
+async function flushAllToCloud() {
+  if (!isSupabaseConfigured || latestValues.size === 0) return;
+  const userId = await currentUserId();
+  if (!userId) return;
+  for (const [key, entry] of latestValues) {
+    pushToCloud(key, entry.value, userId, entry.updatedAt);
+  }
+}
 
 if (isSupabaseConfigured && typeof window !== "undefined") {
   markSyncEnabled();
-  window.addEventListener("online", async () => {
-    const userId = await currentUserId();
-    if (!userId) return;
-    for (const [key, entry] of latestValues) {
-      pushToCloud(key, entry.value, userId, entry.updatedAt);
-    }
-  });
+  window.addEventListener("online", flushAllToCloud);
   // Retour au premier plan (on rouvre la PWA, on change d'onglet) : on revérifie
   // tout de suite plutôt que d'attendre le prochain tick d'intervalle.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") pullAllFromCloud();
+    else flushAllToCloud();
   });
+  // pagehide couvre aussi la fermeture d'onglet/app, que visibilitychange ne
+  // déclenche pas toujours de façon fiable selon les navigateurs.
+  window.addEventListener("pagehide", flushAllToCloud);
   window.addEventListener("focus", pullAllFromCloud);
   setInterval(pullAllFromCloud, POLL_INTERVAL_MS);
 }
@@ -288,6 +303,16 @@ export function useRetrySync() {
       await pushToCloud(key, entry.value, userId, entry.updatedAt);
     }
   }, []);
+}
+
+/**
+ * Bouton "Actualiser" manuel : relit le cloud tout de suite et applique ce
+ * qu'il trouve de plus récent, sans attendre le prochain tick de polling. Le
+ * moyen le plus simple et le plus fiable de forcer la synchro à la demande,
+ * quel que soit l'appareil.
+ */
+export function useManualRefresh() {
+  return useCallback(() => pullAllFromCloud(), []);
 }
 
 export function exportAllData(keys) {
