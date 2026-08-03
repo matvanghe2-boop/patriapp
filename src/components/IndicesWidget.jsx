@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { fetchQuotes } from "../lib/api";
 import { INDEX_TABS, INDEX_CONSTITUENTS } from "../lib/indexConstituents";

@@ -6,8 +6,23 @@ import { todayIso } from "./finance";
 // - PDF : fenêtre imprimable dédiée, l'utilisateur choisit "Enregistrer en PDF"
 //   dans la boîte de dialogue d'impression du navigateur.
 
+/**
+ * Échappement HTML commun aux deux exports. L'export Excel l'appliquait déjà ;
+ * l'export PDF injectait en revanche les noms de supports et de positions
+ * bruts dans un `document.write`. Ces noms proviennent en partie de Yahoo
+ * Finance, donc d'une source externe : un simple « & » ou « < » dans un
+ * libellé suffisait à casser la page d'impression.
+ */
+function escapeHtml(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function buildReportRows({
-  patrimoineBrut, patrimoineNet, dettesTotal, livretsTotal, bourseTotal, cash,
+  patrimoineBrut, patrimoineNet, dettesTotal, cash,
   livrets, bourse, envelopeBreakdown,
 }) {
   const rows = [];
@@ -37,8 +52,6 @@ function buildReportRows({
 
 export function exportToExcel(data) {
   const rows = buildReportRows(data);
-  const escapeHtml = (v) =>
-    String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const body = rows
     .map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`)
     .join("\n");
@@ -58,13 +71,19 @@ export function exportToPDF(data) {
   const win = window.open("", "_blank", "width=800,height=1000");
   if (!win) return;
   const envRows = (envelopeBreakdown || [])
-    .map((e) => `<tr><td>${e.name}</td><td style="text-align:right">${eur(e.value)}</td></tr>`)
+    .map((e) => `<tr><td>${escapeHtml(e.name)}</td><td style="text-align:right">${eur(e.value)}</td></tr>`)
     .join("");
   const livretRows = (livrets || [])
-    .map((l) => `<tr><td>${l.name}</td><td>${l.envelope || ""}</td><td style="text-align:right">${eur(l.balance)}</td></tr>`)
+    .map(
+      (l) =>
+        `<tr><td>${escapeHtml(l.name)}</td><td>${escapeHtml(l.envelope || "")}</td><td style="text-align:right">${eur(l.balance)}</td></tr>`
+    )
     .join("");
   const posRows = (bourse?.positions || [])
-    .map((p) => `<tr><td>${p.ticker}</td><td>${p.name}</td><td style="text-align:right">${eur(p.quantity * p.current_price)}</td></tr>`)
+    .map(
+      (p) =>
+        `<tr><td>${escapeHtml(p.ticker)}</td><td>${escapeHtml(p.name)}</td><td style="text-align:right">${eur(p.quantity * p.current_price)}</td></tr>`
+    )
     .join("");
   win.document.write(`
     <html>
@@ -96,12 +115,22 @@ export function exportToPDF(data) {
       <table><tbody>${envRows}</tbody></table>
 
       <h2>Livrets &amp; Épargne</h2>
-      <table><tbody>${livretRows}</tbody></table>
-      <table><tbody><tr><td>Compte courant</td><td>Cash</td><td style="text-align:right">${eur(cash || 0)}</td></tr></tbody></table>
+      <table>
+        <thead><tr><th style="text-align:left">Support</th><th style="text-align:left">Enveloppe</th><th style="text-align:right">Capital</th></tr></thead>
+        <tbody>
+          ${livretRows}
+          <tr><td>Compte courant</td><td>Cash</td><td style="text-align:right">${eur(cash || 0)}</td></tr>
+        </tbody>
+      </table>
 
       <h2>PEA &amp; Bourse</h2>
-      <table><tbody>${posRows}</tbody></table>
-      <table><tbody><tr><td colspan="2">Cash PEA</td><td style="text-align:right">${eur(bourse?.cash_pocket || 0)}</td></tr></tbody></table>
+      <table>
+        <thead><tr><th style="text-align:left">Ticker</th><th style="text-align:left">Nom</th><th style="text-align:right">Valeur</th></tr></thead>
+        <tbody>
+          ${posRows}
+          <tr><td colspan="2">Cash PEA</td><td style="text-align:right">${eur(bourse?.cash_pocket || 0)}</td></tr>
+        </tbody>
+      </table>
 
       <script>window.onload = () => { window.print(); };</script>
     </body>

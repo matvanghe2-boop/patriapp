@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Plus, Trash2, X, Lock } from "lucide-react";
 import { eur } from "../lib/finance";
 
@@ -71,17 +71,15 @@ export function PageGlow({ color = "emerald" }) {
     cyan: { a: "bg-cyan-400/10", b: "bg-teal-400/8" },
   };
   const c = COLORS[color] || COLORS.emerald;
+  // Conteneur clippant : la seconde lueur déborde volontairement à droite
+  // (`-right-24`) pour être coupée par le bord de l'écran. Sans ce wrapper en
+  // `overflow-hidden`, ce débordement purement décoratif ajoutait une barre de
+  // défilement horizontale à toute l'application.
   return (
-    <>
-      <div
-        aria-hidden="true"
-        className={`pointer-events-none fixed -top-24 left-1/4 -translate-x-1/2 w-[40rem] h-[40rem] rounded-full ${c.a} blur-[130px] -z-10`}
-      />
-      <div
-        aria-hidden="true"
-        className={`pointer-events-none fixed top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full ${c.b} blur-[120px] -z-10`}
-      />
-    </>
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
+      <div className={`absolute -top-24 left-1/4 -translate-x-1/2 w-[40rem] h-[40rem] rounded-full ${c.a} blur-[130px]`} />
+      <div className={`absolute top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full ${c.b} blur-[120px]`} />
+    </div>
   );
 }
 

@@ -34,6 +34,22 @@ export function projectCompound(capital, annualRatePct, monthlyContribution, yea
   return data;
 }
 
+/**
+ * Capital projeté après `months` mois, en capitalisant mensuellement un
+ * versement régulier. Pendant de `projectCompound`, qui ne raisonne qu'en
+ * années pleines et rend une série — inutilisable pour une projection de
+ * quelques mois comme celle du Dashboard.
+ */
+export function projectMonthly(capital, annualRatePct, monthlyContribution, months) {
+  const r = (annualRatePct || 0) / 100 / 12;
+  const n = Math.max(0, Math.round(months || 0));
+  const M0 = capital || 0;
+  const P = monthlyContribution || 0;
+  if (r === 0) return M0 + P * n;
+  const growth = Math.pow(1 + r, n);
+  return M0 * growth + P * ((growth - 1) / r);
+}
+
 /** Mensualité d'un prêt amortissable classique. */
 export function monthlyPayment(principal, annualRatePct, years) {
   const r = (annualRatePct || 0) / 100 / 12;
@@ -104,6 +120,88 @@ export function todayIso(date = new Date()) {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/**
+ * Point d'historique servant de référence pour une comparaison « il y a N
+ * jours » : le relevé le plus proche de la date cible, choisi parmi ceux qui
+ * lui sont antérieurs ou égaux.
+ *
+ * Le Dashboard comparait auparavant le patrimoine courant au relevé le PLUS
+ * RÉCENT de l'historique. Depuis que le relevé quotidien s'exécute à chaque
+ * ouverture de l'app (useDailySnapshot), ce point le plus récent est celui
+ * d'aujourd'hui : l'écart « vs mois dernier » affiché sous le patrimoine net
+ * valait donc structurellement 0 €.
+ */
+export function referencePointDaysAgo(history, days, now = new Date()) {
+  const target = new Date(now);
+  target.setDate(target.getDate() - days);
+  const targetIso = todayIso(target);
+
+  const dated = (history || []).filter((h) => h.date && Number.isFinite(h.value));
+  if (dated.length === 0) return null;
+
+  const older = dated.filter((h) => h.date <= targetIso);
+  // Historique plus court que la fenêtre demandée : on prend le plus ancien
+  // relevé connu, qui reste une base de comparaison honnête (et on le signale
+  // via la date retournée).
+  const pool = older.length > 0 ? older : dated;
+  return pool.reduce((best, h) => (h.date > best.date ? h : best));
+}
+
+/**
+ * Compacte l'historique de patrimoine : relevé quotidien conservé tel quel sur
+ * la période récente, puis un seul point par mois (le dernier du mois) au-delà.
+ *
+ * Le relevé automatique ajoute un point par jour dans un blob JSON réécrit et
+ * repoussé en entier vers le cloud à chaque modification. Sans compactage,
+ * l'historique grossit de ~365 entrées par an indéfiniment, alourdissant à la
+ * fois le graphique et chaque synchronisation.
+ *
+ * Les points saisis à la main sont préservés quoi qu'il arrive : ce sont des
+ * jalons voulus par l'utilisateur, pas des relevés automatiques.
+ */
+export function compactHistory(history, { dailyDays = 120, now = new Date() } = {}) {
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - dailyDays);
+  const cutoffIso = todayIso(cutoff);
+
+  const keep = [];
+  const monthlyBest = new Map();
+
+  (history || []).forEach((h) => {
+    if (!h.date || h.date >= cutoffIso || h.manual) {
+      keep.push(h);
+      return;
+    }
+    const month = h.date.slice(0, 7);
+    const current = monthlyBest.get(month);
+    if (!current || h.date > current.date) monthlyBest.set(month, h);
+  });
+
+  return [...monthlyBest.values(), ...keep].sort((a, b) => ((a.date || "") < (b.date || "") ? -1 : 1));
+}
+
+/**
+ * Écart de patrimoine net sur une fenêtre glissante, en valeur et en
+ * pourcentage, avec la date effectivement utilisée comme référence.
+ */
+export function netWorthDelta(history, currentValue, days = 30, now = new Date()) {
+  const ref = referencePointDaysAgo(history, days, now);
+  // Une référence datée d'aujourd'hui ne mesure rien : c'est le cas au premier
+  // lancement, où le seul relevé existant est celui que l'app vient de créer.
+  // Mieux vaut annoncer l'absence d'historique qu'un écart de 0 € présenté
+  // comme une variation sur 30 jours.
+  if (!ref || ref.date === todayIso(now)) {
+    return { abs: 0, pct: 0, refDate: null, hasReference: false };
+  }
+  const abs = currentValue - ref.value;
+  return {
+    abs,
+    pct: ref.value > 0 ? (abs / ref.value) * 100 : 0,
+    refDate: ref.date,
+    hasReference: true,
+  };
 }
 
 /**

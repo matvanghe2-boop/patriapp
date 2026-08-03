@@ -1,4 +1,3 @@
-import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -50,11 +49,25 @@ describe("App", () => {
     expect(within(nav).getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
   });
 
+  // La barre latérale (bureau) et la barre basse (mobile) coexistent dans le
+  // DOM — seul le CSS en masque une selon la largeur. Les clics de navigation
+  // doivent donc désigner explicitement l'une des deux.
+  const sidebar = () => within(screen.getByRole("navigation", { name: /navigation principale/i }));
+
   it("écrit l'onglet dans l'URL, pour que le lien soit partageable et le retour arrière utile", async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole("button", { name: "Simulation" }));
+    await user.click(sidebar().getByRole("button", { name: "Simulation" }));
     expect(window.location.hash).toBe("#/simulation");
+  });
+
+  it("propose une navigation basse distincte sur mobile", () => {
+    renderApp();
+    const bottom = screen.getByRole("navigation", { name: /navigation rapide/i });
+    // Mêmes destinations que la barre latérale, libellés courts à l'écran mais
+    // nom complet annoncé aux lecteurs d'écran.
+    expect(within(bottom).getByRole("button", { name: "PEA & Bourse" })).toBeInTheDocument();
+    expect(within(bottom).getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
   });
 
   it("ouvre directement le bon onglet quand l'URL en désigne un", () => {
@@ -85,7 +98,7 @@ describe("App", () => {
   it("expose Immobilier & Crédit en sous-onglet de Simulation", async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole("button", { name: "Simulation" }));
+    await user.click(sidebar().getByRole("button", { name: "Simulation" }));
 
     const sousOnglet = await screen.findByRole("button", { name: /immobilier & crédit/i });
     await user.click(sousOnglet);

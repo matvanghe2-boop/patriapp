@@ -107,6 +107,29 @@ input[type="checkbox"] {
   filter: blur(0);
 }
 
+/*
+ * Le mode Ghost s'appliquait montant par montant, via une classe posée à la
+ * main. Les graduations de l'axe des ordonnées des graphiques échappaient donc
+ * au floutage : la courbe et son échelle restaient parfaitement lisibles, ce
+ * qui suffit à reconstituer les montants que le reste de l'écran masque.
+ *
+ * La règle est globale plutôt qu'à activer graphique par graphique : pour une
+ * fonctionnalité de confidentialité, l'oubli doit pencher du côté du masquage.
+ * Un graphique de données publiques (performance sectorielle, indices de
+ * marché) peut s'en exclure via `.ghost-chart-public`.
+ */
+.ghost-mode .recharts-cartesian-axis-tick-value {
+  filter: blur(5px);
+  user-select: none;
+  transition: filter 0.15s;
+}
+.ghost-mode .recharts-wrapper:hover .recharts-cartesian-axis-tick-value {
+  filter: blur(0);
+}
+.ghost-mode .ghost-chart-public .recharts-cartesian-axis-tick-value {
+  filter: none;
+}
+
 /* ═══════════════════ MOBILE ONLY (≤767px) — desktop inchangé ═══════════════════ */
 @media (max-width: 767px) {
   /* Tap targets ≥48px partout, sans toucher aux tailles desktop */
@@ -131,6 +154,61 @@ input[type="checkbox"] {
   .overflow-x-auto {
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /*
+   * Tableaux en cartes empilées.
+   *
+   * Les tableaux de l'app portent un `min-w-[640px]`…`min-w-[840px]` qui
+   * impose un défilement horizontal sur téléphone — dans une application
+   * installable, donc conçue pour le mobile. Sous 768px, chaque ligne devient
+   * une carte autonome et chaque cellule affiche son intitulé de colonne,
+   * repris de l'en-tête via `data-label`.
+   *
+   * Une cellule sans `data-label` (colonne d'actions, par exemple) s'affiche
+   * seule, alignée à droite.
+   */
+  .table-cards,
+  .table-cards tbody,
+  .table-cards tr,
+  .table-cards td {
+    display: block;
+    width: auto;
+    min-width: 0;
+  }
+  .table-cards {
+    min-width: 0 !important;
+  }
+  .table-cards thead {
+    display: none;
+  }
+  .table-cards tr {
+    border: 1px solid rgb(30 41 59);
+    border-radius: 0.75rem;
+    background: rgb(2 6 23 / 0.5);
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .table-cards td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.3rem 0 !important;
+    border: none !important;
+    text-align: right;
+  }
+  .table-cards td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+  }
+  .table-cards td:not([data-label]) {
+    justify-content: flex-end;
   }
 
   /* Empêche le zoom automatique iOS sur focus d'un champ (déclenché si

@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
-import { UploadCloud, Plus, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles, Trash2, Coins } from "lucide-react";
-import { Card, CardLabel, GhostButton, EmptyState } from "./ui";
+import { UploadCloud, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles, Trash2, Coins } from "lucide-react";
+import { Card, CardLabel, GhostButton } from "./ui";
 import {
   eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash, sanitizeOperation,
   applyOperationsToBourse,
@@ -43,13 +43,6 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
   const [importing, setImporting] = useState(false);
   const [feedback, setFeedback] = useState(null); // { type: "success"|"error", message }
   const fileInputRef = useRef(null);
-
-  // Valeur totale du portefeuille (positions + cash) — utilisée par le
-  // simulateur d'ordre pour calculer les poids cibles.
-  const bourseTotalForSim = useMemo(
-    () => positions.reduce((s, p) => s + p.quantity * p.current_price, 0) + (bourse?.cash_pocket || 0),
-    [positions, bourse]
-  );
 
   // Ouverture externe de la modale (passerelle Thèse ➔ Ordre).
   React.useEffect(() => {
@@ -264,8 +257,11 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Simulateur d'ordre — calculs instantanés avant de passer un ordre */}
-      <OrderSimulator bourse={bourse} bourseTotal={bourseTotalForSim} />
+      {/* Simulateur d'ordre — calculs instantanés avant de passer un ordre.
+          Il recevait `bourse`/`bourseTotal`, deux props que le composant
+          n'attend pas : `positions` retombait sur son tableau vide par défaut
+          et le simulateur se masquait tout seul, sans la moindre erreur. */}
+      <OrderSimulator positions={positions} cashPocket={bourse?.cash_pocket || 0} />
 
       {/* En-tête d'action & import */}
       <Card>

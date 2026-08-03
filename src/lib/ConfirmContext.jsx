@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 
 // Remplace `window.confirm()`. Au-delà du look — une boîte système grise au

@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
-import { FileText, Repeat, Plus, AlertTriangle, CalendarClock, Wallet, X } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES, AddPanel } from "./ui";
+import { useMemo, useState } from "react";
+import { FileText, Repeat, AlertTriangle, CalendarClock, Wallet, X } from "lucide-react";
+import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, todayIso } from "../lib/finance";
 
 function addDays(iso, days) {

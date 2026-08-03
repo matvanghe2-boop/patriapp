@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 // Le service de logo "par ticker" ambigu confond les places boursières :
 // DG.PA (Vinci) est résolu comme DG (Dollar General, US), SAN.PA (Sanofi)

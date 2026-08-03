@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Download, X, ShieldAlert } from "lucide-react";
 import { getLastBackupAt } from "../lib/storage";
 

@@ -19,16 +19,28 @@ Sans configuration Supabase, l'app fonctionne en **mode local pur** : rien ne so
 
 ⚠️ La synchronisation Supabase n'est **pas une sauvegarde** : une suppression se propage sur tous les appareils. L'export JSON (menu latéral) reste la seule vraie copie de secours — l'app te le rappelle si tu n'en as pas fait depuis 30 jours.
 
+« Réinitialiser » efface les données **locales et cloud** : sur un compte connecté, l'effacement se propage donc à tous tes appareils.
+
 ## Ce que contient l'app
 
-- **Dashboard** — patrimoine brut/net, plus-value latente, taux d'épargne, allocation d'actifs, historique du patrimoine net (relevé automatique une fois par jour)
+L'application démarre **vide** : aucun patrimoine fictif n'est préchargé. Un bouton « Charger un jeu d'exemple » est proposé sur le Dashboard tant que rien n'est saisi, et il annonce clairement que ses chiffres sont inventés.
+
+- **Dashboard** — patrimoine brut/net, plus-value latente, taux d'épargne, allocation d'actifs, historique du patrimoine net (relevé automatique une fois par jour), variation sur 30 jours glissants, projection à 6 mois capitalisée au taux moyen pondéré du patrimoine
 - **Livrets & Épargne** — suivi des supports à capital garanti, plafonds, matelas de sécurité, enveloppes de ventilation
 - **PEA & Bourse** — positions, plus/moins-values, recherche par **ticker, ISIN ou nom**, actualisation des cours, import PDF de relevés de courtage, watchlist, heatmap sectorielle, calendrier financier
 - **Simulation** — intérêts composés sur l'ensemble du patrimoine (poche Livrets + poche Bourse, chacune avec son taux et son versement), scénarios comparables
-- **Immobilier & Crédit** — apport, mensualités sur 15/20/25 ans, alerte taux d'endettement (norme HCSF 35 %), suivi des travaux
+- **Immobilier & Crédit** — sous-onglet de Simulation : apport, mensualités sur 15/20/25 ans, alerte taux d'endettement (norme HCSF 35 %), suivi des travaux
 - **Stratégie & Logs** — journal des thèses d'investissement, timeline des jalons, opérations
 - **Abonnements** — dépenses récurrentes, contrats et échéances de résiliation
 - **Sauvegarde** — export/import JSON depuis le menu latéral
+
+### Sur mobile
+
+L'app est installable (PWA) et pensée pour le téléphone : navigation par **barre basse** atteignable au pouce, en-tête qui se condense au défilement pour garder le patrimoine net visible, et **tableaux transformés en cartes empilées** sous 768 px — plus aucun défilement horizontal.
+
+### Mode Ghost
+
+Le bouton en forme d'œil floute tous les montants, y compris les graduations des graphiques, pour pouvoir montrer son écran sans exposer ses chiffres. Survoler une valeur la révèle temporairement. Les graphiques de données publiques (performance sectorielle) ne sont pas floutés.
 
 ## Stack technique
 

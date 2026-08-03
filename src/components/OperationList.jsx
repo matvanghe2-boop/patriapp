@@ -1,4 +1,3 @@
-import React from "react";
 import { Trash2, Pencil } from "lucide-react";
 import { eur } from "../lib/finance";
 import { EmptyState } from "./ui";
@@ -28,7 +27,7 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
 
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-sm min-w-[760px]">
+      <table className="w-full text-sm min-w-[760px] table-cards">
         <thead>
           <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
             <th className="py-2 px-1">Date</th>
@@ -50,8 +49,8 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
               className="cursor-pointer hover:bg-slate-800/40 transition-colors"
               title="Voir la thèse liée à cet actif"
             >
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-400">{formatDateShortFr(op.date)}</td>
-              <td className="py-2.5 px-1 font-data font-semibold text-slate-100">
+              <td data-label="Date" className="py-2.5 px-1 font-data tabular-nums text-slate-400">{formatDateShortFr(op.date)}</td>
+              <td data-label="Actif" className="py-2.5 px-1 font-data font-semibold text-slate-100">
                 {op.asset ? (
                   <div className="flex items-center gap-2">
                     <AssetLogo ticker={op.asset} size="xs" />
@@ -62,7 +61,7 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                   <span className="text-slate-600">—</span>
                 )}
               </td>
-              <td className="py-2.5 px-1">
+              <td data-label="Type" className="py-2.5 px-1">
                 <span
                   className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${
                     op.type === "ACHAT"
@@ -79,11 +78,11 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                   {op.type}
                 </span>
               </td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{op.quantity ?? <span className="text-slate-600">—</span>}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-300 ghost-blur">{op.price != null ? eur(op.price, 2) : <span className="text-slate-600">—</span>}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-500 ghost-blur">{eur(op.fees, 2)}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums text-slate-100 ghost-blur">{eur(op.montantNet, 2)}</td>
-              <td className="py-2.5 px-1 font-data tabular-nums ghost-blur">
+              <td data-label="Quantité" className="py-2.5 px-1 font-data tabular-nums text-slate-300">{op.quantity ?? <span className="text-slate-600">—</span>}</td>
+              <td data-label="Cours" className="py-2.5 px-1 font-data tabular-nums text-slate-300 ghost-blur">{op.price != null ? eur(op.price, 2) : <span className="text-slate-600">—</span>}</td>
+              <td data-label="Frais" className="py-2.5 px-1 font-data tabular-nums text-slate-500 ghost-blur">{eur(op.fees, 2)}</td>
+              <td data-label="Montant net" className="py-2.5 px-1 font-data tabular-nums text-slate-100 ghost-blur">{eur(op.montantNet, 2)}</td>
+              <td data-label="Plus-value réalisée" className="py-2.5 px-1 font-data tabular-nums ghost-blur">
                 {op.plusValueRealisee != null ? (
                   <span className={op.plusValueRealisee >= 0 ? "text-emerald-400" : "text-rose-400"}>
                     {eur(op.plusValueRealisee, 2)}

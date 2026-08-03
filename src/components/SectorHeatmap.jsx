@@ -1,9 +1,9 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { LayoutGrid } from "lucide-react";
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardLabel, EmptyState } from "./ui";
 import { eur, pctPlain } from "../lib/finance";
-import { getSector, SECTOR_HEX, SECTOR_COLORS } from "../lib/sectors";
+import { getSector, SECTOR_HEX } from "../lib/sectors";
 import AssetLogo from "./AssetLogo";
 
 /**
@@ -54,7 +54,9 @@ export default function SectorHeatmap({ positions = [] }) {
         <EmptyState>Ajoute une position pour voir sa répartition sectorielle.</EmptyState>
       ) : (
         <div className="flex flex-col gap-3 mt-2">
-          <div style={{ width: "100%", height: 280 }}>
+          {/* Données de marché publiques : pas de montant personnel à masquer
+              en mode Ghost. */}
+          <div className="ghost-chart-public" style={{ width: "100%", height: 280 }}>
             <ResponsiveContainer>
               <Treemap
                 data={data}

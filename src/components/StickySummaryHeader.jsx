@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, TrendingUp, TrendingDown } from "lucide-react";
 import { eur, pct } from "../lib/finance";
 

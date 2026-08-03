@@ -1,4 +1,4 @@
-Arborescence du projet Patrium — généré le 2026-07-26.
+Arborescence du projet Patrium — généré le 2026-08-03.
 Ce fichier est un instantané : le regénérer après tout ajout de fichier avec
   npm run structure
 La description commentée de l'arborescence se trouve dans README.md.
@@ -53,7 +53,6 @@ src/components/Dashboard.jsx
 src/components/ErrorBoundary.jsx
 src/components/FinancialCalendar.jsx
 src/components/FinancialCalendar.test.jsx
-src/components/FocusChart.jsx
 src/components/GlobalSearch.jsx
 src/components/Immobilier.jsx
 src/components/IndicesWidget.jsx
@@ -65,6 +64,7 @@ src/components/OperationForm.jsx
 src/components/OperationList.jsx
 src/components/Operations.jsx
 src/components/OrderSimulator.jsx
+src/components/ProChart.jsx
 src/components/RatesHub.jsx
 src/components/RatesHub.test.jsx
 src/components/SectorHeatmap.jsx
@@ -88,6 +88,8 @@ src/lib/exportReport.js
 src/lib/finance.js
 src/lib/finance.test.js
 src/lib/indexConstituents.js
+src/lib/ledger.test.js
+src/lib/netWorth.test.js
 src/lib/ratesCatalog.js
 src/lib/ratesCatalog.test.js
 src/lib/sectors.js

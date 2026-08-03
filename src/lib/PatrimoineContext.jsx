@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useMemo, useCallback } from "react";
 import { usePersistentState } from "./storage";
-import { weightedAverageRate } from "./finance";
+import { weightedAverageRate, upsertByDate, todayIso } from "./finance";
 
 /**
  * Propriétaire unique de l'état patrimonial.
@@ -24,25 +24,57 @@ export const STORAGE_KEYS = [
   "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort",
   "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios",
   "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate", "allocationTarget",
+  "profileHistory",
 ];
 
-const INITIAL_PROFILE = { monthly_income: 2100, monthly_expenses: 1200 };
+/**
+ * L'application démarre VIDE.
+ *
+ * Elle était auparavant préremplie d'un patrimoine inventé — un Livret A à
+ * 7 000 €, une assurance-vie à 15 000 €, trente parts de CW8 — que rien ne
+ * signalait comme fictif. Un patrimoine net de 45 000 € s'affichait donc au
+ * premier lancement, et les chiffres faux se mélangeaient aux vrais au fur et
+ * à mesure de la saisie. C'est exactement la raison pour laquelle
+ * INITIAL_HISTORY_PAST avait déjà été vidé de ses cinq mois de valeurs
+ * inventées ; la même logique s'applique aux livrets et aux positions.
+ *
+ * Le jeu d'exemple reste disponible, mais sur demande explicite et clairement
+ * étiqueté comme tel (voir DEMO_DATASET et le bouton d'accueil du Dashboard).
+ */
+const INITIAL_PROFILE = { monthly_income: 0, monthly_expenses: 0 };
 
-const INITIAL_LIVRETS = [
-  { id: "la", name: "Livret A", balance: 7000, rate: 0.017, limit: 22950, envelope: "Livret" },
-  { id: "av_euro", name: "Assurance-Vie (Fonds Euro)", balance: 15000, rate: 0.025, limit: null, envelope: "AV" },
-];
+const INITIAL_LIVRETS = [];
 
 const INITIAL_BOURSE = {
   envelope: "PEA",
-  cash_pocket: 500,
-  positions: [
-    { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
-    { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },
-  ],
+  cash_pocket: 0,
+  positions: [],
   // Historique des opérations (achats/ventes) — alimenté par l'import PDF ou
   // la saisie manuelle depuis le sous-onglet "Opérations" de Stratégie & Logs.
   operations: [],
+};
+
+/** Jeu de données d'exemple, chargé uniquement sur action de l'utilisateur. */
+export const DEMO_DATASET = {
+  profile: { monthly_income: 2100, monthly_expenses: 1200 },
+  livrets: [
+    { id: "la", name: "Livret A", balance: 7000, rate: 0.017, limit: 22950, envelope: "Livret" },
+    { id: "av_euro", name: "Assurance-Vie (Fonds Euro)", balance: 15000, rate: 0.025, limit: null, envelope: "AV" },
+  ],
+  bourse: {
+    envelope: "PEA",
+    cash_pocket: 500,
+    positions: [
+      { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
+      { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },
+    ],
+    operations: [],
+  },
+  enveloppes: [
+    { id: "env1", label: "Matelas d'urgence", amount: 3000, colorIdx: 0 },
+    { id: "env2", label: "Projet Immo", amount: 3000, colorIdx: 1 },
+    { id: "env3", label: "Plaisir / Voyage", amount: 950, colorIdx: 2 },
+  ],
 };
 
 // L'historique de patrimoine démarre vide et se remplit tout seul, un point
@@ -69,16 +101,18 @@ const INITIAL_IMMO = {
   assurance_rate: 0.2,
 };
 
-const INITIAL_ENVELOPPES = [
-  { id: "env1", label: "Matelas d'urgence", amount: 3000, colorIdx: 0 },
-  { id: "env2", label: "Projet Immo", amount: 3000, colorIdx: 1 },
-  { id: "env3", label: "Plaisir / Voyage", amount: 950, colorIdx: 2 },
-];
+const INITIAL_ENVELOPPES = [];
 
 const PatrimoineContext = createContext(null);
 
 export function PatrimoineProvider({ children }) {
-  const [profile, setProfile] = usePersistentState("profile", INITIAL_PROFILE);
+  const [profile, setProfileRaw] = usePersistentState("profile", INITIAL_PROFILE);
+  // Historique daté du profil mensuel. Revenus et dépenses étaient deux
+  // nombres écrasés en place, sans date : le taux d'épargne, le matelas de
+  // sécurité et l'alerte « matelas faible » du Dashboard reposaient donc sur
+  // une saisie dont rien n'indiquait l'ancienneté. Une valeur oubliée six mois
+  // rendait ces trois indicateurs faux en silence.
+  const [profileHistory, setProfileHistory] = usePersistentState("profileHistory", []);
   const [livrets, setLivrets] = usePersistentState("livrets", INITIAL_LIVRETS);
   const [dettes, setDettes] = usePersistentState("dettes", []);
   const [bourse, setBourse] = usePersistentState("bourse", INITIAL_BOURSE);
@@ -136,11 +170,52 @@ export function PatrimoineProvider({ children }) {
       patrimoineNet: patrimoineBrut - dettesTotal,
       epargneMensuelle,
       tauxEpargne: profile.monthly_income > 0 ? (epargneMensuelle / profile.monthly_income) * 100 : 0,
-      matelasMois: profile.monthly_expenses > 0 ? livretsTotal / profile.monthly_expenses : 0,
+      // `null` — et non 0 — quand les dépenses ne sont pas renseignées : le
+      // matelas est alors INCONNU, pas nul. Retourner 0 déclenchait l'alerte
+      // « matelas insuffisant » du Dashboard dès le premier lancement, sur une
+      // application encore vide.
+      matelasMois: profile.monthly_expenses > 0 ? livretsTotal / profile.monthly_expenses : null,
     };
   }, [bourse.cash_pocket, bourseValuePositions, bourseInvested, livretsTotal, cash, dettesTotal, profile]);
 
+  // Patrimoine encore vierge : aucun support d'épargne, aucune position, aucun
+  // cash. Sert à proposer un accueil explicite plutôt qu'un tableau de bord à
+  // zéro qu'on pourrait prendre pour un bug.
+  const isEmpty =
+    livrets.length === 0 && bourse.positions.length === 0 && (cash ?? 0) === 0 && dettes.length === 0;
+
+  /**
+   * Enveloppe de `setProfile` qui horodate la saisie et en garde une trace
+   * datée (une entrée par jour, la dernière du jour l'emportant). Les pages
+   * continuent d'appeler `setProfile` exactement comme avant.
+   */
+  const setProfile = useCallback(
+    (updater) => {
+      setProfileRaw((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        const stamped = { ...next, updatedAt: new Date().toISOString() };
+        setProfileHistory((h) =>
+          upsertByDate(h, {
+            date: todayIso(),
+            monthly_income: stamped.monthly_income,
+            monthly_expenses: stamped.monthly_expenses,
+          })
+        );
+        return stamped;
+      });
+    },
+    [setProfileRaw, setProfileHistory]
+  );
+
+  const loadDemoData = useCallback(() => {
+    setProfile(DEMO_DATASET.profile);
+    setLivrets(DEMO_DATASET.livrets);
+    setBourse(DEMO_DATASET.bourse);
+    setEnveloppes(DEMO_DATASET.enveloppes);
+  }, [setProfile, setLivrets, setBourse, setEnveloppes]);
+
   const value = {
+    isEmpty, loadDemoData, profileHistory,
     profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
     historyPast, setHistoryPast, sim, setSim, immo, setImmo,
     bourseHistory, setBourseHistory, watchlist, setWatchlist,

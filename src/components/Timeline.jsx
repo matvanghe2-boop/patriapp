@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { TrendingUp, Coins, ShoppingCart, TrendingDown, Repeat, Sparkles } from "lucide-react";
 import { Card, EmptyState } from "./ui";
 import { eur, todayIso } from "../lib/finance";

@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
-import { Bell, BellRing, Plus, Trash2, Check, X } from "lucide-react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { Bell, BellRing, Plus, Trash2, Check } from "lucide-react";
 import { uid, todayIso } from "../lib/finance";
 
 const todayStr = () => todayIso();

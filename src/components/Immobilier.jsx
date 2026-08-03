@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { Landmark, AlertTriangle, Shield, Wallet, Gauge, HardHat, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Landmark, AlertTriangle, Shield, Wallet, Gauge, HardHat } from "lucide-react";
 import { Card, CardLabel, SliderField, PageGlow, CARD_THEMES, AddPanel, IconTrash, EmptyState, GhostButton } from "./ui";
 import { monthlyPayment, eur, pctPlain, uid } from "../lib/finance";
 
@@ -27,37 +27,6 @@ function DebtGauge({ rate }) {
         <span>0%</span>
         <span className="text-slate-500">Seuil HCSF 35%</span>
         <span>70%+</span>
-      </div>
-    </div>
-  );
-}
-
-// ─── Reste à vivre indicator ──────────────────────────────────────────────────
-function ResteAVivre({ revenus, mensualite }) {
-  const reste = revenus - mensualite;
-  const isGood = reste >= 1000;
-  const isOk = reste >= 700 && reste < 1000;
-  const isLow = reste < 700;
-  
-  const color = isGood ? "text-emerald-400" : isOk ? "text-amber-400" : "text-rose-400";
-  const bgColor = isGood ? "bg-emerald-400/10 border-emerald-400/20" : 
-                  isOk ? "bg-amber-400/10 border-amber-400/20" : 
-                  "bg-rose-400/10 border-rose-400/20";
-  const label = isGood ? "Excellent ✓" : isOk ? "Acceptable" : "Attention !";
-  
-  return (
-    <div className={`rounded-lg border ${bgColor} px-3 py-2`}>
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">Reste à vivre</span>
-        <span className={`font-display text-base ghost-blur ${color}`}>{eur(reste)}</span>
-      </div>
-      <div className="flex items-center justify-between mt-0.5">
-        <span className={`text-[10px] ${color}`}>{label}</span>
-        <span className="text-[9px] text-slate-500">
-          {isGood ? "> 1 000 € — dossier solide" : 
-           isOk ? "700-1 000 € — à surveiller" : 
-           "&lt; 700 € — risque de refus"}
-        </span>
       </div>
     </div>
   );
@@ -223,7 +192,9 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
 
   return (
     <div className="relative space-y-6">
-      <PageGlow color="rose" />
+      {/* Immobilier est un sous-onglet de Simulation : il porte donc la teinte
+          de son onglet parent, et laisse le rose à Stratégie & Logs. */}
+      <PageGlow color="amber" />
       <div className="relative">
         <h1 className="font-display text-2xl text-slate-50">
           Immobilier &amp; <span className="text-rose-400">Crédit</span>

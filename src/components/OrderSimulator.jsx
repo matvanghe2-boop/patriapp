@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Sliders, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardLabel, EmptyState } from "./ui";
 import { eur, pctPlain } from "../lib/finance";

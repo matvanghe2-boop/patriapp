@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CandlestickChart, LineChart as LineIcon, AreaChart as AreaIcon,
   ZoomIn, ZoomOut, RotateCcw, BarChart3, Activity,

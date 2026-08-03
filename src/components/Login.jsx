@@ -1,4 +1,4 @@
-import React, { useState, useId } from "react";
+import { useState, useId } from "react";
 import { Lock, Mail, LogIn, UserPlus, AlertCircle, CheckCircle2, KeyRound, ArrowLeft } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";

@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES } from "./ui";
-import { projectCompound, eur, pct, compact, solveMonthlyForTarget, applyInflation, generateVolatileReturns, uid, todayIso } from "../lib/finance";
+import { projectCompound, eur, pct, compact, solveMonthlyForTarget, generateVolatileReturns, uid, todayIso } from "../lib/finance";
 import Immobilier from "./Immobilier";
 
 /**

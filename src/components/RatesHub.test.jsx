@@ -1,4 +1,3 @@
-import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -25,6 +24,12 @@ describe("RatesHub", () => {
     expect(screen.getAllByText(/LEP \(Livret d'Épargne Populaire\)/).length).toBeGreaterThan(0);
   });
 
+  // Les cartes de KPI en haut de page (meilleur taux, prochaine révision)
+  // réaffichent le libellé de certains taux, indépendamment du filtrage. Les
+  // assertions de filtrage doivent donc porter sur le catalogue lui-même, pas
+  // sur le document entier.
+  const catalogue = () => within(screen.getByRole("region", { name: /catalogue des taux/i }));
+
   it("filtre par la barre de recherche", async () => {
     const user = userEvent.setup();
     fetchRates.mockResolvedValue(LIVE_PAYLOAD);
@@ -33,8 +38,8 @@ describe("RatesHub", () => {
 
     await user.type(screen.getByPlaceholderText(/rechercher un taux/i), "inflation");
 
-    expect(screen.getByText(/Inflation France/)).toBeInTheDocument();
-    expect(screen.queryByText("Livret A")).not.toBeInTheDocument();
+    expect(catalogue().getByText(/Inflation France/)).toBeInTheDocument();
+    expect(catalogue().queryByText("Livret A")).not.toBeInTheDocument();
   });
 
   it("masque une catégorie désactivée via les filtres", async () => {
@@ -45,8 +50,8 @@ describe("RatesHub", () => {
 
     await user.click(screen.getByRole("button", { name: /^Épargne$/ }));
 
-    expect(screen.queryByText("Livret A")).not.toBeInTheDocument();
-    expect(screen.getByText(/Inflation France/)).toBeInTheDocument();
+    expect(catalogue().queryByText("Livret A")).not.toBeInTheDocument();
+    expect(catalogue().getByText(/Inflation France/)).toBeInTheDocument();
   });
 
   it("signale un écart entre le taux saisi par l'utilisateur et le taux officiel", async () => {

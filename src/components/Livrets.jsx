@@ -1,9 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import {
-  PiggyBank, ShieldCheck, Banknote, Lightbulb, Target,
-  Plus, Trash2, X, ChevronDown, ChevronUp, AlertTriangle, TrendingUp,
-  ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent,
-} from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { PiggyBank, ShieldCheck, Banknote, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, guessEnvelope, todayIso } from "../lib/finance";
 import RatesHub from "./RatesHub";
@@ -71,7 +67,7 @@ function MatelasTrendBadge({ matelasMois }) {
 }
 
 // ─── Smart Progress Bar ───────────────────────────────────────────────────────
-function SmartProgressBar({ value, max, goal, color = "bg-indigo-400", showGoal = false }) {
+function SmartProgressBar({ value, max, goal, color = "bg-indigo-400" }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const goalPct = (goal && max > 0) ? Math.min(100, (goal / max) * 100) : null;
 
@@ -503,13 +499,13 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
 
   return (
     <tr className="group">
-      <td className="py-3 pr-3 text-slate-200 font-medium">
+      <td data-label="Support" className="py-3 pr-3 text-slate-200 font-medium">
         {l.name}
         <span className="ml-2 text-[10px] uppercase tracking-wide text-indigo-300/70 border border-indigo-400/30 rounded-full px-1.5 py-0.5 align-middle">
           {l.envelope || guessEnvelope(l.name)}
         </span>
       </td>
-      <td className="py-3 pr-3">
+      <td data-label="Capital" className="py-3 pr-3">
         {editingBalance ? (
           <div className="flex items-center gap-1">
             <input
@@ -551,9 +547,9 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
           </div>
         )}
       </td>
-      <td className="py-3 pr-3 font-data tabular-nums text-amber-300/90">{(l.rate * 100).toFixed(2)} %</td>
-      <td className="py-3 pr-3 font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.balance * l.rate)}</td>
-      <td className="py-3 pr-3 min-w-[160px]">
+      <td data-label="Taux net" className="py-3 pr-3 font-data tabular-nums text-amber-300/90">{(l.rate * 100).toFixed(2)} %</td>
+      <td data-label="Intérêts / an" className="py-3 pr-3 font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.balance * l.rate)}</td>
+      <td data-label="Remplissage" className="py-3 pr-3 min-w-[160px]">
         {barMax ? (
           <SmartProgressBar
             value={l.balance}
@@ -577,7 +573,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
           )}
         </div>
       </td>
-      <td className="py-3 pr-3">
+      <td data-label="Objectif projet" className="py-3 pr-3">
         {showGoalEdit ? (
           <div className="flex items-center gap-1">
             <input
@@ -672,9 +668,22 @@ export default function Livrets({
           </div>
           <div>
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Matelas de sécurité</div>
-            <div className="font-display text-lg text-slate-50">{matelasMois.toFixed(1)} mois</div>
-            <div className="text-[11px] text-slate-600">de dépenses couvertes</div>
-            <MatelasTrendBadge matelasMois={matelasMois} />
+            {/* `matelasMois` vaut null tant que les dépenses mensuelles ne sont
+                pas renseignées : le matelas est inconnu, pas nul. */}
+            {matelasMois == null ? (
+              <>
+                <div className="font-display text-lg text-slate-500">—</div>
+                <div className="text-[11px] text-slate-600">
+                  Renseigne tes dépenses mensuelles dans le Dashboard
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-display text-lg text-slate-50">{matelasMois.toFixed(1)} mois</div>
+                <div className="text-[11px] text-slate-600">de dépenses couvertes</div>
+                <MatelasTrendBadge matelasMois={matelasMois} />
+              </>
+            )}
           </div>
         </Card>
         <Card accent={CARD_THEMES.indigo}>
@@ -706,7 +715,7 @@ export default function Livrets({
           <EmptyState>Aucun livret pour le moment — ajoute ton premier support d'épargne.</EmptyState>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-cards">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Support</th>

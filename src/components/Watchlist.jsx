@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
 import AssetLogo from "./AssetLogo";
@@ -239,7 +239,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
         <SkeletonTable rows={Math.min(watchlist.length, 5)} columns={7} />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-cards">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 pr-3">Actif</th>
@@ -269,7 +269,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
                 const reached = gap != null && gap <= 0;
                 return (
                   <tr key={w.id} className="group hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3 pr-3">
+                    <td data-label="Actif" className="py-3 pr-3">
                       <button
                         type="button"
                         onClick={() => onOpenMarket?.(w.ticker)}
@@ -284,11 +284,11 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
                         </div>
                       </button>
                     </td>
-                    <td className="py-3 pr-3 font-data tabular-nums">{current != null ? eur(current, 2) : "—"}</td>
-                    <td className="py-3 pr-3">
+                    <td data-label="Cours actuel" className="py-3 pr-3 font-data tabular-nums">{current != null ? eur(current, 2) : "—"}</td>
+                    <td data-label="Variation du jour" className="py-3 pr-3">
                       <DailyVariation ticker={w.ticker} dailyData={dailyData} />
                     </td>
-                    <td className="py-3 pr-3">
+                    <td data-label="Objectif d'achat" className="py-3 pr-3">
                       <input
                         type="number"
                         step="0.01"
@@ -298,7 +298,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
                         className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-data tabular-nums focus:outline-none focus:border-amber-400/60"
                       />
                     </td>
-                    <td className="py-3 pr-3">
+                    <td data-label="Écart" className="py-3 pr-3">
                       {!hasTarget || gap == null ? (
                         <span className="text-xs text-slate-600">—</span>
                       ) : reached ? (
@@ -309,11 +309,11 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
                         <span className="font-data tabular-nums text-slate-400 text-xs">+{gap.toFixed(1)} %</span>
                       )}
                     </td>
-                    <td className={cellClass(m?.ytd)}>{fmtPct(m?.ytd)}</td>
-                    <td className={cellClass(m?.m1)}>{fmtPct(m?.m1)}</td>
-                    <td className={cellClass(m?.m6)}>{fmtPct(m?.m6)}</td>
-                    <td className={cellClass(m?.y1)}>{fmtPct(m?.y1)}</td>
-                    <td className={cellClass(m?.y5)}>{fmtPct(m?.y5)}</td>
+                    <td data-label="YTD" className={cellClass(m?.ytd)}>{fmtPct(m?.ytd)}</td>
+                    <td data-label="1 mois" className={cellClass(m?.m1)}>{fmtPct(m?.m1)}</td>
+                    <td data-label="6 mois" className={cellClass(m?.m6)}>{fmtPct(m?.m6)}</td>
+                    <td data-label="1 an" className={cellClass(m?.y1)}>{fmtPct(m?.y1)}</td>
+                    <td data-label="5 ans" className={cellClass(m?.y5)}>{fmtPct(m?.y5)}</td>
                     <td className="py-3 text-right">
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                         <IconTrash onClick={() => removeItem(w.id)} />

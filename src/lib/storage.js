@@ -99,24 +99,18 @@ async function currentUserId() {
 }
 
 /**
- * Va chercher la version cloud d'UNE clé et l'applique localement si elle est
- * plus récente que ce qu'on a déjà (même arbitrage updated_at que dans l'effet
- * de montage de usePersistentState).
+ * Applique une ligne cloud localement si elle est plus récente que ce qu'on a
+ * déjà (même arbitrage updated_at que dans l'effet de montage de
+ * usePersistentState).
  */
-async function pullOneFromCloud(key, userId, setState) {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("value, updated_at")
-    .eq("id", `${userId}:${key}`)
-    .maybeSingle();
-  if (error || !data) return;
-
+function applyCloudRow(key, row) {
   const localUpdatedAt = readLocalUpdatedAt(key);
-  if (localUpdatedAt && data.updated_at && data.updated_at <= localUpdatedAt) return;
+  if (localUpdatedAt && row.updated_at && row.updated_at <= localUpdatedAt) return;
 
-  writeLocal(key, data.value, data.updated_at);
-  latestValues.set(key, { value: data.value, updatedAt: data.updated_at });
-  if (setState) setState(data.value);
+  writeLocal(key, row.value, row.updated_at);
+  latestValues.set(key, { value: row.value, updatedAt: row.updated_at });
+  const setState = activeSetters.get(key);
+  if (setState) setState(row.value);
   markSynced(key);
 }
 
@@ -126,24 +120,38 @@ async function pullOneFromCloud(key, userId, setState) {
  * qu'elle est visible — sans abonnement temps réel, juste de simples lectures
  * périodiques, pour que deux appareils connectés au même compte finissent
  * toujours par converger sans action manuelle.
+ *
+ * Une SEULE requête couvre toutes les clés (`in (…)`). L'ancienne version
+ * bouclait en séquentiel avec un `maybeSingle()` par clé : avec ~24 clés
+ * montées et un tick toutes les 10 s, cela représentait près de 9 000 requêtes
+ * par heure d'application ouverte, pour un unique utilisateur.
  */
 let isPolling = false;
 async function pullAllFromCloud() {
   if (!isSupabaseConfigured || isPolling) return;
   if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  const keys = [...activeSetters.keys()];
+  if (keys.length === 0) return;
   isPolling = true;
   try {
     const userId = await currentUserId();
     if (!userId) return;
-    for (const [key, setState] of activeSetters) {
-      await pullOneFromCloud(key, userId, setState);
-    }
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("key, value, updated_at")
+      .in("id", keys.map((k) => `${userId}:${k}`));
+    if (error || !data) return;
+    data.forEach((row) => applyCloudRow(row.key, row));
   } finally {
     isPolling = false;
   }
 }
 
-const POLL_INTERVAL_MS = 10_000;
+// 45 s plutôt que 10 : le retour au premier plan (`visibilitychange`/`focus`)
+// déclenche déjà une relecture immédiate, qui couvre le cas réel « je passe
+// du téléphone à l'ordi ». Ce tick n'est qu'un filet pour l'app laissée
+// ouverte au premier plan sur deux appareils à la fois.
+const POLL_INTERVAL_MS = 45_000;
 
 /**
  * Pousse immédiatement tout ce qu'on a en mémoire, sans attendre le débounce
@@ -345,6 +353,10 @@ export function clearAllData(keys) {
   keys.forEach((k) => {
     localStorage.removeItem(PREFIX + k);
     localStorage.removeItem(META_PREFIX + k);
+    // Sans cet oubli en mémoire, le `pagehide` déclenché par le rechargement
+    // qui suit la réinitialisation repoussait aussitôt vers le cloud les
+    // valeurs qu'on vient d'effacer.
+    latestValues.delete(k);
   });
 }
 
@@ -356,21 +368,6 @@ export async function clearCloudData(keys) {
     "id",
     keys.map((k) => `${userId}:${k}`)
   );
-}
-
-export async function pushAllToCloud(dump) {
-  if (!isSupabaseConfigured) return;
-  const userId = await currentUserId();
-  if (!userId) return;
-  const now = new Date().toISOString();
-  const rows = Object.entries(dump).map(([key, value]) => ({
-    id: `${userId}:${key}`,
-    user_id: userId,
-    key,
-    value,
-    updated_at: now,
-  }));
-  if (rows.length) await supabase.from(TABLE).upsert(rows);
 }
 
 /**

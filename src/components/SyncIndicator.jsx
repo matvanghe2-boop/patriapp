@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Cloud, CloudOff, RefreshCw, AlertTriangle, Check } from "lucide-react";
 import { useSyncStatus, useRetrySync, useManualRefresh } from "../lib/storage";
 

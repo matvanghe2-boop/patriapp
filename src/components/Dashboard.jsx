@@ -1,20 +1,26 @@
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
 } from "recharts";
 import {
   TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight,
-  Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap, ListChecks, ArrowRight, Scale,
+  Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap, ListChecks, ArrowRight, Scale, Sparkles,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import {
   eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore,
-  computeInvestedCapital, investedCapitalAsOf, todayIso,
+  computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly,
 } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
+import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import { FileDown, FileSpreadsheet, PieChart as PieIcon } from "lucide-react";
+
+function formatDateFr(iso) {
+  if (!iso) return "—";
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 // ─── Time filter config ────────────────────────────────────────────────────────
 const TIME_FILTERS = [
@@ -109,22 +115,120 @@ function PriorityActions({ livrets, bourse, matelasMois }) {
   );
 }
 
-// ─── Stagnation badge ─────────────────────────────────────────────────────────
-function StagnationBadge({ lastUpdateDate }) {
-  if (!lastUpdateDate) return null;
-  const diffMs = Date.now() - new Date(lastUpdateDate).getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+// ─── Accueil d'un patrimoine encore vierge ────────────────────────────────────
+// L'app démarrait sur un patrimoine de démonstration (Livret A à 7 000 €,
+// 30 parts de CW8) que rien ne signalait comme fictif. Elle démarre désormais
+// vide, et cette carte explique quoi faire — avec le jeu d'exemple accessible,
+// mais nommé pour ce qu'il est.
+function OnboardingCard({ onLoadDemo }) {
+  return (
+    <Card accent={CARD_THEMES.emerald}>
+      <CardLabel icon={Sparkles}>Bienvenue</CardLabel>
+      <p className="text-sm text-slate-300 mt-1">
+        Ton patrimoine est encore vide. Commence par renseigner tes supports d'épargne dans
+        « Livrets &amp; Épargne », puis tes positions dans « PEA &amp; Bourse » — ce tableau de bord
+        se remplit tout seul ensuite.
+      </p>
+      <button
+        onClick={onLoadDemo}
+        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-100 border border-slate-700 hover:border-slate-500 rounded-lg px-3.5 py-2 transition-colors mt-4"
+      >
+        <ArrowRight size={14} aria-hidden="true" /> Charger un jeu d'exemple
+      </button>
+      <p className="text-[11px] text-slate-600 mt-3">
+        Le jeu d'exemple contient des chiffres inventés, à des fins de démonstration uniquement.
+        Tu pourras tout effacer depuis « Réinitialiser », dans le menu.
+      </p>
+    </Card>
+  );
+}
+
+// ─── Fraîcheur du profil mensuel ──────────────────────────────────────────────
+const PROFILE_STALE_DAYS = 120;
+
+function ProfileFreshness({ updatedAt, history = [] }) {
+  const [showHistory, setShowHistory] = useState(false);
+
+  if (!updatedAt) {
+    return (
+      <p className="text-[11px] text-slate-600 mt-3">
+        Renseigne ton revenu et tes dépenses : le taux d'épargne et le matelas de sécurité en
+        dépendent.
+      </p>
+    );
+  }
+
+  const days = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86400000);
+  const stale = days >= PROFILE_STALE_DAYS;
+  const previous = history.slice(0, -1).slice(-6).reverse();
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-800">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className={`flex items-center gap-1.5 text-[11px] ${stale ? "text-amber-300" : "text-slate-600"}`}>
+          {stale ? <AlertCircle size={11} aria-hidden="true" /> : <Clock size={11} aria-hidden="true" />}
+          {days === 0
+            ? "Mis à jour aujourd'hui"
+            : stale
+              ? `Inchangé depuis ${days} jours — vérifie que c'est toujours d'actualité`
+              : `Mis à jour il y a ${days} jour${days > 1 ? "s" : ""}`}
+        </span>
+        {previous.length > 0 && (
+          <button
+            onClick={() => setShowHistory((s) => !s)}
+            className="flex items-center gap-1 text-[11px] text-emerald-300/70 hover:text-emerald-300"
+          >
+            {showHistory ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+            Historique
+          </button>
+        )}
+      </div>
+
+      {showHistory && previous.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {previous.map((h) => (
+            <li key={h.date} className="flex items-center justify-between text-[11px] text-slate-500">
+              <span className="font-data tabular-nums">{formatDateFr(h.date)}</span>
+              <span className="font-data tabular-nums ghost-blur">
+                {eur(h.monthly_income)} − {eur(h.monthly_expenses)} ={" "}
+                <span className="text-slate-300">{eur(h.monthly_income - h.monthly_expenses)}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ─── Badge de fraîcheur des cours ─────────────────────────────────────────────
+// Mesure la date de dernière actualisation des COURS (bourse.pricesUpdatedAt),
+// et non celle de l'historique de patrimoine : ce dernier étant alimenté
+// automatiquement à chaque ouverture de l'app, le badge affichait
+// invariablement « Actualisé aujourd'hui » et ses autres états étaient
+// inatteignables.
+function StagnationBadge({ pricesUpdatedAt, hasPositions }) {
+  if (!hasPositions) return null;
+  if (!pricesUpdatedAt) {
+    return (
+      <span className="flex items-center gap-1.5 text-[11px] border rounded-full px-2.5 py-1 text-slate-500 border-slate-700 bg-slate-900/50">
+        <Clock size={10} aria-hidden="true" />
+        Cours jamais actualisés
+      </span>
+    );
+  }
+  const diffDays = Math.floor((Date.now() - new Date(pricesUpdatedAt).getTime()) / 86400000);
   const color =
     diffDays === 0 ? "text-emerald-400 border-emerald-400/30 bg-emerald-400/5"
     : diffDays <= 3 ? "text-amber-300 border-amber-400/30 bg-amber-400/5"
     : "text-rose-400 border-rose-400/30 bg-rose-400/5";
   const label =
-    diffDays === 0 ? "Actualisé aujourd'hui"
-    : diffDays === 1 ? "Dernier relevé : hier"
-    : `Dernier relevé : il y a ${diffDays} jours`;
+    diffDays === 0 ? "Cours actualisés aujourd'hui"
+    : diffDays === 1 ? "Cours actualisés hier"
+    : `Cours vieux de ${diffDays} jours`;
   return (
     <span className={`flex items-center gap-1.5 text-[11px] border rounded-full px-2.5 py-1 ${color}`}>
-      <Clock size={10} />
+      <Clock size={10} aria-hidden="true" />
       {label}
     </span>
   );
@@ -318,10 +422,12 @@ export default function Dashboard({
   epargneMensuelle, tauxEpargne, dettes, setDettes, dettesTotal,
   historyPast, setHistoryPast, livretsTotal, bourseTotal,
   bourseInvested, livrets, bourse, matelasMois, setLastSnapshotDate,
+  cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
 }) {
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
   const [timeFilter, setTimeFilter] = useState("ALL");
+  const { showToast } = useToast();
 
   // Allocation cible — passe par l'état persistant, et donc par la
   // synchronisation cloud. Elle était écrite en direct dans le localStorage :
@@ -330,42 +436,45 @@ export default function Dashboard({
   const [allocationTarget, saveAllocationTarget] = usePersistentState("allocationTarget", { bourse: 60 });
 
   const addDette = (v) => setDettes((d) => [...d, { id: uid(), name: v.name, amount: v.amount }]);
-  const removeDette = (id) => setDettes((d) => d.filter((x) => x.id !== id));
+
+  // Suppressions annulables. Elles étaient jusqu'ici immédiates et sans filet :
+  // un clic sur la corbeille effaçait un passif ou un relevé d'historique sans
+  // confirmation ni retour en arrière possible.
+  const removeDette = (id) => {
+    const previous = dettes;
+    const dette = dettes.find((d) => d.id === id);
+    setDettes((d) => d.filter((x) => x.id !== id));
+    showToast({
+      message: `Passif « ${dette?.name || "sans nom"} » supprimé.`,
+      onUndo: () => setDettes(previous),
+    });
+  };
+
   const addHistoryPoint = (v) => {
     const today = todayIso();
     // Tri chronologique à l'insertion : un point saisi avec une date passée
     // atterrissait en fin de tableau, ce qui faisait faire des allers-retours
     // dans le temps à la courbe et désignait le dernier point SAISI (et non le
     // plus récent) comme référence du delta mensuel.
+    // `manual: true` protège ce point du compactage automatique de
+    // l'historique : c'est un jalon voulu, pas un relevé quotidien.
     setHistoryPast((h) =>
-      [...h, { id: uid(), label: v.label, value: parseFloat(v.value), date: v.date || today }].sort((a, b) =>
-        (a.date || "") < (b.date || "") ? -1 : 1
+      [...h, { id: uid(), label: v.label, value: parseFloat(v.value), date: v.date || today, manual: true }].sort(
+        (a, b) => ((a.date || "") < (b.date || "") ? -1 : 1)
       )
     );
     // Un point saisi à la main pour aujourd'hui tient lieu de relevé du jour :
     // sans ça, le relevé automatique en ajouterait un second en doublon.
     setLastSnapshotDate(v.date || today);
   };
-  const removeHistoryPoint = (id) => setHistoryPast((h) => h.filter((x) => x.id !== id));
-
-  // Last update date (most recent date in history)
-  const lastUpdateDate = useMemo(() => {
-    const datesFromHistory = historyPast
-      .map((h) => h.date)
-      .filter(Boolean)
-      .sort()
-      .reverse();
-    return datesFromHistory[0] || null;
-  }, [historyPast]);
-
-  // Delta vs last month — on prend le point le plus RÉCENT par date, et non le
-  // dernier inséré dans le tableau.
-  const lastPastPoint = useMemo(() => {
-    const dated = historyPast.filter((h) => h.date);
-    if (dated.length === 0) return patrimoineNet;
-    return dated.reduce((latest, h) => (h.date > latest.date ? h : latest)).value ?? patrimoineNet;
-  }, [historyPast, patrimoineNet]);
-  const deltaVsLastMonth = patrimoineNet - lastPastPoint;
+  // Écart sur 30 jours glissants. La référence est le relevé le plus proche de
+  // J-30 (voir netWorthDelta) : prendre le point le PLUS RÉCENT, comme avant,
+  // revenait à se comparer au relevé automatique du jour même, donc à afficher
+  // un écart nul en permanence.
+  const delta30j = useMemo(
+    () => netWorthDelta(historyPast, patrimoineNet, 30),
+    [historyPast, patrimoineNet]
+  );
 
   // Effort d'épargne vs gains de marché. `versementsCumules` se lit désormais
   // sur le journal d'opérations : `bourseInvested` (Σ quantité × PRU) est le
@@ -377,12 +486,34 @@ export default function Dashboard({
   );
   const gainsMarcheReels = bourseGainAbs || 0;
 
+  // Taux annuel moyen pondéré du patrimoine : taux réels des livrets pour la
+  // poche sécurisée, hypothèse de rendement de l'onglet Simulation pour la
+  // poche bourse. C'est ce que l'app sait de mieux sur le rendement attendu.
+  const blendedRatePct = useMemo(() => {
+    const base = livretsTotal + bourseTotal;
+    if (base <= 0) return 0;
+    const bourseRate = sim?.bourse?.rate ?? 0;
+    return (livretsTotal * (livretsAvgRate || 0) + bourseTotal * bourseRate) / base;
+  }, [livretsTotal, bourseTotal, livretsAvgRate, sim]);
+
   // Build chart data with time filter + projection
   const chartData = useMemo(() => {
-    const allPoints = [
-      ...historyPast.map((h) => ({ label: h.label, value: h.value, date: h.date })),
-      { label: "Aujourd'hui", value: Math.round(patrimoineNet), date: todayIso() },
-    ];
+    // Le relevé quotidien crée déjà un point daté d'aujourd'hui (libellé
+    // « 3 août »). Ajouter systématiquement un point « Aujourd'hui » par-dessus
+    // donnait deux points pour la même journée, et donc deux graduations
+    // côte à côte sur l'axe des abscisses. On relabellise le point existant
+    // plutôt que d'en créer un second.
+    const today = todayIso();
+    const allPoints = historyPast.some((h) => h.date === today)
+      ? historyPast.map((h) =>
+          h.date === today
+            ? { label: "Aujourd'hui", value: Math.round(patrimoineNet), date: h.date }
+            : { label: h.label, value: h.value, date: h.date }
+        )
+      : [
+          ...historyPast.map((h) => ({ label: h.label, value: h.value, date: h.date })),
+          { label: "Aujourd'hui", value: Math.round(patrimoineNet), date: today },
+        ];
 
     // Apply time filter
     let filtered = allPoints;
@@ -396,7 +527,11 @@ export default function Dashboard({
       if (filtered.length === 0) filtered = allPoints.slice(-2);
     }
 
-    // Build projection: 6 months ahead, linear based on epargneMensuelle
+    // Projection à 6 mois. Elle était strictement linéaire
+    // (patrimoineNet + épargne × mois), donc à rendement nul : elle ignorait à
+    // la fois le taux des livrets et celui de la poche bourse, alors que
+    // l'application connaît les deux. On capitalise désormais au taux moyen
+    // pondéré du patrimoine réel.
     const projectionMonths = 6;
     const projectionPoints = [];
     const now = new Date();
@@ -406,7 +541,7 @@ export default function Dashboard({
       const label = futureDate.toLocaleDateString("fr-FR", { month: "short" });
       projectionPoints.push({
         label,
-        projection: Math.round(patrimoineNet + epargneMensuelle * i),
+        projection: Math.round(projectMonthly(patrimoineNet, blendedRatePct, epargneMensuelle, i)),
         date: futureDate.toISOString().slice(0, 10),
       });
     }
@@ -419,7 +554,7 @@ export default function Dashboard({
     }
 
     return [...histData, ...projectionPoints];
-  }, [historyPast, patrimoineNet, epargneMensuelle, timeFilter]);
+  }, [historyPast, patrimoineNet, epargneMensuelle, timeFilter, blendedRatePct]);
 
   // Allocation data — répartition par enveloppe fiscale (PEA/CTO/AV/PER/Livret/Cash)
   const allocationData = useMemo(() => {
@@ -456,9 +591,6 @@ export default function Dashboard({
     return computeDiversificationScore(list);
   }, [bourse, livretsTotal]);
 
-  // Find the join point index for reference line
-  const joinIndex = historyPast.length; // index of "Aujourd'hui" in chartData
-
   return (
     <div className="relative space-y-6">
       <PageGlow color="emerald" />
@@ -473,7 +605,7 @@ export default function Dashboard({
           <button
             onClick={() =>
               exportToExcel({
-                patrimoineBrut, patrimoineNet, dettesTotal, livretsTotal, bourseTotal, cash: 0,
+                patrimoineBrut, patrimoineNet, dettesTotal, livretsTotal, bourseTotal, cash,
                 livrets, bourse, envelopeBreakdown: allocationData,
               })
             }
@@ -485,43 +617,57 @@ export default function Dashboard({
             onClick={() =>
               exportToPDF({
                 patrimoineBrut, patrimoineNet, dettesTotal, envelopeBreakdown: allocationData,
-                livrets, bourse, cash: 0, diversification,
+                livrets, bourse, cash, diversification,
               })
             }
             className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-emerald-300 border border-slate-800 hover:border-emerald-400/40 rounded-lg px-2.5 py-1.5 transition-colors"
           >
             <FileDown size={13} /> PDF
           </button>
-          <StagnationBadge lastUpdateDate={lastUpdateDate} />
+          <StagnationBadge
+            pricesUpdatedAt={bourse?.pricesUpdatedAt}
+            hasPositions={(bourse?.positions || []).length > 0}
+          />
         </div>
       </div>
+
+      {isEmpty && <OnboardingCard onLoadDemo={loadDemoData} />}
 
       {/* Actions prioritaires cross-onglets */}
       <PriorityActions livrets={livrets} bourse={bourse} matelasMois={matelasMois} />
 
       {/* Profil mensuel */}
-      <Card accent={CARD_THEMES.emerald} className="flex flex-wrap items-center gap-6">
-        <CardLabel icon={Wallet}>Profil mensuel</CardLabel>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-500">Revenu net</label>
-          <input
-            type="number"
-            value={profile.monthly_income}
-            onChange={(e) => setProfile((p) => ({ ...p, monthly_income: parseFloat(e.target.value) || 0 }))}
-            className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
-          />
-          <span className="text-xs text-slate-600">€/mois</span>
+      <Card accent={CARD_THEMES.emerald}>
+        <div className="flex flex-wrap items-center gap-6">
+          <CardLabel icon={Wallet}>Profil mensuel</CardLabel>
+          <div className="flex items-center gap-2">
+            <label htmlFor="profil-revenu" className="text-xs text-slate-500">Revenu net</label>
+            <input
+              id="profil-revenu"
+              type="number"
+              value={profile.monthly_income}
+              onChange={(e) => setProfile((p) => ({ ...p, monthly_income: parseFloat(e.target.value) || 0 }))}
+              className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
+            />
+            <span className="text-xs text-slate-600">€/mois</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="profil-depenses" className="text-xs text-slate-500">Dépenses</label>
+            <input
+              id="profil-depenses"
+              type="number"
+              value={profile.monthly_expenses}
+              onChange={(e) => setProfile((p) => ({ ...p, monthly_expenses: parseFloat(e.target.value) || 0 }))}
+              className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
+            />
+            <span className="text-xs text-slate-600">€/mois</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-500">Dépenses</label>
-          <input
-            type="number"
-            value={profile.monthly_expenses}
-            onChange={(e) => setProfile((p) => ({ ...p, monthly_expenses: parseFloat(e.target.value) || 0 }))}
-            className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
-          />
-          <span className="text-xs text-slate-600">€/mois</span>
-        </div>
+
+        {/* Ces deux nombres déterminent le taux d'épargne, le matelas de
+            sécurité et l'alerte associée. Sans repère d'ancienneté, une saisie
+            oubliée les rendait faux tous les trois, en silence. */}
+        <ProfileFreshness updatedAt={profile.updatedAt} history={profileHistory} />
       </Card>
 
       {/* KPIs */}
@@ -535,10 +681,17 @@ export default function Dashboard({
         >
           <span className="text-[11px] uppercase tracking-widest text-emerald-300/80 font-medium">Patrimoine net</span>
           <span className="font-display text-[26px] text-slate-50 mt-1.5 leading-tight ghost-blur">{eur(patrimoineNet)}</span>
-          <span className={`text-xs mt-1.5 flex items-center gap-1 ghost-blur ${deltaVsLastMonth >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-            {deltaVsLastMonth >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-            {eur(Math.abs(deltaVsLastMonth))} vs mois dernier
-          </span>
+          {delta30j.hasReference ? (
+            <span
+              title={`Référence : relevé du ${formatDateFr(delta30j.refDate)}`}
+              className={`text-xs mt-1.5 flex items-center gap-1 ghost-blur ${delta30j.abs >= 0 ? "text-emerald-400" : "text-rose-400"}`}
+            >
+              {delta30j.abs >= 0 ? <ArrowUpRight size={12} aria-hidden="true" /> : <ArrowDownRight size={12} aria-hidden="true" />}
+              {eur(Math.abs(delta30j.abs))} sur 30 jours
+            </span>
+          ) : (
+            <span className="text-xs mt-1.5 text-slate-600">Pas encore d'historique</span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -618,8 +771,11 @@ export default function Dashboard({
                       <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
                       {d.name}
                     </span>
-                    <span className="font-data tabular-nums text-slate-300">
-                      <span className="ghost-blur">{eur(d.value)}</span> · {totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(0) : 0} %
+                    {/* Le pourcentage était lisible alors que le montant était
+                        flouté : combiné à l'échelle du graphique, il suffisait
+                        à reconstituer les valeurs masquées. */}
+                    <span className="font-data tabular-nums text-slate-300 ghost-blur">
+                      {eur(d.value)} · {totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(0) : 0} %
                     </span>
                   </div>
                 ))}
@@ -667,7 +823,8 @@ export default function Dashboard({
             bourseTotal={bourseTotal}
           />
           <p className="text-[11px] text-slate-600 mt-3">
-            L'onglet « Immobilier &amp; Crédit » te permet de planifier un futur achat sans modifier cette répartition.
+            Le sous-onglet « Immobilier &amp; Crédit » de Simulation te permet de planifier un futur
+            achat sans modifier cette répartition.
           </p>
         </Card>
 
@@ -689,7 +846,10 @@ export default function Dashboard({
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
               <div className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400/50" />
-              Projection ({eur(epargneMensuelle)}/mois)
+              <span>
+                Projection (<span className="ghost-blur">{eur(epargneMensuelle)}</span>/mois à{" "}
+                {pctPlain(blendedRatePct, 1)})
+              </span>
             </div>
           </div>
 

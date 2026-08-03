@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { uid, todayIso } from "./finance";
+import { uid, todayIso, compactHistory } from "./finance";
 
 /**
  * Enregistre une fois par jour la valeur du patrimoine net dans l'historique.
@@ -25,7 +25,12 @@ export function useDailySnapshot({ patrimoineNet, historyPast, setHistoryPast, l
 
     if (!historyPast.some((h) => h.date === today)) {
       const label = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-      setHistoryPast((h) => [...h, { id: uid(), label, value: Math.round(patrimoineNet), date: today }]);
+      // Compactage à l'insertion : au-delà de 4 mois, on ne garde qu'un point
+      // par mois. C'est le seul endroit où l'historique grossit tout seul,
+      // donc le seul endroit où il faut le borner.
+      setHistoryPast((h) =>
+        compactHistory([...h, { id: uid(), label, value: Math.round(patrimoineNet), date: today }])
+      );
     }
     setLastSnapshotDate(today);
     // eslint-disable-next-line react-hooks/exhaustive-deps

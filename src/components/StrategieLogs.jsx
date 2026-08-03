@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from "react";
-import { NotebookPen, Plus, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal, Layers, Clock } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, EmptyState, CARD_THEMES } from "./ui";
+import { useState, useMemo } from "react";
+import { NotebookPen, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal, Layers, Clock } from "lucide-react";
+import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, pct } from "../lib/finance";
+import { useToast } from "../lib/ToastContext";
 import Operations from "./Operations";
 import AssetStats from "./AssetStats";
 import Timeline from "./Timeline";
@@ -55,7 +56,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
   };
 
   return (
-    <form onSubmit={submit} className="rounded-xl border border-cyan-400/20 bg-slate-950 p-4 flex flex-col gap-3">
+    <form onSubmit={submit} className="rounded-xl border border-rose-400/20 bg-slate-950 p-4 flex flex-col gap-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="col-span-1">
           <label className="text-[11px] text-slate-500">Ticker (optionnel)</label>
@@ -64,7 +65,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
             placeholder="AI.PA"
             value={values.ticker}
             onChange={(e) => setValues((v) => ({ ...v, ticker: e.target.value.toUpperCase() }))}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-rose-400/60"
           />
         </div>
         <div className="col-span-2 sm:col-span-2">
@@ -75,7 +76,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
             placeholder="Ex : Renforcement Air Liquide"
             value={values.titre}
             onChange={(e) => setValues((v) => ({ ...v, titre: e.target.value }))}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400/60"
           />
         </div>
         <div className="col-span-1">
@@ -86,7 +87,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
             placeholder="200"
             value={values.objectif_cours}
             onChange={(e) => setValues((v) => ({ ...v, objectif_cours: e.target.value }))}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-rose-400/60"
           />
         </div>
       </div>
@@ -99,7 +100,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
           placeholder="Ex : Leader mondial des gaz industriels, moat fort (contrats long terme + coûts de changement élevés), croissance des bénéfices régulière > 6%/an, dividende en hausse depuis 20 ans."
           value={values.these}
           onChange={(e) => setValues((v) => ({ ...v, these: e.target.value }))}
-          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60 resize-y"
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400/60 resize-y"
         />
       </div>
 
@@ -113,7 +114,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
           placeholder="Ex : Si la marge opérationnelle passe sous 18%, si le dividende est coupé, si un changement de direction remet la stratégie en cause."
           value={values.conditions_vente}
           onChange={(e) => setValues((v) => ({ ...v, conditions_vente: e.target.value }))}
-          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60 resize-y"
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400/60 resize-y"
         />
       </div>
 
@@ -123,7 +124,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
           <select
             value={values.statut}
             onChange={(e) => setValues((v) => ({ ...v, statut: e.target.value }))}
-            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cyan-400/60"
+            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-rose-400/60"
           >
             {Object.entries(STATUS).map(([key, s]) => (
               <option key={key} value={key}>{s.label}</option>
@@ -134,7 +135,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
           <button type="button" onClick={onCancel} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">
             <X size={13} /> Annuler
           </button>
-          <button type="submit" className="flex items-center gap-1.5 text-xs font-semibold bg-cyan-400 hover:bg-cyan-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors">
+          <button type="submit" className="flex items-center gap-1.5 text-xs font-semibold bg-rose-400 hover:bg-rose-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors">
             <Check size={14} /> Enregistrer
           </button>
         </div>
@@ -171,7 +172,7 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
   return (
     <form onSubmit={submit} className="rounded-xl border border-slate-700 bg-slate-950 p-4 flex flex-col gap-3">
       <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-        <ClipboardCheck size={15} className="text-cyan-300" />
+        <ClipboardCheck size={15} className="text-rose-300" />
         Bilan post-mortem — {note.ticker || note.titre}
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -183,7 +184,7 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
             placeholder="Ex : 18.5 ou -6.2"
             value={resultatPct}
             onChange={(e) => setResultatPct(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-rose-400/60"
           />
         </div>
         <div>
@@ -191,7 +192,7 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
           <select
             value={decision}
             onChange={(e) => setDecision(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400/60"
           >
             {Object.entries(DECISIONS).map(([key, d]) => (
               <option key={key} value={key}>{d.label}</option>
@@ -207,14 +208,14 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
           placeholder="Ex : Vendu avec +18%, mais un peu tôt par peur de perdre mes gains. La thèse fondamentale tenait toujours."
           value={bilan}
           onChange={(e) => setBilan(e.target.value)}
-          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60 resize-y"
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400/60 resize-y"
         />
       </div>
       <div className="flex gap-2 justify-end">
         <button type="button" onClick={onCancel} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">
           <X size={13} /> Annuler
         </button>
-        <button type="submit" className="flex items-center gap-1.5 text-xs font-semibold bg-cyan-400 hover:bg-cyan-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors">
+        <button type="submit" className="flex items-center gap-1.5 text-xs font-semibold bg-rose-400 hover:bg-rose-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors">
           <Check size={14} /> Clôturer la thèse
         </button>
       </div>
@@ -232,13 +233,13 @@ function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen, onDeclare
     <div
       className={`rounded-xl border p-4 group transition-shadow ${
         note.archivee ? "border-slate-800/60 bg-slate-900/30" : "border-slate-800 bg-slate-900/60"
-      } ${highlighted ? "ring-2 ring-cyan-400/70" : ""}`}
+      } ${highlighted ? "ring-2 ring-rose-400/70" : ""}`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
             {note.ticker && (
-              <span className="font-data text-xs font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 rounded px-1.5 py-0.5">
+              <span className="font-data text-xs font-bold text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded px-1.5 py-0.5">
                 {note.ticker}
               </span>
             )}
@@ -258,14 +259,14 @@ function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen, onDeclare
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           {note.ticker && (
-            <button onClick={() => onDeclareOperation(note)} title="Déclarer une opération" className="text-slate-600 hover:text-cyan-300 p-1"><SendHorizonal size={14} /></button>
+            <button onClick={() => onDeclareOperation(note)} title="Déclarer une opération" className="text-slate-600 hover:text-rose-300 p-1"><SendHorizonal size={14} /></button>
           )}
           {note.archivee ? (
-            <button onClick={() => onReopen(note.id)} title="Ré-ouvrir la thèse" className="text-slate-600 hover:text-cyan-300 p-1"><ArchiveRestore size={14} /></button>
+            <button onClick={() => onReopen(note.id)} title="Ré-ouvrir la thèse" className="text-slate-600 hover:text-rose-300 p-1"><ArchiveRestore size={14} /></button>
           ) : (
-            <button onClick={() => onClosePosition(note)} title="Clôturer / bilan post-mortem" className="text-slate-600 hover:text-cyan-300 p-1"><ClipboardCheck size={14} /></button>
+            <button onClick={() => onClosePosition(note)} title="Clôturer / bilan post-mortem" className="text-slate-600 hover:text-rose-300 p-1"><ClipboardCheck size={14} /></button>
           )}
-          <button onClick={() => onEdit(note)} className="text-slate-600 hover:text-cyan-300 p-1"><Pencil size={14} /></button>
+          <button onClick={() => onEdit(note)} className="text-slate-600 hover:text-rose-300 p-1"><Pencil size={14} /></button>
           <IconTrash onClick={() => onDelete(note.id)} />
         </div>
       </div>
@@ -340,7 +341,7 @@ function PerformanceTable({ notes, positions }) {
 
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-sm min-w-[640px]">
+      <table className="w-full text-sm min-w-[640px] table-cards">
         <thead>
           <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
             <th className="py-2 px-1">Actif</th>
@@ -356,30 +357,30 @@ function PerformanceTable({ notes, positions }) {
             const st = STATUS[note.statut] || STATUS.intacte;
             return (
               <tr key={note.id}>
-                <td className="py-2.5 px-1">
+                <td data-label="Actif" className="py-2.5 px-1">
                   <div className="font-data font-semibold text-slate-100">{note.ticker}</div>
                   <div className="text-[11px] text-slate-500 truncate max-w-[160px]">{note.titre}</div>
                 </td>
-                <td className="py-2.5 px-1">
+                <td data-label="Statut" className="py-2.5 px-1">
                   <span className={`flex items-center gap-1.5 w-fit text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                     {st.label}
                   </span>
                 </td>
-                <td className="py-2.5 px-1 font-data tabular-nums text-slate-200">
+                <td data-label="Cours actuel" className="py-2.5 px-1 font-data tabular-nums text-slate-200">
                   {pos ? eur(pos.current_price) : <span className="text-slate-600">—</span>}
                 </td>
-                <td className="py-2.5 px-1 font-data tabular-nums text-slate-400">
+                <td data-label="Objectif" className="py-2.5 px-1 font-data tabular-nums text-slate-400">
                   {note.objectif_cours != null ? eur(note.objectif_cours) : <span className="text-slate-600">—</span>}
                 </td>
-                <td className="py-2.5 px-1 font-data tabular-nums">
+                <td data-label="Écart" className="py-2.5 px-1 font-data tabular-nums">
                   {ecartObjectifPct != null ? (
                     <span className={ecartObjectifPct >= 0 ? "text-emerald-400" : "text-rose-400"}>{pct(ecartObjectifPct)}</span>
                   ) : (
                     <span className="text-slate-600">—</span>
                   )}
                 </td>
-                <td className="py-2.5 px-1">
+                <td data-label="En portefeuille" className="py-2.5 px-1">
                   {pos ? (
                     <span className="text-[11px] text-emerald-400 font-medium">Oui · {pos.quantity} titres</span>
                   ) : (
@@ -423,6 +424,7 @@ export default function StrategieLogs({
   const notes = strategyNotes;
   const setNotes = setStrategyNotes;
   const positions = bourse?.positions || [];
+  const { showToast } = useToast();
 
   // ─── Sous-onglets & passerelles Thèse ⇄ Opérations ──────────────────────
   const [subTab, setSubTab] = useState("strategie"); // "strategie" | "operations" | "stats" | "timeline"
@@ -457,10 +459,17 @@ export default function StrategieLogs({
     setEditingId(null);
   };
 
+  // Suppression annulable plutôt que confirmation bloquante : c'est le geste
+  // le plus fréquent de l'app, et le toast « Annuler » évite d'imposer une
+  // boîte de dialogue à chaque fois tout en restant réversible.
   const deleteNote = (id) => {
-    if (window.confirm("Supprimer cette note définitivement ?")) {
-      setNotes((n) => n.filter((note) => note.id !== id));
-    }
+    const previous = notes;
+    const note = notes.find((n) => n.id === id);
+    setNotes((n) => n.filter((x) => x.id !== id));
+    showToast({
+      message: `Note « ${note?.titre || note?.ticker || "sans titre"} » supprimée.`,
+      onUndo: () => setNotes(previous),
+    });
   };
 
   const closeNote = (id, values) => {
@@ -493,10 +502,13 @@ export default function StrategieLogs({
   const archivedCount = notes.filter((n) => n.archivee).length;
 
   return (
-    <div className="flex flex-col gap-5">
-      <div>
+    <div className="relative flex flex-col gap-5">
+      {/* Seule page qui n'avait pas de lueur de fond thématique, alors que
+          toutes les autres en ont une. */}
+      <PageGlow color="rose" />
+      <div className="relative">
         <h1 className="font-display text-2xl text-slate-50">
-          Stratégie &amp; <span className="text-cyan-300">Logs</span>
+          Stratégie &amp; <span className="text-rose-300">Logs</span>
         </h1>
         <p className="text-sm text-slate-500 mt-1">
           Le journal de bord anti-panique — note tes thèses à l'achat pour t'y référer froidement lors des secousses de marché.
@@ -508,7 +520,7 @@ export default function StrategieLogs({
         <button
           onClick={() => setSubTab("strategie")}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "strategie" ? "text-cyan-300 border-b-2 border-cyan-400" : "text-slate-500 hover:text-slate-300"
+            subTab === "strategie" ? "text-rose-300 border-b-2 border-rose-400" : "text-slate-500 hover:text-slate-300"
           }`}
         >
           <FileSignature size={14} /> Stratégie
@@ -516,7 +528,7 @@ export default function StrategieLogs({
         <button
           onClick={() => setSubTab("operations")}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "operations" ? "text-cyan-300 border-b-2 border-cyan-400" : "text-slate-500 hover:text-slate-300"
+            subTab === "operations" ? "text-rose-300 border-b-2 border-rose-400" : "text-slate-500 hover:text-slate-300"
           }`}
         >
           <Wallet size={14} /> Opérations
@@ -524,7 +536,7 @@ export default function StrategieLogs({
         <button
           onClick={() => setSubTab("stats")}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "stats" ? "text-cyan-300 border-b-2 border-cyan-400" : "text-slate-500 hover:text-slate-300"
+            subTab === "stats" ? "text-rose-300 border-b-2 border-rose-400" : "text-slate-500 hover:text-slate-300"
           }`}
         >
           <Layers size={14} /> Statistiques
@@ -532,7 +544,7 @@ export default function StrategieLogs({
         <button
           onClick={() => setSubTab("timeline")}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "timeline" ? "text-cyan-300 border-b-2 border-cyan-400" : "text-slate-500 hover:text-slate-300"
+            subTab === "timeline" ? "text-rose-300 border-b-2 border-rose-400" : "text-slate-500 hover:text-slate-300"
           }`}
         >
           <Clock size={14} /> Timeline
@@ -560,13 +572,13 @@ export default function StrategieLogs({
       ) : (
       <>
       {/* Performance vs Thèse */}
-      <Card accent={CARD_THEMES.cyan}>
+      <Card accent={CARD_THEMES.rose}>
         <CardLabel icon={TableProperties}>Performance vs Thèse</CardLabel>
         <PerformanceTable notes={notes} positions={positions} />
       </Card>
 
       {/* Journal de bord */}
-      <Card accent={CARD_THEMES.cyan}>
+      <Card accent={CARD_THEMES.rose}>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <CardLabel icon={NotebookPen}>Journal de bord</CardLabel>
           <div className="flex items-center gap-2">
@@ -574,13 +586,13 @@ export default function StrategieLogs({
               <button
                 onClick={() => setShowArchived((s) => !s)}
                 className={`flex items-center gap-1.5 text-xs font-medium border rounded-lg px-3 py-1.5 transition-colors ${
-                  showArchived ? "text-cyan-300 border-cyan-500/40 bg-cyan-500/10" : "text-slate-500 border-slate-700 hover:text-slate-300"
+                  showArchived ? "text-rose-300 border-rose-500/40 bg-rose-500/10" : "text-slate-500 border-slate-700 hover:text-slate-300"
                 }`}
               >
                 <Archive size={13} /> {showArchived ? "Masquer clôturées" : `Voir clôturées (${archivedCount})`}
               </button>
             )}
-            <GhostButton onClick={() => { setShowForm((s) => !s); setEditingId(null); setClosingId(null); }} theme="cyan">
+            <GhostButton onClick={() => { setShowForm((s) => !s); setEditingId(null); setClosingId(null); }} theme="rose">
               Nouvelle note
             </GhostButton>
           </div>
@@ -629,7 +641,7 @@ export default function StrategieLogs({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-cyan-400/60"
+                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-rose-400/60"
               >
                 <option value="all">Tous statuts</option>
                 {Object.entries(STATUS).map(([key, s]) => (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Search, X, RefreshCw, Percent, TrendingUp, TrendingDown,
   Landmark, PiggyBank, LineChart, ScrollText, CalendarClock, WifiOff, BadgeCheck,
@@ -377,7 +377,11 @@ export default function RatesHub({ livrets = [] }) {
       ) : filtered.length === 0 ? (
         <EmptyState>Aucun taux ne correspond à « {query} ». Essaie un autre mot-clé ou une autre catégorie.</EmptyState>
       ) : (
-        <div className="space-y-6">
+        // Région nommée : les cartes de KPI en haut de page réaffichent les
+        // libellés des taux mis en avant (meilleur taux, prochaine révision).
+        // Sans ce repère, impossible de distinguer « ce taux est dans la
+        // liste » de « ce taux est en vedette ».
+        <div className="space-y-6" role="region" aria-label="Catalogue des taux">
           {grouped.map(([key, items]) => {
             const cat = RATE_CATEGORIES[key];
             const Icon = CATEGORY_ICON[key];

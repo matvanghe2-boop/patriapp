@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useRef } from "react";
 import { Check, X, AlertTriangle } from "lucide-react";
 
 const ToastContext = createContext(null);
@@ -31,7 +31,9 @@ export function ToastProvider({ children }) {
         role="status"
         aria-live="polite"
         aria-atomic="false"
-        className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 items-end"
+        /* Décalé au-dessus de la barre de navigation basse sur mobile : sinon
+           le toast — et donc son bouton « Annuler » — apparaît derrière elle. */
+        className="fixed bottom-20 md:bottom-4 right-4 z-[100] flex flex-col gap-2 items-end"
       >
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />

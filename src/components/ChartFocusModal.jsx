@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Minus, TrendingUp as DiagIcon, Eraser, Pencil, Undo2, Move } from "lucide-react";
 import ProChart from "./ProChart";
 

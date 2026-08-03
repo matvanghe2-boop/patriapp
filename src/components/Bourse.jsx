@@ -1,9 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import {
-  TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon,
-  PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, LayoutGrid, Briefcase,
-  Info, TrendingDown, Target, Percent, Scale, Search, CalendarDays,
-} from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, TrendingDown, Target, Percent, Scale, Search, CalendarDays } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   LineChart, Line, ComposedChart, Area, XAxis, YAxis, CartesianGrid, ReferenceArea,
@@ -23,6 +19,7 @@ import {
 } from "../lib/finance";
 import { searchSecurity, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
+import { useToast } from "../lib/ToastContext";
 import Watchlist from "./Watchlist";
 import FinancialCalendar from "./FinancialCalendar";
 import Marche from "./Marche";
@@ -48,7 +45,6 @@ const BENCHMARKS = [
   { symbol: "^FCHI", name: "CAC 40", color: "#a78bfa" },
   { symbol: "URTH", name: "MSCI World", color: "#34d399" },
 ];
-const BENCHMARK_KEYS = { "^GSPC": "sp500", "^FCHI": "cac40", URTH: "msciWorld" };
 const PIE_PALETTE = ["#a78bfa", "#d946ef", "#818cf8", "#c084fc", "#22d3ee", "#f472b6", "#8b5cf6", "#e879f9"];
 
 const today = () => todayIso();
@@ -200,23 +196,6 @@ function AntiPanicModal({ position, note, onClose }) {
     </div>
   );
 }
-
-function HistoryTooltip({ active, payload, label, mode }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
-      <div className="text-slate-400 mb-1">{formatDateShort(label)}</div>
-      {payload.map((p) => (
-        <div key={p.dataKey} className="flex items-center gap-2 font-data tabular-nums">
-          <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-          <span className="text-slate-400">{p.name} :</span>
-          <span className="text-slate-100">{mode === "base100" ? p.value.toFixed(1) : eur(p.value)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 
 import { computePeaAge, PEA_PLAFOND_VERSEMENTS } from "../lib/finance";
 // ... imports existants inchangés ...
@@ -460,8 +439,15 @@ export default function Bourse({
       const symbols = bourse.positions.map((p) => p.ticker);
       const quotes = await fetchQuotes(symbols);
       const newDailyData = {};
+      const refreshedAt = new Date().toISOString();
       setBourse((b) => ({
         ...b,
+        // Date de dernière actualisation des cours — c'est elle qui mesure la
+        // fraîcheur réelle des données affichées. Le Dashboard s'appuyait
+        // auparavant sur l'historique de patrimoine, alimenté automatiquement
+        // chaque jour, et affichait donc toujours « actualisé aujourd'hui »
+        // même quand les cours dataient de plusieurs semaines.
+        pricesUpdatedAt: refreshedAt,
         positions: b.positions.map((p) => {
           const q = quotes.find((x) => x.symbol === p.ticker);
           if (q?.ok) {
@@ -718,7 +704,7 @@ export default function Bourse({
           <EmptyState>Aucune position pour le moment — ajoute ta première ligne via le bouton ci-dessus.</EmptyState>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-cards">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Actif</th>
@@ -788,7 +774,7 @@ export default function Bourse({
 
                   return (
                     <tr key={p.id} className="group hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3 pr-3">
+                      <td data-label="Actif" className="py-3 pr-3">
                         <button
                           type="button"
                           onClick={() => openInMarche(p.ticker)}
@@ -802,10 +788,10 @@ export default function Bourse({
                           </div>
                         </button>
                       </td>
-                      <td className="py-3 pr-3 font-data tabular-nums">{p.quantity}</td>
-                      <td className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.pru, 2)}</td>
-                      <td className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.current_price, 2)}</td>
-                      <td className="py-3 pr-3">
+                      <td data-label="Qté" className="py-3 pr-3 font-data tabular-nums">{p.quantity}</td>
+                      <td data-label="PRU" className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.pru, 2)}</td>
+                      <td data-label="Cours" className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.current_price, 2)}</td>
+                      <td data-label="Variation du jour" className="py-3 pr-3">
                         <DailyVariation position={p} dailyData={dailyData} />
                         {(dailyData?.[p.ticker]?.changePct ?? 0) <= PANIC_THRESHOLD_PCT && (
                           <button
@@ -816,12 +802,12 @@ export default function Bourse({
                           </button>
                         )}
                       </td>
-                      <td className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(value)}</td>
-                      <td className={`py-3 pr-3 font-data tabular-nums ghost-blur ${gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      <td data-label="Valeur" className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(value)}</td>
+                      <td data-label="+/− value" className={`py-3 pr-3 font-data tabular-nums ghost-blur ${gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         {eur(gainAbs)} <span className="text-[11px] opacity-80">({pct(gainPct)})</span>
                       </td>
-                      <td className="py-3 pr-3 font-data tabular-nums text-slate-400">{pctPlain(weight)}</td>
-                      <td className="py-3 pr-3">
+                      <td data-label="Poids" className="py-3 pr-3 font-data tabular-nums text-slate-400">{pctPlain(weight)}</td>
+                      <td data-label="Dividendes" className="py-3 pr-3">
                         {p.annual_dividend > 0 ? (
                           <div className="font-data tabular-nums">
                             <div className="text-emerald-400 ghost-blur">{eur(p.annual_dividend * p.quantity, 2)}</div>
@@ -1156,6 +1142,7 @@ function PerformanceTab({
   selectedBenchmarks, setSelectedBenchmarks, showDividendsReinvested, setShowDividendsReinvested,
 }) {
   const operations = bourse.operations || [];
+  const { showToast } = useToast();
 
   // La courbe « Capital investi » est recalculée à l'affichage à partir du
   // journal d'opérations, pour TOUS les points de l'historique — y compris
@@ -1167,9 +1154,16 @@ function PerformanceTab({
   }, [bourseHistory, bourse]);
 
   const rangedHistory = useMemo(() => filterHistoryByRange(history, perfRange), [history, perfRange]);
-   const deleteHistoryPoint = (date) => {
-    if (!window.confirm(`Supprimer le point du ${formatDateShort(date)} de l'historique ?`)) return;
+  // Suppression annulable, comme partout ailleurs dans l'app, plutôt qu'un
+  // `window.confirm` natif : boîte système grise au milieu d'une interface
+  // sombre, bloquante, et non testable.
+  const deleteHistoryPoint = (date) => {
+    const previous = bourseHistory || [];
     setBourseHistory((h) => h.filter((e) => e.date !== date));
+    showToast({
+      message: `Point du ${formatDateShort(date)} supprimé de l'historique.`,
+      onUndo: () => setBourseHistory(previous),
+    });
   };
   const twr = useMemo(() => computeTWR(history), [history]);
   const xirr = useMemo(() => computeXIRR(history), [history]);
