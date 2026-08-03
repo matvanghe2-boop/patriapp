@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Check, TrendingUp, TrendingDown, Coins } from "lucide-react";
-
-function todayIso() {
-  return todayIso();
-}
+import { todayIso } from "../lib/finance";
 
 /**
  * Fenêtre modale flottante de saisie manuelle d'une opération

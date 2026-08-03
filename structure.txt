@@ -61,6 +61,7 @@ src/components/Login.jsx
 src/components/Marche.jsx
 src/components/Notifications.jsx
 src/components/OperationForm.jsx
+src/components/OperationForm.test.jsx
 src/components/OperationList.jsx
 src/components/Operations.jsx
 src/components/OrderSimulator.jsx
