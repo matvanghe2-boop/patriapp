@@ -1,9 +1,15 @@
-import { useMemo, useState } from "react";
-import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark } from "lucide-react";
+import { useMemo, useState, lazy, Suspense } from "react";
+import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark, Rocket } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
-import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES } from "./ui";
+import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES, SkeletonCard, SkeletonChart } from "./ui";
 import { projectCompound, eur, pct, compact, solveMonthlyForTarget, generateVolatileReturns, uid, todayIso } from "../lib/finance";
 import Immobilier from "./Immobilier";
+
+// Chargé à la demande : « Projet » embarque le moteur Horizon et son propre
+// graphique, inutiles tant qu'on reste sur Projection ou Immobilier. En import
+// statique, ce poids s'ajoutait au chunk de Simulation et retardait l'affichage
+// des sous-onglets à l'ouverture.
+const Projet = lazy(() => import("./Projet"));
 
 /**
  * Onglet « Simulation ».
@@ -14,13 +20,23 @@ import Immobilier from "./Immobilier";
  * arrive presque toujours depuis une projection d'épargne. Il devient donc
  * un sous-onglet ici, sans que son contenu ni son identité visuelle (thème
  * rose, jauge d'endettement, suivi des travaux) ne changent.
+ *
+ * « Projet » (Horizon) rejoint le même regroupement : arbitrer un achat, c'est
+ * encore projeter une décision financière dans le temps, et on y arrive
+ * presque toujours depuis une projection d'épargne. Thème violet.
  */
 export default function Simulation({
   sim, setSim, livretsTotal, livretsAvgRate, bourseTotal, simScenarios = [], setSimScenarios,
   // Props transmises telles quelles au sous-onglet Immobilier & Crédit.
   immo, setImmo, profile, immoTravaux = [], setImmoTravaux,
+  // Historique du patrimoine net : le sous-onglet Projet en dérive ses
+  // hypothèses de rendement dès qu'il sera assez profond (24 mois).
+  historyPast = [],
+  // État brut transmis au seul sous-onglet Projet, qui le donne à l'anonymiseur
+  // pour construire le contexte affiché par le panneau de transparence.
+  livrets, bourse, dettes, cash, enveloppes, patrimoineNet,
 }) {
-  const [subTab, setSubTab] = useState("projection"); // "projection" | "immobilier"
+  const [subTab, setSubTab] = useState("projection"); // "projection" | "immobilier" | "projet"
   const livretsCapital = sim.livrets.capital ?? livretsTotal;
   const livretsRate = sim.livrets.rate ?? Math.max(livretsAvgRate, 0.5);
   const bourseCapital = sim.bourse.capital ?? bourseTotal;
@@ -184,7 +200,41 @@ export default function Simulation({
         >
           <Landmark size={14} /> Immobilier &amp; Crédit
         </button>
+        <button
+          onClick={() => setSubTab("projet")}
+          aria-current={subTab === "projet" ? "page" : undefined}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "projet" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Rocket size={14} /> Projet
+        </button>
       </div>
+
+      {subTab === "projet" && (
+        <Suspense
+          fallback={
+            <div className="space-y-4">
+              <SkeletonCard lines={4} />
+              <SkeletonChart height={288} />
+            </div>
+          }
+        >
+          <Projet
+            livretsTotal={livretsTotal}
+            bourseTotal={bourseTotal}
+            historyPast={historyPast}
+            profile={profile}
+            livrets={livrets}
+            bourse={bourse}
+            dettes={dettes}
+            cash={cash}
+            enveloppes={enveloppes}
+            immo={immo}
+            patrimoineNet={patrimoineNet}
+          />
+        </Suspense>
+      )}
 
       {subTab === "immobilier" && (
         <Immobilier

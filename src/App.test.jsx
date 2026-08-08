@@ -95,18 +95,50 @@ describe("App", () => {
     expect(window.location.hash).toBe("#/simulation");
   });
 
+  // Simulation est chargé en `lazy` : sous la charge de la suite complète, la
+  // résolution du chunk dépasse régulièrement le budget d'attente par défaut
+  // (1 s) de `findBy*`, et le test échouait par intermittence sans qu'aucun
+  // code applicatif soit en cause. D'où les budgets explicites ci-dessous.
+  const ATTENTE_CHUNK = 10000;
+
   it("expose Immobilier & Crédit en sous-onglet de Simulation", async () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(sidebar().getByRole("button", { name: "Simulation" }));
 
-    const sousOnglet = await screen.findByRole("button", { name: /immobilier & crédit/i });
+    const sousOnglet = await screen.findByRole(
+      "button",
+      { name: /immobilier & crédit/i },
+      { timeout: ATTENTE_CHUNK }
+    );
     await user.click(sousOnglet);
 
     // Le contenu du module immobilier est bien rendu, avec son propre titre.
-    expect(await screen.findByRole("heading", { name: /immobilier|crédit/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /immobilier|crédit/i }, { timeout: ATTENTE_CHUNK })
+    ).toBeInTheDocument();
     expect(screen.getAllByText(/endettement/i).length).toBeGreaterThan(0);
-  });
+  }, 20000);
+
+  it("expose Projet en troisième sous-onglet de Simulation", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(sidebar().getByRole("button", { name: "Simulation" }));
+
+    const sousOnglet = await screen.findByRole(
+      "button",
+      { name: /projet/i },
+      { timeout: ATTENTE_CHUNK }
+    );
+    await user.click(sousOnglet);
+
+    // Projet est lui-même chargé en `lazy` derrière son propre Suspense.
+    // Le titre est fragmenté par le <span> coloré : on interroge le rôle, dont
+    // le nom accessible recolle les morceaux.
+    expect(
+      await screen.findByRole("heading", { name: /impact d'un projet/i }, { timeout: ATTENTE_CHUNK })
+    ).toBeInTheDocument();
+  }, 20000);
 
   it("retombe sur le Dashboard si l'URL désigne un onglet inexistant", () => {
     window.location.hash = "#/nimportequoi";
