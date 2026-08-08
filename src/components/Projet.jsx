@@ -14,6 +14,7 @@ import {
 } from "../lib/horizon";
 import { construireContexteAnonymise } from "../lib/anonymiser";
 import PanneauTransparence from "./PanneauTransparence";
+import AssistantHorizon from "./AssistantHorizon";
 
 /**
  * Sous-onglet « Projet » — Horizon, version formulaires.
@@ -68,7 +69,7 @@ export default function Projet({
   // Contexte anonymisé — construit dès maintenant, alors que rien n'est encore
   // envoyé. Le rendre visible avant qu'un réseau soit en jeu est justement ce
   // qui permet de le vérifier à froid.
-  const { contexte } = useMemo(
+  const { contexte, facteurBase100 } = useMemo(
     () =>
       construireContexteAnonymise({
         profile, livrets, bourse, dettes, cash, enveloppes, historyPast, immo,
@@ -470,6 +471,11 @@ export default function Projet({
           </div>
         </Card>
       </div>
+
+      {/* L'assistant vient en complément des formulaires, jamais à leur place :
+          si aucun fournisseur gratuit n'est joignable, il s'efface et tout ce
+          qui précède continue de fonctionner. */}
+      <AssistantHorizon contexte={contexte} facteurBase100={facteurBase100} />
 
       <p className="text-xs text-slate-600 text-center pb-2">
         Simulations sous hypothèses explicites, à titre indicatif. Ce n&apos;est pas un conseil en investissement.

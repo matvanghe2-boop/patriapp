@@ -1,10 +1,14 @@
 # Horizon — Spécification détaillée
 
 > Module « Simulateur » de **Patrium**. Assistant de simulation financière piloté par IA agentive.
-> Statut : **jalons 1, 2 et 3 livrés** — `src/lib/horizon.js` (moteur, 75 tests),
-> `src/components/Projet.jsx` (UI à formulaires, 14 tests),
-> `src/lib/anonymiser.js` + `src/components/PanneauTransparence.jsx` (43 tests).
-> Jalon 4 (adaptateur Gemini) à démarrer.
+> Statut : **jalons 1 à 6 livrés** — moteur, UI à formulaires, anonymiseur,
+> registre d'outils, boucle d'orchestration, adaptateurs Gemini/Groq/Ollama,
+> route `api/advisor.js`, assistant conversationnel. **488 tests.**
+> Reste : jalon 7 (réglages de confidentialité + fallback B), 8 (scénarios
+> sauvegardés), 9 (bilan mensuel proactif).
+>
+> ⚠️ **Non vérifié en conditions réelles** : aucun appel à Gemini n'a été fait
+> (pas de clé). Les adaptateurs sont testés contre des `fetch` simulés.
 > Placement : sous-onglet **« Projet »** de l'onglet **Simulation**, thème violet,
 > chargé en `lazy` (chunk séparé de 19 kB).
 > Dernière mise à jour : 2026-08-08
@@ -452,9 +456,9 @@ Court et précis. Il définit : le rôle, l'obligation de passer par les outils 
 | **1** | ✅ **LIVRÉ** — Moteur de calcul (§3) + 75 tests unitaires | — | ✅ Socle réutilisable |
 | **2** | ✅ **LIVRÉ** — Sous-onglet « Projet » à formulaires, sans IA (14 tests) | 1 | ✅ **Produit utilisable** |
 | **3** | ✅ **LIVRÉ** — Anonymiseur base 100 + audit + panneau de transparence (43 tests) | — | ✅ Renforce la confiance |
-| **4** | Adaptateur Gemini + registre d'outils + boucle | 1, 3 | — |
-| **5** | UI conversationnelle + graphiques + journal | 2, 4 | ✅ Horizon complet |
-| **6** | Chaîne de repli gratuite : Groq + Ollama + mode dégradé | 4 | ✅ Robustesse |
+| **4** | ✅ **LIVRÉ** — Adaptateur Gemini + registre d'outils + boucle + route serveur (60 tests) | 1, 3 | — |
+| **5** | ✅ **LIVRÉ** — UI conversationnelle + journal des calculs (13 tests) | 2, 4 | ✅ Horizon complet |
+| **6** | ✅ **LIVRÉ** — Chaîne de repli gratuite : Groq + Ollama + mode dégradé | 4 | ✅ Robustesse |
 | **7** | Réglages de confidentialité + fallback B | 4 | ✅ Contrôle |
 | **8** | Scénarios sauvegardés + comparaison différée | 5 | ✅ Rétention |
 | **9** | Mode proactif : bilan mensuel automatique | 5 | ✅ Rétention |
