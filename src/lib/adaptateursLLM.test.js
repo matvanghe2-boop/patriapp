@@ -123,6 +123,72 @@ describe("creerAdaptateurGemini", () => {
     await expect(surReseau.envoyer({ messages: MESSAGES, outils: OUTILS })).rejects.toThrow(ErreurFournisseur);
   });
 
+  it("réémet le tour du modèle tel quel, signature de pensée comprise", async () => {
+    // Constaté en conditions réelles : les générations récentes joignent une
+    // `thoughtSignature` à chaque functionCall. Reconstruire l'appel à partir
+    // du nom et des arguments la perdrait, et l'API rejette alors la suite.
+    const brut = {
+      functionCall: { name: "lire_contexte", args: {}, id: "sig-1" },
+      thoughtSignature: "EoMCCoACARFNMg9",
+    };
+    const fetchImpl = vi.fn().mockResolvedValue(reponseOk(geminiTexte));
+    await creerAdaptateurGemini({ cle: "k", fetchImpl }).envoyer({
+      messages: [
+        { role: "assistant", appels: [{ id: "sig-1", nom: "lire_contexte", arguments: {}, brut }] },
+      ],
+      outils: OUTILS,
+    });
+    const corps = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(corps.contents[0].parts[0]).toEqual(brut);
+  });
+
+  it("extrait la signature et l'identifiant d'un appel reçu", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      reponseOk({
+        candidates: [
+          {
+            content: {
+              parts: [{ functionCall: { name: "lire_contexte", args: {}, id: "xyz" }, thoughtSignature: "abc" }],
+            },
+          },
+        ],
+      })
+    );
+    const r = await creerAdaptateurGemini({ cle: "k", fetchImpl }).envoyer({ messages: MESSAGES, outils: OUTILS });
+    expect(r.appels[0].idGemini).toBe("xyz");
+    expect(r.appels[0].brut.thoughtSignature).toBe("abc");
+  });
+
+  it("renvoie l'identifiant d'appel dans la functionResponse", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(reponseOk(geminiTexte));
+    await creerAdaptateurGemini({ cle: "k", fetchImpl }).envoyer({
+      messages: [{ role: "outil", idGemini: "xyz", nomOutil: "lire_contexte", contenu: { base: 100 } }],
+      outils: OUTILS,
+    });
+    const corps = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(corps.contents[0].parts[0].functionResponse.id).toBe("xyz");
+  });
+
+  it("borne la durée d'un appel", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(reponseOk(geminiTexte));
+    await creerAdaptateurGemini({ cle: "k", fetchImpl, delaiMs: 5000 }).envoyer({ messages: MESSAGES, outils: OUTILS });
+    expect(fetchImpl.mock.calls[0][1].signal).toBeDefined();
+  });
+
+  it("traite un dépassement de délai comme un fournisseur indisponible, donc repliable", async () => {
+    const expiration = Object.assign(new Error("The operation was aborted"), { name: "TimeoutError" });
+    const fetchImpl = vi.fn().mockRejectedValue(expiration);
+    await expect(
+      creerAdaptateurGemini({ cle: "k", fetchImpl, delaiMs: 10 }).envoyer({ messages: MESSAGES, outils: OUTILS })
+    ).rejects.toThrow(ErreurFournisseur);
+  });
+
+  it("cible un modèle assez rapide pour tenir dans une fonction serverless", () => {
+    // Mesuré : gemini-flash-latest met 63 s pour un arbitrage complet, au-delà
+    // du plafond de 60 s ; flash-lite met 6 s pour la même conclusion.
+    expect(creerAdaptateurGemini({ cle: "k" }).modele).toBe("gemini-3.1-flash-lite");
+  });
+
   it("se déclare indisponible sans clé", () => {
     expect(creerAdaptateurGemini({}).disponible()).toBe(false);
     expect(creerAdaptateurGemini({ cle: "k" }).disponible()).toBe(true);

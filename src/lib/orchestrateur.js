@@ -35,6 +35,17 @@ export class ErreurModeDegrade extends Error {
 export const MAX_ITERATIONS = 12;
 
 /**
+ * Budget de temps global, en millisecondes.
+ *
+ * Un raisonnement complet observé en conditions réelles (contexte, coût de
+ * possession, opportunité, deux projections, comparaison, impact) prend une
+ * trentaine de secondes. Les fonctions serverless, elles, sont tuées à échéance
+ * fixe — sans réponse ni message. Mieux vaut s'arrêter volontairement un peu
+ * avant et rendre les calculs déjà faits.
+ */
+export const BUDGET_MS = 50_000;
+
+/**
  * Exécute la boucle jusqu'à obtenir une réponse ou une question.
  *
  * @param {object}   options
@@ -51,6 +62,8 @@ export async function executerBoucle({
   registre = REGISTRE_OUTILS,
   systeme = PROMPT_SYSTEME,
   maxIterations = MAX_ITERATIONS,
+  budgetMs = BUDGET_MS,
+  maintenant = () => Date.now(),
   onEtape = null,
 } = {}) {
   if (!adaptateurs.length) throw new ErreurModeDegrade([]);
@@ -59,11 +72,28 @@ export async function executerBoucle({
   const journal = [];
   const echecs = [];
   const historique = [...messages];
+  const debut = maintenant();
 
   let indexAdaptateur = 0;
   let adaptateur = adaptateurs[0];
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    // Vérifié avant de relancer le modèle : un appel entamé irait au bout et
+    // dépasserait le budget, alors qu'ici on peut encore répondre.
+    if (maintenant() - debut > budgetMs) {
+      return {
+        type: "texte",
+        contenu:
+          "Le raisonnement a dépassé le temps imparti. Voici les calculs déjà effectués — " +
+          "pose une question plus ciblée, ou utilise les formulaires ci-dessus pour aller au bout.",
+        journal,
+        fournisseur: adaptateur.nom,
+        iterations: iteration - 1,
+        budgetEpuise: true,
+        echecs,
+      };
+    }
+
     let reponse;
     try {
       onEtape?.({ etape: "requete_modele", iteration, fournisseur: adaptateur.nom });
@@ -121,6 +151,9 @@ export async function executerBoucle({
       historique.push({
         role: "outil",
         idAppel: appel.id,
+        // Identifiant propre à Gemini, quand il en émet un : l'adaptateur le
+        // renvoie pour apparier la réponse à son appel.
+        idGemini: appel.idGemini ?? null,
         nomOutil: appel.nom,
         contenu: sorties,
       });

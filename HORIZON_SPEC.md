@@ -7,8 +7,16 @@
 > Reste : jalon 7 (réglages de confidentialité + fallback B), 8 (scénarios
 > sauvegardés), 9 (bilan mensuel proactif).
 >
-> ⚠️ **Non vérifié en conditions réelles** : aucun appel à Gemini n'a été fait
-> (pas de clé). Les adaptateurs sont testés contre des `fetch` simulés.
+> ✅ **Vérifié en conditions réelles** contre l'API Gemini : arbitrage complet
+> en ~6 s, 7 itérations, méthode respectée (contexte → coût de possession →
+> opportunité → deux projections sur la même graine → impact objectif), aucune
+> erreur d'outil, conclusions stables entre essais.
+>
+> **Modèle : `gemini-3.1-flash-lite`.** Choisi après mesure —
+> `gemini-2.0-flash` renvoie 429 (quota d'une génération ancienne),
+> `gemini-2.5-flash` renvoie 404 (« no longer available to new users »),
+> `gemini-flash-latest` répond très bien mais en 63 s, au-dessus du plafond de
+> 60 s d'une fonction serverless. `flash-lite` donne la même conclusion en 6 s.
 > Placement : sous-onglet **« Projet »** de l'onglet **Simulation**, thème violet,
 > chargé en `lazy` (chunk séparé de 19 kB).
 > Dernière mise à jour : 2026-08-08

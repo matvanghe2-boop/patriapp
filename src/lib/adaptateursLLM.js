@@ -38,6 +38,22 @@ export class ErreurFournisseur extends Error {
 
 const estQuota = (statut) => statut === 429 || statut === 403;
 
+/**
+ * Délai maximal d'un appel au fournisseur. Sans borne, une requête qui traîne
+ * consomme tout le budget de la fonction serverless et la fait tuer sans
+ * réponse : mieux vaut abandonner ce fournisseur et basculer sur le suivant.
+ */
+export const DELAI_APPEL_MS = 30_000;
+
+/** Signal d'annulation, en dégradant proprement si l'environnement ne l'offre pas. */
+function signalDelai(ms) {
+  try {
+    return AbortSignal.timeout(ms);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Convertit un schéma d'outil interne vers le format OpenAPI attendu par Gemini. */
 function versDeclarationGemini({ nom, description, parametres }) {
   return { name: nom, description, parameters: parametres };
@@ -58,9 +74,19 @@ function versOutilOpenAI({ nom, description, parametres }) {
  */
 export function creerAdaptateurGemini({
   cle,
-  modele = "gemini-2.0-flash",
+  // Choisi après mesure en conditions réelles, pas par principe :
+  //  · gemini-2.0-flash / -lite → 429, quota propre à une génération ancienne ;
+  //  · gemini-2.5-flash → 404 « no longer available to new users » ;
+  //  · gemini-flash-latest → excellente réponse mais 63 s pour un arbitrage
+  //    complet, au-dessus du plafond de 60 s d'une fonction serverless ;
+  //  · gemini-3.1-flash-lite → 6 s, même méthode, même conclusion (≈23 mois de
+  //    retard sur deux essais, contre 22 pour le gros modèle).
+  // La qualité de raisonnement compte moins ici qu'ailleurs : le modèle
+  // orchestre, il ne calcule pas.
+  modele = "gemini-3.1-flash-lite",
   fetchImpl = globalThis.fetch,
   baseUrl = "https://generativelanguage.googleapis.com/v1beta",
+  delaiMs = DELAI_APPEL_MS,
 } = {}) {
   return {
     nom: "gemini",
@@ -72,13 +98,27 @@ export function creerAdaptateurGemini({
         if (m.role === "outil") {
           return {
             role: "user",
-            parts: [{ functionResponse: { name: m.nomOutil, response: enveloppeResultat(m.contenu) } }],
+            parts: [
+              {
+                functionResponse: {
+                  // L'identifiant d'appel, quand le modèle en fournit un, doit
+                  // être renvoyé pour apparier réponse et appel.
+                  ...(m.idGemini ? { id: m.idGemini } : {}),
+                  name: m.nomOutil,
+                  response: enveloppeResultat(m.contenu),
+                },
+              },
+            ],
           };
         }
         if (m.role === "assistant" && m.appels?.length) {
           return {
             role: "model",
-            parts: m.appels.map((a) => ({ functionCall: { name: a.nom, args: a.arguments } })),
+            // Le tour du modèle est réémis TEL QUEL. Les générations récentes
+            // joignent une `thoughtSignature` à chaque functionCall : la
+            // reconstruire à partir du nom et des arguments la perdrait, et
+            // l'API rejette alors la suite de la conversation.
+            parts: m.appels.map((a) => a.brut ?? { functionCall: { name: a.nom, args: a.arguments } }),
           };
         }
         return {
@@ -101,9 +141,10 @@ export function creerAdaptateurGemini({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(corps),
+          signal: signalDelai(delaiMs),
         });
       } catch (err) {
-        throw new ErreurFournisseur("gemini", err.message);
+        throw new ErreurFournisseur("gemini", err.name === "TimeoutError" ? `pas de reponse en ${delaiMs} ms` : err.message);
       }
 
       if (!reponse.ok) {
@@ -116,7 +157,14 @@ export function creerAdaptateurGemini({
       const parts = data?.candidates?.[0]?.content?.parts ?? [];
       const appels = parts
         .filter((p) => p.functionCall)
-        .map((p, i) => ({ id: `${p.functionCall.name}-${i}`, nom: p.functionCall.name, arguments: p.functionCall.args ?? {} }));
+        .map((p, i) => ({
+          id: p.functionCall.id ?? `${p.functionCall.name}-${i}`,
+          idGemini: p.functionCall.id ?? null,
+          nom: p.functionCall.name,
+          arguments: p.functionCall.args ?? {},
+          // Conservé pour réémission fidèle (voir ci-dessus).
+          brut: p,
+        }));
 
       if (appels.length) return { type: "appel_outil", appels };
       return { type: "texte", contenu: parts.map((p) => p.text ?? "").join("").trim() };
@@ -132,6 +180,7 @@ export function creerAdaptateurGroq({
   modele = "llama-3.3-70b-versatile",
   fetchImpl = globalThis.fetch,
   baseUrl = "https://api.groq.com/openai/v1",
+  delaiMs = DELAI_APPEL_MS,
 } = {}) {
   return {
     nom: "groq",
@@ -145,6 +194,7 @@ export function creerAdaptateurGroq({
         entetes: { "Content-Type": "application/json", Authorization: `Bearer ${cle}` },
         modele,
         fetchImpl,
+        delaiMs,
       }),
   };
 }
@@ -160,6 +210,7 @@ export function creerAdaptateurOllama({
   modele = "qwen2.5:7b",
   fetchImpl = globalThis.fetch,
   baseUrl = "http://127.0.0.1:11434",
+  delaiMs = DELAI_APPEL_MS,
 } = {}) {
   return {
     nom: "ollama",
@@ -180,9 +231,10 @@ export function creerAdaptateurOllama({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(corps),
+          signal: signalDelai(delaiMs),
         });
       } catch (err) {
-        throw new ErreurFournisseur("ollama", err.message);
+        throw new ErreurFournisseur("ollama", err.name === "TimeoutError" ? `pas de reponse en ${delaiMs} ms` : err.message);
       }
 
       if (!reponse.ok) {
@@ -228,7 +280,7 @@ function versMessagesOpenAI({ systeme, messages }) {
   return liste;
 }
 
-async function envoyerFormatOpenAI({ systeme, messages, outils, fournisseur, url, entetes, modele, fetchImpl }) {
+async function envoyerFormatOpenAI({ systeme, messages, outils, fournisseur, url, entetes, modele, fetchImpl, delaiMs = DELAI_APPEL_MS }) {
   const corps = {
     model: modele,
     messages: versMessagesOpenAI({ systeme, messages }),
@@ -237,9 +289,14 @@ async function envoyerFormatOpenAI({ systeme, messages, outils, fournisseur, url
 
   let reponse;
   try {
-    reponse = await fetchImpl(url, { method: "POST", headers: entetes, body: JSON.stringify(corps) });
+    reponse = await fetchImpl(url, {
+      method: "POST",
+      headers: entetes,
+      body: JSON.stringify(corps),
+      signal: signalDelai(delaiMs),
+    });
   } catch (err) {
-    throw new ErreurFournisseur(fournisseur, err.message);
+    throw new ErreurFournisseur(fournisseur, err.name === "TimeoutError" ? `pas de reponse en ${delaiMs} ms` : err.message);
   }
 
   if (!reponse.ok) {

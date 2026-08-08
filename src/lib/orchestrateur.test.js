@@ -326,6 +326,53 @@ describe("executerBoucle — repli gratuit", () => {
   });
 });
 
+describe("executerBoucle — budget de temps", () => {
+  // Constaté en conditions réelles : un raisonnement complet prend une
+  // trentaine de secondes. Sans borne, la fonction serverless est tuée en
+  // plein milieu et l'utilisateur ne reçoit rien du tout.
+  it("s'arrête et rend les calculs déjà faits quand le budget est dépassé", async () => {
+    let horloge = 0;
+    const a = adaptateurFactice("lent", [
+      { type: "appel_outil", appels: [{ id: "1", nom: "lire_contexte", arguments: {} }] },
+      { type: "appel_outil", appels: [{ id: "2", nom: "lire_contexte", arguments: {} }] },
+      { type: "texte", contenu: "jamais atteint" },
+    ]);
+    a.envoyer.mockImplementation(async () => {
+      horloge += 30_000;
+      return { type: "appel_outil", appels: [{ id: "x", nom: "lire_contexte", arguments: {} }] };
+    });
+
+    const r = await executerBoucle({
+      adaptateurs: [a],
+      contexte: CONTEXTE,
+      budgetMs: 50_000,
+      maintenant: () => horloge,
+    });
+
+    expect(r.budgetEpuise).toBe(true);
+    expect(r.journal.length).toBeGreaterThan(0);
+    expect(r.contenu).toMatch(/temps imparti/);
+  });
+
+  it("ne coupe pas une conversation qui tient dans le budget", async () => {
+    const a = adaptateurFactice("rapide", [{ type: "texte", contenu: "Verdict." }]);
+    const r = await executerBoucle({ adaptateurs: [a], contexte: CONTEXTE, budgetMs: 50_000 });
+    expect(r.budgetEpuise).toBeUndefined();
+    expect(r.contenu).toBe("Verdict.");
+  });
+
+  it("propage l'identifiant d'appel de Gemini jusqu'au résultat d'outil", async () => {
+    // Les générations récentes apparient réponse et appel par identifiant.
+    const a = adaptateurFactice("gemini", [
+      { type: "appel_outil", appels: [{ id: "abc", idGemini: "abc", nom: "lire_contexte", arguments: {} }] },
+      { type: "texte", contenu: "ok" },
+    ]);
+    await executerBoucle({ adaptateurs: [a], contexte: CONTEXTE });
+    const messageOutil = a.appelsRecus[1].messages.find((m) => m.role === "outil");
+    expect(messageOutil.idGemini).toBe("abc");
+  });
+});
+
 describe("repondreAHypothese", () => {
   it("ajoute la réponse de l'utilisateur à l'historique", () => {
     const historique = [{ role: "utilisateur", contenu: "et si j'achète une voiture ?" }];

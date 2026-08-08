@@ -148,13 +148,26 @@ export const REGISTRE_OUTILS = [
     },
     executer: (a) => {
       const r = projeterPatrimoine({ graine: 2026, tirages: 400, ...a });
-      // On ne remonte que les points annuels utiles : la trajectoire complète
-      // en percentiles est trop volumineuse pour le contexte.
+      // Charge utile volontairement maigre. La trajectoire année par année
+      // multipliait la taille du résultat sans rien ajouter au raisonnement, et
+      // ralentissait nettement le tour suivant du modèle — chaque résultat
+      // d'outil est renvoyé dans le contexte à chaque itération.
+      // La forme reste celle qu'attendent `impact_objectif` et
+      // `comparer_scenarios` — seuls les percentiles intermédiaires et les
+      // décimales superflues disparaissent.
+      const arrondi = (v) => Math.round((v ?? 0) * 100) / 100;
+      const f = r.valeurFinale;
       return {
-        valeurFinale: r.valeurFinale,
-        probabiliteObjectif: r.probabiliteObjectif,
-        trajectoireMediane: r.trajectoireMediane,
-        parametres: r.parametres,
+        valeurFinale: {
+          p10: arrondi(f.p10),
+          p50: arrondi(f.p50),
+          p90: arrondi(f.p90),
+          reel: { p50: arrondi(f.reel?.p50) },
+        },
+        percentiles: r.percentiles.map((p) => ({ annee: p.annee, p50: arrondi(p.p50) })),
+        probabiliteObjectif: r.probabiliteObjectif == null ? null : arrondi(r.probabiliteObjectif),
+        horizonAnnees: r.parametres.horizonAnnees,
+        graine: r.parametres.graine,
       };
     },
   },

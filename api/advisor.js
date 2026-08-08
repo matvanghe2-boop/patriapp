@@ -63,6 +63,14 @@ async function handler(req, res) {
   }
 }
 
+/**
+ * Un raisonnement complet prend une trentaine de secondes en conditions
+ * réelles : le plafond Vercel par défaut (10 s) tuerait la requête en plein
+ * milieu, sans réponse. La boucle s'arrête d'elle-même à 50 s (BUDGET_MS),
+ * ce qui laisse de la marge sous ce plafond.
+ */
+export const config = { maxDuration: 60 };
+
 export default withApi(handler, {
   methods: ["POST"],
   // Une question déclenche jusqu'à douze appels au fournisseur : la limite est
