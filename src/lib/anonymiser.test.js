@@ -196,6 +196,70 @@ describe("construireContexteAnonymise — cas limites", () => {
   });
 });
 
+describe("mode B — montants réels (jalon 7)", () => {
+  const modeB = () => construireContexteAnonymise({ ...ETAT, montantsReels: true });
+
+  it("transmet le patrimoine en euros au lieu de la base 100", () => {
+    const { contexte } = modeB();
+    expect(contexte.unite).toBe("euros");
+    expect(contexte.patrimoine).toBe(72000);
+  });
+
+  it("ramène le facteur de conversion à 1 : plus rien à re-multiplier", () => {
+    expect(modeB().facteurBase100).toBe(1);
+  });
+
+  it("écarte toujours noms, tickers, libellés et identifiants", () => {
+    // Le mode B change l'unité des montants, PAS le périmètre de ce qui est
+    // envoyé. C'est la confusion la plus facile à faire, et la plus coûteuse.
+    const t = JSON.stringify(modeB().contexte);
+    for (const secret of ["CW8", "Air Liquide", "Livret A", "Linxea", "Bordeaux", "Japon", '"cw8"']) {
+      expect(t).not.toContain(secret);
+    }
+  });
+
+  it("laisse l'allocation en pourcentages dans les deux modes", () => {
+    const { contexte } = modeB();
+    expect(contexte.allocationPct.actions).toBeCloseTo((55000 / 82000) * 100, 1);
+  });
+
+  it("reste en base 100 tant que le mode n'est pas demandé", () => {
+    const { contexte, facteurBase100 } = construireContexteAnonymise(ETAT);
+    expect(contexte.unite).toBe("base100");
+    expect(contexte.patrimoine).toBe(100);
+    expect(facteurBase100).toBeCloseTo(720, 6);
+  });
+});
+
+describe("auditerContexte — autorisation des montants", () => {
+  it("refuse un montant tant qu'il n'est pas autorisé", () => {
+    expect(auditerContexte({ patrimoine: 72000 }).sain).toBe(false);
+  });
+
+  it("accepte les montants quand le mode B est déclaré", () => {
+    expect(auditerContexte({ patrimoine: 72000 }, { autoriserMontants: true }).sain).toBe(true);
+  });
+
+  it("continue de refuser un ticker même en mode B", () => {
+    // Lever le seuil des montants ne doit pas lever la détection d'identifiants.
+    const { sain, alertes } = auditerContexte({ ligne: "CW8.PA" }, { autoriserMontants: true });
+    expect(sain).toBe(false);
+    expect(alertes[0].motif).toBe("ticker boursier");
+  });
+
+  it("continue de refuser e-mails, ISIN et clés identifiantes en mode B", () => {
+    const opt = { autoriserMontants: true };
+    expect(auditerContexte({ c: "mat@example.com" }, opt).sain).toBe(false);
+    expect(auditerContexte({ c: "FR0010315770" }, opt).sain).toBe(false);
+    expect(auditerContexte({ compte: { name: "x" } }, opt).sain).toBe(false);
+  });
+
+  it("valide le contexte réellement produit en mode B", () => {
+    const { contexte } = construireContexteAnonymise({ ...ETAT, montantsReels: true });
+    expect(auditerContexte(contexte, { autoriserMontants: true }).alertes).toEqual([]);
+  });
+});
+
 describe("rebaser / versBase100", () => {
   it("reconvertit une valeur base 100 en euros", () => {
     const { facteurBase100 } = construireContexteAnonymise(ETAT); // 72 000 / 100 = 720

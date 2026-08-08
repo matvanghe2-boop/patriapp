@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Target, AlertTriangle, Wallet, TrendingDown, Info, Landmark, Coins, Shield,
+  Target, AlertTriangle, Wallet, TrendingDown, Info, Landmark, Coins, Shield, SlidersHorizontal,
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
@@ -15,6 +15,9 @@ import {
 import { construireContexteAnonymise } from "../lib/anonymiser";
 import PanneauTransparence from "./PanneauTransparence";
 import AssistantHorizon from "./AssistantHorizon";
+import ReglagesHorizon, { BandeauModeReel } from "./ReglagesHorizon";
+import ScenariosProjet from "./ScenariosProjet";
+import BilanMensuel from "./BilanMensuel";
 
 /**
  * Sous-onglet « Projet » — Horizon, version formulaires.
@@ -46,8 +49,16 @@ export default function Projet({
   // État brut, uniquement consommé par l'anonymiseur pour construire le
   // contexte que le panneau de transparence affiche. Rien n'en sort d'ici.
   profile, livrets, bourse, dettes, cash, enveloppes, immo, patrimoineNet,
+  // Jalons 7 à 9 : réglages de confidentialité, projets mis de côté, bilan mensuel.
+  horizonReglages = { montantsReels: false },
+  setHorizonReglages = () => {},
+  horizonScenarios = [],
+  setHorizonScenarios = () => {},
+  horizonDernierBilan = null,
+  setHorizonDernierBilan = () => {},
 }) {
   const [panneauOuvert, setPanneauOuvert] = useState(false);
+  const [reglagesOuverts, setReglagesOuverts] = useState(false);
   const [libelle, setLibelle] = useState("Voiture");
   const [categorie, setCategorie] = useState("voiture");
   const [prix, setPrix] = useState(28000);
@@ -69,13 +80,15 @@ export default function Projet({
   // Contexte anonymisé — construit dès maintenant, alors que rien n'est encore
   // envoyé. Le rendre visible avant qu'un réseau soit en jeu est justement ce
   // qui permet de le vérifier à froid.
+  const montantsReels = Boolean(horizonReglages?.montantsReels);
   const { contexte, facteurBase100 } = useMemo(
     () =>
       construireContexteAnonymise({
         profile, livrets, bourse, dettes, cash, enveloppes, historyPast, immo,
         patrimoineNet: patrimoineNet ?? patrimoineActuel,
+        montantsReels,
       }),
-    [profile, livrets, bourse, dettes, cash, enveloppes, historyPast, immo, patrimoineNet, patrimoineActuel]
+    [profile, livrets, bourse, dettes, cash, enveloppes, historyPast, immo, patrimoineNet, patrimoineActuel, montantsReels]
   );
 
   // ─── Fiabilité des rendements (§3.10) ──────────────────────────────────────
@@ -213,6 +226,13 @@ export default function Projet({
             <Shield size={13} /> Voir ce qui est envoyé
           </button>
           <button
+            onClick={() => setReglagesOuverts(true)}
+            aria-label="Réglages de confidentialité"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:border-slate-500 transition-colors"
+          >
+            <SlidersHorizontal size={13} />
+          </button>
+          <button
             onClick={() => setVueReelle((v) => !v)}
             className="text-xs px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:border-violet-500/60 transition-colors"
           >
@@ -222,8 +242,32 @@ export default function Projet({
       </div>
 
       {panneauOuvert && (
-        <PanneauTransparence contexte={contexte} onClose={() => setPanneauOuvert(false)} />
+        <PanneauTransparence
+          contexte={contexte}
+          montantsReels={montantsReels}
+          onClose={() => setPanneauOuvert(false)}
+        />
       )}
+
+      {reglagesOuverts && (
+        <ReglagesHorizon
+          reglages={horizonReglages}
+          onChange={setHorizonReglages}
+          onClose={() => setReglagesOuverts(false)}
+        />
+      )}
+
+      {/* Le mode B ne doit jamais être actif sans que ça se voie. */}
+      {montantsReels && <BandeauModeReel onOuvrirReglages={() => setReglagesOuverts(true)} />}
+
+      <BilanMensuel
+        patrimoineNet={patrimoineNet ?? patrimoineActuel}
+        historyPast={historyPast}
+        tauxEpargnePct={contexte.flux?.tauxEpargnePct ?? 0}
+        epargneSecuriteMois={contexte.reserves?.epargneSecuriteMois ?? null}
+        dernierBilan={horizonDernierBilan}
+        onVu={setHorizonDernierBilan}
+      />
 
       {estimation.avertissement && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-950/20 px-4 py-3">
@@ -472,10 +516,32 @@ export default function Projet({
         </Card>
       </div>
 
+      <ScenariosProjet
+        scenarios={horizonScenarios}
+        onChange={setHorizonScenarios}
+        courant={{
+          config: {
+            libelle, categorie, prix, dureeDetention, financement,
+            apport, tauxCredit, dureeCredit, objectifMontant, objectifDate, versementMensuel,
+          },
+          resultats: {
+            coutGlobal,
+            effortMensuel,
+            retardMois: moisRetard,
+            medianeSans: projSans.valeurFinale.p50,
+            medianeAvec: projAvec.valeurFinale.p50,
+          },
+        }}
+      />
+
       {/* L'assistant vient en complément des formulaires, jamais à leur place :
           si aucun fournisseur gratuit n'est joignable, il s'efface et tout ce
           qui précède continue de fonctionner. */}
-      <AssistantHorizon contexte={contexte} facteurBase100={facteurBase100} />
+      <AssistantHorizon
+        contexte={contexte}
+        facteurBase100={facteurBase100}
+        montantsReels={montantsReels}
+      />
 
       <p className="text-xs text-slate-600 text-center pb-2">
         Simulations sous hypothèses explicites, à titre indicatif. Ce n&apos;est pas un conseil en investissement.

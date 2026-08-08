@@ -35,6 +35,10 @@ export default function Simulation({
   // État brut transmis au seul sous-onglet Projet, qui le donne à l'anonymiseur
   // pour construire le contexte affiché par le panneau de transparence.
   livrets, bourse, dettes, cash, enveloppes, patrimoineNet,
+  // Réglages, projets mis de côté et bilan mensuel du sous-onglet Projet.
+  horizonReglages, setHorizonReglages,
+  horizonScenarios, setHorizonScenarios,
+  horizonDernierBilan, setHorizonDernierBilan,
 }) {
   const [subTab, setSubTab] = useState("projection"); // "projection" | "immobilier" | "projet"
   const livretsCapital = sim.livrets.capital ?? livretsTotal;
@@ -232,6 +236,12 @@ export default function Simulation({
             enveloppes={enveloppes}
             immo={immo}
             patrimoineNet={patrimoineNet}
+            horizonReglages={horizonReglages}
+            setHorizonReglages={setHorizonReglages}
+            horizonScenarios={horizonScenarios}
+            setHorizonScenarios={setHorizonScenarios}
+            horizonDernierBilan={horizonDernierBilan}
+            setHorizonDernierBilan={setHorizonDernierBilan}
           />
         </Suspense>
       )}

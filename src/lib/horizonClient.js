@@ -11,13 +11,21 @@
  */
 
 /** Réponse normalisée : `modeDegrade` est un état, pas un échec. */
-export async function poserQuestion({ question, contexte, historique = [], signal } = {}) {
+export async function poserQuestion({
+  question,
+  contexte,
+  historique = [],
+  // Mode B : doit être déclaré explicitement, sinon le serveur refuse un
+  // contexte contenant des montants réels (voir api/advisor.js).
+  montantsReels = false,
+  signal,
+} = {}) {
   let reponse;
   try {
     reponse = await fetch("/api/advisor", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, contexte, historique }),
+      body: JSON.stringify({ question, contexte, historique, montantsReels }),
       signal,
     });
   } catch (err) {

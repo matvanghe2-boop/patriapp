@@ -1,11 +1,11 @@
 # Horizon — Spécification détaillée
 
 > Module « Simulateur » de **Patrium**. Assistant de simulation financière piloté par IA agentive.
-> Statut : **jalons 1 à 6 livrés** — moteur, UI à formulaires, anonymiseur,
-> registre d'outils, boucle d'orchestration, adaptateurs Gemini/Groq/Ollama,
-> route `api/advisor.js`, assistant conversationnel. **488 tests.**
-> Reste : jalon 7 (réglages de confidentialité + fallback B), 8 (scénarios
-> sauvegardés), 9 (bilan mensuel proactif).
+> Statut : **les neuf jalons sont livrés. 543 tests.**
+> Moteur, UI à formulaires, anonymiseur et panneau de transparence, registre
+> d'outils, boucle d'orchestration, adaptateurs Gemini/Groq/Ollama, route
+> `api/advisor.js`, assistant conversationnel, réglages de confidentialité avec
+> mode B, scénarios sauvegardés, bilan mensuel.
 >
 > ✅ **Vérifié en conditions réelles** contre l'API Gemini : arbitrage complet
 > en ~6 s, 7 itérations, méthode respectée (contexte → coût de possession →
@@ -467,9 +467,11 @@ Court et précis. Il définit : le rôle, l'obligation de passer par les outils 
 | **4** | ✅ **LIVRÉ** — Adaptateur Gemini + registre d'outils + boucle + route serveur (60 tests) | 1, 3 | — |
 | **5** | ✅ **LIVRÉ** — UI conversationnelle + journal des calculs (13 tests) | 2, 4 | ✅ Horizon complet |
 | **6** | ✅ **LIVRÉ** — Chaîne de repli gratuite : Groq + Ollama + mode dégradé | 4 | ✅ Robustesse |
-| **7** | Réglages de confidentialité + fallback B | 4 | ✅ Contrôle |
-| **8** | Scénarios sauvegardés + comparaison différée | 5 | ✅ Rétention |
-| **9** | Mode proactif : bilan mensuel automatique | 5 | ✅ Rétention |
+| **7** | ✅ **LIVRÉ** — Réglages de confidentialité + mode B (montants réels) | 4 | ✅ Contrôle |
+| **8** | ✅ **LIVRÉ** — Scénarios sauvegardés + comparaison | 5 | ✅ Rétention |
+| **9** | ✅ **LIVRÉ** — Bilan mensuel + rappel de revue semestrielle | 5 | ✅ Rétention |
+
+**Les neuf jalons sont livrés.**
 
 **Point de sortie sûr après le jalon 2** : si l'IA déçoit, tu as quand même un simulateur financier fonctionnel.
 
