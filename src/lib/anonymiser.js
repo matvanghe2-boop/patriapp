@@ -69,6 +69,14 @@ export function construireContexteAnonymise({
   historyPast = [],
   immo = null,
   patrimoineNet = 0,
+  /**
+   * Mode B (§5). Quand il est actif, les montants partent en euros réels au
+   * lieu d'être normalisés en base 100 — le reste de l'anonymisation ne bouge
+   * pas : ni nom, ni ticker, ni identifiant ne transite dans un cas comme dans
+   * l'autre. Désactivé par défaut, et il ne s'active que sur consentement
+   * explicite.
+   */
+  montantsReels = false,
 } = {}) {
   // ─── Agrégation par classe d'actifs ────────────────────────────────────────
   const parClasse = { actions: 0, obligations: 0, monetaire: 0, immobilier: 0 };
@@ -115,11 +123,19 @@ export function construireContexteAnonymise({
 
   const enPourcent = (montant) => (totalActifs > 0 ? arrondir((montant / totalActifs) * 100) : 0);
 
+  // En mode B l'unité est l'euro, et le facteur de conversion vaut 1 : rien à
+  // re-multiplier à l'affichage puisque rien n'a été normalisé.
+  const facteurBase100 = montantsReels ? 1 : base / 100;
+  const enUnites = (montant) => (montantsReels ? Math.round(montant) : arrondir(montant / facteurBase100, 3));
+
   const contexte = {
     version: VERSION_CONTEXTE,
-    base: 100,
-    // Le patrimoine vaut 100 par définition : c'est l'unité de compte.
-    patrimoineBase100: 100,
+    unite: montantsReels ? "euros" : "base100",
+    base: montantsReels ? null : 100,
+    patrimoine: montantsReels ? Math.round(base) : 100,
+    // Conservé sous son ancien nom pour ne pas casser le prompt système ni les
+    // contextes déjà en circulation.
+    patrimoineBase100: montantsReels ? Math.round(base) : 100,
     allocationPct: {
       actions: enPourcent(parClasse.actions),
       obligations: enPourcent(parClasse.obligations),
@@ -128,7 +144,7 @@ export function construireContexteAnonymise({
     },
     flux: {
       tauxEpargnePct: arrondir(tauxEpargnePct, 1),
-      epargneMensuelleBase100: base > 0 ? arrondir((epargneMensuelle / base) * 100, 3) : 0,
+      epargneMensuelleBase100: base > 0 ? enUnites(epargneMensuelle) : 0,
     },
     reserves: {
       epargneSecuriteMois: epargneSecuriteMois == null ? null : arrondir(epargneSecuriteMois, 1),
@@ -146,7 +162,7 @@ export function construireContexteAnonymise({
     historique: { profondeurMois },
   };
 
-  return { contexte, facteurBase100: base / 100 };
+  return { contexte, facteurBase100, montantsReels };
 }
 
 /** Profondeur d'un historique `[{date, value}]` en mois pleins. */
@@ -182,11 +198,19 @@ export function versBase100(montantEuros, facteurBase100) {
  * rien savoir de la façon dont il a été construit.
  *
  * `seuilMontant` : au-delà, un nombre ressemble davantage à un montant en euros
- * qu'à un pourcentage ou un ratio. Le contexte n'en contient légitimement aucun.
+ * qu'à un pourcentage ou un ratio. Le contexte n'en contient légitimement aucun
+ * en mode A.
+ *
+ * `autoriserMontants` : en mode B, l'utilisateur a consenti à transmettre des
+ * montants réels. Cette option lève **uniquement** la règle sur la taille des
+ * nombres. La détection des noms, tickers, ISIN, e-mails et clés identifiantes
+ * reste active : le mode B change l'unité des montants, pas le périmètre de ce
+ * qui est envoyé. Confondre les deux serait la façon la plus simple de faire
+ * fuiter un portefeuille en croyant n'avoir levé qu'un seuil.
  *
  * @returns {{sain: boolean, alertes: Array<{chemin: string, motif: string, valeur: *}>}}
  */
-export function auditerContexte(contexte, { seuilMontant = 1000 } = {}) {
+export function auditerContexte(contexte, { seuilMontant = 1000, autoriserMontants = false } = {}) {
   const alertes = [];
 
   const parcourir = (valeur, chemin) => {
@@ -209,9 +233,9 @@ export function auditerContexte(contexte, { seuilMontant = 1000 } = {}) {
     }
 
     if (typeof valeur === "number") {
-      // `base` et `patrimoineBase100` valent 100 par construction : ce sont des
-      // unités de compte, pas des montants.
-      if (Math.abs(valeur) > seuilMontant) {
+      // `base` et `patrimoineBase100` valent 100 par construction en mode A :
+      // ce sont des unités de compte, pas des montants.
+      if (!autoriserMontants && Math.abs(valeur) > seuilMontant) {
         alertes.push({ chemin, motif: "nombre trop grand pour un ratio", valeur });
       }
       return;

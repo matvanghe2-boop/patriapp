@@ -2,6 +2,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+// Ce fichier monte l'application entière, chunks `lazy` compris. Isolément
+// chaque test tient en une à deux secondes, mais sous la charge parallèle de la
+// suite complète la résolution des chunks peut prendre plusieurs dizaines de
+// secondes — au-delà du délai par défaut de 5 s. Les échecs qui en résultaient
+// étaient purement des contentions de CPU, sans rapport avec le code testé.
+vi.setConfig({ testTimeout: 60_000 });
+
 // Sans Supabase configuré, l'app tourne en stockage local pur : c'est le mode
 // le plus simple à monter en test, et il couvre malgré tout toute la coquille
 // de navigation, le routage par URL et les dialogues.

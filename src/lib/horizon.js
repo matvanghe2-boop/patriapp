@@ -80,6 +80,39 @@ export const CORRELATIONS_REFERENCE = {
 
 export const INFLATION_DEFAUT = 2.0;
 
+/**
+ * Dernière revue manuelle des valeurs de référence (§10 bis de HORIZON_SPEC.md).
+ *
+ * Couvre les coûts de possession, les barèmes fiscaux et la table
+ * rendement/volatilité. À mettre à jour à chaque revue effectuée — c'est cette
+ * date, et elle seule, qui déclenche le rappel.
+ *
+ * Les rendements sortiront de ce cycle le jour où l'historique Patrium
+ * dépassera 24 mois : ils seront alors recalculés en continu.
+ */
+export const DATE_REVISION_REFERENCES = "2026-08-08";
+
+/** Périodicité de la revue, en mois. */
+export const PERIODICITE_REVISION_MOIS = 6;
+
+/**
+ * Indique si les valeurs de référence méritent une relecture.
+ *
+ * Aucune vérification réseau, aucune source distante : juste une comparaison de
+ * dates. Une valeur périmée n'est jamais bloquante — elle est signalée, et
+ * reste modifiable à la main dans le tableau d'hypothèses.
+ */
+export function revisionReferencesEchue(aujourdhui = new Date(), derniere = DATE_REVISION_REFERENCES) {
+  const depuis = new Date(derniere);
+  if (Number.isNaN(depuis.getTime())) return { echue: false, moisEcoules: 0, derniere };
+  const moisEcoules = Math.floor((aujourdhui - depuis) / (30.44 * 86400000));
+  return {
+    echue: moisEcoules >= PERIODICITE_REVISION_MOIS,
+    moisEcoules: Math.max(0, moisEcoules),
+    derniere,
+  };
+}
+
 /** Seuils de fiabilité de l'estimation des rendements, en mois d'historique. */
 export const SEUIL_ESTIMATION_INDICATIVE = 24;
 export const SEUIL_ESTIMATION_EXPLOITABLE = 60;

@@ -24,7 +24,7 @@ export const STORAGE_KEYS = [
   "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort",
   "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios",
   "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate", "allocationTarget",
-  "profileHistory",
+  "profileHistory", "horizonScenarios", "horizonReglages", "horizonDernierBilan",
 ];
 
 /**
@@ -143,6 +143,17 @@ export function PatrimoineProvider({ children }) {
   // Date du dernier relevé quotidien de patrimoine — persistée (donc
   // synchronisée) pour que deux appareils ne créent pas deux points le même jour.
   const [lastSnapshotDate, setLastSnapshotDate] = usePersistentState("lastSnapshotDate", null);
+  // ─── Horizon (sous-onglet Projet) ──────────────────────────────────────────
+  // Projets chiffrés et mis de côté, comparables plus tard.
+  const [horizonScenarios, setHorizonScenarios] = usePersistentState("horizonScenarios", []);
+  // Réglages de confidentialité de l'assistant. `montantsReels` est le mode B
+  // de HORIZON_SPEC.md : désactivé par défaut, et il le reste tant que
+  // l'utilisateur ne l'active pas explicitement.
+  const [horizonReglages, setHorizonReglages] = usePersistentState("horizonReglages", {
+    montantsReels: false,
+  });
+  // Date du dernier bilan mensuel présenté, pour ne pas le rejouer chaque jour.
+  const [horizonDernierBilan, setHorizonDernierBilan] = usePersistentState("horizonDernierBilan", null);
 
   const livretsTotal = useMemo(() => livrets.reduce((s, l) => s + l.balance, 0), [livrets]);
   const livretsAvgRate = useMemo(() => weightedAverageRate(livrets) * 100, [livrets]);
@@ -225,6 +236,9 @@ export function PatrimoineProvider({ children }) {
     reminders, setReminders,
     contracts, setContracts, subs, setSubs,
     lastSnapshotDate, setLastSnapshotDate,
+    horizonScenarios, setHorizonScenarios,
+    horizonReglages, setHorizonReglages,
+    horizonDernierBilan, setHorizonDernierBilan,
     livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
     ...derived,
   };

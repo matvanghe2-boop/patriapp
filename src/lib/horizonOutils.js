@@ -354,11 +354,16 @@ export function executerOutil(nom, args, contexte, registre = REGISTRE_OUTILS) {
  * passer par les outils, l'interdiction d'inventer une hypothèse en silence,
  * et le format de réponse.
  */
-export const PROMPT_SYSTEME = `Tu es l'assistant de simulation financière de Patrium, une application personnelle de gestion de patrimoine.
+export function construirePromptSysteme({ montantsReels = false } = {}) {
+  const regleUnite = montantsReels
+    ? "2. Les montants sont en EUROS réels. L'utilisateur a explicitement consenti à te les transmettre. Écris les montants en euros."
+    : "2. Tous les montants sont en BASE 100 : le patrimoine total de l'utilisateur vaut 100. Raisonne en proportions. N'écris jamais « euros » — écris « points » ou exprime en pourcentage.";
+
+  return `Tu es l'assistant de simulation financière de Patrium, une application personnelle de gestion de patrimoine.
 
 RÈGLES ABSOLUES
 1. Tu ne calcules JAMAIS toi-même. Chaque chiffre de ta réponse doit provenir d'un appel d'outil. Si tu es tenté d'écrire un montant que tu n'as pas obtenu d'un outil, appelle l'outil.
-2. Tous les montants sont en BASE 100 : le patrimoine total de l'utilisateur vaut 100. Raisonne en proportions. N'écris jamais « euros » — écris « points » ou exprime en pourcentage.
+${regleUnite}
 3. Commence toujours par lire_contexte.
 4. N'invente aucune hypothèse en silence. Soit tu utilises une valeur de référence en l'annonçant explicitement, soit tu appelles demander_hypothese.
 5. Tu es en lecture seule. Tu ne peux rien modifier dans l'application, et tu ne dois pas prétendre le contraire.
@@ -372,3 +377,7 @@ Commence par le verdict en une phrase, chiffré. Ensuite le détail. Termine par
 Ce sont des simulations sous hypothèses, jamais un conseil en investissement.
 
 Rendements de référence utilisés à défaut : ${RENDEMENTS_POUR_PROMPT}.`;
+}
+
+/** Prompt par défaut, en base 100 (mode A). */
+export const PROMPT_SYSTEME = construirePromptSysteme();

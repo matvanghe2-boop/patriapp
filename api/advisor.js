@@ -2,6 +2,7 @@ import { withApi, httpError } from "./_lib/http.js";
 import { construireChaine } from "../src/lib/adaptateursLLM.js";
 import { executerBoucle, ErreurModeDegrade } from "../src/lib/orchestrateur.js";
 import { auditerContexte } from "../src/lib/anonymiser.js";
+import { construirePromptSysteme } from "../src/lib/horizonOutils.js";
 
 /**
  * Assistant Horizon — orchestration côté serveur.
@@ -24,7 +25,7 @@ import { auditerContexte } from "../src/lib/anonymiser.js";
 const SEUIL_AUDIT = 1000;
 
 async function handler(req, res) {
-  const { question, contexte, historique = [] } = req.body ?? {};
+  const { question, contexte, historique = [], montantsReels = false } = req.body ?? {};
 
   if (typeof question !== "string" || !question.trim()) {
     throw httpError(400, "Question manquante.");
@@ -33,7 +34,13 @@ async function handler(req, res) {
     throw httpError(400, "Contexte manquant.");
   }
 
-  const audit = auditerContexte(contexte, { seuilMontant: SEUIL_AUDIT });
+  // Le mode B doit être déclaré : sans déclaration, un contexte contenant des
+  // montants est refusé. C'est ce qui empêche une fuite silencieuse de passer
+  // pour un fonctionnement normal.
+  const audit = auditerContexte(contexte, {
+    seuilMontant: SEUIL_AUDIT,
+    autoriserMontants: montantsReels === true,
+  });
   if (!audit.sain) {
     // Le détail des alertes reste côté serveur : il contiendrait précisément
     // les valeurs qu'on refuse de laisser circuler.
@@ -49,7 +56,14 @@ async function handler(req, res) {
   const messages = [...historique, { role: "utilisateur", contenu: question }];
 
   try {
-    const resultat = await executerBoucle({ adaptateurs, contexte, messages });
+    const resultat = await executerBoucle({
+      adaptateurs,
+      contexte,
+      messages,
+      // L'unité annoncée au modèle doit suivre celle du contexte, sinon il
+      // écrira « points » devant des euros, ou l'inverse.
+      systeme: construirePromptSysteme({ montantsReels: montantsReels === true }),
+    });
     return res.status(200).json(resultat);
   } catch (err) {
     if (err instanceof ErreurModeDegrade) {

@@ -12,8 +12,13 @@ C'est la question la plus importante pour une app de ce type, donc autant y rép
 | E-mail + mot de passe | Supabase Auth | Toi seul |
 | Tickers que tu consultes | Envoyés à **Yahoo Finance** (via `/api/*`) pour récupérer les cours | Yahoo |
 | Descriptions d'entreprises (texte public fourni par Yahoo) | Envoyées à un endpoint public de **Google Translate** pour l'affichage en français | Google |
+| Questions posées à l'assistant du sous-onglet **Projet**, accompagnées d'un contexte **anonymisé** : répartition en pourcentages, taux d'épargne, mois d'épargne de sécurité. Aucun montant, aucun nom de compte, aucun ticker. | Envoyées au fournisseur de modèle configuré — **Gemini** par défaut, sinon Groq, sinon Ollama | Le fournisseur configuré, ou personne du tout avec Ollama, qui tourne en local |
 
 Ce qui n'est **jamais** envoyé nulle part : tes montants, tes soldes, tes quantités détenues, ton PRU, tes revenus. Les endpoints `/api/*` ne reçoivent que des symboles boursiers (`AI.PA`, `CW8.PA`…), jamais une position.
+
+**Une exception, et elle est sous ton contrôle.** Le sous-onglet Projet propose un réglage « montants réels », **désactivé par défaut**, qui transmet tes montants en euros au lieu de les normaliser en base 100. Il ne s'active que derrière un écran de consentement, affiche un bandeau permanent tant qu'il est actif, et se désactive en un clic sans confirmation. Même dans ce mode, aucun nom de compte, ticker, ISIN ni identifiant ne part : le mode change l'unité des montants, pas le périmètre de ce qui est envoyé. Le bouton « Voir ce qui est envoyé » affiche à tout moment la charge utile exacte.
+
+Sans clé de fournisseur configurée, l'assistant ne s'affiche pas et le sous-onglet Projet fonctionne entièrement dans le navigateur, via ses formulaires.
 
 Sans configuration Supabase, l'app fonctionne en **mode local pur** : rien ne sort du navigateur, à part les tickers ci-dessus.
 

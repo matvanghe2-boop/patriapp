@@ -17,11 +17,17 @@ import { auditerContexte, REGLES_ANONYMISATION } from "../lib/anonymiser";
  * Le JSON affiché est celui passé en prop — jamais une reconstruction : une
  * seconde sérialisation pourrait diverger de l'originale sans qu'on le voie.
  */
-export default function PanneauTransparence({ contexte, onClose }) {
+export default function PanneauTransparence({ contexte, montantsReels = false, onClose }) {
   const [copie, setCopie] = useState(false);
 
   const json = useMemo(() => JSON.stringify(contexte, null, 2), [contexte]);
-  const audit = useMemo(() => auditerContexte(contexte), [contexte]);
+  // En mode B, la présence de montants est voulue : l'audit ne doit pas la
+  // signaler comme une fuite. Il continue en revanche de traquer noms,
+  // tickers, ISIN, e-mails et identifiants, qui restent interdits.
+  const audit = useMemo(
+    () => auditerContexte(contexte, { autoriserMontants: montantsReels }),
+    [contexte, montantsReels]
+  );
 
   const copier = async () => {
     try {
@@ -50,7 +56,9 @@ export default function PanneauTransparence({ contexte, onClose }) {
           <div>
             <h2 className="font-display text-xl text-slate-50">Ce qui est envoyé</h2>
             <p className="text-sm text-slate-500 mt-1">
-              Le contenu exact transmis à l&apos;assistant. Aucun montant, aucun nom, aucun identifiant.
+              {montantsReels
+                ? "Le contenu exact transmis à l'assistant. Montants réels activés — aucun nom, aucun ticker, aucun identifiant malgré tout."
+                : "Le contenu exact transmis à l'assistant. Aucun montant, aucun nom, aucun identifiant."}
             </p>
           </div>
           <button
@@ -67,7 +75,9 @@ export default function PanneauTransparence({ contexte, onClose }) {
           <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-950/20 px-4 py-3 mb-4">
             <Shield size={16} className="text-emerald-400 shrink-0" />
             <p className="text-xs text-emerald-200/90">
-              Audit automatique : aucun montant, ticker, ISIN, e-mail ni identifiant détecté.
+              {montantsReels
+                ? "Audit automatique : aucun ticker, ISIN, e-mail ni identifiant détecté. Les montants sont transmis, comme tu l'as autorisé."
+                : "Audit automatique : aucun montant, ticker, ISIN, e-mail ni identifiant détecté."}
             </p>
           </div>
         ) : (

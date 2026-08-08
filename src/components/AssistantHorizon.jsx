@@ -25,7 +25,7 @@ const SUGGESTIONS = [
   "Combien dois-je épargner par mois pour tenir mon objectif ?",
 ];
 
-export default function AssistantHorizon({ contexte, facteurBase100 = 0 }) {
+export default function AssistantHorizon({ contexte, facteurBase100 = 0, montantsReels = false }) {
   const [messages, setMessages] = useState([]);
   const [saisie, setSaisie] = useState("");
   const [enCours, setEnCours] = useState(false);
@@ -47,6 +47,7 @@ export default function AssistantHorizon({ contexte, facteurBase100 = 0 }) {
       question: contenu,
       contexte,
       historique: historiqueRef.current,
+      montantsReels,
     });
 
     setEnCours(false);
@@ -98,7 +99,9 @@ export default function AssistantHorizon({ contexte, facteurBase100 = 0 }) {
     <Card accent={CARD_THEMES.violet}>
       <div className="flex items-center justify-between mb-3">
         <CardLabel icon={Sparkles}>Demander à l&apos;assistant</CardLabel>
-        {facteurBase100 > 0 && (
+        {/* En mode montants réels, l'assistant répond déjà en euros : rappeler
+            un taux de conversion de 1 pour 1 n'aiderait personne. */}
+        {!montantsReels && facteurBase100 > 0 && (
           <span className="text-xs text-slate-600">1 point = {eur(facteurBase100)}</span>
         )}
       </div>
