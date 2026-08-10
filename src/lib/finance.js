@@ -12,7 +12,37 @@ export const pct = (n, digits = 1) => {
 /** Pourcentage simple, sans signe, pour des taux/ratios (ex: taux d'endettement). */
 export const pctPlain = (n, digits = 1) => `${(Number.isFinite(n) ? n : 0).toFixed(digits)} %`;
 
-export const compact = (n) => `${Math.round(n / 1000)} k€`;
+/**
+ * Montant abrégé, avec l'ordre de grandeur adapté à la valeur.
+ *
+ * L'ancienne version divisait systématiquement par mille et suffixait « k€ » :
+ * un chiffre d'affaires de 26,9 milliards s'affichait « 26940200 k€ », soit
+ * huit chiffres à compter à l'œil. C'est illisible sur un tableau, et pire
+ * encore sur une graduation d'axe.
+ *
+ * On passe donc à l'unité qui convient — €, k€, M€, Md€ — avec au plus une
+ * décimale : au-delà, la précision n'apporte rien à une valeur déjà abrégée.
+ */
+export const compact = (n) => {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (n === 0) return "0 €";
+
+  const signe = n < 0 ? "-" : "";
+  const absolu = Math.abs(n);
+
+  const [valeur, unite] =
+    absolu >= 1e9 ? [absolu / 1e9, "Md€"]
+    : absolu >= 1e6 ? [absolu / 1e6, "M€"]
+    : absolu >= 1e3 ? [absolu / 1e3, "k€"]
+    : [absolu, "€"];
+
+  // Une décimale sous 100, aucune au-delà : « 26,9 Md€ » se lit, « 269,4 M€ »
+  // aussi, mais « 1234,5 k€ » n'apporte rien de plus que « 1235 k€ ».
+  const decimales = valeur < 100 ? 1 : 0;
+  const texte = valeur.toFixed(decimales).replace(/\.0$/, "").replace(".", ",");
+
+  return `${signe}${texte} ${unite}`;
+};
 
 /**
  * Projection à intérêts composés avec versements mensuels capitalisés annuellement.

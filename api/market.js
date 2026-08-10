@@ -50,6 +50,14 @@ const ENVELOPPES = Object.fromEntries(
   Object.entries(ROUTES).map(([nom, route]) => [nom, withApi(route.handler, route.options)])
 );
 
+/**
+ * Le plafond par défaut d'une fonction serverless est de dix secondes. Une
+ * requête de screener interroge jusqu'à vingt titres auprès de Yahoo : c'est
+ * court, mais pas toujours sous dix secondes quand la source répond lentement.
+ * Trente secondes laissent de la marge sans immobiliser la fonction.
+ */
+export const config = { maxDuration: 30 };
+
 export default async function handler(req, res) {
   const action = String(req.query?.action || "").trim();
   const enveloppe = ENVELOPPES[action];

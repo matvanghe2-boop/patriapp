@@ -130,15 +130,33 @@ export async function fetchCompanyProfile(symbol) {
  * Ratios fondamentaux d'un lot de titres, pour le screener.
  * Renvoie : [{ symbole, ok, per, roePct, ... } | { symbole, ok:false, error }]
  */
-export async function fetchScreen(symbols) {
+// L'endpoint borne chaque requête à 40 symboles (voir MAX_SYMBOLS), et une
+// fonction serverless a de toute façon un temps d'exécution limité. Vingt
+// symboles par appel tiennent confortablement dans les deux contraintes.
+const TAILLE_REQUETE_SCREEN = 20;
+
+export async function fetchScreen(symbols, { onProgression } = {}) {
   const liste = [...new Set((symbols || []).filter(Boolean))];
   if (liste.length === 0) return [];
-  const res = await fetch(marche("screen", { symbols: liste.join(",") }));
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Données fondamentales indisponibles");
+
+  const tranches = [];
+  for (let i = 0; i < liste.length; i += TAILLE_REQUETE_SCREEN) {
+    tranches.push(liste.slice(i, i + TAILLE_REQUETE_SCREEN));
   }
-  return res.json();
+
+  const resultats = [];
+  let faites = 0;
+  for (const tranche of tranches) {
+    const res = await fetch(marche("screen", { symbols: tranche.join(",") }));
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Données fondamentales indisponibles");
+    }
+    resultats.push(...(await res.json()));
+    faites += 1;
+    onProgression?.({ faites, total: tranches.length, titres: resultats.length });
+  }
+  return resultats;
 }
 
 /**

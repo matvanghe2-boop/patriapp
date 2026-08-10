@@ -164,6 +164,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
 
   const [donnees, setDonnees] = useState([]);
   const [chargement, setChargement] = useState(false);
+  const [progression, setProgression] = useState(null);
   const [erreur, setErreur] = useState("");
   const [chargeLe, setChargeLe] = useState(null);
 
@@ -187,8 +188,11 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
     }
     setChargement(true);
     setErreur("");
+    setProgression({ faites: 0, total: Math.ceil(symboles.length / 20), titres: 0 });
     try {
-      const out = await fetchScreen(symboles);
+      // Les titres arrivent par tranches : on les affiche au fur et à mesure
+      // plutôt que de laisser un écran vide pendant plusieurs secondes.
+      const out = await fetchScreen(symboles, { onProgression: setProgression });
       setDonnees(out);
       setChargeLe(new Date());
       const echecs = out.filter((t) => t.ok === false).length;
@@ -200,6 +204,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
       setDonnees([]);
     } finally {
       setChargement(false);
+      setProgression(null);
     }
   }, []);
 
@@ -261,7 +266,13 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <CardLabel icon={Filter}>Screener fondamental</CardLabel>
           <GhostButton icon={RefreshCw} theme="violet" onClick={rafraichir} disabled={chargement}>
-            {chargement ? "Chargement…" : donnees.length > 0 ? "Actualiser" : "Lancer l'analyse"}
+            {chargement
+              ? progression?.total > 1
+                ? `Chargement ${progression.faites}/${progression.total}…`
+                : "Chargement…"
+              : donnees.length > 0
+                ? "Actualiser"
+                : `Analyser ${symbolesCibles.length} valeurs`}
           </GhostButton>
         </div>
 

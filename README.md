@@ -51,7 +51,7 @@ Le service worker met la coquille applicative en cache : l'app **démarre et res
 
 Les fondamentaux viennent de Yahoo, via `/api/market?action=screen` (lot de titres, sans traduction, cache d'une heure) et `?action=fundamentals` (fiche détaillée). Trois limites, énoncées parce qu'elles se voient à l'usage :
 
-- **L'univers est curaté**, pas exhaustif : les constituants listés dans `indexConstituents.js` (vingt valeurs par indice). Screener une cote entière demanderait des milliers d'appels.
+- **L'univers est curaté**, pas exhaustif : 162 valeurs listées dans `indexConstituents.js` (42 pour le CAC 40, 60 pour le S&P 500, 60 pour le Nasdaq). Chaque symbole a été vérifié contre l'API — un ticker mort ne provoque pas d'erreur visible, il ressort simplement comme « non évaluable », ce qui ressemble à un titre qui ne passe pas le filtre. Ce sont des instantanés de composition, pas un miroir en direct des indices. Screener une cote entière demanderait des milliers d'appels.
 - **Le consensus s'arrête à l'exercice suivant.** L'application affiche donc un PER estimé sur deux exercices — l'année en cours et la suivante. Pas de troisième année : elle ne pourrait qu'être extrapolée, et s'afficherait à côté de vrais consensus sans que rien ne les distingue.
 - **Une donnée manquante n'est pas un échec.** Un titre dont le taux de distribution n'est pas publié n'est pas éliminé du filtre : le critère ressort « indéterminé » et le nombre de critères réellement évalués est affiché. Sans cette distinction, un titre disparaîtrait d'un écran pour une raison étrangère au filtre.
 

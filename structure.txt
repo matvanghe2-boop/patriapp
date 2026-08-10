@@ -128,6 +128,7 @@ src/lib/api.js
 src/lib/api.test.js
 src/lib/authErrors.js
 src/lib/authErrors.test.js
+src/lib/compact.test.js
 src/lib/devises.test.js
 src/lib/exportOperations.js
 src/lib/exportOperations.test.js

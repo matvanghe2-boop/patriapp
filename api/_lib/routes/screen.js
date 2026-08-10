@@ -27,7 +27,7 @@ const CACHE_MS = 60 * 60_000;
 // Yahoo tolère mal les rafales : au-delà, les réponses commencent à revenir
 // vides sans erreur explicite, ce qui produirait un screener silencieusement
 // incomplet.
-const TAILLE_LOT = 5;
+const TAILLE_LOT = 8;
 
 async function parLots(elements, taille, traitement) {
   const sorties = [];
