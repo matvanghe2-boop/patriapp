@@ -112,6 +112,32 @@ export async function fetchCompanyProfile(symbol) {
 }
 
 /**
+ * Ratios fondamentaux d'un lot de titres, pour le screener.
+ * Renvoie : [{ symbole, ok, per, roePct, ... } | { symbole, ok:false, error }]
+ */
+export async function fetchScreen(symbols) {
+  const liste = [...new Set((symbols || []).filter(Boolean))];
+  if (liste.length === 0) return [];
+  const res = await fetch(`${BASE}/screen?symbols=${encodeURIComponent(liste.join(","))}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Données fondamentales indisponibles");
+  }
+  return res.json();
+}
+
+/**
+ * Fiche financière complète d'un titre : ratios, historique annuel (quatre
+ * exercices) et consensus d'analystes (exercice en cours et suivant).
+ */
+export async function fetchFundamentals(symbol) {
+  const res = await fetch(`${BASE}/fundamentals?symbol=${encodeURIComponent(symbol)}`);
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body) throw new Error(body?.error || "Fiche financière indisponible");
+  return body;
+}
+
+/**
  * Récupère le catalogue des taux financiers (épargne réglementée, crédit,
  * banques centrales, inflation, fiscalité). Best-effort côté serveur : en
  * cas d'échec réseau total, on retombe côté client sur le catalogue de

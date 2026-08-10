@@ -33,6 +33,8 @@ L'application démarre **vide** : aucun patrimoine fictif n'est préchargé. Un 
 - **Dashboard** — patrimoine brut/net, plus-value latente, taux d'épargne, allocation d'actifs, historique du patrimoine net (relevé automatique une fois par jour), variation sur 30 jours glissants, projection à 6 mois capitalisée au taux moyen pondéré du patrimoine, **objectifs datés** avec avance/retard et effort mensuel requis
 - **Livrets & Épargne** — suivi des supports à capital garanti, plafonds, matelas de sécurité, enveloppes de ventilation
 - **PEA & Bourse** — positions, plus/moins-values, **plus-value nette après impôt** selon l'enveloppe et l'ancienneté du PEA, recherche par **ticker, ISIN ou nom**, actualisation des cours **avec conversion de change**, import PDF de relevés de courtage, watchlist avec **alertes de seuil**, heatmap sectorielle, calendrier financier
+- **Screener fondamental** — sous-onglet de PEA & Bourse. Six recettes assumées (dividende solide, value, qualité, défensif, momentum, repli), applicables de trois façons : filtrer un indice, **retourner le filtre contre ses propres lignes**, ou chercher des titres dans les secteurs sous-représentés du portefeuille
+- **Fiche financière** — dans Marché : ratios complets (PER, PEG, VE/EBITDA, marges, ROE, payout, dette), **quatre exercices publiés** avec chiffre d'affaires, EBITDA, capex et flux de trésorerie, et le consensus d'analystes
 - **Simulation** — intérêts composés sur l'ensemble du patrimoine (poche Livrets + poche Bourse, chacune avec son taux et son versement), scénarios comparables
 - **Immobilier & Crédit** — sous-onglet de Simulation : apport, mensualités sur 15/20/25 ans, alerte taux d'endettement (norme HCSF 35 %), suivi des travaux
 - **Stratégie & Logs** — journal des thèses d'investissement, timeline des jalons, opérations, **export CSV du journal** (déclaration, changement de courtier)
@@ -44,6 +46,14 @@ L'application démarre **vide** : aucun patrimoine fictif n'est préchargé. Un 
 L'app est installable (PWA) et pensée pour le téléphone : navigation par **barre basse** atteignable au pouce, en-tête qui se condense au défilement pour garder le patrimoine net visible, et **tous les tableaux transformés en cartes empilées** sous 768 px — plus aucun défilement horizontal.
 
 Le service worker met la coquille applicative en cache : l'app **démarre et reste utilisable sans réseau**, puisque toutes les données patrimoniales vivent déjà dans le navigateur. Les endpoints `/api/*` ne sont jamais mis en cache — un cours de bourse périmé servi en silence serait pire qu'une erreur visible.
+
+### Ce que le screener sait et ne sait pas
+
+Les fondamentaux viennent de Yahoo, via `/api/screen` (lot de titres, sans traduction, cache d'une heure) et `/api/fundamentals` (fiche détaillée). Trois limites, énoncées parce qu'elles se voient à l'usage :
+
+- **L'univers est curaté**, pas exhaustif : les constituants listés dans `indexConstituents.js` (vingt valeurs par indice). Screener une cote entière demanderait des milliers d'appels.
+- **Le consensus s'arrête à l'exercice suivant.** L'application affiche donc un PER estimé sur deux exercices — l'année en cours et la suivante. Pas de troisième année : elle ne pourrait qu'être extrapolée, et s'afficherait à côté de vrais consensus sans que rien ne les distingue.
+- **Une donnée manquante n'est pas un échec.** Un titre dont le taux de distribution n'est pas publié n'est pas éliminé du filtre : le critère ressort « indéterminé » et le nombre de critères réellement évalués est affiché. Sans cette distinction, un titre disparaîtrait d'un écran pour une raison étrangère au filtre.
 
 ### Devises
 

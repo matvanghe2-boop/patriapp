@@ -5,6 +5,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { Card, CardLabel, EmptyState, CARD_THEMES, SkeletonChart } from "./ui";
+import FicheFinanciere from "./FicheFinanciere";
 import AssetLogo from "./AssetLogo";
 import IndicesWidget from "./IndicesWidget";
 import ChartFocusModal from "./ChartFocusModal";
@@ -647,6 +648,11 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               )}
             </Card>
           )}
+
+          {/* États financiers détaillés : ratios complets, quatre exercices
+              publiés et consensus d'analystes. Chargés à part de la fiche
+              entreprise, qui vient d'un endpoint distinct. */}
+          <FicheFinanciere symbole={symbol} devise={profile?.currency} />
 
           <Card accent={CARD_THEMES.violet}>
             <CardLabel icon={Building2}>Fiche entreprise &amp; activité</CardLabel>

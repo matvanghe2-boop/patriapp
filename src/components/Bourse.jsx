@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, Search, CalendarDays } from "lucide-react";
+import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, Search, CalendarDays, Filter } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import AssetLogo from "./AssetLogo";
@@ -14,6 +14,7 @@ import Marche from "./Marche";
 import OrderSimulator from "./OrderSimulator";
 import PerformanceTab from "./BoursePerformance";
 import FiscaliteSortie from "./FiscaliteSortie";
+import Screener from "./Screener";
 
 // Reprend le même code couleur que le module Stratégie & Logs pour que le
 // statut d'une thèse se reconnaisse d'un coup d'œil, qu'on le voie dans le
@@ -648,6 +649,14 @@ export default function Bourse({
           <Search size={14} /> Marché
         </button>
         <button
+          onClick={() => setSubTab("screener")}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
+            subTab === "screener" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <Filter size={14} /> Screener
+        </button>
+        <button
           onClick={() => setSubTab("calendrier")}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
             subTab === "calendrier" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
@@ -954,6 +963,15 @@ export default function Bourse({
           accroché en bas de l'onglet Performance, où on ne le trouvait pas, et
           il déclenchait ses appels réseau même quand on venait consulter la
           performance. Il couvre maintenant le portefeuille ET la watchlist. */}
+      {subTab === "screener" && (
+        <Screener
+          bourse={bourse}
+          watchlist={watchlist}
+          setWatchlist={setWatchlist}
+          onOpenMarket={openInMarche}
+        />
+      )}
+
       {subTab === "calendrier" && (
         <FinancialCalendar positions={bourse.positions} watchlist={watchlist} />
       )}

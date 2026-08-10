@@ -21,9 +21,11 @@ api/_lib/pdfParsing.test.js
 api/_lib/webstat.js
 api/_lib/webstat.test.js
 api/_lib/yahoo.js
+api/_lib/yahooFondamentaux.js
 api/advisor.js
 api/calendar.js
 api/calendar.test.js
+api/fundamentals.js
 api/fx.js
 api/history.js
 api/parse-pdf.js
@@ -31,6 +33,7 @@ api/profile.js
 api/quote.js
 api/rates.js
 api/rates.test.js
+api/screen.js
 api/search.js
 env.example
 index.html
@@ -56,6 +59,8 @@ shared/orchestrateur.js
 shared/orchestrateur.test.js
 shared/ratesCatalog.js
 shared/ratesCatalog.test.js
+shared/screener.js
+shared/screener.test.js
 sql/schema.sql
 src/App.jsx
 src/App.test.jsx
@@ -73,6 +78,7 @@ src/components/BoursePerformance.jsx
 src/components/ChartFocusModal.jsx
 src/components/Dashboard.jsx
 src/components/ErrorBoundary.jsx
+src/components/FicheFinanciere.jsx
 src/components/FinancialCalendar.jsx
 src/components/FinancialCalendar.test.jsx
 src/components/FiscaliteSortie.jsx
@@ -100,6 +106,7 @@ src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
 src/components/ScenariosProjet.jsx
 src/components/ScenariosProjet.test.jsx
+src/components/Screener.jsx
 src/components/SectorHeatmap.jsx
 src/components/Simulation.jsx
 src/components/StickySummaryHeader.jsx
