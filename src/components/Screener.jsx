@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, Fragment } from "react";
 import {
   Filter, RefreshCw, Check, X, AlertTriangle, Search, Compass, Briefcase,
-  ChevronDown, ChevronUp, Info, Plus,
+  ChevronDown, ChevronUp, Info, Plus, GitCompare,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, EmptyState, SkeletonTable, CARD_THEMES } from "./ui";
 import { eur, pctPlain, uid, compact } from "../lib/finance";
@@ -10,6 +10,7 @@ import { INDEX_CONSTITUENTS, INDEX_TABS } from "../lib/indexConstituents";
 import {
   RECETTES, CRITERES, SENS, recetteParId, appliquerRecette,
   auditerPortefeuille, suggererDiversification, poidsSectoriels,
+  scoreComposite, qualifierScore, comparerTitres,
 } from "../../shared/screener";
 
 const MODES = [
@@ -92,8 +93,93 @@ function ReglageCriteres({ criteres, onChange, onReinitialiser }) {
   );
 }
 
+
+const TONS_SCORE = {
+  excellent: "text-emerald-300 border-emerald-500/40 bg-emerald-500/10",
+  bon: "text-teal-300 border-teal-500/40 bg-teal-500/10",
+  moyen: "text-amber-300 border-amber-500/40 bg-amber-500/10",
+  faible: "text-rose-300 border-rose-500/40 bg-rose-500/10",
+  neutre: "text-slate-500 border-slate-700 bg-slate-900/60",
+};
+
+/**
+ * Note globale d'un titre.
+ *
+ * Filtrer répond à « ce titre passe-t-il ? » ; noter répond à « lequel
+ * d'abord ? ». Le détail du calcul est accessible au survol : un score qu'on
+ * ne peut pas décomposer est un oracle, et un oracle n'aide pas à décider.
+ */
+function BadgeScore({ score, nbNotes, detail }) {
+  if (!Number.isFinite(score)) {
+    return <span className="text-[10px] text-slate-600 px-1.5">non noté</span>;
+  }
+  const q = qualifierScore(score);
+  const explication = detail
+    .filter((d) => Number.isFinite(d.note))
+    .map((d) => `${d.libelle} : ${d.note.toFixed(0)}/100`)
+    .join(String.fromCharCode(10));
+
+  return (
+    <span
+      className={`inline-flex items-baseline gap-1 text-xs font-data font-bold rounded-lg border px-2 py-0.5 ${TONS_SCORE[q.ton]}`}
+      title={[`${q.libelle} — noté sur ${nbNotes} critère(s)`, "", explication].join(String.fromCharCode(10))}
+    >
+      {score.toFixed(0)}
+      <span className="text-[9px] font-normal opacity-70">/100</span>
+    </span>
+  );
+}
+
+/** Comparaison ratio par ratio de deux titres. */
+function PanneauComparaison({ a, b, onFermer }) {
+  const CLES = [
+    "per", "perForward", "priceToBook", "evEbitda", "rendementPct", "payoutPct",
+    "roePct", "margeNettePct", "margeOperationnellePct", "detteSurFondsPropresPct",
+    "ratioLiquidite", "beta", "capitalisation",
+  ];
+  const { lignes, avantagesA, avantagesB } = comparerTitres(a, b, CLES);
+
+  const cellule = (valeur, unite, gagne) => (
+    <span className={`font-data tabular-nums text-xs ${gagne ? "text-emerald-400 font-semibold" : "text-slate-300"}`}>
+      {formaterValeur(valeur, unite)}
+    </span>
+  );
+
+  return (
+    <Card accent={CARD_THEMES.violet}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <CardLabel icon={GitCompare}>Comparaison</CardLabel>
+        <button onClick={onFermer} aria-label="Fermer la comparaison" className="text-slate-500 hover:text-slate-200">
+          <X size={15} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-1 mt-2">
+        <div className="text-[11px] text-slate-500 uppercase tracking-wide">Critère</div>
+        <div className="text-right text-xs font-data font-semibold text-slate-100">{a.symbole}</div>
+        <div className="text-right text-xs font-data font-semibold text-slate-100">{b.symbole}</div>
+
+        {lignes.map((l) => (
+          <Fragment key={l.cle}>
+            <div className="text-xs text-slate-400 truncate py-1 border-t border-slate-800/60">{l.libelle}</div>
+            <div className="text-right py-1 border-t border-slate-800/60">{cellule(l.a, l.unite, l.gagnant === "a")}</div>
+            <div className="text-right py-1 border-t border-slate-800/60">{cellule(l.b, l.unite, l.gagnant === "b")}</div>
+          </Fragment>
+        ))}
+      </div>
+
+      {/* Le décompte global ne tranche pas — il résume. Un titre peut gagner
+          sur huit critères secondaires et perdre sur le seul qui compte. */}
+      <p className="text-[11px] text-slate-500 mt-3">
+        {a.symbole} l'emporte sur {avantagesA} critère(s), {b.symbole} sur {avantagesB}. Un décompte
+        n'est pas un verdict : regarde lesquels.
+      </p>
+    </Card>
+  );
+}
+
 /** Ligne de résultat commune aux trois modes. */
-function LigneResultat({ symbole, nom, secteur, evaluation, complement, action }) {
+function LigneResultat({ symbole, nom, secteur, evaluation, complement, action, score, surComparer, compare }) {
   return (
     <div
       className={`rounded-xl border px-3 py-2.5 ${
@@ -103,7 +189,18 @@ function LigneResultat({ symbole, nom, secteur, evaluation, complement, action }
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
+            {surComparer && (
+              <input
+                type="checkbox"
+                checked={compare}
+                onChange={surComparer}
+                aria-label={`Comparer ${symbole}`}
+                title="Sélectionner pour comparer (deux titres)"
+                className="accent-violet-400"
+              />
+            )}
             <span className="font-data font-semibold text-slate-100">{symbole}</span>
+            {score}
             {evaluation?.retenu && (
               <span className="text-[10px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-1.5">
                 retenu
@@ -167,6 +264,9 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
   const [progression, setProgression] = useState(null);
   const [erreur, setErreur] = useState("");
   const [chargeLe, setChargeLe] = useState(null);
+  // Deux titres au maximum : au-delà, une comparaison côte à côte cesse d'être
+  // lisible et redevient un tableau.
+  const [selection, setSelection] = useState([]);
 
   const recette = recetteParId(recetteId);
 
@@ -213,7 +313,18 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
   // screener tout de suite.
   const rafraichir = () => charger(symbolesCibles);
 
-  const resultats = useMemo(() => appliquerRecette(donnees, criteres), [donnees, criteres]);
+  // Classement : les retenus d'abord (via appliquerRecette), puis par score
+  // décroissant à l'intérieur de chaque groupe — c'est ce qui répond à
+  // « lequel d'abord ? » une fois le filtre passé.
+  const resultats = useMemo(() => {
+    const base = appliquerRecette(donnees, criteres);
+    return base
+      .map((r) => ({ ...r, note: scoreComposite(r.titre, criteres) }))
+      .sort((a, b) => {
+        if (a.evaluation.retenu !== b.evaluation.retenu) return a.evaluation.retenu ? -1 : 1;
+        return (b.note.score ?? -1) - (a.note.score ?? -1);
+      });
+  }, [donnees, criteres]);
   const indisponibles = useMemo(() => donnees.filter((t) => t.ok === false), [donnees]);
 
   const auditLignes = useMemo(
@@ -236,6 +347,15 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
         : [],
     [mode, donnees, poidsSecteurs, positions]
   );
+
+  const basculerComparaison = (symbole) =>
+    setSelection((s) =>
+      s.includes(symbole) ? s.filter((x) => x !== symbole) : s.length >= 2 ? [s[1], symbole] : [...s, symbole]
+    );
+
+  const titresCompares = selection
+    .map((sym) => donnees.find((t) => t.symbole === sym))
+    .filter(Boolean);
 
   const dejaSuivi = (symbole) => watchlist.some((w) => w.ticker?.toUpperCase() === symbole?.toUpperCase());
 
@@ -385,6 +505,15 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
         </div>
       )}
 
+      {titresCompares.length === 2 && (
+        <PanneauComparaison a={titresCompares[0]} b={titresCompares[1]} onFermer={() => setSelection([])} />
+      )}
+      {titresCompares.length === 1 && (
+        <p className="text-[11px] text-slate-500">
+          Sélectionne un second titre pour afficher la comparaison.
+        </p>
+      )}
+
       {/* ─── Résultats ────────────────────────────────────────────────────── */}
       <Card accent={CARD_THEMES.violet}>
         {chargement ? (
@@ -408,6 +537,9 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                   nom={titre.nom}
                   secteur={titre.secteur}
                   evaluation={evaluation}
+                  score={(() => { const r = scoreComposite(titre, criteres); return <BadgeScore score={r.score} nbNotes={r.nbNotes} detail={r.detail} />; })()}
+                  compare={selection.includes(titre.symbole)}
+                  surComparer={() => basculerComparaison(titre.symbole)}
                   complement={
                     titre.cours != null && (
                       <span className="text-[11px] font-data text-slate-400">{eur(titre.cours, 2)}</span>
@@ -443,6 +575,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                   nom={titre?.nom || position.name}
                   secteur={titre?.secteur}
                   evaluation={evaluation}
+                  score={titre ? (() => { const r = scoreComposite(titre, criteres); return <BadgeScore score={r.score} nbNotes={r.nbNotes} detail={r.detail} />; })() : null}
                   complement={
                     indisponible ? (
                       <span className="text-[10px] text-slate-600">fondamentaux indisponibles</span>

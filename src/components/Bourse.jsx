@@ -11,7 +11,7 @@ import { usePersistentState } from "../lib/storage";
 import Watchlist from "./Watchlist";
 import FinancialCalendar from "./FinancialCalendar";
 import Marche from "./Marche";
-import OrderSimulator from "./OrderSimulator";
+import Reequilibrage from "./Reequilibrage";
 import PerformanceTab from "./BoursePerformance";
 import FiscaliteSortie from "./FiscaliteSortie";
 import Screener from "./Screener";
@@ -888,7 +888,10 @@ export default function Bourse({
         </p>
       </Card>
       
-      <OrderSimulator positions={bourse.positions} cashPocket={bourse.cash_pocket} />
+      {/* Remplace le simulateur d'ordre : celui-ci ne traitait qu'une ligne à
+          la fois, alors que vendre une position modifie le poids de toutes les
+          autres. */}
+      <Reequilibrage bourse={bourse} setBourse={setBourse} />
 
 
 

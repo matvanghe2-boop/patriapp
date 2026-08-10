@@ -14,6 +14,7 @@ import {
   formatDateShort,
 } from "../lib/finance";
 import { useToast } from "../lib/ToastContext";
+import SuiviDividendes from "./SuiviDividendes";
 
 /**
  * Onglet « Performance » de PEA & Bourse.
@@ -775,6 +776,11 @@ export default function PerformanceTab({
           )}
         </>
       )}
+
+      {/* Dividendes réellement encaissés confrontés aux attendus, et TRI par
+          ligne. Placé ici plutôt que dans Portefeuille : ce sont des mesures de
+          performance, pas de composition. */}
+      <SuiviDividendes bourse={bourse} />
     </>
   );
 }

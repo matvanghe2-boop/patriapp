@@ -290,3 +290,114 @@ export function poidsSectoriels(positions = [], fondamentaux = [], valeurDe = (p
   if (total <= 0) return {};
   return Object.fromEntries(Object.entries(parSecteur).map(([s, v]) => [s, (v / total) * 100]));
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCORE COMPOSITE
+
+   Filtrer répond à « ce titre passe-t-il ? ». Classer répond à « lequel
+   d'abord ? » — et c'est une question différente, à laquelle un filtre binaire
+   ne sait pas répondre : dix titres retenus arrivent tous ex æquo.
+
+   Le score note chaque critère de 0 à 100 selon sa distance au seuil, puis
+   fait la moyenne des critères évaluables. Deux règles le rendent honnête :
+
+   - **Le détail est toujours restitué.** Un score qu'on ne peut pas
+     décomposer est un oracle, et un oracle n'aide pas à décider.
+   - **Les critères non publiés ne comptent pas**, ni en bien ni en mal. Le
+     nombre de critères réellement notés accompagne le score : 82 sur cinq
+     critères et 82 sur deux n'ont pas la même valeur.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Note un critère de 0 à 100.
+ *
+ * Le seuil vaut 60 : c'est le « juste passable ». Au-delà, la note progresse
+ * jusqu'à 100 quand la valeur atteint le double du seuil (ou sa moitié pour un
+ * critère de maximum). En deçà, elle descend vers 0. Cette échelle est
+ * arbitraire — comme toute notation — mais elle est monotone, bornée, et
+ * énoncée.
+ */
+export function noterCritere(valeur, seuil, sens) {
+  if (!Number.isFinite(valeur) || !Number.isFinite(seuil) || seuil === 0) return null;
+
+  // Ratio « à quel point on est du bon côté » : > 1 = mieux que le seuil.
+  const ratio = sens === SENS.MIN ? valeur / seuil : seuil / valeur;
+  if (!Number.isFinite(ratio) || ratio <= 0) return 0;
+
+  if (ratio >= 2) return 100;
+  if (ratio >= 1) return 60 + (ratio - 1) * 40;   // de 60 à 100
+  return Math.max(0, ratio * 60);                  // de 0 à 60
+}
+
+/**
+ * Score composite d'un titre sur une liste de critères.
+ * @returns {{score: number|null, detail: Array, nbNotes: number}}
+ */
+export function scoreComposite(titre, criteres = []) {
+  const detail = [];
+
+  for (const c of criteres) {
+    const definition = CRITERES[c.cle];
+    if (!definition) continue;
+    const sens = c.sensInverse
+      ? definition.sens === SENS.MIN ? SENS.MAX : SENS.MIN
+      : definition.sens;
+    const valeur = titre?.[c.cle];
+    const note = noterCritere(valeur, c.seuil, sens);
+    detail.push({
+      cle: c.cle,
+      libelle: definition.libelle,
+      unite: definition.unite,
+      valeur: Number.isFinite(valeur) ? valeur : null,
+      seuil: c.seuil,
+      sens,
+      note,
+    });
+  }
+
+  const notes = detail.map((d) => d.note).filter((n) => Number.isFinite(n));
+  const score = notes.length > 0 ? notes.reduce((s, n) => s + n, 0) / notes.length : null;
+
+  return { score, detail, nbNotes: notes.length };
+}
+
+/** Qualification d'un score, pour éviter que chaque écran réinvente ses seuils. */
+export function qualifierScore(score) {
+  if (!Number.isFinite(score)) return { libelle: "non noté", ton: "neutre" };
+  if (score >= 80) return { libelle: "excellent", ton: "excellent" };
+  if (score >= 60) return { libelle: "correct", ton: "bon" };
+  if (score >= 40) return { libelle: "moyen", ton: "moyen" };
+  return { libelle: "faible", ton: "faible" };
+}
+
+/**
+ * Compare deux titres critère par critère.
+ *
+ * Le vainqueur est désigné par critère, pas seulement au global : c'est
+ * souvent là qu'on apprend quelque chose — « moins cher, mais moins rentable
+ * et plus endetté » se lit d'un coup d'œil, un score global ne le dirait pas.
+ */
+export function comparerTitres(titreA, titreB, cles = Object.keys(CRITERES)) {
+  const lignes = cles
+    .map((cle) => {
+      const definition = CRITERES[cle];
+      if (!definition) return null;
+      const a = Number.isFinite(titreA?.[cle]) ? titreA[cle] : null;
+      const b = Number.isFinite(titreB?.[cle]) ? titreB[cle] : null;
+      if (a == null && b == null) return null;
+
+      let gagnant = null;
+      if (a != null && b != null && a !== b) {
+        gagnant = definition.sens === SENS.MIN ? (a > b ? "a" : "b") : (a < b ? "a" : "b");
+      }
+      return { cle, libelle: definition.libelle, unite: definition.unite, sens: definition.sens, a, b, gagnant };
+    })
+    .filter(Boolean);
+
+  return {
+    lignes,
+    avantagesA: lignes.filter((l) => l.gagnant === "a").length,
+    avantagesB: lignes.filter((l) => l.gagnant === "b").length,
+    exaequo: lignes.filter((l) => l.gagnant === null).length,
+  };
+}

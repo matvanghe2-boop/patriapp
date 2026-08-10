@@ -73,6 +73,11 @@ const SERIES_ANNUELLES = [
   "annualFreeCashFlow",
   "annualTotalDebt",
   "annualStockholdersEquity",
+  // Le bénéfice par action dilué rend le PER historique EXACT : sans lui, il
+  // faudrait diviser le résultat net par le nombre d'actions d'aujourd'hui,
+  // ce qui fausserait toute société ayant racheté ses titres.
+  "annualDilutedEPS",
+  "annualBasicAverageShares",
 ];
 
 /**
@@ -121,6 +126,49 @@ export async function historiqueAnnuel(symbol) {
   }
 
   return [...parExercice.values()].sort((a, b) => (a.exercice < b.exercice ? -1 : 1));
+}
+
+/**
+ * Cours de clôture au plus près de chaque date d'exercice.
+ *
+ * Nécessaire au PER historique : sans le cours de l'époque, comparer le PER
+ * d'aujourd'hui à celui d'il y a trois ans n'aurait aucun sens.
+ *
+ * On interroge l'endpoint `chart`, qui ne demande pas d'authentification et
+ * reste disponible quand `quoteSummary` échoue.
+ */
+export async function coursParExercice(symbol, exercices = []) {
+  if (exercices.length === 0) return {};
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=10y&interval=1mo`;
+    const data = await fetchJson(url);
+    const resultat = data?.chart?.result?.[0];
+    const horodatages = resultat?.timestamp || [];
+    const clotures = resultat?.indicators?.quote?.[0]?.close || [];
+    if (horodatages.length === 0) return {};
+
+    const sortie = {};
+    for (const exercice of exercices) {
+      const cible = new Date(`${exercice}T00:00:00`).getTime() / 1000;
+      let meilleur = null;
+      let ecartMin = Infinity;
+      for (let i = 0; i < horodatages.length; i++) {
+        const cloture = clotures[i];
+        if (cloture == null) continue;
+        const ecart = Math.abs(horodatages[i] - cible);
+        // Au-delà de deux mois d'écart, le cours ne représente plus la
+        // valorisation de fin d'exercice : mieux vaut ne rien afficher.
+        if (ecart < ecartMin && ecart < 62 * 86400) {
+          ecartMin = ecart;
+          meilleur = cloture;
+        }
+      }
+      if (meilleur != null) sortie[exercice] = meilleur;
+    }
+    return sortie;
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -244,12 +292,15 @@ export async function ficheComplete(symbol) {
   ]);
   if (!resultat) return null;
 
+  const clotures = await coursParExercice(symbol, historique.map((e) => e.exercice)).catch(() => ({}));
+  const historiqueValorise = historique.map((e) => ({ ...e, coursCloture: clotures[e.exercice] ?? null }));
+
   const ratios = extraireRatios(resultat);
   return {
     symbole: symbol,
     ...ratios,
     positionFourchettePct: positionDansFourchette(ratios),
-    historique,
+    historique: historiqueValorise,
     consensus: extraireConsensus(resultat.earningsTrend),
   };
 }

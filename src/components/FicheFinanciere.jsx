@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  BarChart3, Scale, Coins, ShieldCheck, TrendingUp, Users, Info, AlertTriangle,
+  BarChart3, Scale, Coins, ShieldCheck, TrendingUp, Users, Info, AlertTriangle, History,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -8,6 +8,7 @@ import {
 import { Card, CardLabel, EmptyState, SkeletonCard, CARD_THEMES } from "./ui";
 import { pctPlain, compact } from "../lib/finance";
 import { fetchFundamentals } from "../lib/api";
+import { syntheseRatios } from "../../shared/ratiosHistoriques";
 
 /**
  * Fiche financière d'un titre : ratios complets, historique annuel et
@@ -62,6 +63,66 @@ function BlocRatios({ titre, icon, lignes }) {
           <Ligne key={l.label} {...l} />
         ))}
       </div>
+    </Card>
+  );
+}
+
+
+const TONS_JUGEMENT = {
+  favorable: { classe: "text-emerald-400", mot: "mieux que sa moyenne" },
+  defavorable: { classe: "text-rose-400", mot: "moins bien que sa moyenne" },
+  conforme: { classe: "text-slate-400", mot: "conforme à sa moyenne" },
+  inconnu: { classe: "text-slate-600", mot: "sans historique" },
+};
+
+/**
+ * Ratios d'aujourd'hui replacés dans leur historique.
+ *
+ * « PER 30,9 » ne veut rien dire seul. « PER 30,9 contre 24,1 de moyenne sur
+ * quatre exercices » est un jugement. C'est toute la différence entre une
+ * donnée et une information.
+ */
+function HistoriqueRatios({ historique, valeursCourantes }) {
+  const { lignes, synthese } = syntheseRatios(historique, { valeursCourantes });
+  if (lignes.length < 2) return null;
+
+  const notes = synthese.filter((r) => r.courant != null && r.moyenne != null);
+  if (notes.length === 0) return null;
+
+  return (
+    <Card accent={CARD_THEMES.amber}>
+      <CardLabel icon={History}>Aujourd'hui comparé aux {lignes.length} derniers exercices</CardLabel>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mt-1">
+        {notes.map((r) => {
+          const ton = TONS_JUGEMENT[r.jugement] || TONS_JUGEMENT.inconnu;
+          const fmt = (v) => (r.unite === "%" ? fmtPct(v) : fmtRatio(v, r.unite));
+          return (
+            <div
+              key={r.cle}
+              className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-800/60 last:border-0"
+              title={`${r.libelle} : ${fmt(r.courant)} aujourd'hui, ${fmt(r.moyenne)} en moyenne sur ${r.nbExercices} exercice(s) — ${ton.mot}`}
+            >
+              <span className="text-xs text-slate-400 truncate">{r.libelle}</span>
+              <span className="flex items-baseline gap-2 shrink-0">
+                <span className={`text-xs font-data tabular-nums font-semibold ${ton.classe}`}>{fmt(r.courant)}</span>
+                <span className="text-[10px] text-slate-600 font-data tabular-nums">moy. {fmt(r.moyenne)}</span>
+                {r.ecartPct != null && Math.abs(r.ecartPct) >= 5 && (
+                  <span className={`text-[10px] font-data ${ton.classe}`}>
+                    {r.ecartPct > 0 ? "+" : ""}{r.ecartPct.toFixed(0)} %
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[11px] text-slate-600 mt-3">
+        Le PER historique est calculé exercice par exercice, à partir du cours de clôture de l'époque
+        et du bénéfice par action dilué publié — pas du nombre d'actions d'aujourd'hui, qui fausserait
+        toute société ayant racheté ses titres.
+      </p>
     </Card>
   );
 }
@@ -316,6 +377,16 @@ export default function FicheFinanciere({ symbole, devise }) {
           ]}
         />
       </div>
+
+      <HistoriqueRatios
+        historique={historique}
+        valeursCourantes={{
+          per: fiche.per,
+          roePct: fiche.roePct,
+          margeNettePct: fiche.margeNettePct,
+          detteSurFondsPropresPct: fiche.detteSurFondsPropresPct,
+        }}
+      />
 
       <BlocConsensus consensus={fiche.consensus} cours={fiche.cours} devise={dev} />
 

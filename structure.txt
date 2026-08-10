@@ -54,6 +54,8 @@ shared/adaptateursLLM.js
 shared/adaptateursLLM.test.js
 shared/anonymiser.js
 shared/anonymiser.test.js
+shared/dividendes.js
+shared/dividendes.test.js
 shared/horizon.js
 shared/horizon.test.js
 shared/horizonOutils.js
@@ -61,6 +63,10 @@ shared/orchestrateur.js
 shared/orchestrateur.test.js
 shared/ratesCatalog.js
 shared/ratesCatalog.test.js
+shared/ratiosHistoriques.js
+shared/ratiosHistoriques.test.js
+shared/reequilibrage.js
+shared/reequilibrage.test.js
 shared/screener.js
 shared/screener.test.js
 sql/schema.sql
@@ -104,6 +110,7 @@ src/components/Projet.jsx
 src/components/Projet.test.jsx
 src/components/RatesHub.jsx
 src/components/RatesHub.test.jsx
+src/components/Reequilibrage.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
 src/components/ScenariosProjet.jsx
@@ -113,6 +120,7 @@ src/components/SectorHeatmap.jsx
 src/components/Simulation.jsx
 src/components/StickySummaryHeader.jsx
 src/components/StrategieLogs.jsx
+src/components/SuiviDividendes.jsx
 src/components/SyncIndicator.jsx
 src/components/Timeline.jsx
 src/components/Watchlist.jsx

@@ -1004,6 +1004,94 @@ export function computeTWR(history) {
  * portefeuille. Résolution par dichotomie sur le taux annuel r tel que
  * la somme des flux actualisés = 0.
  */
+/**
+ * Taux de rendement interne d'une SÉRIE DE FLUX datés.
+ *
+ * `computeXIRR` raisonne sur un historique de portefeuille (capital investi et
+ * valeur à chaque date). Pour une ligne isolée, on dispose d'autre chose : les
+ * ordres eux-mêmes. Cette variante prend directement les flux, ce qui évite de
+ * reconstruire un faux historique de valorisation pour une seule position.
+ *
+ * Convention : un décaissement est négatif (achat), un encaissement positif
+ * (vente, dividende), et la valeur de marché actuelle compte comme un
+ * encaissement final — c'est ce qu'on récupérerait en soldant aujourd'hui.
+ */
+export function tauxRendementInterne(flux = []) {
+  const valides = flux
+    .filter((f) => f?.date && Number.isFinite(f.montant) && f.montant !== 0)
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  if (valides.length < 2) return null;
+
+  const positifs = valides.some((f) => f.montant > 0);
+  const negatifs = valides.some((f) => f.montant < 0);
+  // Sans flux dans les deux sens, aucun taux ne peut annuler la valeur
+  // actuelle nette : la dichotomie tournerait dans le vide.
+  if (!positifs || !negatifs) return null;
+
+  const jours = (toDate(valides[valides.length - 1].date) - toDate(valides[0].date)) / DAY_MS;
+  if (jours < MIN_DAYS_FOR_ANNUALIZATION) return null;
+
+  const t0 = toDate(valides[0].date);
+  const van = (taux) =>
+    valides.reduce((somme, f) => {
+      const annees = (toDate(f.date) - t0) / (365.25 * DAY_MS);
+      return somme + f.montant / Math.pow(1 + taux, annees);
+    }, 0);
+
+  let bas = -0.9999;
+  let haut = 5;
+  let vanBas = van(bas);
+  const vanHaut = van(haut);
+  if (!Number.isFinite(vanBas) || !Number.isFinite(vanHaut) || vanBas * vanHaut > 0) return null;
+
+  let milieu = 0;
+  for (let i = 0; i < 200; i++) {
+    milieu = (bas + haut) / 2;
+    const valeur = van(milieu);
+    if (Math.abs(valeur) < 1e-7 || haut - bas < 1e-9) break;
+    if (vanBas * valeur < 0) {
+      haut = milieu;
+    } else {
+      bas = milieu;
+      vanBas = valeur;
+    }
+  }
+  return milieu * 100;
+}
+
+/**
+ * TRI d'une position, reconstruit depuis le journal d'opérations.
+ *
+ * Le PRU dit combien on a payé ; le TRI dit ce que l'argent a rapporté compte
+ * tenu de QUAND il a été investi. Deux lignes affichant « +30 % » n'ont rien
+ * à voir si l'une a mis six ans et l'autre six mois.
+ */
+export function triPosition(position, operations = [], aujourdhui = todayIso()) {
+  if (!position?.ticker) return null;
+  const ticker = String(position.ticker).toUpperCase();
+
+  const flux = [];
+  for (const op of operations) {
+    if (!op?.date || String(op.asset || "").toUpperCase() !== ticker) continue;
+    if (op.type === "ACHAT") {
+      flux.push({ date: op.date, montant: -Math.abs((op.quantity || 0) * (op.price || 0) + (op.fees || 0)) });
+    } else if (op.type === "VENTE") {
+      flux.push({ date: op.date, montant: Math.abs((op.quantity || 0) * (op.price || 0) - (op.fees || 0)) });
+    } else if (op.type === "DIVIDENDE") {
+      flux.push({ date: op.date, montant: Math.abs(Number(op.amount ?? op.montantNet ?? 0) || 0) });
+    }
+  }
+
+  if (flux.length === 0) return null;
+
+  // La ligne encore détenue vaut sa valeur de marché : on la solde fictivement
+  // aujourd'hui pour fermer la série.
+  const valeur = valeurPosition(position);
+  if (valeur > 0) flux.push({ date: aujourdhui, montant: valeur });
+
+  return tauxRendementInterne(flux);
+}
+
 export function computeXIRR(history) {
   if (!history || history.length < 2) return null;
   const daysSpan = (toDate(history[history.length - 1].date) - toDate(history[0].date)) / DAY_MS;
