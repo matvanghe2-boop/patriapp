@@ -11,8 +11,8 @@
 // dollars était comptée à parité 1:1, ce qui faussait la valeur du
 // portefeuille, la plus-value, la répartition et les exports.
 
-import { withApi, httpError, cached } from "./_lib/http.js";
-import { fetchJson } from "./_lib/yahoo.js";
+import { httpError, cached } from "../http.js";
+import { fetchJson } from "../yahoo.js";
 
 // Un taux de change bouge peu à l'échelle d'une session ; dix minutes de cache
 // suffisent largement pour un suivi de patrimoine, et évitent de retaper Yahoo
@@ -63,4 +63,6 @@ async function handler(req, res) {
   res.status(200).json(taux);
 }
 
-export default withApi(handler, { methods: ["GET"], limit: 60, windowMs: 60_000, sMaxAge: 600 });
+export const options = { methods: ["GET"], limit: 60, windowMs: 60_000, sMaxAge: 600 };
+
+export { handler };

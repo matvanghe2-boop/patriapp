@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eventsFromRow, eventsFromDetail } from "./calendar.js";
+import { eventsFromRow, eventsFromDetail } from "./_lib/routes/calendar.js";
 
 // Yahoo renvoie ses dates en epoch secondes ; ces helpers construisent des
 // jeux de données au même format que la réponse réelle.

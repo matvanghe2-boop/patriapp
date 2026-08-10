@@ -1,0 +1,13 @@
+# Vercel transforme CHAQUE fichier de `api/` en fonction serverless, sauf ceux
+# dont le nom commence par `_`. Les fichiers de test qui vivent à côté des
+# endpoints étaient donc déployés comme de vraies fonctions : ils comptaient
+# dans le quota du plan Hobby (12 maximum) et étaient accessibles publiquement,
+# par exemple sur /api/calendar.test.
+#
+# Ils n'ont rien à faire en production : ils ne sont utiles qu'à `npm test`.
+**/*.test.js
+**/*.test.jsx
+
+# Jamais nécessaires au build distant.
+.env.local
+dist

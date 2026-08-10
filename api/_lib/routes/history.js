@@ -5,8 +5,8 @@
 // graphique historique complet du sous-onglet "Marché" (depuis l'introduction
 // en bourse, via range=max).
 
-import { withApi, httpError, cached } from "./_lib/http.js";
-import { fetchJson, parseSymbols } from "./_lib/yahoo.js";
+import { httpError, cached } from "../http.js";
+import { fetchJson, parseSymbols } from "../yahoo.js";
 
 const ALLOWED_RANGES = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"];
 const ALLOWED_INTERVALS = ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "1wk", "1mo"];
@@ -104,4 +104,6 @@ async function handler(req, res) {
   res.status(200).json(results);
 }
 
-export default withApi(handler, { methods: ["GET"], limit: 60, windowMs: 60_000, sMaxAge: 60 });
+export const options = { methods: ["GET"], limit: 60, windowMs: 60_000, sMaxAge: 60 };
+
+export { handler };

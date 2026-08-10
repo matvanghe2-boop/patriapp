@@ -10,9 +10,9 @@
 // l'afficher comme un consensus d'analystes — ce serait un chiffre inventé
 // présenté comme une donnée de marché.
 
-import { withApi, httpError, cached } from "./_lib/http.js";
-import { isValidSymbol } from "./_lib/yahoo.js";
-import { ficheComplete } from "./_lib/yahooFondamentaux.js";
+import { httpError, cached } from "../http.js";
+import { isValidSymbol } from "../yahoo.js";
+import { ficheComplete } from "../yahooFondamentaux.js";
 
 // Les comptes annuels ne changent que quatre fois par an ; les ratios courants
 // bougent avec le cours, mais pas assez pour justifier moins d'un quart d'heure.
@@ -33,4 +33,6 @@ async function handler(req, res) {
   res.status(200).json(fiche);
 }
 
-export default withApi(handler, { methods: ["GET"], limit: 40, windowMs: 60_000, sMaxAge: 900 });
+export const options = { methods: ["GET"], limit: 40, windowMs: 60_000, sMaxAge: 900 };
+
+export { handler };

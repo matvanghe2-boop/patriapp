@@ -16,8 +16,8 @@
 // qu'un onglet Marché utilisable s'affiche même quand la fiche détaillée est
 // partiellement indisponible.
 
-import { withApi, httpError, cached } from "./_lib/http.js";
-import { YF_HEADERS as BASE_HEADERS, getYahooSession, isValidSymbol } from "./_lib/yahoo.js";
+import { httpError, cached } from "../http.js";
+import { YF_HEADERS as BASE_HEADERS, getYahooSession, isValidSymbol } from "../yahoo.js";
 
 const YF_HEADERS = { ...BASE_HEADERS, Accept: "application/json,text/plain,*/*" };
 
@@ -334,4 +334,6 @@ async function handler(req, res) {
 
 // Endpoint lourd (jusqu'à 4 traductions + 2 appels Yahoo par requête) :
 // quota volontairement bas, compensé par un cache de 5 minutes.
-export default withApi(handler, { methods: ["GET"], limit: 30, windowMs: 60_000, sMaxAge: 300 });
+export const options = { methods: ["GET"], limit: 30, windowMs: 60_000, sMaxAge: 300 };
+
+export { handler };

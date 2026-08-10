@@ -2,8 +2,8 @@
 // Renvoie le dernier cours connu pour chaque ticker, avec le nom de
 // l'entreprise (shortName/longName) pour affichage au lieu du ticker brut.
 
-import { withApi, httpError, cached } from "./_lib/http.js";
-import { fetchJson, parseSymbols } from "./_lib/yahoo.js";
+import { httpError, cached } from "../http.js";
+import { fetchJson, parseSymbols } from "../yahoo.js";
 
 // Un cours de bourse ne bouge pas de façon significative en 30 s, et pendant
 // ce temps un rechargement de page ou un second onglet ne redéclenche pas
@@ -43,4 +43,6 @@ async function handler(req, res) {
   res.status(200).json(results);
 }
 
-export default withApi(handler, { methods: ["GET"], limit: 120, windowMs: 60_000, sMaxAge: 30 });
+export const options = { methods: ["GET"], limit: 120, windowMs: 60_000, sMaxAge: 30 };
+
+export { handler };

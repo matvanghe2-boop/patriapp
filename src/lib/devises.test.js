@@ -6,7 +6,7 @@ import {
   devisesDuPortefeuille,
   positionsSansTaux,
 } from "./finance";
-import { parseDevises } from "../../api/fx.js";
+import { parseDevises } from "../../api/_lib/routes/fx.js";
 
 const euro = { ticker: "CW8.PA", quantity: 10, pru: 400, current_price: 460, currency: "EUR" };
 const dollar = { ticker: "AAPL", quantity: 10, pru: 150, current_price: 200, currency: "USD", fxRate: 0.9 };

@@ -1,11 +1,27 @@
 const BASE = "/api";
 
 /**
+ * Les routes de données de marché passent toutes par `/api/market`, avec un
+ * paramètre `action`. Ce n'est pas un détail d'implémentation qu'on pourrait
+ * masquer : Vercel compte une fonction serverless par fichier de `api/`, et le
+ * plan Hobby en autorise douze. Un fichier par endpoint faisait échouer le
+ * déploiement dès la treizième route.
+ *
+ * `parse-pdf` et `advisor` gardent leur propre URL : ils portent une
+ * configuration Vercel au niveau du fichier (taille de corps, durée maximale)
+ * qui ne peut pas être partagée.
+ */
+const marche = (action, params = {}) => {
+  const q = new URLSearchParams({ action, ...params });
+  return `${BASE}/market?${q}`;
+};
+
+/**
  * Recherche un produit financier par ticker, ISIN ou nom.
  * Renvoie une liste de correspondances : [{ symbol, name, exchange, type }]
  */
 export async function searchSecurity(query) {
-  const res = await fetch(`${BASE}/search?q=${encodeURIComponent(query)}`);
+  const res = await fetch(marche("search", { q: query }));
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Recherche indisponible");
@@ -19,7 +35,7 @@ export async function searchSecurity(query) {
  */
 export async function fetchQuotes(symbols) {
   if (!symbols || symbols.length === 0) return [];
-  const res = await fetch(`${BASE}/quote?symbols=${encodeURIComponent(symbols.join(","))}`);
+  const res = await fetch(marche("quote", { symbols: symbols.join(",") }));
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Cours indisponibles");
@@ -35,7 +51,7 @@ export async function fetchQuotes(symbols) {
 export async function fetchTauxChange(devises) {
   const liste = [...new Set((devises || []).filter((d) => d && d !== "EUR"))];
   if (liste.length === 0) return [];
-  const res = await fetch(`${BASE}/fx?devises=${encodeURIComponent(liste.join(","))}`);
+  const res = await fetch(marche("fx", { devises: liste.join(",") }));
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Taux de change indisponibles");
@@ -50,7 +66,7 @@ export async function fetchTauxChange(devises) {
  */
 export async function fetchCalendarEvents(symbols) {
   if (!symbols || symbols.length === 0) return [];
-  const res = await fetch(`${BASE}/calendar?symbols=${encodeURIComponent(symbols.join(","))}`);
+  const res = await fetch(marche("calendar", { symbols: symbols.join(",") }));
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Calendrier indisponible");
@@ -90,8 +106,7 @@ export async function parseOperationPdf(file) {
  */
 export async function fetchHistory(symbols, range = "6mo", interval = null) {
   if (!symbols || symbols.length === 0) return [];
-  const intervalParam = interval ? `&interval=${interval}` : "";
-  const res = await fetch(`${BASE}/history?symbols=${encodeURIComponent(symbols.join(","))}&range=${range}${intervalParam}`);
+  const res = await fetch(marche("history", { symbols: symbols.join(","), range, ...(interval ? { interval } : {}) }));
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Historique indisponible");
@@ -105,7 +120,7 @@ export async function fetchHistory(symbols, range = "6mo", interval = null) {
  * Renvoie : { symbol, ok, name, sector, industry, description, ...ratios } | { symbol, ok:false, error }
  */
 export async function fetchCompanyProfile(symbol) {
-  const res = await fetch(`${BASE}/profile?symbol=${encodeURIComponent(symbol)}`);
+  const res = await fetch(marche("profile", { symbol }));
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || "Fiche entreprise indisponible");
   return body;
@@ -118,7 +133,7 @@ export async function fetchCompanyProfile(symbol) {
 export async function fetchScreen(symbols) {
   const liste = [...new Set((symbols || []).filter(Boolean))];
   if (liste.length === 0) return [];
-  const res = await fetch(`${BASE}/screen?symbols=${encodeURIComponent(liste.join(","))}`);
+  const res = await fetch(marche("screen", { symbols: liste.join(",") }));
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Données fondamentales indisponibles");
@@ -131,7 +146,7 @@ export async function fetchScreen(symbols) {
  * exercices) et consensus d'analystes (exercice en cours et suivant).
  */
 export async function fetchFundamentals(symbol) {
-  const res = await fetch(`${BASE}/fundamentals?symbol=${encodeURIComponent(symbol)}`);
+  const res = await fetch(marche("fundamentals", { symbol }));
   const body = await res.json().catch(() => null);
   if (!res.ok || !body) throw new Error(body?.error || "Fiche financière indisponible");
   return body;
@@ -146,7 +161,7 @@ export async function fetchFundamentals(symbol) {
  * Renvoie : { rates: [...], liveEnabled: boolean, generatedAt: string }
  */
 export async function fetchRates() {
-  const res = await fetch(`${BASE}/rates`);
+  const res = await fetch(marche("rates"));
   // En dev sans `vercel dev` (simple `npm run dev`), une route /api/* inconnue
   // renvoie le HTML de l'app (statut 200) plutôt qu'une vraie 404 : le corps
   // n'est alors pas du JSON valide. On ne peut donc pas se contenter de

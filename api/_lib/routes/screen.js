@@ -18,9 +18,9 @@
 // les exclure silencieusement — un titre absent d'un filtre pour cause de
 // panne réseau ressemble à un titre qui ne passe pas le filtre.
 
-import { withApi, httpError, cached } from "./_lib/http.js";
-import { parseSymbols } from "./_lib/yahoo.js";
-import { ratiosTitre } from "./_lib/yahooFondamentaux.js";
+import { httpError, cached } from "../http.js";
+import { parseSymbols } from "../yahoo.js";
+import { ratiosTitre } from "../yahooFondamentaux.js";
 
 const CACHE_MS = 60 * 60_000;
 
@@ -60,11 +60,13 @@ async function handler(req, res) {
   res.status(200).json(resultats);
 }
 
-export default withApi(handler, {
+export const options = {
   methods: ["GET"],
   // Chaque requête déclenche jusqu'à quarante appels Yahoo : quota bas, mais
   // le cache d'une heure fait que l'usage réel reste très en dessous.
   limit: 20,
   windowMs: 60_000,
   sMaxAge: 1800,
-});
+};
+
+export { handler };

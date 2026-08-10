@@ -16,7 +16,7 @@
  * `MARKET_ALTERNATIVES`/`MARKET_BENCHMARKS` dans finance.js, des valeurs
  * officielles maintenues à la main, avec leur date d'entrée en vigueur et leur
  * source citée. Si `WEBSTAT_CLIENT_ID` est configuré côté serveur (voir
- * api/_lib/webstat.js), `api/rates.js` tente de rafraîchir en direct les
+ * api/_lib/webstat.js), `api/_lib/routes/rates.js` tente de rafraîchir en direct les
  * quelques séries dont la clé est confirmée (voir `seriesKey` ci-dessous) et
  * remplace la valeur de référence en cas de succès — sinon celle-ci reste
  * affichée, clairement marquée comme non vérifiée en direct.
@@ -35,7 +35,7 @@ export const RATE_CATEGORIES = {
 
 /**
  * `seriesKey` : identifiant de série Webstat confirmé (existence vérifiée via
- * la page catalogue publique), utilisé par api/rates.js pour tenter un
+ * la page catalogue publique), utilisé par api/_lib/routes/rates.js pour tenter un
  * rafraîchissement live si une clé API est configurée. `null` quand aucune
  * série Webstat correspondante n'a été identifiée (ex : données BCE ou INSEE,
  * publiées par d'autres portails).

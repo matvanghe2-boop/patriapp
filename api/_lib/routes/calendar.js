@@ -27,8 +27,8 @@
 //     sous forme d'estimation, plutôt que présenté comme une date distincte
 //     qui serait inventée.
 
-import { withApi, httpError, cached } from "./_lib/http.js";
-import { YF_HEADERS, getYahooSession, invalidateYahooSession, parseSymbols } from "./_lib/yahoo.js";
+import { httpError, cached } from "../http.js";
+import { YF_HEADERS, getYahooSession, invalidateYahooSession, parseSymbols } from "../yahoo.js";
 
 // Un calendrier d'événements évolue au mieux une fois par jour : cache long.
 const CACHE_MS = 60 * 60_000;
@@ -293,4 +293,6 @@ async function handler(req, res) {
   }
 }
 
-export default withApi(handler, { methods: ["GET"], limit: 30, windowMs: 60_000, sMaxAge: 900 });
+export const options = { methods: ["GET"], limit: 30, windowMs: 60_000, sMaxAge: 900 };
+
+export { handler };

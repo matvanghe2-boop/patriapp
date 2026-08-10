@@ -10,9 +10,9 @@
 // dates connues à l'avance. L'absence de clé Webstat ne dégrade donc
 // jamais l'utilité de l'endpoint — seulement sa fraîcheur en dernière minute.
 
-import { withApi, cached } from "./_lib/http.js";
-import { isWebstatConfigured, fetchLatestObservation } from "./_lib/webstat.js";
-import { RATES_CATALOG } from "../shared/ratesCatalog.js";
+import { cached } from "../http.js";
+import { isWebstatConfigured, fetchLatestObservation } from "../webstat.js";
+import { RATES_CATALOG } from "../../../shared/ratesCatalog.js";
 
 // Un taux réglementé ne change jamais plus d'une fois par jour (et en
 // pratique deux fois par an) : un cache long évite de re-solliciter Webstat
@@ -49,4 +49,6 @@ async function handler(req, res) {
   });
 }
 
-export default withApi(handler, { methods: ["GET"], limit: 60, windowMs: 60_000, sMaxAge: 3600 });
+export const options = { methods: ["GET"], limit: 60, windowMs: 60_000, sMaxAge: 3600 };
+
+export { handler };

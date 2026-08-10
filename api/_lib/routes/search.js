@@ -2,8 +2,8 @@
 // Recherche un produit (action/ETF) par ticker, ISIN ou nom.
 // Exécutée côté serveur pour éviter les soucis de CORS côté navigateur.
 
-import { withApi, httpError, cached } from "./_lib/http.js";
-import { fetchJson, sanitizeQuery } from "./_lib/yahoo.js";
+import { httpError, cached } from "../http.js";
+import { fetchJson, sanitizeQuery } from "../yahoo.js";
 
 const CACHE_MS = 5 * 60_000;
 
@@ -30,4 +30,6 @@ async function handler(req, res) {
 // La recherche part à chaque frappe côté client (avec debounce) : la limite
 // est plus haute que sur les autres endpoints, mais le cache absorbe
 // l'essentiel des requêtes répétées.
-export default withApi(handler, { methods: ["GET"], limit: 90, windowMs: 60_000, sMaxAge: 300 });
+export const options = { methods: ["GET"], limit: 90, windowMs: 60_000, sMaxAge: 300 };
+
+export { handler };

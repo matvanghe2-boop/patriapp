@@ -49,7 +49,7 @@ Le service worker met la coquille applicative en cache : l'app **démarre et res
 
 ### Ce que le screener sait et ne sait pas
 
-Les fondamentaux viennent de Yahoo, via `/api/screen` (lot de titres, sans traduction, cache d'une heure) et `/api/fundamentals` (fiche détaillée). Trois limites, énoncées parce qu'elles se voient à l'usage :
+Les fondamentaux viennent de Yahoo, via `/api/market?action=screen` (lot de titres, sans traduction, cache d'une heure) et `?action=fundamentals` (fiche détaillée). Trois limites, énoncées parce qu'elles se voient à l'usage :
 
 - **L'univers est curaté**, pas exhaustif : les constituants listés dans `indexConstituents.js` (vingt valeurs par indice). Screener une cote entière demanderait des milliers d'appels.
 - **Le consensus s'arrête à l'exercice suivant.** L'application affiche donc un PER estimé sur deux exercices — l'année en cours et la suivante. Pas de troisième année : elle ne pourrait qu'être extrapolée, et s'afficherait à côté de vrais consensus sans que rien ne les distingue.
@@ -57,7 +57,7 @@ Les fondamentaux viennent de Yahoo, via `/api/screen` (lot de titres, sans tradu
 
 ### Devises
 
-Les positions cotées hors zone euro sont converties au taux du jour, récupéré en même temps que les cours (`/api/fx`). Le prix de revient est converti à ce même taux : la plus-value affichée inclut donc l'effet de change sans le distinguer de la performance du titre — l'interface le signale. Une position dont le taux n'a pas pu être récupéré est comptée à parité 1:1, et l'avertissement le dit explicitement.
+Les positions cotées hors zone euro sont converties au taux du jour, récupéré en même temps que les cours (`/api/market?action=fx`). Le prix de revient est converti à ce même taux : la plus-value affichée inclut donc l'effet de change sans le distinguer de la performance du titre — l'interface le signale. Une position dont le taux n'a pas pu être récupéré est comptée à parité 1:1, et l'avertissement le dit explicitement.
 
 ### Mode Ghost
 
@@ -70,7 +70,12 @@ Le bouton en forme d'œil floute tous les montants, y compris les graduations de
 ## Stack technique
 
 - **Frontend** : React 18 + Vite + Tailwind CSS, `recharts` pour les graphiques, `lucide-react` pour les icônes
-- **Backend** : fonctions serverless Vercel dans `api/` (aucun framework) — cours, taux de change, recherche, historique, calendrier, fiche entreprise, analyse de PDF, assistant
+- **Backend** : fonctions serverless Vercel dans `api/` (aucun framework). **Trois fonctions seulement**, et c'est une contrainte assumée : Vercel compte une fonction par fichier de `api/`, et le plan Hobby en autorise douze.
+  - `api/market.js` — routeur unique des données de marché : `?action=quote|search|history|calendar|profile|fx|screen|fundamentals|rates`. Chaque route garde ses propres quotas et sa propre durée de cache, déclarés dans `api/_lib/routes/`.
+  - `api/advisor.js` — assistant Horizon (`maxDuration: 60`, authentification obligatoire).
+  - `api/parse-pdf.js` — import de relevés (corps jusqu'à 12 Mo).
+
+  Les fichiers de test qui vivent à côté des endpoints sont exclus par `.vercelignore` : Vercel les déployait comme de vraies fonctions, ce qui les rendait publiquement accessibles et les faisait compter dans le quota.
 - **Code partagé** : `shared/` regroupe les modules chargés à la fois par le navigateur et par les fonctions serverless (moteur Horizon, anonymiseur, adaptateurs de modèles, catalogue de taux). La frontière est explicite plutôt que dissimulée dans des imports `../src/lib`
 - **Auth & synchronisation** : Supabase (Postgres + Auth), optionnel
 - **Stockage** : `localStorage` en cache local systématique, Supabase en miroir si un compte est connecté
