@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { UploadCloud, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles, Trash2, Coins } from "lucide-react";
+import { UploadCloud, FileDown, Loader2, AlertTriangle, CheckCircle2, Wallet, Percent, TrendingUp, Sparkles, Trash2, Coins } from "lucide-react";
 import { Card, CardLabel, GhostButton } from "./ui";
 import {
   eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash, sanitizeOperation,
@@ -10,6 +10,7 @@ import OperationForm from "./OperationForm";
 import OperationList from "./OperationList";
 import OrderSimulator from "./OrderSimulator";
 import { useToast } from "../lib/ToastContext";
+import { exporterOperationsCsv } from "../lib/exportOperations";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -33,8 +34,10 @@ function uid() {
  * quel si l'utilisateur clique sur Annuler.
  */
 export default function Operations({ bourse, setBourse, presetOperation, onConsumePreset, onOpenThesis }) {
-  const positions = bourse?.positions || [];
-  const operations = bourse?.operations || [];
+  // Mémoïsés : `x || []` crée un tableau neuf à chaque rendu, ce qui
+  // invalidait les useMemo qui en dépendent.
+  const positions = useMemo(() => bourse?.positions || [], [bourse]);
+  const operations = useMemo(() => bourse?.operations || [], [bourse]);
   const { showToast } = useToast();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -267,9 +270,22 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
       <Card>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <CardLabel icon={UploadCloud}>Import & saisie</CardLabel>
-          <GhostButton onClick={() => { setFormPreset(null); setFormOpen(true); }} theme="cyan">
-            Nouvelle Opération
-          </GhostButton>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Le journal n'était consultable qu'à l'écran, alors que c'est la
+                pièce à ressortir pour la déclaration ou un changement de
+                courtier. */}
+            <GhostButton
+              icon={FileDown}
+              theme="rose"
+              disabled={operations.length === 0}
+              onClick={() => exporterOperationsCsv(operations)}
+            >
+              Exporter en CSV
+            </GhostButton>
+            <GhostButton onClick={() => { setFormPreset(null); setFormOpen(true); }} theme="cyan">
+              Nouvelle Opération
+            </GhostButton>
+          </div>
         </div>
 
         <div

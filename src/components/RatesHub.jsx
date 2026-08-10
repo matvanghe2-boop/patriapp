@@ -8,7 +8,7 @@ import { fetchRates } from "../lib/api";
 import {
   RATES_CATALOG, RATE_CATEGORIES, searchRates, groupByCategory,
   bestSavingsRate, nextUpcomingReview, findOfficialRateFor,
-} from "../lib/ratesCatalog";
+} from "../../shared/ratesCatalog";
 
 // Chaque catégorie de taux reprend une teinte de carte déjà utilisée
 // ailleurs dans l'app, pour ne pas introduire de nouvelle palette.

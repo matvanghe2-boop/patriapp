@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useCallback } from "react";
 import { usePersistentState } from "./storage";
-import { weightedAverageRate, upsertByDate, todayIso } from "./finance";
+import { weightedAverageRate, upsertByDate, todayIso, valeurPosition, coutPosition } from "./finance";
 
 /**
  * Propriétaire unique de l'état patrimonial.
@@ -25,6 +25,7 @@ export const STORAGE_KEYS = [
   "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios",
   "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate", "allocationTarget",
   "profileHistory", "horizonScenarios", "horizonReglages", "horizonDernierBilan",
+  "matelasHistory", "objectifs", "alertesWatchlist",
 ];
 
 /**
@@ -143,6 +144,10 @@ export function PatrimoineProvider({ children }) {
   // Date du dernier relevé quotidien de patrimoine — persistée (donc
   // synchronisée) pour que deux appareils ne créent pas deux points le même jour.
   const [lastSnapshotDate, setLastSnapshotDate] = usePersistentState("lastSnapshotDate", null);
+  // Objectifs de patrimoine datés (cible + échéance), avec point de départ figé.
+  const [objectifs, setObjectifs] = usePersistentState("objectifs", []);
+  // Seuils de prix surveillés sur la watchlist.
+  const [alertesWatchlist, setAlertesWatchlist] = usePersistentState("alertesWatchlist", []);
   // ─── Horizon (sous-onglet Projet) ──────────────────────────────────────────
   // Projets chiffrés et mis de côté, comparables plus tard.
   const [horizonScenarios, setHorizonScenarios] = usePersistentState("horizonScenarios", []);
@@ -159,12 +164,14 @@ export function PatrimoineProvider({ children }) {
   const livretsAvgRate = useMemo(() => weightedAverageRate(livrets) * 100, [livrets]);
   const dettesTotal = useMemo(() => dettes.reduce((s, d) => s + d.amount, 0), [dettes]);
 
+  // Valorisation convertie en euros : une position cotée en dollars était
+  // comptée à parité 1:1 dans tous les agrégats de l'application.
   const bourseInvested = useMemo(
-    () => bourse.positions.reduce((s, p) => s + p.quantity * p.pru, 0),
+    () => bourse.positions.reduce((s, p) => s + coutPosition(p), 0),
     [bourse]
   );
   const bourseValuePositions = useMemo(
-    () => bourse.positions.reduce((s, p) => s + p.quantity * p.current_price, 0),
+    () => bourse.positions.reduce((s, p) => s + valeurPosition(p), 0),
     [bourse]
   );
 
@@ -236,6 +243,7 @@ export function PatrimoineProvider({ children }) {
     reminders, setReminders,
     contracts, setContracts, subs, setSubs,
     lastSnapshotDate, setLastSnapshotDate,
+    objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
     horizonScenarios, setHorizonScenarios,
     horizonReglages, setHorizonReglages,
     horizonDernierBilan, setHorizonDernierBilan,

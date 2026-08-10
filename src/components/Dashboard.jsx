@@ -10,11 +10,12 @@ import {
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import {
   eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore,
-  computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly,
+  computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition
 } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
+import Objectifs from "./Objectifs";
 import { FileDown, FileSpreadsheet, PieChart as PieIcon } from "lucide-react";
 
 function formatDateFr(iso) {
@@ -71,7 +72,7 @@ function PriorityActions({ livrets, bourse, matelasMois }) {
     });
 
     const cashPocket = bourse?.cash_pocket || 0;
-    const bourseValue = (bourse?.positions || []).reduce((s, p) => s + p.current_price * p.quantity, 0);
+    const bourseValue = (bourse?.positions || []).reduce((s, p) => s + valeurPosition(p), 0);
     if (cashPocket > 500 && bourseValue > 0 && cashPocket / (cashPocket + bourseValue) > 0.15) {
       list.push({
         id: "cash-dormant",
@@ -421,8 +422,9 @@ export default function Dashboard({
   profile, setProfile, patrimoineBrut, patrimoineNet, bourseGainAbs, bourseGainPct,
   epargneMensuelle, tauxEpargne, dettes, setDettes, dettesTotal,
   historyPast, setHistoryPast, livretsTotal, bourseTotal,
-  bourseInvested, livrets, bourse, matelasMois, setLastSnapshotDate,
+  livrets, bourse, matelasMois, setLastSnapshotDate,
   cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
+  objectifs, setObjectifs,
 }) {
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -583,7 +585,7 @@ export default function Dashboard({
     const classes = {};
     (bourse?.positions || []).forEach((p) => {
       const key = p.type || "Autre";
-      classes[key] = (classes[key] || 0) + p.quantity * p.current_price;
+      classes[key] = (classes[key] || 0) + valeurPosition(p);
     });
     if (bourse?.cash_pocket > 0) classes["Cash PEA"] = (classes["Cash PEA"] || 0) + bourse.cash_pocket;
     if (livretsTotal > 0) classes["Épargne sécurisée"] = (classes["Épargne sécurisée"] || 0) + livretsTotal;
@@ -914,6 +916,16 @@ export default function Dashboard({
               utilisées par le graphique et les calculs, simplement non listées). */}
         </Card>
       </div>
+
+      {/* Objectifs datés — la seule chose qui transforme la courbe de
+          patrimoine en réponse à « suis-je en avance ou en retard ? ». */}
+      <Objectifs
+        objectifs={objectifs}
+        setObjectifs={setObjectifs}
+        patrimoineNet={patrimoineNet}
+        epargneMensuelle={epargneMensuelle}
+        tauxAnnuelPct={blendedRatePct}
+      />
 
       {/* Passifs */}
       <Card accent={CARD_THEMES.emerald}>

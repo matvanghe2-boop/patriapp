@@ -83,7 +83,7 @@ function TravauxTracker({ items, setItems }) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-cards">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Poste</th>
@@ -99,10 +99,10 @@ function TravauxTracker({ items, setItems }) {
                   const diff = i.reel - i.budget;
                   return (
                     <tr key={i.id}>
-                      <td className="py-2 pr-3 text-slate-200">{i.label}</td>
-                      <td className="py-2 pr-3 text-slate-400 text-xs">{i.category}</td>
-                      <td className="py-2 pr-3 font-data tabular-nums text-slate-300 ghost-blur">{eur(i.budget)}</td>
-                      <td className="py-2 pr-3">
+                      <td data-label="Poste" className="py-2 pr-3 text-slate-200">{i.label}</td>
+                      <td data-label="Catégorie" className="py-2 pr-3 text-slate-400 text-xs">{i.category}</td>
+                      <td data-label="Budget" className="py-2 pr-3 font-data tabular-nums text-slate-300 ghost-blur">{eur(i.budget)}</td>
+                      <td data-label="Réel" className="py-2 pr-3">
                         <input
                           type="number"
                           value={i.reel}
@@ -110,7 +110,7 @@ function TravauxTracker({ items, setItems }) {
                           className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-1 text-xs font-data tabular-nums ghost-blur focus:outline-none focus:border-rose-400/60"
                         />
                       </td>
-                      <td className={`py-2 pr-3 font-data tabular-nums ${diff > 0 ? "text-rose-400" : diff < 0 ? "text-emerald-400" : "text-slate-500"}`}>
+                      <td data-label="Écart" className={`py-2 pr-3 font-data tabular-nums ${diff > 0 ? "text-rose-400" : diff < 0 ? "text-emerald-400" : "text-slate-500"}`}>
                         {diff > 0 ? "+" : ""}{eur(diff)}
                       </td>
                       <td className="py-2">
@@ -345,7 +345,7 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           </button>
         </div>
         <div className="overflow-x-auto mt-2">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-cards">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 pr-3">Durée</th>
@@ -363,24 +363,24 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
                 const resteLow = r.resteAVivre < 700;
                 return (
                   <tr key={r.years} className={over ? "bg-rose-400/5" : resteLow ? "bg-amber-400/5" : ""}>
-                    <td className="py-3 pr-3 text-slate-200">{r.years} ans</td>
-                    <td className="py-3 pr-3 font-data tabular-nums text-slate-400">{eur(r.mensualiteHorsAss)}</td>
-                    <td className="py-3 pr-3 font-data tabular-nums text-slate-500">{eur(r.assuranceMensuelle)}</td>
-                    <td className={`py-3 pr-3 font-data tabular-nums ${over ? "text-rose-400" : "text-slate-100"}`}>
+                    <td data-label="Durée" className="py-3 pr-3 text-slate-200">{r.years} ans</td>
+                    <td data-label="Mensualité (hors ass.)" className="py-3 pr-3 font-data tabular-nums text-slate-400">{eur(r.mensualiteHorsAss)}</td>
+                    <td data-label="Assurance" className="py-3 pr-3 font-data tabular-nums text-slate-500">{eur(r.assuranceMensuelle)}</td>
+                    <td data-label="Mensualité totale" className={`py-3 pr-3 font-data tabular-nums ${over ? "text-rose-400" : "text-slate-100"}`}>
                       {eur(r.mensualiteTotale)}
                     </td>
-                    <td className="py-3 pr-3">
+                    <td data-label="Taux d'endettement" className="py-3 pr-3">
                       <span className={`flex items-center gap-1.5 font-data tabular-nums ${over ? "text-rose-400" : "text-emerald-400"}`}>
                         {over && <AlertTriangle size={13} />}
                         {pctPlain(r.tauxEndettement, 1)}
                       </span>
                     </td>
-                    <td className="py-3 pr-3">
+                    <td data-label="Reste à vivre" className="py-3 pr-3">
                       <span className={`font-data tabular-nums ${r.resteAVivre >= 1000 ? "text-emerald-400" : r.resteAVivre >= 700 ? "text-amber-400" : "text-rose-400"}`}>
                         {eur(r.resteAVivre)}
                       </span>
                     </td>
-                    <td className="py-3 pr-3 font-data tabular-nums text-slate-400">{eur(r.coutInterets)}</td>
+                    <td data-label="Coût total des intérêts" className="py-3 pr-3 font-data tabular-nums text-slate-400">{eur(r.coutInterets)}</td>
                   </tr>
                 );
               })}

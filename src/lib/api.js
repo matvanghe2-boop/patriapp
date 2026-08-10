@@ -28,6 +28,22 @@ export async function fetchQuotes(symbols) {
 }
 
 /**
+ * Récupère le taux de conversion de chaque devise vers l'euro.
+ * Renvoie : [{ devise, ok, versEuro } | { devise, ok:false, error }]
+ * `versEuro` s'applique directement à un cours : prix × versEuro = prix en €.
+ */
+export async function fetchTauxChange(devises) {
+  const liste = [...new Set((devises || []).filter((d) => d && d !== "EUR"))];
+  if (liste.length === 0) return [];
+  const res = await fetch(`${BASE}/fx?devises=${encodeURIComponent(liste.join(","))}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Taux de change indisponibles");
+  }
+  return res.json();
+}
+
+/**
  * Récupère les événements financiers à venir (dividendes, résultats,
  * assemblées générales) pour une liste de tickers.
  * Renvoie : [{ symbol, ok, events: [{ ticker, name, type, date, label }] } | { symbol, ok:false, error, events: [] }]

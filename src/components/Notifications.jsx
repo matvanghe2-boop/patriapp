@@ -15,7 +15,12 @@ function isDue(r) {
   return r.date && r.date <= todayStr() && !r.done;
 }
 
-export default function Notifications({ reminders = [], setReminders }) {
+/**
+ * Les alertes de seuil de la watchlist arrivent déjà évaluées (voir
+ * lib/alertes.js) et s'affichent aux côtés des rappels manuels. Elles ne sont
+ * pas supprimables ici : on supprime l'alerte, pas sa notification.
+ */
+export default function Notifications({ reminders = [], setReminders, alertes = [], onAcquitterAlerte, onAcquitterBilan }) {
   const [open, setOpen] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState({ label: "", type: "monthly", day: 5, date: "" });
@@ -36,7 +41,10 @@ export default function Notifications({ reminders = [], setReminders }) {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const dueList = useMemo(() => reminders.filter(isDue), [reminders]);
+  const dueList = useMemo(
+    () => [...reminders.filter(isDue), ...alertes],
+    [reminders, alertes]
+  );
 
   const requestPermission = async () => {
     if (typeof Notification === "undefined") return;
@@ -87,10 +95,21 @@ export default function Notifications({ reminders = [], setReminders }) {
     setShowAdd(false);
   };
 
-  const acknowledge = (r) =>
+  const acknowledge = (r) => {
+    // Une alerte de seuil s'acquitte dans sa propre liste : elle se réarmera
+    // toute seule si le cours repasse de l'autre côté du seuil.
+    if (r.type === "alerte") {
+      onAcquitterAlerte?.(r.alerteId);
+      return;
+    }
+    if (r.type === "bilan") {
+      onAcquitterBilan?.();
+      return;
+    }
     setReminders((list) =>
       list.map((x) => (x.id === r.id ? (x.type === "monthly" ? { ...x, lastAck: currentYearMonth() } : { ...x, done: true }) : x))
     );
+  };
   const removeReminder = (id) => setReminders((list) => list.filter((x) => x.id !== id));
 
   return (
@@ -169,12 +188,12 @@ export default function Notifications({ reminders = [], setReminders }) {
             </div>
           )}
 
-          {reminders.length === 0 ? (
+          {reminders.length === 0 && alertes.length === 0 ? (
             <p className="text-[11px] text-slate-600">Aucun rappel configuré.</p>
           ) : (
             <div className="space-y-1.5">
-              {reminders.map((r) => {
-                const due = isDue(r);
+              {[...alertes, ...reminders].map((r) => {
+                const due = r.type === "alerte" || r.type === "bilan" ? true : isDue(r);
                 return (
                   <div
                     key={r.id}
@@ -185,7 +204,13 @@ export default function Notifications({ reminders = [], setReminders }) {
                     <span className="flex-1">
                       <span className={due ? "text-amber-200" : "text-slate-400"}>{r.label}</span>
                       <span className="block text-[10px] text-slate-600">
-                        {r.type === "monthly" ? `Le ${r.day} de chaque mois` : r.date}
+                        {r.type === "bilan"
+                          ? "Bilan mensuel — sous-onglet Projet"
+                          : r.type === "alerte"
+                          ? "Seuil de watchlist franchi"
+                          : r.type === "monthly"
+                            ? `Le ${r.day} de chaque mois`
+                            : r.date}
                       </span>
                     </span>
                     {due && (
@@ -193,9 +218,11 @@ export default function Notifications({ reminders = [], setReminders }) {
                         <Check size={13} />
                       </button>
                     )}
-                    <button onClick={() => removeReminder(r.id)} title="Supprimer" className="text-slate-600 hover:text-rose-400">
-                      <Trash2 size={13} />
-                    </button>
+                    {r.type !== "alerte" && r.type !== "bilan" && (
+                      <button onClick={() => removeReminder(r.id)} title="Supprimer" className="text-slate-600 hover:text-rose-400">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 );
               })}

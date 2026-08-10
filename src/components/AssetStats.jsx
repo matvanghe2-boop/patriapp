@@ -105,8 +105,10 @@ function PerformanceTooltip({ active, payload }) {
 }
 
 export default function AssetStats({ bourse }) {
-  const operations = bourse?.operations || [];
-  const positions = bourse?.positions || [];
+  // Mémoïsés : `x || []` crée un tableau neuf à chaque rendu, ce qui
+  // invalidait les useMemo qui en dépendent — la mémoïsation ne servait à rien.
+  const operations = useMemo(() => bourse?.operations || [], [bourse]);
+  const positions = useMemo(() => bourse?.positions || [], [bourse]);
 
   const rows = useMemo(() => buildAssetStats(operations, positions), [operations, positions]);
 

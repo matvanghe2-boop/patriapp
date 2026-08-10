@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { PiggyBank, ShieldCheck, Banknote, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, guessEnvelope, todayIso } from "../lib/finance";
+import { usePersistentState } from "../lib/storage";
 import RatesHub from "./RatesHub";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
@@ -25,33 +26,31 @@ function guessLegalLimit(name) {
 }
 
 // ─── Historique du matelas de sécurité (texte seul, pas de graphique) ────────
+/**
+ * Le relevé du matelas de sécurité passe par `usePersistentState`, donc par la
+ * synchronisation cloud, l'export JSON et « Réinitialiser ».
+ *
+ * Il était écrit en direct dans le localStorage sous une clé absente de
+ * STORAGE_KEYS : la donnée ne suivait pas d'un appareil à l'autre, n'était pas
+ * sauvegardée, et survivait à une réinitialisation. C'est exactement le défaut
+ * qui avait été corrigé pour `allocationTarget` — ce cas-ci avait été oublié.
+ */
 function useMatelasTrend(matelasMois) {
-  const [previous, setPrevious] = useState(() => {
-    try {
-      const raw = localStorage.getItem("patrimoine:matelasHistory");
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  });
+  const [releve, setReleve] = usePersistentState("matelasHistory", null);
 
   useEffect(() => {
     if (!Number.isFinite(matelasMois)) return;
     const today = todayIso();
-    try {
-      const raw = localStorage.getItem("patrimoine:matelasHistory");
-      const stored = raw ? JSON.parse(raw) : null;
-      if (!stored || stored.date !== today) {
-        // On garde la valeur d'avant aujourd'hui comme référence de comparaison
-        setPrevious(stored);
-        localStorage.setItem("patrimoine:matelasHistory", JSON.stringify({ date: today, value: matelasMois, prevValue: stored?.value ?? null }));
-      }
-    } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matelasMois]);
+    setReleve((precedent) => {
+      if (precedent?.date === today) return precedent;
+      // La valeur d'avant aujourd'hui devient la référence de comparaison.
+      return { date: today, value: matelasMois, prevValue: precedent?.value ?? null };
+    });
+  }, [matelasMois, setReleve]);
 
-  const refValue = previous?.prevValue ?? previous?.value ?? null;
-  if (refValue == null) return null;
-  const delta = matelasMois - refValue;
-  return { delta, refValue };
+  const refValue = releve?.prevValue ?? null;
+  if (refValue == null || !Number.isFinite(matelasMois)) return null;
+  return { delta: matelasMois - refValue, refValue };
 }
 
 function MatelasTrendBadge({ matelasMois }) {

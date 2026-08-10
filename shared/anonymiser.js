@@ -87,7 +87,11 @@ export function construireContexteAnonymise({
   }
 
   for (const p of bourse?.positions ?? []) {
-    parClasse.actions += Math.max(0, (p?.quantity || 0) * (p?.current_price || 0));
+    // Conversion en euros incluse : sans elle, une position cotée en dollars
+    // entrait dans la répartition à parité 1:1 et le modèle raisonnait sur une
+    // allocation fausse. `fxRate` porte le nombre d'euros par unité de devise.
+    const taux = p?.currency && p.currency !== "EUR" && p?.fxRate > 0 ? p.fxRate : 1;
+    parClasse.actions += Math.max(0, (p?.quantity || 0) * (p?.current_price || 0) * taux);
   }
 
   parClasse.monetaire += Math.max(0, cash || 0) + Math.max(0, bourse?.cash_pocket || 0);

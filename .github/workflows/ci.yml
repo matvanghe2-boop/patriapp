@@ -18,3 +18,16 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+      # structure.txt se veut la référence d'arborescence du README, mais il
+      # dépendait d'un `npm run structure` lancé à la main — il s'est donc
+      # retrouvé périmé deux fois de suite. La CI le régénère et échoue s'il
+      # diffère : impossible de fusionner une arborescence obsolète.
+      - name: Vérifier que structure.txt est à jour
+        run: |
+          npm run structure
+          if ! git diff --quiet -- structure.txt; then
+            echo "structure.txt est périmé. Lance 'npm run structure' et commite le résultat."
+            git diff -- structure.txt
+            exit 1
+          fi

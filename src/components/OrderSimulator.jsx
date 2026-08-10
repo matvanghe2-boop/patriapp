@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Sliders, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardLabel, EmptyState } from "./ui";
-import { eur, pctPlain } from "../lib/finance";
+import { eur, pctPlain, valeurPosition } from "../lib/finance";
 
 function computeSimulation(pos, totalValue, targetWeightPct, mode) {
   if (!pos || totalValue <= 0) return null;
@@ -43,7 +43,7 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
   const [targetWeight, setTargetWeight] = useState(10);
 
   const totalValue = useMemo(
-    () => positions.reduce((s, p) => s + p.quantity * p.current_price, 0) + cashPocket,
+    () => positions.reduce((s, p) => s + valeurPosition(p), 0) + cashPocket,
     [positions, cashPocket]
   );
 

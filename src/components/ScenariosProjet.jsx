@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, GitCompare, Trash2 } from "lucide-react";
+import { Save, GitCompare, Trash2, Trophy } from "lucide-react";
 import { Card, CardLabel, EmptyState, CARD_THEMES } from "./ui";
 import { eur, uid, todayIso } from "../lib/finance";
 
@@ -14,6 +14,20 @@ import { eur, uid, todayIso } from "../lib/finance";
  * la projection complète : rejouer le moteur sur les paramètres redonne les
  * mêmes chiffres — il est déterministe et prend une graine fixe.
  */
+/** Cellule d'un tableau comparatif, mise en valeur si elle porte le meilleur chiffre. */
+function CelluleComparee({ libelle, valeur, meilleur, format }) {
+  const gagnante = Number.isFinite(valeur) && valeur === meilleur;
+  return (
+    <td
+      data-label={libelle}
+      className={`py-1.5 px-2 text-right tabular-nums ${gagnante ? "text-emerald-400 font-semibold" : "text-slate-200"}`}
+      title={gagnante ? "Meilleur de la comparaison" : undefined}
+    >
+      {format(valeur)}
+    </td>
+  );
+}
+
 export default function ScenariosProjet({ scenarios = [], onChange, courant }) {
   const [nom, setNom] = useState("");
   const [selection, setSelection] = useState([]);
@@ -36,6 +50,32 @@ export default function ScenariosProjet({ scenarios = [], onChange, courant }) {
     );
 
   const compares = scenarios.filter((s) => selection.includes(s.id));
+
+  // Pour ces trois critères, plus bas vaut mieux. `null` (objectif jamais
+  // atteint) n'est pas un minimum : c'est le pire cas, on l'écarte.
+  const minimum = (cle) => {
+    const valeurs = compares.map((s) => s.resultats?.[cle]).filter((v) => Number.isFinite(v));
+    return valeurs.length > 0 ? Math.min(...valeurs) : null;
+  };
+  const meilleurs = {
+    coutGlobal: minimum("coutGlobal"),
+    effortMensuel: minimum("effortMensuel"),
+    retardMois: minimum("retardMois"),
+  };
+
+  // Verdict : le scénario le moins cher globalement, sauf si un autre gagne
+  // sur les trois critères à la fois — auquel cas il n'y a plus de compromis.
+  const verdict = (() => {
+    if (compares.length < 2 || meilleurs.coutGlobal == null) return null;
+    const gagnantCout = compares.find((s) => s.resultats?.coutGlobal === meilleurs.coutGlobal);
+    if (!gagnantCout) return null;
+    const rafle =
+      gagnantCout.resultats?.effortMensuel === meilleurs.effortMensuel &&
+      gagnantCout.resultats?.retardMois === meilleurs.retardMois;
+    return rafle
+      ? `« ${gagnantCout.nom} » est meilleur sur les trois critères : aucun arbitrage à faire.`
+      : `« ${gagnantCout.nom} » coûte le moins cher au total, mais pas sur tous les critères — regarde l'effort mensuel et le retard.`;
+  })();
 
   return (
     <Card accent={CARD_THEMES.indigo}>
@@ -102,35 +142,56 @@ export default function ScenariosProjet({ scenarios = [], onChange, courant }) {
       )}
 
       {compares.length >= 2 && (
-        <div className="mt-4 pt-3 border-t border-slate-800 overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-slate-500">
-                <th className="text-left font-medium py-1.5 pr-3">Scénario</th>
-                <th className="text-right font-medium py-1.5 px-2">Coût global</th>
-                <th className="text-right font-medium py-1.5 px-2">Effort / mois</th>
-                <th className="text-right font-medium py-1.5 pl-2">Retard objectif</th>
-              </tr>
-            </thead>
-            <tbody>
-              {compares.map((s) => (
-                <tr key={s.id} className="border-t border-slate-800">
-                  <td className="py-1.5 pr-3 text-slate-300">{s.nom}</td>
-                  <td className="py-1.5 px-2 text-right text-slate-200 tabular-nums">
-                    {eur(s.resultats?.coutGlobal)}
-                  </td>
-                  <td className="py-1.5 px-2 text-right text-slate-200 tabular-nums">
-                    {eur(s.resultats?.effortMensuel)}
-                  </td>
-                  <td className="py-1.5 pl-2 text-right text-slate-200 tabular-nums">
-                    {s.resultats?.retardMois == null
-                      ? "non atteint"
-                      : `${Math.round(s.resultats.retardMois)} mois`}
-                  </td>
+        <div className="mt-4 pt-3 border-t border-slate-800">
+          {/* Un tableau de chiffres bruts n'aide pas à trancher : le meilleur
+              de chaque colonne est mis en évidence, et un verdict résume le
+              tout. « Meilleur » = coût global le plus bas, effort mensuel le
+              plus faible, retard sur objectif le plus court. */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs table-cards">
+              <thead>
+                <tr className="text-slate-500">
+                  <th className="text-left font-medium py-1.5 pr-3">Scénario</th>
+                  <th className="text-right font-medium py-1.5 px-2">Coût global</th>
+                  <th className="text-right font-medium py-1.5 px-2">Effort / mois</th>
+                  <th className="text-right font-medium py-1.5 pl-2">Retard objectif</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {compares.map((s) => (
+                  <tr key={s.id} className="border-t border-slate-800">
+                    <td data-label="Scénario" className="py-1.5 pr-3 text-slate-300">{s.nom}</td>
+                    <CelluleComparee
+                      libelle="Coût global"
+                      valeur={s.resultats?.coutGlobal}
+                      meilleur={meilleurs.coutGlobal}
+                      format={eur}
+                    />
+                    <CelluleComparee
+                      libelle="Effort / mois"
+                      valeur={s.resultats?.effortMensuel}
+                      meilleur={meilleurs.effortMensuel}
+                      format={eur}
+                    />
+                    <CelluleComparee
+                      libelle="Retard objectif"
+                      valeur={s.resultats?.retardMois}
+                      meilleur={meilleurs.retardMois}
+                      format={(v) => (v == null ? "non atteint" : `${Math.round(v)} mois`)}
+                    />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {verdict && (
+            <p className="text-xs text-emerald-300/90 mt-2.5 flex items-start gap-1.5">
+              <Trophy size={12} className="shrink-0 mt-0.5" aria-hidden="true" />
+              <span>{verdict}</span>
+            </p>
+          )}
+
           <p className="text-xs text-slate-600 mt-2">
             Comparaison à hypothèses figées : les scénarios enregistrés à des dates différentes
             reposent sur le patrimoine du jour de leur enregistrement.

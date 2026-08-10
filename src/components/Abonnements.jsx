@@ -131,7 +131,7 @@ function ContractsModule({ contracts, setContracts }) {
         <EmptyState>Aucun contrat suivi — ajoute un bail, une assurance ou une garantie pour ne plus rater une échéance de résiliation.</EmptyState>
       ) : (
         <div className="overflow-x-auto mt-2 -mx-1">
-          <table className="w-full text-sm min-w-[680px]">
+          <table className="w-full text-sm min-w-[680px] table-cards">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 px-1">Contrat</th>
@@ -148,17 +148,17 @@ function ContractsModule({ contracts, setContracts }) {
                 const deadline = c.date_fin ? addDays(c.date_fin, -(c.preavis_jours || 0)) : null;
                 return (
                   <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-1">
+                    <td data-label="Contrat" className="py-2.5 px-1">
                       <div className="text-slate-100 font-medium">{c.label}</div>
                       {c.notes && <div className="text-[11px] text-slate-500">{c.notes}</div>}
                     </td>
-                    <td className="py-2.5 px-1 text-slate-400 text-xs">{c.category}</td>
-                    <td className="py-2.5 px-1 font-data tabular-nums text-slate-300">{formatDateFr(c.date_fin)}</td>
-                    <td className="py-2.5 px-1 font-data tabular-nums text-amber-300">
+                    <td data-label="Catégorie" className="py-2.5 px-1 text-slate-400 text-xs">{c.category}</td>
+                    <td data-label="Fin d'engagement" className="py-2.5 px-1 font-data tabular-nums text-slate-300">{formatDateFr(c.date_fin)}</td>
+                    <td data-label="Date limite de résiliation" className="py-2.5 px-1 font-data tabular-nums text-amber-300">
                       {deadline ? formatDateFr(deadline) : "—"}
                       {c.preavis_jours > 0 && <span className="text-[10px] text-slate-600 block">préavis {c.preavis_jours} j</span>}
                     </td>
-                    <td className="py-2.5 px-1">
+                    <td data-label="Statut" className="py-2.5 px-1">
                       <span className={`flex items-center gap-1.5 w-fit text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${status.cls}`}>
                         {status.key === "a_resilier" && <AlertTriangle size={11} />}
                         {status.label}
@@ -311,7 +311,7 @@ function SubsModule({ subs, setSubs }) {
         <EmptyState>Aucun abonnement suivi — ajoute tes charges fixes pour voir le coût mensuel/annuel cumulé.</EmptyState>
       ) : (
         <div className="overflow-x-auto mt-2 -mx-1">
-          <table className="w-full text-sm min-w-[640px]">
+          <table className="w-full text-sm min-w-[640px] table-cards">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 px-1">Abonnement</th>
@@ -331,14 +331,14 @@ function SubsModule({ subs, setSubs }) {
                 const soon = daysToNext != null && daysToNext <= 5;
                 return (
                   <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-1">
+                    <td data-label="Abonnement" className="py-2.5 px-1">
                       <div className="text-slate-100 font-medium">{s.label}</div>
                       <div className="text-[11px] text-slate-500">{s.category}</div>
                     </td>
-                    <td className="py-2.5 px-1 text-slate-400 text-xs capitalize">{s.frequence}</td>
-                    <td className="py-2.5 px-1 font-data tabular-nums text-slate-200 ghost-blur">{eur(monthlyEquivalent(s), 2)}</td>
-                    <td className="py-2.5 px-1 font-data tabular-nums text-slate-400 ghost-blur">{eur(annualEquivalent(s), 2)}</td>
-                    <td className="py-2.5 px-1">
+                    <td data-label="Fréquence" className="py-2.5 px-1 text-slate-400 text-xs capitalize">{s.frequence}</td>
+                    <td data-label="Équiv. mensuel" className="py-2.5 px-1 font-data tabular-nums text-slate-200 ghost-blur">{eur(monthlyEquivalent(s), 2)}</td>
+                    <td data-label="Équiv. annuel" className="py-2.5 px-1 font-data tabular-nums text-slate-400 ghost-blur">{eur(annualEquivalent(s), 2)}</td>
+                    <td data-label="Prochain prélèvement" className="py-2.5 px-1">
                       {next ? (
                         <span className={`flex items-center gap-1.5 w-fit text-[11px] font-data px-2 py-0.5 rounded border ${
                           soon ? "text-rose-300 border-rose-500/30 bg-rose-500/10" : "text-slate-400 border-slate-700 bg-slate-900/50"

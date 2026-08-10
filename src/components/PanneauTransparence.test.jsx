@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import PanneauTransparence from "./PanneauTransparence";
-import { construireContexteAnonymise } from "../lib/anonymiser";
+import { construireContexteAnonymise } from "../../shared/anonymiser";
 
 /**
  * jsdom expose `navigator.clipboard` en lecture seule : une simple affectation

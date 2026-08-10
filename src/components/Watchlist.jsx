@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown, Bell, BellRing, Check, X} from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
 import AssetLogo from "./AssetLogo";
 import { eur, pct, uid, computeReturnMetrics } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
+import { creerAlerte, SENS, libelleSens } from "../lib/alertes";
 
 function fmtPct(v) {
   if (v == null || Number.isNaN(v)) return "—";
@@ -89,7 +90,100 @@ function DailyVariation({ ticker, dailyData }) {
  * partir des cours RÉELS et passés du titre lui-même (aucune simulation :
  * c'est l'historique constaté de cet instrument, pas une projection).
  */
-export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
+/**
+ * Création et suppression d'une alerte de seuil pour une ligne de watchlist.
+ *
+ * Le prix cible existait déjà, mais rien ne prévenait quand il était atteint :
+ * il fallait ouvrir l'onglet pour le constater. L'alerte réutilise ce prix
+ * cible comme valeur par défaut — c'est presque toujours le seuil voulu.
+ */
+function BoutonAlerte({ ligne, alerte, setAlertes }) {
+  const [edition, setEdition] = useState(false);
+  const [seuil, setSeuil] = useState(String(ligne.target_price || ""));
+  const [sens, setSens] = useState(SENS.SOUS);
+
+  if (!setAlertes) return null;
+
+  const enregistrer = () => {
+    const valeur = parseFloat(seuil);
+    if (!Number.isFinite(valeur) || valeur <= 0) return;
+    setAlertes((liste) => [
+      ...liste.filter((a) => a.ticker !== ligne.ticker),
+      creerAlerte({ id: uid(), ticker: ligne.ticker, nom: ligne.name || ligne.ticker, seuil: valeur, sens }),
+    ]);
+    setEdition(false);
+  };
+
+  const supprimer = () => setAlertes((liste) => liste.filter((a) => a.id !== alerte.id));
+
+  if (alerte && !edition) {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span
+          className={`inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 border ${
+            alerte.acquittee
+              ? "text-slate-500 border-slate-700 bg-slate-900/50"
+              : "text-amber-300 border-amber-400/30 bg-amber-400/10"
+          }`}
+          title={alerte.acquittee ? "Acquittée — se réarmera si le cours repasse le seuil" : "Alerte active"}
+        >
+          <BellRing size={10} aria-hidden="true" />
+          {libelleSens(alerte.sens)} {alerte.seuil}
+        </span>
+        <button
+          onClick={supprimer}
+          aria-label={`Supprimer l'alerte sur ${ligne.ticker}`}
+          className="text-slate-600 hover:text-rose-400"
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
+      </span>
+    );
+  }
+
+  if (!edition) {
+    return (
+      <button
+        onClick={() => { setSeuil(String(ligne.target_price || "")); setEdition(true); }}
+        className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-amber-300"
+      >
+        <Bell size={11} aria-hidden="true" /> Alerter
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <select
+        value={sens}
+        onChange={(e) => setSens(e.target.value)}
+        aria-label="Sens de l'alerte"
+        className="bg-slate-950 border border-slate-700 rounded-lg px-1 py-1 text-[11px] focus:outline-none focus:border-amber-400/60"
+      >
+        <option value={SENS.SOUS}>≤</option>
+        <option value={SENS.AU_DESSUS}>≥</option>
+      </select>
+      <input
+        type="number"
+        step="0.01"
+        value={seuil}
+        onChange={(e) => setSeuil(e.target.value)}
+        aria-label="Seuil d'alerte"
+        onKeyDown={(e) => { if (e.key === "Enter") enregistrer(); if (e.key === "Escape") setEdition(false); }}
+        className="w-16 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-1 text-[11px] font-data tabular-nums focus:outline-none focus:border-amber-400/60"
+        autoFocus
+      />
+      <button onClick={enregistrer} className="text-emerald-400 hover:text-emerald-300" aria-label="Enregistrer l'alerte">
+        <Check size={12} aria-hidden="true" />
+      </button>
+      <button onClick={() => setEdition(false)} className="text-slate-600 hover:text-slate-300" aria-label="Annuler">
+        <X size={12} aria-hidden="true" />
+      </button>
+    </span>
+  );
+}
+
+export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alertes = [], setAlertes }) {
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -132,12 +226,20 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
       const quotes = await fetchQuotes(tickers);
       const newDailyData = {};
       quotes.forEach((q) => {
-        if (q.ok && q.previousClose && q.price) {
-          newDailyData[q.symbol] = {
-            changeAbs: q.price - q.previousClose,
-            changePct: ((q.price - q.previousClose) / q.previousClose) * 100,
-          };
-        }
+        if (!q.ok || !q.price) return;
+        // Le dernier cours connu est persisté (et non seulement la variation) :
+        // c'est lui qui permet d'évaluer les alertes de seuil au niveau de
+        // l'application, sans avoir à ouvrir l'onglet Watchlist.
+        newDailyData[q.symbol] = {
+          price: q.price,
+          priceAt: new Date().toISOString(),
+          ...(q.previousClose
+            ? {
+                changeAbs: q.price - q.previousClose,
+                changePct: ((q.price - q.previousClose) / q.previousClose) * 100,
+              }
+            : {}),
+        };
       });
       setDailyData((prev) => ({ ...prev, ...newDailyData }));
     } catch {
@@ -251,6 +353,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
                   </span>
                 </th>
                 <th className="py-2 pr-3">Objectif d'achat</th>
+                <th className="py-2 pr-3">Alerte</th>
                 <th className="py-2 pr-3">Écart</th>
                 <th className="py-2 pr-3">YTD</th>
                 <th className="py-2 pr-3">1 mois</th>
@@ -296,6 +399,13 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket }) {
                         onChange={(e) => updateTarget(w.id, parseFloat(e.target.value) || 0)}
                         placeholder="—"
                         className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-data tabular-nums focus:outline-none focus:border-amber-400/60"
+                      />
+                    </td>
+                    <td data-label="Alerte" className="py-3 pr-3">
+                      <BoutonAlerte
+                        ligne={w}
+                        alerte={alertes.find((a) => a.ticker === w.ticker)}
+                        setAlertes={setAlertes}
                       />
                     </td>
                     <td data-label="Écart" className="py-3 pr-3">

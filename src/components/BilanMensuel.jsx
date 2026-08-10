@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { CalendarClock, X, TrendingUp, TrendingDown, ShieldCheck, RefreshCw } from "lucide-react";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
 import { eur, pctPlain, todayIso } from "../lib/finance";
-import { revisionReferencesEchue, PERIODICITE_REVISION_MOIS } from "../lib/horizon";
+import { revisionReferencesEchue, PERIODICITE_REVISION_MOIS } from "../../shared/horizon";
 
 /**
  * Bilan mensuel proactif (jalon 9 de HORIZON_SPEC.md).

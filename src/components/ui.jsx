@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, X, Lock } from "lucide-react";
+import { Plus, Trash2, X, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { eur } from "../lib/finance";
 
 const NAV_THEMES = {
@@ -79,6 +79,51 @@ export function PageGlow({ color = "emerald" }) {
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
       <div className={`absolute -top-24 left-1/4 -translate-x-1/2 w-[40rem] h-[40rem] rounded-full ${c.a} blur-[130px]`} />
       <div className={`absolute top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full ${c.b} blur-[120px]`} />
+    </div>
+  );
+}
+
+/**
+ * Section repliable, pour les écrans qui empilent beaucoup de blocs.
+ *
+ * Le sous-onglet « Projet » alignait une douzaine de cartes sur un seul
+ * défilement : paramètres, verdict, trajectoires, détail des coûts,
+ * hypothèses, scénarios et assistant. Tout y était utile, mais rien n'y était
+ * hiérarchisé — replier le secondaire rend le principal lisible.
+ *
+ * L'état d'ouverture est local et non persisté : c'est une préférence de
+ * lecture du moment, pas une donnée.
+ */
+export function SectionRepliable({ titre, icon: Icon, defautOuvert = false, resume, children }) {
+  const [ouvert, setOuvert] = useState(defautOuvert);
+  const idContenu = `section-${String(titre).replace(/\W+/g, "-").toLowerCase()}`;
+
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/60">
+      <button
+        onClick={() => setOuvert((o) => !o)}
+        aria-expanded={ouvert}
+        aria-controls={idContenu}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded-2xl"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          {Icon && <Icon size={14} className="text-slate-500 shrink-0" aria-hidden="true" />}
+          <span className="text-sm text-slate-200 truncate">{titre}</span>
+          {resume && !ouvert && (
+            <span className="text-[11px] text-slate-500 truncate hidden sm:inline">— {resume}</span>
+          )}
+        </span>
+        {ouvert ? (
+          <ChevronUp size={15} className="text-slate-500 shrink-0" aria-hidden="true" />
+        ) : (
+          <ChevronDown size={15} className="text-slate-500 shrink-0" aria-hidden="true" />
+        )}
+      </button>
+      {ouvert && (
+        <div id={idContenu} className="px-4 pb-4 flex flex-col gap-4">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

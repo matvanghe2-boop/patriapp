@@ -23,15 +23,20 @@ export function useDailySnapshot({ patrimoineNet, historyPast, setHistoryPast, l
     // dans l'historique.
     if (!Number.isFinite(patrimoineNet) || patrimoineNet <= 0) return;
 
-    if (!historyPast.some((h) => h.date === today)) {
-      const label = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-      // Compactage à l'insertion : au-delà de 4 mois, on ne garde qu'un point
-      // par mois. C'est le seul endroit où l'historique grossit tout seul,
-      // donc le seul endroit où il faut le borner.
-      setHistoryPast((h) =>
-        compactHistory([...h, { id: uid(), label, value: Math.round(patrimoineNet), date: today }])
-      );
-    }
+    const label = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    setHistoryPast((h) => {
+      const dejaReleve = h.some((p) => p.date === today);
+      const avec = dejaReleve
+        ? h
+        : [...h, { id: uid(), label, value: Math.round(patrimoineNet), date: today }];
+      const compacte = compactHistory(avec);
+      // Le compactage s'applique une fois par jour à TOUT l'historique, et non
+      // seulement au point qu'on vient d'ajouter : un historique déjà long
+      // (restauré depuis une sauvegarde, ou accumulé avant l'introduction du
+      // compactage) n'aurait jamais été réduit autrement.
+      if (dejaReleve && compacte.length === h.length) return h;
+      return compacte;
+    });
     setLastSnapshotDate(today);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patrimoineNet, lastSnapshotDate]);

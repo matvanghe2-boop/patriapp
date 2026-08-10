@@ -1,18 +1,19 @@
 import { useMemo, useState } from "react";
 import {
   Target, AlertTriangle, Wallet, TrendingDown, Info, Landmark, Coins, Shield, SlidersHorizontal,
-} from "lucide-react";
+  Save,
+  Sparkles} from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
 } from "recharts";
-import { Card, CardLabel, SliderField, PageGlow, CARD_THEMES } from "./ui";
+import { Card, CardLabel, SliderField, PageGlow, SectionRepliable, CARD_THEMES } from "./ui";
 import { eur, pctPlain, compact } from "../lib/finance";
 import {
   coutTotalPossession, simulerCredit, coutOpportunite, projeterPatrimoine,
   impactObjectif, estimerRendements, anneesJusqua,
   COUTS_POSSESSION_REFERENCE, INFLATION_DEFAUT,
-} from "../lib/horizon";
-import { construireContexteAnonymise } from "../lib/anonymiser";
+} from "../../shared/horizon";
+import { construireContexteAnonymise } from "../../shared/anonymiser";
 import PanneauTransparence from "./PanneauTransparence";
 import AssistantHorizon from "./AssistantHorizon";
 import ReglagesHorizon, { BandeauModeReel } from "./ReglagesHorizon";
@@ -433,6 +434,11 @@ export default function Projet({
       </div>
 
       {/* ─── Trajectoires comparées ───────────────────────────────────────── */}
+      <SectionRepliable
+        titre="Trajectoire médiane, avec et sans le projet"
+        icon={Target}
+        defautOuvert
+      >
       <Card accent={CARD_THEMES.violet}>
         <CardLabel icon={Target}>
           Trajectoire médiane — avec et sans « {libelle} » {vueReelle ? "(euros constants)" : ""}
@@ -463,7 +469,14 @@ export default function Projet({
         </p>
       </Card>
 
+      </SectionRepliable>
+
       {/* ─── Détail des coûts ─────────────────────────────────────────────── */}
+      <SectionRepliable
+        titre="Détail des coûts et hypothèses"
+        icon={Info}
+        resume="où part l'argent, et sous quelles hypothèses"
+      >
       <div className="grid gap-4 lg:grid-cols-2">
         <Card accent={CARD_THEMES.rose}>
           <CardLabel icon={TrendingDown}>Où part l&apos;argent</CardLabel>
@@ -516,6 +529,13 @@ export default function Projet({
         </Card>
       </div>
 
+      </SectionRepliable>
+
+      <SectionRepliable
+        titre="Projets mis de côté et comparaison"
+        icon={Save}
+        resume={horizonScenarios.length > 0 ? `${horizonScenarios.length} scénario(s) enregistré(s)` : "aucun scénario enregistré"}
+      >
       <ScenariosProjet
         scenarios={horizonScenarios}
         onChange={setHorizonScenarios}
@@ -534,14 +554,18 @@ export default function Projet({
         }}
       />
 
+      </SectionRepliable>
+
       {/* L'assistant vient en complément des formulaires, jamais à leur place :
           si aucun fournisseur gratuit n'est joignable, il s'efface et tout ce
           qui précède continue de fonctionner. */}
+      <SectionRepliable titre="Poser une question à l'assistant" icon={Sparkles}>
       <AssistantHorizon
         contexte={contexte}
         facteurBase100={facteurBase100}
         montantsReels={montantsReels}
       />
+      </SectionRepliable>
 
       <p className="text-xs text-slate-600 text-center pb-2">
         Simulations sous hypothèses explicites, à titre indicatif. Ce n&apos;est pas un conseil en investissement.

@@ -1,4 +1,4 @@
-import { todayIso } from "./finance";
+import { todayIso, valeurPosition } from "./finance";
 
 // Export "1 clic" du patrimoine, sans dépendance externe :
 // - Excel : table HTML servie avec l'extension .xls, qu'Excel/LibreOffice
@@ -42,11 +42,11 @@ function buildReportRows({
   rows.push(["Compte courant", cash || 0, "", "Cash"]);
   rows.push([]);
   rows.push(["PEA & Bourse", ""]);
-  rows.push(["Ticker", "Nom", "Quantité", "PRU", "Cours actuel", "Valeur"]);
+  rows.push(["Ticker", "Nom", "Quantité", "PRU", "Cours actuel", "Devise", "Valeur (€)"]);
   (bourse?.positions || []).forEach((p) =>
-    rows.push([p.ticker, p.name, p.quantity, p.pru, p.current_price, p.quantity * p.current_price])
+    rows.push([p.ticker, p.name, p.quantity, p.pru, p.current_price, p.currency || "EUR", valeurPosition(p)])
   );
-  rows.push(["Cash PEA", "", "", "", "", bourse?.cash_pocket || 0]);
+  rows.push(["Cash PEA", "", "", "", "", "EUR", bourse?.cash_pocket || 0]);
   return rows;
 }
 
@@ -82,7 +82,7 @@ export function exportToPDF(data) {
   const posRows = (bourse?.positions || [])
     .map(
       (p) =>
-        `<tr><td>${escapeHtml(p.ticker)}</td><td>${escapeHtml(p.name)}</td><td style="text-align:right">${eur(p.quantity * p.current_price)}</td></tr>`
+        `<tr><td>${escapeHtml(p.ticker)}</td><td>${escapeHtml(p.name)}</td><td style="text-align:right">${eur(valeurPosition(p))}</td></tr>`
     )
     .join("");
   win.document.write(`

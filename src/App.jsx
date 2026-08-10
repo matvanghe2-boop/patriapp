@@ -9,6 +9,8 @@ import {
 import { usePatrimoine, STORAGE_KEYS } from "./lib/PatrimoineContext";
 import { todayIso, netWorthDelta } from "./lib/finance";
 import { useDailySnapshot } from "./lib/useDailySnapshot";
+import { useAlertesWatchlist } from "./lib/useAlertesWatchlist";
+import { useBilanRappel } from "./lib/useBilanRappel";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
 import { useConfirm } from "./lib/ConfirmContext";
@@ -90,6 +92,26 @@ export default function App() {
 
   // Variation sur 30 jours glissants, partagée par l'en-tête collant et le
   // Dashboard pour qu'ils ne puissent pas diverger.
+  // Alertes de seuil de la watchlist : évaluées quel que soit l'onglet ouvert,
+  // comme le relevé quotidien — une alerte visible seulement depuis l'onglet
+  // Watchlist n'aurait aucun intérêt.
+  const { rappels: alertesDues, acquitterAlerte } = useAlertesWatchlist({
+    alertesWatchlist: patrimoine.alertesWatchlist,
+    setAlertesWatchlist: patrimoine.setAlertesWatchlist,
+  });
+
+  // Le bilan mensuel ne s'affichait que dans Simulation → Projet, trois
+  // niveaux sous l'accueil : un bilan proactif qu'il faut aller chercher n'en
+  // est plus un.
+  const { rappels: bilanDu, acquitterBilan } = useBilanRappel({
+    patrimoineNet: patrimoine.patrimoineNet,
+    historyPast: patrimoine.historyPast,
+    tauxEpargne: patrimoine.tauxEpargne,
+    matelasMois: patrimoine.matelasMois,
+    dernierBilan: patrimoine.horizonDernierBilan,
+    setDernierBilan: patrimoine.setHorizonDernierBilan,
+  });
+
   const delta30j = useMemo(
     () => netWorthDelta(patrimoine.historyPast, patrimoine.patrimoineNet, 30),
     [patrimoine.historyPast, patrimoine.patrimoineNet]
@@ -280,7 +302,13 @@ export default function App() {
             onNavigate={setTab}
           />
           <SyncIndicator />
-          <Notifications reminders={patrimoine.reminders} setReminders={patrimoine.setReminders} />
+          <Notifications
+            reminders={patrimoine.reminders}
+            setReminders={patrimoine.setReminders}
+            alertes={[...bilanDu, ...alertesDues]}
+            onAcquitterAlerte={acquitterAlerte}
+            onAcquitterBilan={acquitterBilan}
+          />
           {/* En mode local (sans compte), il n'y a rien à déconnecter. */}
           {user && (
             <button

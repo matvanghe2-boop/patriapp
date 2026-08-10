@@ -30,27 +30,38 @@ Sans configuration Supabase, l'app fonctionne en **mode local pur** : rien ne so
 
 L'application démarre **vide** : aucun patrimoine fictif n'est préchargé. Un bouton « Charger un jeu d'exemple » est proposé sur le Dashboard tant que rien n'est saisi, et il annonce clairement que ses chiffres sont inventés.
 
-- **Dashboard** — patrimoine brut/net, plus-value latente, taux d'épargne, allocation d'actifs, historique du patrimoine net (relevé automatique une fois par jour), variation sur 30 jours glissants, projection à 6 mois capitalisée au taux moyen pondéré du patrimoine
+- **Dashboard** — patrimoine brut/net, plus-value latente, taux d'épargne, allocation d'actifs, historique du patrimoine net (relevé automatique une fois par jour), variation sur 30 jours glissants, projection à 6 mois capitalisée au taux moyen pondéré du patrimoine, **objectifs datés** avec avance/retard et effort mensuel requis
 - **Livrets & Épargne** — suivi des supports à capital garanti, plafonds, matelas de sécurité, enveloppes de ventilation
-- **PEA & Bourse** — positions, plus/moins-values, recherche par **ticker, ISIN ou nom**, actualisation des cours, import PDF de relevés de courtage, watchlist, heatmap sectorielle, calendrier financier
+- **PEA & Bourse** — positions, plus/moins-values, **plus-value nette après impôt** selon l'enveloppe et l'ancienneté du PEA, recherche par **ticker, ISIN ou nom**, actualisation des cours **avec conversion de change**, import PDF de relevés de courtage, watchlist avec **alertes de seuil**, heatmap sectorielle, calendrier financier
 - **Simulation** — intérêts composés sur l'ensemble du patrimoine (poche Livrets + poche Bourse, chacune avec son taux et son versement), scénarios comparables
 - **Immobilier & Crédit** — sous-onglet de Simulation : apport, mensualités sur 15/20/25 ans, alerte taux d'endettement (norme HCSF 35 %), suivi des travaux
-- **Stratégie & Logs** — journal des thèses d'investissement, timeline des jalons, opérations
+- **Stratégie & Logs** — journal des thèses d'investissement, timeline des jalons, opérations, **export CSV du journal** (déclaration, changement de courtier)
 - **Abonnements** — dépenses récurrentes, contrats et échéances de résiliation
 - **Sauvegarde** — export/import JSON depuis le menu latéral
 
-### Sur mobile
+### Sur mobile et hors ligne
 
-L'app est installable (PWA) et pensée pour le téléphone : navigation par **barre basse** atteignable au pouce, en-tête qui se condense au défilement pour garder le patrimoine net visible, et **tableaux transformés en cartes empilées** sous 768 px — plus aucun défilement horizontal.
+L'app est installable (PWA) et pensée pour le téléphone : navigation par **barre basse** atteignable au pouce, en-tête qui se condense au défilement pour garder le patrimoine net visible, et **tous les tableaux transformés en cartes empilées** sous 768 px — plus aucun défilement horizontal.
+
+Le service worker met la coquille applicative en cache : l'app **démarre et reste utilisable sans réseau**, puisque toutes les données patrimoniales vivent déjà dans le navigateur. Les endpoints `/api/*` ne sont jamais mis en cache — un cours de bourse périmé servi en silence serait pire qu'une erreur visible.
+
+### Devises
+
+Les positions cotées hors zone euro sont converties au taux du jour, récupéré en même temps que les cours (`/api/fx`). Le prix de revient est converti à ce même taux : la plus-value affichée inclut donc l'effet de change sans le distinguer de la performance du titre — l'interface le signale. Une position dont le taux n'a pas pu être récupéré est comptée à parité 1:1, et l'avertissement le dit explicitement.
 
 ### Mode Ghost
 
 Le bouton en forme d'œil floute tous les montants, y compris les graduations des graphiques, pour pouvoir montrer son écran sans exposer ses chiffres. Survoler une valeur la révèle temporairement. Les graphiques de données publiques (performance sectorielle) ne sont pas floutés.
 
+### Sécurité de l'assistant
+
+`/api/advisor` exige un jeton de session Supabase valide dès que Supabase est configuré. C'est la seule route dont l'abus coûte quelque chose : une question déclenche jusqu'à douze appels au fournisseur de modèle. Le contrôle d'origine ne suffisait pas — une requête sans en-tête `Origin` est le cas nominal du navigateur en same-origin, mais aussi celui d'un `curl`.
+
 ## Stack technique
 
 - **Frontend** : React 18 + Vite + Tailwind CSS, `recharts` pour les graphiques, `lucide-react` pour les icônes
-- **Backend** : fonctions serverless Vercel dans `api/` (aucun framework) — cours, recherche, historique, calendrier, fiche entreprise, analyse de PDF
+- **Backend** : fonctions serverless Vercel dans `api/` (aucun framework) — cours, taux de change, recherche, historique, calendrier, fiche entreprise, analyse de PDF, assistant
+- **Code partagé** : `shared/` regroupe les modules chargés à la fois par le navigateur et par les fonctions serverless (moteur Horizon, anonymiseur, adaptateurs de modèles, catalogue de taux). La frontière est explicite plutôt que dissimulée dans des imports `../src/lib`
 - **Auth & synchronisation** : Supabase (Postgres + Auth), optionnel
 - **Stockage** : `localStorage` en cache local systématique, Supabase en miroir si un compte est connecté
 - **Tests** : Vitest — `npm test`

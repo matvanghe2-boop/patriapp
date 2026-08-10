@@ -12,7 +12,7 @@
 
 import { withApi, cached } from "./_lib/http.js";
 import { isWebstatConfigured, fetchLatestObservation } from "./_lib/webstat.js";
-import { RATES_CATALOG } from "../src/lib/ratesCatalog.js";
+import { RATES_CATALOG } from "../shared/ratesCatalog.js";
 
 // Un taux réglementé ne change jamais plus d'une fois par jour (et en
 // pratique deux fois par an) : un cache long évite de re-solliciter Webstat

@@ -6,7 +6,7 @@ const fetchRates = vi.fn();
 vi.mock("../lib/api", () => ({ fetchRates: (...a) => fetchRates(...a) }));
 
 import RatesHub from "./RatesHub";
-import { RATES_CATALOG } from "../lib/ratesCatalog";
+import { RATES_CATALOG } from "../../shared/ratesCatalog";
 
 const LIVE_PAYLOAD = { rates: RATES_CATALOG.map((r) => ({ ...r, live: false })), liveEnabled: false };
 

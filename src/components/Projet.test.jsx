@@ -31,17 +31,32 @@ describe("Projet", () => {
     expect(screen.getByText(/Historique insuffisant/)).toBeInTheDocument();
   });
 
+
+  /**
+   * Les sections secondaires du sous-onglet sont repliées par défaut (le
+   * sous-onglet empilait une douzaine de cartes sur un seul défilement). Les
+   * tests qui portent sur leur contenu doivent donc les déplier d'abord.
+   */
+  const deplier = async (user, titre) => {
+    const bouton = screen.getByRole("button", { name: new RegExp(titre, "i") });
+    if (bouton.getAttribute("aria-expanded") === "false") await user.click(bouton);
+  };
+
   it("fonctionne sans aucun historique", () => {
     render(<Projet {...patrimoine} historyPast={[]} />);
     expect(screen.getByText("Le projet")).toBeInTheDocument();
   });
 
-  it("affiche les quatre indicateurs de verdict", () => {
+  it("affiche les quatre indicateurs de verdict", async () => {
+    const user = userEvent.setup();
     render(<Projet {...patrimoine} historyPast={historiqueCourt} />);
     expect(screen.getByText(/Coût global sur/)).toBeInTheDocument();
     expect(screen.getByText("Effort mensuel")).toBeInTheDocument();
     expect(screen.getByText("Impact sur l'objectif")).toBeInTheDocument();
-    // « Manque à gagner » titre le KPI et figure aussi dans la ventilation.
+    // « Manque à gagner » titre le KPI ; il figure aussi dans la ventilation,
+    // une fois la section « Détail des coûts » dépliée.
+    expect(screen.getAllByText("Manque à gagner")).toHaveLength(1);
+    await deplier(user, "Détail des coûts");
     expect(screen.getAllByText("Manque à gagner")).toHaveLength(2);
   });
 
@@ -60,6 +75,7 @@ describe("Projet", () => {
     const user = userEvent.setup();
     render(<Projet {...patrimoine} historyPast={historiqueCourt} />);
     await user.click(screen.getByRole("button", { name: "À crédit" }));
+    await deplier(user, "Détail des coûts");
     // Le récapitulatif du crédit vit dans la carte de ventilation ; « mensualité »
     // apparaît aussi dans le sous-texte du KPI « Effort mensuel ».
     const carte = screen.getByText("Où part l'argent").closest("div.rounded-2xl");
@@ -88,8 +104,10 @@ describe("Projet", () => {
     expect(screen.getByText(/avec et sans « Van »/)).toBeInTheDocument();
   });
 
-  it("liste les hypothèses appliquées plutôt que de les taire", () => {
+  it("liste les hypothèses appliquées plutôt que de les taire", async () => {
+    const user = userEvent.setup();
     render(<Projet {...patrimoine} historyPast={historiqueCourt} />);
+    await deplier(user, "Détail des coûts");
     const carte = screen.getByText("Hypothèses appliquées").closest("div.rounded-2xl");
     expect(within(carte).getByText("Décote annuelle")).toBeInTheDocument();
     expect(within(carte).getByText("Entretien annuel")).toBeInTheDocument();
@@ -97,8 +115,10 @@ describe("Projet", () => {
     expect(within(carte).getAllByText("à vérifier").length).toBeGreaterThan(0);
   });
 
-  it("ventile le coût de possession poste par poste", () => {
+  it("ventile le coût de possession poste par poste", async () => {
+    const user = userEvent.setup();
     render(<Projet {...patrimoine} historyPast={historiqueCourt} />);
+    await deplier(user, "Détail des coûts");
     const carte = screen.getByText("Où part l'argent").closest("div.rounded-2xl");
     expect(within(carte).getByText("Perte de valeur")).toBeInTheDocument();
     expect(within(carte).getByText("Manque à gagner")).toBeInTheDocument();
@@ -106,7 +126,9 @@ describe("Projet", () => {
 
   it("affiche les deux probabilités d'atteindre l'objectif", () => {
     render(<Projet {...patrimoine} historyPast={historiqueCourt} />);
-    expect(screen.getByText(/sans le projet/)).toBeInTheDocument();
+    // « sans le projet » apparaît dans la légende du graphique ET dans le
+    // commentaire de probabilité, tous deux dans la section ouverte par défaut.
+    expect(screen.getAllByText(/sans le projet/).length).toBeGreaterThan(0);
     expect(screen.getByText(/simulations, mêmes aléas/)).toBeInTheDocument();
   });
 
@@ -118,6 +140,7 @@ describe("Projet", () => {
   it("répercute le changement de catégorie sur les hypothèses", async () => {
     const user = userEvent.setup();
     render(<Projet {...patrimoine} historyPast={historiqueCourt} />);
+    await deplier(user, "Détail des coûts");
     // Le libellé de catégorie apparaît dans le chapô de la carte et dans le
     // détail de chaque hypothèse : on vérifie la bascule, pas une occurrence.
     const carte = screen.getByText("Hypothèses appliquées").closest("div.rounded-2xl");

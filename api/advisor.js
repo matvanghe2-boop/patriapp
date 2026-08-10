@@ -1,8 +1,9 @@
 import { withApi, httpError } from "./_lib/http.js";
-import { construireChaine } from "../src/lib/adaptateursLLM.js";
-import { executerBoucle, ErreurModeDegrade } from "../src/lib/orchestrateur.js";
-import { auditerContexte } from "../src/lib/anonymiser.js";
-import { construirePromptSysteme } from "../src/lib/horizonOutils.js";
+import { exigerUtilisateur } from "./_lib/auth.js";
+import { construireChaine } from "../shared/adaptateursLLM.js";
+import { executerBoucle, ErreurModeDegrade } from "../shared/orchestrateur.js";
+import { auditerContexte } from "../shared/anonymiser.js";
+import { construirePromptSysteme } from "../shared/horizonOutils.js";
 
 /**
  * Assistant Horizon — orchestration côté serveur.
@@ -25,6 +26,12 @@ import { construirePromptSysteme } from "../src/lib/horizonOutils.js";
 const SEUIL_AUDIT = 1000;
 
 async function handler(req, res) {
+  // Contrôle d'identité AVANT tout : c'est la seule route de l'API dont l'abus
+  // coûte quelque chose au propriétaire (quota du fournisseur de modèle). Le
+  // contrôle d'origine ne suffit pas — une requête sans en-tête `Origin` est
+  // légitime pour le navigateur comme pour un `curl`.
+  await exigerUtilisateur(req);
+
   const { question, contexte, historique = [], montantsReels = false } = req.body ?? {};
 
   if (typeof question !== "string" || !question.trim()) {

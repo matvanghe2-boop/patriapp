@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Shield, ShieldAlert, X, Copy, Check } from "lucide-react";
-import { auditerContexte, REGLES_ANONYMISATION } from "../lib/anonymiser";
+import { auditerContexte, REGLES_ANONYMISATION } from "../../shared/anonymiser";
 
 /**
  * Panneau « Voir ce qui est envoyé » (§5 de HORIZON_SPEC.md).
@@ -117,7 +117,7 @@ export default function PanneauTransparence({ contexte, montantsReels = false, o
         {/* Traitements appliqués */}
         <h3 className="text-xs uppercase tracking-wider text-slate-500 mb-2">Traitements appliqués</h3>
         <div className="rounded-xl border border-slate-800 overflow-hidden">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs table-cards">
             <thead>
               <tr className="bg-slate-950/60 text-slate-500">
                 <th className="text-left font-medium px-3 py-2">Donnée Patrium</th>
@@ -127,8 +127,8 @@ export default function PanneauTransparence({ contexte, montantsReels = false, o
             <tbody>
               {REGLES_ANONYMISATION.map((r) => (
                 <tr key={r.donnee} className="border-t border-slate-800">
-                  <td className="px-3 py-2 text-slate-400">{r.donnee}</td>
-                  <td className="px-3 py-2 text-slate-300">{r.traitement}</td>
+                  <td data-label="Donnée" className="px-3 py-2 text-slate-400">{r.donnee}</td>
+                  <td data-label="Traitement" className="px-3 py-2 text-slate-300">{r.traitement}</td>
                 </tr>
               ))}
             </tbody>

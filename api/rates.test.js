@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import handler from "./rates.js";
-import { RATES_CATALOG } from "../src/lib/ratesCatalog.js";
+import { RATES_CATALOG } from "../shared/ratesCatalog.js";
 import { _resetCache, _resetRateLimit } from "./_lib/http.js";
 
 function mockRes() {

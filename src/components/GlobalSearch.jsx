@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import { Search, X } from "lucide-react";
-import { eur } from "../lib/finance";
+import { eur, valeurPosition } from "../lib/finance";
 
 // ─── Recherche globale ─────────────────────────────────────────────────────
 // Indexe les actifs / opérations / lignes de toutes les sections de l'app et
@@ -30,7 +30,7 @@ export default function GlobalSearch({
     (bourse.positions || []).forEach((p) =>
       items.push({
         id: `pos-${p.id}`, tab: "bourse", type: "Position",
-        label: `${p.name} (${p.ticker})`, detail: eur(p.quantity * p.current_price),
+        label: `${p.name} (${p.ticker})`, detail: eur(valeurPosition(p)),
       })
     );
     (bourse.operations || []).forEach((op) =>

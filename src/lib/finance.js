@@ -60,6 +60,55 @@ export function monthlyPayment(principal, annualRatePct, years) {
   return (C * r) / (1 - Math.pow(1 + r, -n));
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   VALORISATION ET DEVISES
+
+   Les agrégats de l'application additionnaient les `current_price` comme des
+   euros quelle que soit la devise de cotation : une position en dollars était
+   comptée à parité 1:1, ce qui faussait la valeur du portefeuille, la
+   plus-value, la répartition, les exports et le contexte de l'assistant.
+
+   `fxRate` porte le nombre d'euros que vaut UNE unité de la devise de
+   cotation, rafraîchi en même temps que les cours (voir /api/fx). Toute
+   valorisation passe désormais par les trois fonctions ci-dessous.
+
+   Limite assumée : le PRU est converti au taux du jour, pas à celui de la date
+   d'achat. La plus-value affichée mélange donc performance du titre et effet
+   de change, sans les distinguer. Les séparer demanderait d'historiser le taux
+   à chaque opération — ce que le journal permettrait, mais qui n'a d'intérêt
+   qu'une fois les opérations en devise réellement saisies.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Euros par unité de la devise de cotation. 1 pour l'euro ou en l'absence de taux. */
+export function tauxPosition(position) {
+  const devise = position?.currency;
+  if (!devise || devise === "EUR") return 1;
+  const taux = position?.fxRate;
+  return Number.isFinite(taux) && taux > 0 ? taux : 1;
+}
+
+/** Valeur de marché d'une position, en euros. */
+export function valeurPosition(position) {
+  return (position?.quantity || 0) * (position?.current_price || 0) * tauxPosition(position);
+}
+
+/** Prix de revient d'une position (quantité × PRU), en euros. */
+export function coutPosition(position) {
+  return (position?.quantity || 0) * (position?.pru || 0) * tauxPosition(position);
+}
+
+/** Devises de cotation présentes dans un portefeuille, hors euro. */
+export function devisesDuPortefeuille(positions = []) {
+  return [...new Set(positions.map((p) => p?.currency).filter((d) => d && d !== "EUR"))];
+}
+
+/** Positions cotées en devise étrangère dont le taux manque encore. */
+export function positionsSansTaux(positions = []) {
+  return positions.filter(
+    (p) => p?.currency && p.currency !== "EUR" && !(Number.isFinite(p.fxRate) && p.fxRate > 0)
+  );
+}
+
 /** Taux moyen pondéré par le capital (ex: taux moyen des livrets). */
 export function weightedAverageRate(items, balanceKey = "balance", rateKey = "rate") {
   const total = items.reduce((s, i) => s + i[balanceKey], 0);
@@ -120,6 +169,17 @@ export function todayIso(date = new Date()) {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/**
+ * Date ISO en JJ/MM/AA. Partagée par l'onglet Bourse et son sous-onglet
+ * Performance depuis leur séparation en deux fichiers.
+ */
+export function formatDateShort(d) {
+  if (!d) return "";
+  const [y, m, day] = String(d).split("-");
+  if (!y || !m || !day) return "";
+  return `${day}/${m}/${y.slice(2)}`;
 }
 
 /**

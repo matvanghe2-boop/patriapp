@@ -10,6 +10,24 @@
  * formulaires, qui n'a besoin d'aucun modèle.
  */
 
+import { supabase, isSupabaseConfigured } from "./supabaseClient";
+
+/**
+ * Jeton d'accès de la session courante, s'il y en a une.
+ *
+ * `/api/advisor` l'exige dès que Supabase est configuré : c'est la seule route
+ * dont l'abus consomme le quota du fournisseur de modèle du propriétaire.
+ */
+async function jetonAcces() {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Réponse normalisée : `modeDegrade` est un état, pas un échec. */
 export async function poserQuestion({
   question,
@@ -20,11 +38,16 @@ export async function poserQuestion({
   montantsReels = false,
   signal,
 } = {}) {
+  const jeton = await jetonAcces();
+
   let reponse;
   try {
     reponse = await fetch("/api/advisor", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
+      },
       body: JSON.stringify({ question, contexte, historique, montantsReels }),
       signal,
     });
@@ -48,6 +71,15 @@ export async function poserQuestion({
       modeDegrade: true,
       erreur: data?.erreur ?? "Aucun fournisseur gratuit disponible pour le moment.",
       echecs: data?.echecs ?? [],
+    };
+  }
+
+  // 401 : session absente ou expirée. Ce n'est pas une panne de l'assistant,
+  // et le message doit dire quoi faire plutôt que « il n'a pas pu répondre ».
+  if (reponse.status === 401) {
+    return {
+      erreur: data?.error ?? "Connecte-toi pour utiliser l'assistant. Les formulaires restent disponibles sans compte.",
+      authRequise: true,
     };
   }
 

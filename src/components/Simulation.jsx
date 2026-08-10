@@ -564,7 +564,7 @@ export default function Simulation({
 
           {comparedScenarios.length > 0 && (
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-cards">
                 <thead>
                   <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                     <th className="py-2 pr-4">Scénario</th>
@@ -580,18 +580,18 @@ export default function Simulation({
                 <tbody className="divide-y divide-slate-800">
                   {comparedScenarios.map((s) => (
                     <tr key={s.id}>
-                      <td className="py-2 pr-4 text-slate-200 font-medium">{s.name}</td>
-                      <td className="py-2 pr-4 font-data tabular-nums text-slate-300">{s.sim.years} ans</td>
+                      <td data-label="Scénario" className="py-2 pr-4 text-slate-200 font-medium">{s.name}</td>
+                      <td data-label="Durée" className="py-2 pr-4 font-data tabular-nums text-slate-300">{s.sim.years} ans</td>
                       <td className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">
                         {eur((s.sim.livrets.capital || 0) + (s.sim.bourse.capital || 0))}
                       </td>
                       <td className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">
                         {eur((s.sim.livrets.monthly || 0) + (s.sim.bourse.monthly || 0))}
                       </td>
-                      <td className="py-2 pr-4 font-data tabular-nums text-slate-300">{s.inflationRate.toFixed(1)} %</td>
-                      <td className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">{eur(s.finalVersed)}</td>
-                      <td className="py-2 pr-4 font-data tabular-nums text-emerald-400 ghost-blur">{eur(s.finalInterets)}</td>
-                      <td className="py-2 font-data tabular-nums text-amber-300 font-semibold ghost-blur">{eur(s.finalTotal)}</td>
+                      <td data-label="Inflation" className="py-2 pr-4 font-data tabular-nums text-slate-300">{s.inflationRate.toFixed(1)} %</td>
+                      <td data-label="Total versé" className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">{eur(s.finalVersed)}</td>
+                      <td data-label="Intérêts générés" className="py-2 pr-4 font-data tabular-nums text-emerald-400 ghost-blur">{eur(s.finalInterets)}</td>
+                      <td data-label="Valeur finale" className="py-2 font-data tabular-nums text-amber-300 font-semibold ghost-blur">{eur(s.finalTotal)}</td>
                     </tr>
                   ))}
                 </tbody>
