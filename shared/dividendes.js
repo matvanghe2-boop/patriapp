@@ -141,3 +141,104 @@ export function rendementSurPrixDeRevient(positions = []) {
   if (cout <= 0) return null;
   return (totalAttendu(positions) / cout) * 100;
 }
+
+/**
+ * Croissance annuelle moyenne du dividende, mesurée sur les années PLEINES.
+ *
+ * Deux façons de moyenner, et le choix n'est pas neutre : la moyenne
+ * arithmétique des croissances surestime systématiquement une série volatile
+ * (+50 % puis −50 % donne 0 % en moyenne arithmétique, alors qu'on a perdu
+ * 25 %). On retient donc le **taux de croissance annuel composé**, qui répond
+ * à la vraie question — « à quel rythme régulier serais-je passé du premier au
+ * dernier montant ? ».
+ *
+ * L'année en cours est exclue : incomplète, elle tirerait la croissance vers
+ * le bas et ferait paraître le dividende en chute chaque mois de janvier.
+ */
+export function croissanceAnnuelleMoyenne(operations = [], { anneeCourante = String(new Date().getFullYear()) } = {}) {
+  const pleines = percusParAnnee(operations).filter((a) => a.annee !== anneeCourante && a.montant > 0);
+  if (pleines.length < 2) {
+    return { tauxPct: null, nbAnnees: pleines.length, premiere: pleines[0]?.annee ?? null, derniere: pleines.at(-1)?.annee ?? null };
+  }
+
+  const premier = pleines[0];
+  const dernier = pleines[pleines.length - 1];
+  const periodes = Number(dernier.annee) - Number(premier.annee);
+  if (periodes <= 0 || premier.montant <= 0) {
+    return { tauxPct: null, nbAnnees: pleines.length, premiere: premier.annee, derniere: dernier.annee };
+  }
+
+  const taux = (Math.pow(dernier.montant / premier.montant, 1 / periodes) - 1) * 100;
+  return {
+    tauxPct: Number.isFinite(taux) ? taux : null,
+    nbAnnees: pleines.length,
+    premiere: premier.annee,
+    derniere: dernier.annee,
+  };
+}
+
+/**
+ * Projection des dividendes futurs, à taux de croissance constant.
+ *
+ * Point de départ : le dividende ATTENDU sur douze mois (dividende annoncé par
+ * action × quantités), et non le dernier encaissement. Ce dernier peut être
+ * partiel — une ligne achetée en cours d'année n'a pas versé une année pleine —
+ * et servirait alors de base à toute la courbe.
+ *
+ * Aucune projection n'est produite sans taux : extrapoler sur une croissance
+ * inventée reviendrait à dessiner une courbe qui a l'air d'une donnée.
+ */
+export function projeterDividendes({ baseAnnuelle = 0, tauxCroissancePct = null, annees = 10, anneeDepart = new Date().getFullYear() } = {}) {
+  if (!(baseAnnuelle > 0) || tauxCroissancePct == null || !Number.isFinite(tauxCroissancePct)) return [];
+
+  const taux = tauxCroissancePct / 100;
+  const sortie = [];
+  for (let i = 1; i <= Math.max(0, annees); i++) {
+    sortie.push({
+      annee: String(anneeDepart + i),
+      projete: baseAnnuelle * Math.pow(1 + taux, i),
+      projection: true,
+    });
+  }
+  return sortie;
+}
+
+/**
+ * Série complète prête pour un graphique en barres : années encaissées, année
+ * en cours, puis projection.
+ *
+ * Les trois natures restent distinctes dans les données (`partielle`,
+ * `projection`) pour que l'affichage puisse les peindre différemment — mélanger
+ * un encaissement constaté et une extrapolation dans la même barre serait la
+ * meilleure façon de faire passer une hypothèse pour un fait.
+ */
+export function serieAvecProjection(operations = [], positions = [], options = {}) {
+  const {
+    anneesProjection = 10,
+    tauxForce = null,
+    anneeCourante = String(new Date().getFullYear()),
+  } = options;
+
+  const attendu = totalAttendu(positions);
+  const historique = serieAnnuelle(operations, { attenduAnnuel: attendu, anneeCourante });
+  const croissance = croissanceAnnuelleMoyenne(operations, { anneeCourante });
+  const tauxRetenu = tauxForce != null && Number.isFinite(tauxForce) ? tauxForce : croissance.tauxPct;
+
+  const projection = projeterDividendes({
+    baseAnnuelle: attendu,
+    tauxCroissancePct: tauxRetenu,
+    annees: anneesProjection,
+    anneeDepart: Number(anneeCourante),
+  });
+
+  return {
+    serie: [...historique, ...projection],
+    croissance,
+    tauxRetenu,
+    tauxEstImpose: tauxForce != null && Number.isFinite(tauxForce),
+    attendu,
+    // Ce que rapporterait la dernière année projetée, utile en synthèse.
+    dernierProjete: projection.at(-1)?.projete ?? null,
+    cumulProjete: projection.reduce((s, p) => s + p.projete, 0),
+  };
+}

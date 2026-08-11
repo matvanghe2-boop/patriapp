@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  croissanceAnnuelleMoyenne,
+  projeterDividendes,
+  serieAvecProjection,
   dividendeAttendu,
   totalAttendu,
   percusParAnnee,
@@ -123,5 +126,112 @@ describe("rendementSurPrixDeRevient", () => {
 
   it("rend null sans capital investi", () => {
     expect(rendementSurPrixDeRevient([])).toBeNull();
+  });
+});
+
+// Série à croissance régulière de +10 %/an, pour vérifier le taux composé.
+const OPS_CROISSANCE = [
+  { date: "2021-05-01", asset: "A", type: "DIVIDENDE", amount: 100 },
+  { date: "2022-05-01", asset: "A", type: "DIVIDENDE", amount: 110 },
+  { date: "2023-05-01", asset: "A", type: "DIVIDENDE", amount: 121 },
+  { date: "2024-05-01", asset: "A", type: "DIVIDENDE", amount: 133.1 },
+];
+
+describe("croissanceAnnuelleMoyenne", () => {
+  it("mesure le taux annuel composé", () => {
+    const c = croissanceAnnuelleMoyenne(OPS_CROISSANCE, { anneeCourante: "2025" });
+    expect(c.tauxPct).toBeCloseTo(10, 1);
+    expect(c.nbAnnees).toBe(4);
+    expect(c.premiere).toBe("2021");
+    expect(c.derniere).toBe("2024");
+  });
+
+  it("n'est pas la moyenne arithmétique des croissances", () => {
+    // +50 % puis −50 % : la moyenne arithmétique dirait 0 %, alors qu'on a
+    // perdu 25 % sur la période. Le taux composé doit être négatif.
+    const volatile = [
+      { date: "2022-05-01", asset: "A", type: "DIVIDENDE", amount: 100 },
+      { date: "2023-05-01", asset: "A", type: "DIVIDENDE", amount: 150 },
+      { date: "2024-05-01", asset: "A", type: "DIVIDENDE", amount: 75 },
+    ];
+    const c = croissanceAnnuelleMoyenne(volatile, { anneeCourante: "2025" });
+    expect(c.tauxPct).toBeLessThan(0);
+    expect(c.tauxPct).toBeCloseTo(-13.4, 1);
+  });
+
+  it("exclut l'année en cours, incomplète par nature", () => {
+    const c = croissanceAnnuelleMoyenne(OPS_CROISSANCE, { anneeCourante: "2024" });
+    expect(c.derniere).toBe("2023");
+    expect(c.nbAnnees).toBe(3);
+  });
+
+  it("ne rend aucun taux sous deux années pleines", () => {
+    const c = croissanceAnnuelleMoyenne(OPS_CROISSANCE.slice(0, 1), { anneeCourante: "2025" });
+    expect(c.tauxPct).toBeNull();
+  });
+});
+
+describe("projeterDividendes", () => {
+  it("compose la croissance année après année", () => {
+    const p = projeterDividendes({ baseAnnuelle: 100, tauxCroissancePct: 10, annees: 3, anneeDepart: 2025 });
+    expect(p.map((x) => x.annee)).toEqual(["2026", "2027", "2028"]);
+    expect(p[0].projete).toBeCloseTo(110, 6);
+    expect(p[2].projete).toBeCloseTo(133.1, 6);
+  });
+
+  it("marque chaque point comme une projection", () => {
+    const p = projeterDividendes({ baseAnnuelle: 100, tauxCroissancePct: 5, annees: 2 });
+    expect(p.every((x) => x.projection === true)).toBe(true);
+  });
+
+  it("ne projette rien sans taux", () => {
+    // Extrapoler sur une croissance inventée dessinerait une courbe qui a
+    // l'air d'une donnée.
+    expect(projeterDividendes({ baseAnnuelle: 100, tauxCroissancePct: null })).toEqual([]);
+  });
+
+  it("ne projette rien sans base", () => {
+    expect(projeterDividendes({ baseAnnuelle: 0, tauxCroissancePct: 10 })).toEqual([]);
+  });
+
+  it("accepte une croissance négative", () => {
+    const p = projeterDividendes({ baseAnnuelle: 100, tauxCroissancePct: -10, annees: 1 });
+    expect(p[0].projete).toBeCloseTo(90, 6);
+  });
+});
+
+describe("serieAvecProjection", () => {
+  const positions = [{ ticker: "A", quantity: 100, pru: 50, current_price: 60, annual_dividend: 1.5 }];
+
+  it("enchaîne l'historique puis la projection", () => {
+    const r = serieAvecProjection(OPS_CROISSANCE, positions, { anneesProjection: 3, anneeCourante: "2025" });
+    const annees = r.serie.map((x) => x.annee);
+    expect(annees).toEqual(["2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028"]);
+    expect(r.serie.filter((x) => x.projection)).toHaveLength(3);
+  });
+
+  it("part du dividende attendu, pas du dernier encaissement", () => {
+    // Une ligne achetée en cours d'année n'a pas versé une année pleine :
+    // partir de son dernier encaissement fausserait toute la courbe.
+    const r = serieAvecProjection(OPS_CROISSANCE, positions, { anneesProjection: 1, anneeCourante: "2025" });
+    expect(r.attendu).toBeCloseTo(150, 6);
+    expect(r.serie.at(-1).projete).toBeCloseTo(150 * 1.1, 0);
+  });
+
+  it("laisse imposer un taux différent de celui mesuré", () => {
+    const r = serieAvecProjection(OPS_CROISSANCE, positions, { anneesProjection: 1, tauxForce: 3, anneeCourante: "2025" });
+    expect(r.tauxRetenu).toBe(3);
+    expect(r.tauxEstImpose).toBe(true);
+  });
+
+  it("ne projette pas quand la croissance n'est pas mesurable", () => {
+    const r = serieAvecProjection([], positions, { anneesProjection: 5, anneeCourante: "2025" });
+    expect(r.serie.filter((x) => x.projection)).toHaveLength(0);
+    expect(r.tauxRetenu).toBeNull();
+  });
+
+  it("cumule la projection", () => {
+    const r = serieAvecProjection(OPS_CROISSANCE, positions, { anneesProjection: 2, tauxForce: 0, anneeCourante: "2025" });
+    expect(r.cumulProjete).toBeCloseTo(300, 6);
   });
 });

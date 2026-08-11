@@ -1065,31 +1065,70 @@ export function tauxRendementInterne(flux = []) {
  * Le PRU dit combien on a payé ; le TRI dit ce que l'argent a rapporté compte
  * tenu de QUAND il a été investi. Deux lignes affichant « +30 % » n'ont rien
  * à voir si l'une a mis six ans et l'autre six mois.
+ *
+ * **Le journal doit couvrir toute la ligne, sinon le résultat est faux — et
+ * spectaculairement faux.** Une position détenue avant la mise en service du
+ * journal n'a pas d'achat initial enregistré : la série se résume alors à une
+ * petite sortie récente suivie de la valeur totale d'aujourd'hui, ce qui
+ * produit un rendement de plusieurs centaines de pourcents par an. C'est
+ * exactement le symptôme observé — des TRI tous au-dessus de 30 %.
+ *
+ * Deux garde-fous :
+ *
+ *  1. La ligne de base du journal (`ledgerBaseline`), quand elle existe,
+ *     fournit la quantité et le PRU d'ouverture : on la réinjecte comme un
+ *     achat daté, et le calcul redevient exact.
+ *  2. À défaut, on vérifie que les quantités du journal reconstituent bien la
+ *     position. Si ce n'est pas le cas, aucun taux n'est renvoyé : mieux vaut
+ *     ne rien afficher qu'un chiffre flatteur et faux.
+ *
+ * @returns {{tri: number|null, complet: boolean, quantiteJournal: number, quantitePosition: number}}
  */
-export function triPosition(position, operations = [], aujourdhui = todayIso()) {
-  if (!position?.ticker) return null;
+export function triPosition(position, operations = [], options = {}) {
+  const { baseline = null, aujourdhui = todayIso() } = options;
+
+  const vide = { tri: null, complet: false, quantiteJournal: 0, quantitePosition: position?.quantity || 0 };
+  if (!position?.ticker) return vide;
   const ticker = String(position.ticker).toUpperCase();
 
   const flux = [];
+  let quantiteJournal = 0;
+
+  // Ouverture : la ligne de base fige ce qui existait avant le journal.
+  const lot = baseline?.lots?.[ticker];
+  if (lot?.quantity > 0 && baseline?.at) {
+    flux.push({ date: baseline.at, montant: -Math.abs(lot.quantity * (lot.pru || 0) + (lot.totalBuyFees || 0)) });
+    quantiteJournal += lot.quantity;
+  }
+
   for (const op of operations) {
     if (!op?.date || String(op.asset || "").toUpperCase() !== ticker) continue;
+    const q = Number(op.quantity) || 0;
     if (op.type === "ACHAT") {
-      flux.push({ date: op.date, montant: -Math.abs((op.quantity || 0) * (op.price || 0) + (op.fees || 0)) });
+      flux.push({ date: op.date, montant: -Math.abs(q * (op.price || 0) + (op.fees || 0)) });
+      quantiteJournal += q;
     } else if (op.type === "VENTE") {
-      flux.push({ date: op.date, montant: Math.abs((op.quantity || 0) * (op.price || 0) - (op.fees || 0)) });
+      flux.push({ date: op.date, montant: Math.abs(q * (op.price || 0) - (op.fees || 0)) });
+      quantiteJournal -= q;
     } else if (op.type === "DIVIDENDE") {
       flux.push({ date: op.date, montant: Math.abs(Number(op.amount ?? op.montantNet ?? 0) || 0) });
     }
   }
 
-  if (flux.length === 0) return null;
+  const quantitePosition = Number(position.quantity) || 0;
+  // Tolérance relative : les fractions de titre et les arrondis de PRU ne
+  // doivent pas invalider un journal par ailleurs complet.
+  const ecart = Math.abs(quantiteJournal - quantitePosition);
+  const complet = flux.length > 0 && ecart <= Math.max(0.01, quantitePosition * 0.005);
+
+  if (!complet) return { tri: null, complet: false, quantiteJournal, quantitePosition };
 
   // La ligne encore détenue vaut sa valeur de marché : on la solde fictivement
   // aujourd'hui pour fermer la série.
   const valeur = valeurPosition(position);
   if (valeur > 0) flux.push({ date: aujourdhui, montant: valeur });
 
-  return tauxRendementInterne(flux);
+  return { tri: tauxRendementInterne(flux), complet: true, quantiteJournal, quantitePosition };
 }
 
 export function computeXIRR(history) {

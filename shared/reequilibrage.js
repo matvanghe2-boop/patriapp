@@ -83,7 +83,18 @@ export function construirePlan(positions = [], ciblesPct = {}, options = {}) {
   const { apport = 0, sansVente = false, seuilTolerancePct = 1, fraisParOrdre = 0 } = options;
 
   const valeurInvestie = positions.reduce((s, p) => s + valeurDe(p), 0);
-  const { cibles, sommeInitiale, normalise } = normaliserCibles(ciblesPct);
+
+  // Les lignes sans cible explicite prennent leur poids ACTUEL avant
+  // normalisation. Sans cela, saisir 70 % sur une seule ligne revenait à lui
+  // donner 100 % : la normalisation ne voyait qu'elle et ramenait sa part à
+  // l'intégralité du portefeuille — l'inverse de ce que l'utilisateur demande.
+  const completes = {};
+  for (const p of positions) {
+    const poidsActuel = valeurInvestie > 0 ? (valeurDe(p) / valeurInvestie) * 100 : 0;
+    completes[p.id] = Number.isFinite(ciblesPct[p.id]) ? ciblesPct[p.id] : poidsActuel;
+  }
+
+  const { cibles, sommeInitiale, normalise } = normaliserCibles(completes);
 
   // En mode « sans vente », l'apport est la seule ressource : la base de calcul
   // reste la valeur totale visée, mais aucune ligne ne peut être réduite.

@@ -132,6 +132,26 @@ describe("construirePlan", () => {
     expect(plan.ordres.find((o) => o.id === "B").sens).toBe("aucun");
   });
 
+  it("ne transforme pas une cible partielle en 100 %", () => {
+    // Régression : la normalisation ne voyait que les cibles explicitement
+    // saisies. Fixer 70 % sur une seule ligne la ramenait donc à 100 % du
+    // portefeuille — exactement l'inverse de ce que l'utilisateur demande.
+    const plan = construirePlan(PORTEFEUILLE, { A: 70 });
+    const a = plan.ordres.find((o) => o.id === "A");
+    const b = plan.ordres.find((o) => o.id === "B");
+    // 70 pour A, 40 (poids actuel) pour B, soit 110 -> 63,6 % et 36,4 %.
+    expect(a.poidsCiblePct).toBeCloseTo(63.6, 1);
+    expect(b.poidsCiblePct).toBeCloseTo(36.4, 1);
+    expect(a.poidsCiblePct + b.poidsCiblePct).toBeCloseTo(100, 6);
+  });
+
+  it("respecte exactement des cibles qui totalisent déjà 100", () => {
+    const plan = construirePlan(PORTEFEUILLE, { A: 30, B: 70 });
+    expect(plan.ordres.find((o) => o.id === "A").poidsCiblePct).toBeCloseTo(30, 6);
+    expect(plan.ordres.find((o) => o.id === "B").poidsCiblePct).toBeCloseTo(70, 6);
+    expect(plan.ciblesNormalisees).toBe(false);
+  });
+
   it("tolère un portefeuille vide", () => {
     const plan = construirePlan([], {});
     expect(plan.aExecuter).toEqual([]);

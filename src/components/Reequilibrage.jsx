@@ -25,7 +25,6 @@ export default function Reequilibrage({ bourse, setBourse }) {
   const [apport, setApport] = useState("");
   const [sansVente, setSansVente] = useState(false);
   const [tolerance, setTolerance] = useState(1);
-  const [ouvert, setOuvert] = useState(false);
 
   const ciblesPct = useMemo(
     () => Object.fromEntries(positions.filter((p) => Number.isFinite(p.poidsCible)).map((p) => [p.id, p.poidsCible])),
@@ -67,6 +66,14 @@ export default function Reequilibrage({ bourse, setBourse }) {
   }, [plan, bourse]);
 
   const cibleDefinie = Object.keys(ciblesPct).length > 0;
+
+  // Somme des cibles telles qu'elles sont saisies — avant normalisation. C'est
+  // ce total-là que l'utilisateur doit voir pour savoir ce qu'il lui reste à
+  // répartir ; le total normalisé vaudrait toujours 100 et n'apprendrait rien.
+  const sommeCibles = positions.reduce(
+    (s, p) => s + (Number.isFinite(p.poidsCible) ? p.poidsCible : plan.ordres.find((o) => o.id === p.id)?.poidsActuelPct ?? 0),
+    0
+  );
 
   if (positions.length === 0) {
     return (
@@ -201,26 +208,40 @@ export default function Reequilibrage({ bourse, setBourse }) {
         </p>
       )}
 
-      {/* ─── Ordres ─────────────────────────────────────────────────────── */}
+      {/* ─── Cibles et ordres ───────────────────────────────────────────── */}
       <div className="mt-4 pt-3 border-t border-slate-800">
-        <button
-          onClick={() => setOuvert((o) => !o)}
-          aria-expanded={ouvert}
-          className="text-[11px] text-violet-300/80 hover:text-violet-200 mb-2"
-        >
-          {ouvert ? "Masquer" : "Afficher"} le détail des {plan.ordres.length} ligne(s)
-        </button>
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+          <span className="text-[11px] text-slate-500 uppercase tracking-wide">
+            Poids cible par ligne
+          </span>
+          {/* La somme est affichée en permanence : saisir douze pourcentages
+              sans savoir où l'on en est oblige à les additionner de tête. */}
+          <span
+            className={`text-[11px] font-data tabular-nums ${
+              Math.abs(sommeCibles - 100) < 0.05
+                ? "text-emerald-400"
+                : sommeCibles > 100
+                  ? "text-rose-400"
+                  : "text-amber-300"
+            }`}
+          >
+            Total {pctPlain(sommeCibles, 1)}
+            {Math.abs(sommeCibles - 100) >= 0.05 && (
+              <span className="text-slate-500">
+                {" "}· {sommeCibles > 100 ? "excédent" : "reste"} {pctPlain(Math.abs(100 - sommeCibles), 1)}
+              </span>
+            )}
+          </span>
+        </div>
 
-        {plan.aExecuter.length === 0 ? (
-          <p className="text-sm text-emerald-400/90">
-            Aucun ordre à passer : toutes les lignes sont dans la tolérance de {pctPlain(tolerance, 1)}.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {(ouvert ? plan.ordres : plan.aExecuter).map((o) => (
+        <div className="flex flex-col gap-2">
+          {plan.ordres.map((o) => {
+            const position = positions.find((p) => p.id === o.id);
+            const cibleSaisie = Number.isFinite(position?.poidsCible) ? position.poidsCible : "";
+            return (
               <div
                 key={o.id}
-                className={`rounded-xl border px-3 py-2 ${
+                className={`rounded-xl border px-3 py-2.5 ${
                   o.sens === "achat"
                     ? "border-emerald-500/25 bg-emerald-500/5"
                     : o.sens === "vente"
@@ -229,58 +250,66 @@ export default function Reequilibrage({ bourse, setBourse }) {
                 }`}
               >
                 <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <span className="font-data font-semibold text-slate-100">{o.ticker}</span>
-                    <span className="text-[11px] text-slate-500 ml-2 truncate">{o.nom}</span>
+                    <span className="text-[11px] text-slate-500 ml-2">{o.nom}</span>
+                    <div className="text-[11px] text-slate-500 font-data tabular-nums mt-0.5">
+                      actuel {pctPlain(o.poidsActuelPct, 1)}
+                      <span className="text-slate-600 mx-1">→</span>
+                      cible {pctPlain(o.poidsCiblePct, 1)}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[11px] text-slate-500 font-data tabular-nums">
-                      {pctPlain(o.poidsActuelPct, 1)} → {pctPlain(o.poidsCiblePct, 1)}
-                    </span>
+
+                  <label className="flex items-center gap-1.5 text-[11px] text-slate-500 shrink-0">
+                    <span className="sr-only">Poids cible de {o.ticker}</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={cibleSaisie}
+                      onChange={(e) => modifierCible(o.id, e.target.value === "" ? null : parseFloat(e.target.value))}
+                      placeholder={o.poidsActuelPct.toFixed(1)}
+                      aria-label={`Poids cible de ${o.ticker} en pourcentage`}
+                      className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums text-right focus:outline-none focus:border-violet-400/60"
+                    />
+                    <span className="text-slate-500">%</span>
+                  </label>
+
+                  <span className="shrink-0 w-[11rem] text-right">
                     {o.sens === "aucun" ? (
-                      <span className="text-[11px] text-slate-600">dans la tolérance</span>
+                      <span className="text-[11px] text-slate-600">
+                        {o.negligeable ? "dans la tolérance" : "rien à faire"}
+                      </span>
                     ) : (
                       <span
-                        className={`flex items-center gap-1 text-xs font-data font-semibold ${
+                        className={`inline-flex items-center gap-1 text-xs font-data font-semibold ${
                           o.sens === "achat" ? "text-emerald-400" : "text-rose-400"
                         }`}
                       >
                         {o.sens === "achat" ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}
-                        {o.sens === "achat" ? "Acheter" : "Vendre"} {Math.abs(o.quantite).toFixed(2)} ·{" "}
-                        <span className="ghost-blur">{eur(Math.abs(o.ecartEuros))}</span>
+                        {o.sens === "achat" ? "Acheter" : "Vendre"} {Math.abs(o.quantite).toFixed(2)}
+                        <span className="ghost-blur"> · {eur(Math.abs(o.ecartEuros))}</span>
                       </span>
                     )}
-                  </div>
+                  </span>
                 </div>
 
-                {ouvert && (
-                  <div className="mt-2 flex items-center gap-3 flex-wrap">
-                    <div className="flex-1 min-w-[8rem]">
-                      <ProgressBar
-                        value={o.poidsActuelPct}
-                        accent={o.sens === "vente" ? "bg-rose-400" : "bg-violet-400"}
-                      />
-                    </div>
-                    <label className="flex items-center gap-1.5 text-[11px] text-slate-500 shrink-0">
-                      Cible
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="100"
-                        value={Number.isFinite(positions.find((p) => p.id === o.id)?.poidsCible) ? positions.find((p) => p.id === o.id).poidsCible : ""}
-                        onChange={(e) => modifierCible(o.id, e.target.value === "" ? null : parseFloat(e.target.value))}
-                        placeholder={o.poidsActuelPct.toFixed(1)}
-                        aria-label={`Poids cible de ${o.ticker}`}
-                        className="w-16 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 text-[11px] font-data tabular-nums focus:outline-none focus:border-violet-400/60"
-                      />
-                      %
-                    </label>
-                  </div>
-                )}
+                <div className="mt-2">
+                  <ProgressBar
+                    value={o.poidsActuelPct}
+                    accent={o.sens === "vente" ? "bg-rose-400" : o.sens === "achat" ? "bg-emerald-400" : "bg-violet-400"}
+                  />
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+
+        {plan.aExecuter.length === 0 && (
+          <p className="text-sm text-emerald-400/90 mt-3">
+            Aucun ordre à passer : toutes les lignes sont dans la tolérance de {pctPlain(tolerance, 1)}.
+          </p>
         )}
       </div>
 

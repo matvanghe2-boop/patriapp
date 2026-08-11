@@ -1,4 +1,4 @@
-Arborescence du projet Patrium — généré le 2026-08-10.
+Arborescence du projet Patrium — généré le 2026-08-11.
 Ce fichier est un instantané : le regénérer après tout ajout de fichier avec
   npm run structure
 La description commentée de l'arborescence se trouve dans README.md.
@@ -153,6 +153,7 @@ src/lib/sectors.js
 src/lib/storage.js
 src/lib/supabaseClient.js
 src/lib/syncStatus.js
+src/lib/tri.test.js
 src/lib/useAlertesWatchlist.js
 src/lib/useBilanRappel.js
 src/lib/useDailySnapshot.js
