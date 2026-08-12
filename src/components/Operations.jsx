@@ -3,7 +3,7 @@ import { UploadCloud, FileDown, Loader2, AlertTriangle, CheckCircle2, Wallet, Pe
 import { Card, CardLabel, GhostButton } from "./ui";
 import {
   eur, pctPlain, computeBuyOperation, computeSellOperation, generateOperationHash, sanitizeOperation,
-  applyOperationsToBourse,
+  applyOperationsToBourse, uid,
 } from "../lib/finance";
 import { parseOperationPdf } from "../lib/api";
 import OperationForm from "./OperationForm";
@@ -12,9 +12,6 @@ import OrderSimulator from "./OrderSimulator";
 import { useToast } from "../lib/ToastContext";
 import { exporterOperationsCsv } from "../lib/exportOperations";
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
 
 /**
  * Sous-onglet "Opérations" — le cœur comptable de Stratégie & Logs.

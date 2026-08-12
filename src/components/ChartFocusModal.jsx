@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { X, Minus, TrendingUp as DiagIcon, Eraser, Pencil, Undo2, Move } from "lucide-react";
 import ProChart from "./ProChart";
+import Modal from "./Modal";
 
 /**
  * Plein écran d'analyse : le même graphique professionnel que dans l'onglet
@@ -25,13 +26,8 @@ export default function ChartFocusModal({
   const [drawing, setDrawing] = useState(null);
   const isDragging = useRef(false);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
+  // Échap, piège de focus, verrou de défilement et portail sont désormais
+  // assurés par <Modal> — ce composant ne gère plus que ses outils de tracé.
   if (!open) return null;
 
   const drawingMode = tool !== "nav";
@@ -102,11 +98,17 @@ export default function ChartFocusModal({
   );
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-6xl h-[86vh] rounded-2xl border border-violet-500/30 bg-slate-950 flex flex-col shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    // Le clic sur le fond ne ferme pas : en mode tracé, un geste qui déborde du
+    // graphique aurait fait disparaître la fenêtre et tous les tracés en cours.
+    <Modal
+      open
+      onClose={onClose}
+      label={title ? `Analyse graphique — ${title}` : "Analyse graphique"}
+      closeOnOverlayClick={false}
+      overlayClassName="bg-black/85"
+      panelClassName="w-full max-w-6xl h-[86vh] rounded-2xl border border-violet-500/30 bg-slate-950 flex flex-col shadow-2xl"
+    >
+      <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             {title && <span className="font-display text-sm text-slate-200 mr-1">{title}</span>}
@@ -163,6 +165,6 @@ export default function ChartFocusModal({
           </p>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,23 +1,4 @@
-
-const NAV_THEMES = {
-  emerald: "text-emerald-300",
-  indigo: "text-indigo-300",
-  violet: "text-violet-300",
-  amber: "text-amber-300",
-  rose: "text-rose-300",
-  cyan: "text-cyan-300",
-};
-
-// Repère d'onglet actif, pendant de la barre latérale du bureau : la couleur
-// seule ne suffit pas à signaler la position courante.
-const ACTIVE_BARS = {
-  emerald: "bg-emerald-400",
-  indigo: "bg-indigo-400",
-  violet: "bg-violet-400",
-  amber: "bg-amber-400",
-  rose: "bg-rose-400",
-  cyan: "bg-cyan-400",
-};
+import { theme as themeDe } from "../lib/themes";
 
 /**
  * Barre de navigation basse, mobile uniquement (masquée dès md:).
@@ -37,6 +18,7 @@ export default function BottomNav({ tabs, active, onChange }) {
       {tabs.map((t) => {
         const isActive = active === t.key;
         const Icon = t.icon;
+        const palette = themeDe(t.theme);
         return (
           <button
             key={t.key}
@@ -45,16 +27,14 @@ export default function BottomNav({ tabs, active, onChange }) {
             // Le libellé court est purement visuel : le lecteur d'écran
             // annonce le nom complet de l'onglet.
             aria-label={t.label}
-            className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400/40 ${
-              isActive ? NAV_THEMES[t.theme] || "text-amber-300" : "text-slate-500"
+            className={`btn-flash relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400/40 ${
+              isActive ? palette.navText : "text-slate-500"
             }`}
           >
             {isActive && (
               <span
                 aria-hidden="true"
-                className={`absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-b-full ${
-                  ACTIVE_BARS[t.theme] || "bg-amber-400"
-                }`}
+                className={`absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-b-full ${palette.bar}`}
               />
             )}
             <Icon size={22} strokeWidth={isActive ? 2.4 : 2} aria-hidden="true" />

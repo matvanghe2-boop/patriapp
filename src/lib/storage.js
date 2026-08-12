@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
-import { supabase, isSupabaseConfigured } from "./supabaseClient";
+import { supabase, isSupabaseConfigured, supabaseConfig } from "./supabaseClient";
 import {
   subscribeSync,
   getSyncState,
@@ -69,6 +69,7 @@ async function pushToCloud(key, value, userId, updatedAt) {
         updated_at: updatedAt,
       });
       if (error) throw error;
+      dirtyKeys.delete(key);
       markSynced(key);
       return true;
     } catch (e) {
@@ -87,15 +88,78 @@ async function pushToCloud(key, value, userId, updatedAt) {
 // en ligne sans dépendre du cycle de vie des composants.
 const latestValues = new Map();
 
+// Clés modifiées dont l'écriture cloud n'est pas encore confirmée. C'est ce
+// sous-ensemble — presque toujours une seule clé — qu'on tente de sauver à la
+// fermeture de la page, et non l'intégralité du patrimoine : une requête
+// `keepalive` est plafonnée à 64 Ko de corps par la spécification.
+const dirtyKeys = new Set();
+
 // setState de chaque clé actuellement montée, pour pouvoir lui appliquer une
 // valeur cloud plus récente sans repasser par un remontage du composant (voir
 // pullAllFromCloud plus bas — c'est ce qui permet à la PWA du téléphone de se
 // mettre à jour sans que l'utilisateur ait à fermer/rouvrir l'app).
 const activeSetters = new Map();
 
+/**
+ * Identité courante, tenue à jour par l'abonnement d'authentification plutôt
+ * que redemandée avant chaque lecture et chaque écriture.
+ *
+ * L'ancienne version appelait `supabase.auth.getUser()`, qui est une requête
+ * RÉSEAU de validation du jeton. Avec une trentaine de clés persistées montées
+ * dans le même rendu, le seul démarrage de l'application en déclenchait autant
+ * — auxquelles s'ajoutait une lecture cloud par clé.
+ *
+ * `getSession()` lit la session déjà persistée localement par le SDK, sans
+ * réseau. Le jeton d'accès est conservé ici parce que `flushAllToCloud` en a
+ * besoin de façon SYNCHRONE : sur `pagehide`, plus aucune promesse n'a le
+ * temps de se résoudre.
+ */
+let session = { userId: null, accessToken: null };
+
+function appliquerSession(s) {
+  session = { userId: s?.user?.id ?? null, accessToken: s?.access_token ?? null };
+}
+
 async function currentUserId() {
-  const { data } = await supabase.auth.getUser();
-  return data?.user?.id ?? null;
+  if (!isSupabaseConfigured) return null;
+  if (session.userId) return session.userId;
+  const { data } = await supabase.auth.getSession();
+  appliquerSession(data?.session);
+  return session.userId;
+}
+
+/**
+ * Lecture cloud MUTUALISÉE de toutes les clés de l'utilisateur, en une requête.
+ *
+ * Chaque `usePersistentState` interrogeait Supabase pour sa propre clé
+ * (`eq(id).maybeSingle()`). C'est exactement le problème déjà corrigé pour le
+ * polling — voir `pullAllFromCloud` — mais jamais pour le montage, qui est
+ * pourtant le moment où toutes les clés arrivent d'un coup.
+ *
+ * La promesse est partagée : le premier hook qui se monte déclenche la
+ * requête, tous les autres attendent le même résultat.
+ */
+let hydratationCloud = null;
+
+function hydraterDepuisCloud() {
+  if (hydratationCloud) return hydratationCloud;
+  hydratationCloud = (async () => {
+    const userId = await currentUserId();
+    if (!userId) return new Map();
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("key, value, updated_at")
+      .eq("user_id", userId);
+    if (error || !data) {
+      // Un échec ne doit pas être mis en cache : sans cette remise à zéro, une
+      // coupure réseau au démarrage ferait croire à toutes les clés que le
+      // cloud est vide, et leur ferait pousser l'état local par-dessus.
+      hydratationCloud = null;
+      return new Map();
+    }
+    return new Map(data.map((row) => [row.key, row]));
+  })();
+  return hydratationCloud;
 }
 
 /**
@@ -109,6 +173,10 @@ function applyCloudRow(key, row) {
 
   writeLocal(key, row.value, row.updated_at);
   latestValues.set(key, { value: row.value, updatedAt: row.updated_at });
+  // La valeur locale vient d'être remplacée par celle du cloud : il n'y a plus
+  // rien à y repousser, et la laisser marquée « à écrire » ferait renvoyer au
+  // serveur ce qu'on vient d'en recevoir.
+  dirtyKeys.delete(key);
   const setState = activeSetters.get(key);
   if (setState) setState(row.value);
   markSynced(key);
@@ -154,25 +222,91 @@ async function pullAllFromCloud() {
 const POLL_INTERVAL_MS = 45_000;
 
 /**
- * Pousse immédiatement tout ce qu'on a en mémoire, sans attendre le débounce
- * de 800ms. Sans ça, fermer l'onglet/l'app juste après une saisie (cas très
- * courant sur ordi : on modifie une valeur puis on referme direct) pouvait
- * perdre la modification côté cloud — elle restait bien en local sur cet
- * appareil, mais un autre appareil ne la verrait jamais tant que celui-ci ne
- * rouvrait pas l'app pour la repousser.
+ * Pousse immédiatement les clés en attente, sans attendre le débounce de
+ * 800 ms — y compris quand la page est en train d'être détruite.
+ *
+ * L'ancienne version commençait par `await currentUserId()`, c'est-à-dire par
+ * un appel réseau. Sur `pagehide`, le navigateur détruit la page bien avant sa
+ * résolution : la boucle de poussée n'était jamais atteinte, et le cas que
+ * cette fonction était précisément censée couvrir — « je saisis une valeur puis
+ * je referme aussitôt » — restait perdu côté cloud.
+ *
+ * D'où deux changements : l'identité et le jeton sont déjà en mémoire (aucune
+ * attente), et l'écriture part en `keepalive`, seule façon pour une requête de
+ * survivre à la fermeture d'un onglet. Le client Supabase n'expose pas cette
+ * option, on passe donc directement par PostgREST.
  */
-async function flushAllToCloud() {
-  if (!isSupabaseConfigured || latestValues.size === 0) return;
+function flushAllToCloud() {
+  if (!isSupabaseConfigured || dirtyKeys.size === 0) return;
+  const { userId, accessToken } = session;
+  if (!userId || !accessToken) return;
+
+  const lignes = [];
+  for (const key of dirtyKeys) {
+    const entry = latestValues.get(key);
+    if (!entry) continue;
+    lignes.push({
+      id: `${userId}:${key}`,
+      user_id: userId,
+      key,
+      value: entry.value,
+      updated_at: entry.updatedAt,
+    });
+  }
+  if (lignes.length === 0) return;
+
+  try {
+    fetch(`${supabaseConfig.url}/rest/v1/${TABLE}?on_conflict=id`, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseConfig.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        // `merge-duplicates` fait de ce POST un véritable upsert, comme celui
+        // du client ; `return=minimal` évite de rapatrier les lignes écrites.
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(lignes),
+    })
+      .then((r) => {
+        if (r.ok) lignes.forEach(({ key }) => dirtyKeys.delete(key));
+      })
+      // La page peut disparaître avant la réponse : l'écriture a tout de même
+      // été émise, et les clés resteront marquées pour la prochaine ouverture.
+      .catch(() => {});
+  } catch {
+    /* contexte déjà détruit : il n'y a plus rien à tenter */
+  }
+}
+
+/** Réémission des clés en échec pendant que la page est encore bien vivante. */
+async function repousserClesEnAttente() {
+  if (!isSupabaseConfigured || dirtyKeys.size === 0) return;
   const userId = await currentUserId();
   if (!userId) return;
-  for (const [key, entry] of latestValues) {
-    pushToCloud(key, entry.value, userId, entry.updatedAt);
+  for (const key of [...dirtyKeys]) {
+    const entry = latestValues.get(key);
+    if (entry) pushToCloud(key, entry.value, userId, entry.updatedAt);
   }
 }
 
 if (isSupabaseConfigured && typeof window !== "undefined") {
   markSyncEnabled();
-  window.addEventListener("online", flushAllToCloud);
+
+  // L'identité est suivie à la source plutôt que redemandée : `onAuthStateChange`
+  // émet la session courante dès l'abonnement, puis à chaque connexion,
+  // déconnexion et rafraîchissement de jeton.
+  supabase.auth.onAuthStateChange((_evenement, s) => {
+    const precedent = session.userId;
+    appliquerSession(s);
+    // Changement de compte : ce qui a été hydraté ne concerne plus personne.
+    if (session.userId !== precedent) hydratationCloud = null;
+  });
+
+  // Retour en ligne : la page est vivante, on repasse par le client normal et
+  // ses réessais plutôt que par l'écriture d'urgence.
+  window.addEventListener("online", repousserClesEnAttente);
   // Retour au premier plan (on rouvre la PWA, on change d'onglet) : on revérifie
   // tout de suite plutôt que d'attendre le prochain tick d'intervalle.
   document.addEventListener("visibilitychange", () => {
@@ -198,6 +332,13 @@ if (isSupabaseConfigured && typeof window !== "undefined") {
  * que la requête cloud est en vol n'est donc plus écrasée — c'est le bug que
  * le drapeau `hasHydratedFromCloud`, posé mais jamais lu, était censé éviter.
  *
+ * L'arbitrage repose entièrement sur le fait que l'horodatage local N'EST PAS
+ * réécrit tant que la valeur n'a pas réellement changé. Les deux gardes qui
+ * l'assurent — la lecture de `localUpdatedAt` avant tout `await`, et le
+ * témoin `etatAuMontage` — sont indissociables : retirer l'une des deux
+ * suffit à rendre la version cloud systématiquement perdante, sans qu'aucune
+ * erreur ne soit visible. Le comportement est couvert par `storage.test.jsx`.
+ *
  * Limite assumée : deux appareils modifiant la MÊME clé hors ligne en
  * parallèle ne fusionnent pas — le dernier à se reconnecter gagne. Un vrai
  * merge demanderait un modèle de données relationnel plutôt qu'un blob JSON
@@ -208,6 +349,10 @@ export function usePersistentState(key, initialValue) {
   const hasHydrated = useRef(false);
   const skipNextPush = useRef(false);
   const pushTimer = useRef(null);
+
+  // Valeur exacte lue au montage. Elle sert de témoin : tant que l'état lui est
+  // identique, rien n'a été modifié et il n'y a donc rien à réécrire.
+  const etatAuMontage = useRef(state);
 
   // Le poll périodique (pullAllFromCloud) a besoin de pouvoir appliquer une
   // valeur cloud plus récente à ce composant précis, d'où cet enregistrement.
@@ -224,30 +369,33 @@ export function usePersistentState(key, initialValue) {
       hasHydrated.current = true;
       return undefined;
     }
+    // Horodatage local lu MAINTENANT, pendant le rendu de l'effet et donc
+    // avant tout ce que la suite pourrait écrire. C'était la cause du bug :
+    // l'effet de persistance ci-dessous s'exécutait avant que cette requête
+    // n'aboutisse et repoussait l'horodatage local à « maintenant ». La
+    // comparaison `cloud > local` devenait alors structurellement fausse, et
+    // AUCUNE version cloud ne pouvait plus jamais être adoptée au montage —
+    // le contraire exact de ce que ce bloc est censé faire.
+    const localUpdatedAt = readLocalUpdatedAt(key);
+
     (async () => {
-      let userId;
+      let lignes;
       try {
-        userId = await currentUserId();
+        lignes = await hydraterDepuisCloud();
       } catch (e) {
         markFailed(key, e);
         hasHydrated.current = true;
         return;
       }
+      const userId = session.userId;
       if (!userId || cancelled) {
         hasHydrated.current = true;
         return;
       }
 
-      const { data, error } = await supabase
-        .from(TABLE)
-        .select("value, updated_at")
-        .eq("id", `${userId}:${key}`)
-        .maybeSingle();
-      if (cancelled) return;
-
-      const localUpdatedAt = readLocalUpdatedAt(key);
+      const data = lignes.get(key) || null;
       const cloudIsNewer =
-        !error && data && (!localUpdatedAt || (data.updated_at && data.updated_at > localUpdatedAt));
+        data && (!localUpdatedAt || (data.updated_at && data.updated_at > localUpdatedAt));
 
       if (cloudIsNewer) {
         skipNextPush.current = true;
@@ -257,9 +405,12 @@ export function usePersistentState(key, initialValue) {
         markSynced(key);
       } else {
         // Rien en cloud (premier appareil), ou version locale plus récente :
-        // c'est le local qui fait foi et qu'on pousse.
+        // c'est le local qui fait foi et qu'on pousse. La clé est marquée en
+        // attente le temps de la poussée — `pushToCloud` la libère en cas de
+        // succès — pour qu'une fermeture immédiate de l'onglet la rattrape.
         const updatedAt = localUpdatedAt || new Date().toISOString();
         latestValues.set(key, { value: state, updatedAt });
+        dirtyKeys.add(key);
         pushToCloud(key, state, userId, updatedAt);
       }
       hasHydrated.current = true;
@@ -273,15 +424,34 @@ export function usePersistentState(key, initialValue) {
   // À chaque changement : cache local instantané, puis push cloud débouncé
   // pour ne pas écrire en base à chaque frappe.
   useEffect(() => {
-    const updatedAt = new Date().toISOString();
-    writeLocal(key, state, updatedAt);
-    latestValues.set(key, { value: state, updatedAt });
+    // Rien n'a changé depuis le montage : l'état est encore exactement celui
+    // qui a été lu dans le localStorage. Le réécrire ne changerait pas son
+    // contenu mais repousserait son horodatage à « maintenant », faisant
+    // paraître cet appareil plus récent que le cloud à chaque ouverture — et
+    // écrasant au passage une saisie faite ailleurs. C'est l'autre moitié du
+    // même bug que celui traité dans l'effet d'hydratation.
+    if (state === etatAuMontage.current) {
+      latestValues.set(key, {
+        value: state,
+        updatedAt: readLocalUpdatedAt(key) || new Date().toISOString(),
+      });
+      return undefined;
+    }
 
+    // Valeur qui vient d'être adoptée depuis le cloud : elle est déjà écrite en
+    // local avec l'horodatage du cloud. La ré-horodater la ferait passer pour
+    // une modification de cet appareil.
     if (skipNextPush.current) {
       skipNextPush.current = false;
       return undefined;
     }
+
+    const updatedAt = new Date().toISOString();
+    writeLocal(key, state, updatedAt);
+    latestValues.set(key, { value: state, updatedAt });
+
     if (!isSupabaseConfigured) return undefined;
+    dirtyKeys.add(key);
 
     clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(async () => {
@@ -294,6 +464,19 @@ export function usePersistentState(key, initialValue) {
   }, [state, key]);
 
   return [state, setState];
+}
+
+/**
+ * Remet à zéro les caches de module (session, hydratation, clés en attente).
+ * Réservé aux tests : ces caches sont volontairement partagés par toutes les
+ * instances du hook, ils survivent donc au démontage des composants.
+ */
+export function _resetStorageCache() {
+  session = { userId: null, accessToken: null };
+  hydratationCloud = null;
+  latestValues.clear();
+  dirtyKeys.clear();
+  activeSetters.clear();
 }
 
 /** État de synchronisation courant, pour l'indicateur de l'interface. */
@@ -357,6 +540,7 @@ export function clearAllData(keys) {
     // qui suit la réinitialisation repoussait aussitôt vers le cloud les
     // valeurs qu'on vient d'effacer.
     latestValues.delete(k);
+    dirtyKeys.delete(k);
   });
 }
 

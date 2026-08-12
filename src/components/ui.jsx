@@ -1,18 +1,16 @@
-import { useState } from "react";
-import { Plus, Trash2, X, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Trash2, X, Lock, ChevronDown } from "lucide-react";
 import { eur } from "../lib/finance";
+import { theme as themeDe, CARD_THEMES, GHOST_THEMES } from "../lib/themes";
 
-const NAV_THEMES = {
-  emerald: { active: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30", bar: "bg-emerald-400" },
-  indigo: { active: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30", bar: "bg-indigo-400" },
-  violet: { active: "bg-violet-500/15 text-violet-300 border border-violet-500/30", bar: "bg-violet-400" },
-  amber: { active: "bg-amber-500/15 text-amber-300 border border-amber-500/30", bar: "bg-amber-400" },
-  rose: { active: "bg-rose-500/15 text-rose-300 border border-rose-500/30", bar: "bg-rose-400" },
-  cyan: { active: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30", bar: "bg-cyan-400" },
-};
+// Les palettes vivent désormais dans `lib/themes.js`, où elles ne sont écrites
+// qu'une fois. Elles restent réexportées ici : une vingtaine de composants
+// importent `CARD_THEMES` depuis `./ui`, et cette façade leur évite une
+// modification qui n'apporterait rien.
+export { CARD_THEMES, GHOST_THEMES };
 
 export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber", current }) {
-  const t = NAV_THEMES[theme] || NAV_THEMES.amber;
+  const t = themeDe(theme);
   return (
     <button
       onClick={disabled ? undefined : onClick}
@@ -20,8 +18,8 @@ export function NavButton({ active, onClick, icon: Icon, label, disabled, theme 
       // L'onglet actif n'était signalé que par la couleur : un lecteur d'écran
       // n'avait aucun moyen de savoir où l'utilisateur se trouve.
       aria-current={current ? "page" : undefined}
-      className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
-        ${disabled ? "text-slate-600 cursor-not-allowed" : active ? t.active : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
+      className={`btn-flash relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
+        ${disabled ? "text-slate-600 cursor-not-allowed" : active ? t.nav : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
       {active && <span aria-hidden="true" className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
       <Icon size={17} strokeWidth={2} aria-hidden="true" />
@@ -44,41 +42,20 @@ export function Card({ children, className = "", accent = "" }) {
 }
 
 /**
- * Préréglages de thème de carte par domaine — fond teinté + bordure marquée,
- * bien plus visibles qu'une simple bordure à faible opacité.
- */
-export const CARD_THEMES = {
-  emerald: "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 hover:border-emerald-400/60",
-  indigo: "border-indigo-500/40 bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 hover:border-indigo-400/60",
-  violet: "border-violet-500/40 bg-gradient-to-br from-violet-950/40 via-slate-900 to-slate-900 hover:border-violet-400/60",
-  amber: "border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 hover:border-amber-400/60",
-  rose: "border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-slate-900 to-slate-900 hover:border-rose-400/60",
-  cyan: "border-cyan-500/40 bg-gradient-to-br from-cyan-950/40 via-slate-900 to-slate-900 hover:border-cyan-400/60",
-};
-
-/**
  * Lueur de fond ambiante thématique — à placer en position absolute/fixed
  * dans le conteneur racine de chaque page pour donner une identité visuelle
  * propre à chaque onglet sans dupliquer le layout.
  */
 export function PageGlow({ color = "emerald" }) {
-  const COLORS = {
-    emerald: { a: "bg-emerald-400/10", b: "bg-cyan-400/8" },
-    indigo: { a: "bg-indigo-400/10", b: "bg-blue-400/8" },
-    violet: { a: "bg-violet-400/10", b: "bg-fuchsia-400/8" },
-    amber: { a: "bg-amber-400/10", b: "bg-orange-400/8" },
-    rose: { a: "bg-rose-400/10", b: "bg-orange-500/8" },
-    cyan: { a: "bg-cyan-400/10", b: "bg-teal-400/8" },
-  };
-  const c = COLORS[color] || COLORS.emerald;
+  const c = themeDe(color);
   // Conteneur clippant : la seconde lueur déborde volontairement à droite
   // (`-right-24`) pour être coupée par le bord de l'écran. Sans ce wrapper en
   // `overflow-hidden`, ce débordement purement décoratif ajoutait une barre de
   // défilement horizontale à toute l'application.
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
-      <div className={`absolute -top-24 left-1/4 -translate-x-1/2 w-[40rem] h-[40rem] rounded-full ${c.a} blur-[130px]`} />
-      <div className={`absolute top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full ${c.b} blur-[120px]`} />
+      <div className={`absolute -top-24 left-1/4 -translate-x-1/2 w-[40rem] h-[40rem] rounded-full ${c.glowA} blur-[130px]`} />
+      <div className={`absolute top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full ${c.glowB} blur-[120px]`} />
     </div>
   );
 }
@@ -104,7 +81,7 @@ export function SectionRepliable({ titre, icon: Icon, defautOuvert = false, resu
         onClick={() => setOuvert((o) => !o)}
         aria-expanded={ouvert}
         aria-controls={idContenu}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded-2xl"
+        className="btn-flash w-full flex items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded-2xl"
       >
         <span className="flex items-center gap-2 min-w-0">
           {Icon && <Icon size={14} className="text-slate-500 shrink-0" aria-hidden="true" />}
@@ -113,19 +90,94 @@ export function SectionRepliable({ titre, icon: Icon, defautOuvert = false, resu
             <span className="text-[11px] text-slate-500 truncate hidden sm:inline">— {resume}</span>
           )}
         </span>
-        {ouvert ? (
-          <ChevronUp size={15} className="text-slate-500 shrink-0" aria-hidden="true" />
-        ) : (
-          <ChevronDown size={15} className="text-slate-500 shrink-0" aria-hidden="true" />
-        )}
+        {/* Un seul chevron qui pivote, plutôt que deux icônes échangées : la
+            rotation montre le sens de l'action là où la substitution ne
+            faisait que changer le symbole. */}
+        <ChevronDown
+          size={15}
+          aria-hidden="true"
+          className={`text-slate-500 shrink-0 transition-transform duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${ouvert ? "rotate-180" : ""}`}
+        />
       </button>
+      {/* Le contenu se déroule à l'ouverture (voir `.collapse-in` dans
+          index.css) ; il apparaissait jusqu'ici d'un bloc, ce qui est brutal
+          sur les sections qui contiennent un graphique.
+
+          Il reste DÉMONTÉ quand la section est repliée : le garder monté
+          permettrait d'animer aussi la fermeture, mais ferait rendre en
+          permanence les graphiques de toutes les sections fermées — soit
+          précisément ce que ce composant existe pour éviter. */}
       {ouvert && (
-        <div id={idContenu} className="px-4 pb-4 flex flex-col gap-4">
-          {children}
+        <div className="collapse-in">
+          <div>
+            <div id={idContenu} className="px-4 pb-4 flex flex-col gap-4">
+              {children}
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+/** Le système demande-t-il la suppression des animations ? */
+export function mouvementReduit() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/**
+ * Interpole une valeur numérique vers sa nouvelle cible.
+ *
+ * Le patrimoine net est l'élément central de l'écran et il SAUTAIT d'un
+ * montant à l'autre — un ajout de 150 € et une correction de 15 000 € se
+ * ressemblaient exactement. Faire filer les chiffres donne une idée de
+ * l'ampleur du changement sans qu'aucun texte ne l'explique.
+ *
+ * Interpolation à sortie douce sur ~600 ms, avec deux abandons volontaires :
+ * au premier rendu (aucun mouvement à montrer, la valeur est simplement là) et
+ * lorsque le système demande un mouvement réduit.
+ */
+const DUREE_ANIMATION_MS = 600;
+
+export function useValeurAnimee(cible, { duree = DUREE_ANIMATION_MS } = {}) {
+  const valide = Number.isFinite(cible) ? cible : 0;
+  const [affichee, setAffichee] = useState(valide);
+  const depart = useRef(valide);
+  const premierRendu = useRef(true);
+  const frame = useRef(null);
+
+  useEffect(() => {
+    if (premierRendu.current) {
+      premierRendu.current = false;
+      depart.current = valide;
+      setAffichee(valide);
+      return undefined;
+    }
+    if (mouvementReduit() || depart.current === valide) {
+      depart.current = valide;
+      setAffichee(valide);
+      return undefined;
+    }
+
+    const de = depart.current;
+    const debut = performance.now();
+    const avancer = (maintenant) => {
+      const t = Math.min(1, (maintenant - debut) / duree);
+      // easeOutCubic : rapide au départ, freinage marqué à l'arrivée.
+      const adouci = 1 - Math.pow(1 - t, 3);
+      setAffichee(de + (valide - de) * adouci);
+      if (t < 1) frame.current = requestAnimationFrame(avancer);
+      else depart.current = valide;
+    };
+    frame.current = requestAnimationFrame(avancer);
+    return () => cancelAnimationFrame(frame.current);
+  }, [valide, duree]);
+
+  return affichee;
 }
 
 export function CardLabel({ children, icon: Icon }) {
@@ -145,21 +197,12 @@ export function ProgressBar({ value, accent = "bg-teal-400" }) {
   );
 }
 
-const GHOST_THEMES = {
-  amber: "text-amber-300 hover:text-amber-100 bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/40 hover:border-amber-400/70 focus-visible:ring-amber-400/40",
-  emerald: "text-emerald-300 hover:text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 hover:border-emerald-400/70 focus-visible:ring-emerald-400/40",
-  indigo: "text-indigo-300 hover:text-indigo-100 bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 hover:border-indigo-400/70 focus-visible:ring-indigo-400/40",
-  violet: "text-violet-300 hover:text-violet-100 bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 hover:border-violet-400/70 focus-visible:ring-violet-400/40",
-  rose: "text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 hover:border-rose-400/70 focus-visible:ring-rose-400/40",
-  cyan: "text-cyan-300 hover:text-cyan-100 bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/40 hover:border-cyan-400/70 focus-visible:ring-cyan-400/40",
-};
-
 export function GhostButton({ onClick, children, icon: Icon = Plus, disabled, theme = "amber" }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${GHOST_THEMES[theme] || GHOST_THEMES.amber}`}
+      className={`btn-flash flex items-center gap-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 ${themeDe(theme).ghost}`}
     >
       <Icon size={14} />
       {children}
@@ -173,7 +216,7 @@ export function IconTrash({ onClick, label = "Supprimer" }) {
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="text-slate-600 hover:text-rose-400 transition-colors p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+      className="btn-flash text-slate-600 hover:text-rose-400 transition-colors p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
     >
       <Trash2 size={14} aria-hidden="true" />
     </button>

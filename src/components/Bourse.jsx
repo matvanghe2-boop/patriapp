@@ -15,6 +15,8 @@ import Reequilibrage from "./Reequilibrage";
 import PerformanceTab from "./BoursePerformance";
 import FiscaliteSortie from "./FiscaliteSortie";
 import Screener from "./Screener";
+import SeuilOrdre from "./SeuilOrdre";
+import { verifierEligibilite } from "../../shared/eligibilitePea";
 
 // Reprend le même code couleur que le module Stratégie & Logs pour que le
 // statut d'une thèse se reconnaisse d'un coup d'œil, qu'on le voie dans le
@@ -182,7 +184,7 @@ function AntiPanicModal({ position, note, onClose }) {
   );
 }
 
-import { computePeaAge, PEA_PLAFOND_VERSEMENTS } from "../lib/finance";
+import { computePeaAge, PEA_PLAFONDS, plafondPea } from "../lib/finance";
 // ... imports existants inchangés ...
 
 function PeaFiscalWidget({ bourse, setBourse }) {
@@ -190,7 +192,9 @@ function PeaFiscalWidget({ bourse, setBourse }) {
   const [draft, setDraft] = useState({ peaOuverture: bourse.peaOuverture || "", peaVersements: bourse.peaVersements || 0 });
 
   const versements = bourse.peaVersements || 0;
-  const pctPlafond = Math.min(100, (versements / PEA_PLAFOND_VERSEMENTS) * 100);
+  const plafond = plafondPea(bourse);
+  const typeCourant = PEA_PLAFONDS[bourse.peaType] ? bourse.peaType : "classique";
+  const pctPlafond = Math.min(100, (versements / plafond) * 100);
   const age = computePeaAge(bourse.peaOuverture);
 
   // Le total versé saisi ici est l'ancrage de la courbe « Capital investi » :
@@ -226,18 +230,38 @@ function PeaFiscalWidget({ bourse, setBourse }) {
               Point de départ de la courbe « Capital investi ». Il évoluera ensuite tout seul à chaque versement ou retrait de cash.
             </p>
           </div>
-          <button onClick={save} className="text-xs font-semibold bg-violet-400 hover:bg-violet-300 text-slate-950 rounded-lg px-3 py-1.5">Enregistrer</button>
+          {/* Le plafond ne vaut 150 000 € que pour un PEA classique. Entre 18 et
+              25 ans, tant que le titulaire est rattaché au foyer fiscal de ses
+              parents, il est de 20 000 € — sept fois moins. */}
+          <div>
+            <label className="text-[11px] text-slate-500 block mb-1">Type de PEA</label>
+            <select
+              value={typeCourant}
+              onChange={(e) => setBourse((b) => ({ ...b, peaType: e.target.value }))}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-violet-400/60"
+            >
+              {Object.entries(PEA_PLAFONDS).map(([cle, v]) => (
+                <option key={cle} value={cle}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+          <button onClick={save} className="btn-solid text-xs font-semibold bg-violet-400 hover:bg-violet-300 text-slate-950 rounded-lg px-3 py-1.5">Enregistrer</button>
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-slate-400 font-data ghost-blur">{eur(versements, 0)} versés</span>
-            <span className="text-slate-500 font-data">{eur(PEA_PLAFOND_VERSEMENTS, 0)} plafond</span>
+            <span className="text-slate-500 font-data">{eur(plafond, 0)} plafond</span>
           </div>
           <div className="h-2.5 rounded-full bg-slate-800 overflow-hidden">
             <div className={`h-full rounded-full transition-all ${pctPlafond >= 90 ? "bg-rose-400" : pctPlafond >= 70 ? "bg-amber-400" : "bg-violet-400"}`} style={{ width: `${pctPlafond}%` }} />
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">{pctPlafond.toFixed(1)} % du plafond — reste <span className="ghost-blur">{eur(PEA_PLAFOND_VERSEMENTS - versements, 0)}</span> de marge de versement</div>
+          <div className="text-[11px] text-slate-500 mt-1">{pctPlafond.toFixed(1)} % du plafond — reste <span className="ghost-blur">{eur(plafond - versements, 0)}</span> de marge de versement</div>
+          {typeCourant === "jeune" && (
+            <p className="text-[11px] text-violet-300/80 mt-1.5 leading-relaxed">
+              {PEA_PLAFONDS.jeune.detail}
+            </p>
+          )}
         </>
       )}
 
@@ -312,6 +336,44 @@ function ForeignCurrencyWarning({ positions }) {
 }
 
 /**
+ * Lignes incompatibles avec l'enveloppe déclarée.
+ *
+ * Un PEA ne peut détenir que des sociétés dont le siège est dans l'UE ou
+ * l'EEE. Rien ne l'empêchait : on pouvait ajouter `AAPL` à un portefeuille
+ * déclaré PEA, et toute la fiscalité calculée derrière — exonération après
+ * cinq ans, plus-value nette — devenait fausse sans qu'aucun signal
+ * n'apparaisse.
+ *
+ * L'avertissement reste informatif : on ne bloque pas la saisie. Le suffixe du
+ * ticker est une heuristique, et une ligne peut être détenue sur un CTO
+ * pendant que l'enveloppe principale est un PEA.
+ */
+function EligibilitePeaWarning({ positions, enveloppe }) {
+  const inelegibles = useMemo(
+    () =>
+      (positions || [])
+        .map((p) => ({ position: p, verdict: verifierEligibilite(p.ticker, enveloppe) }))
+        .filter(({ verdict }) => verdict.eligible === false),
+    [positions, enveloppe]
+  );
+
+  if (inelegibles.length === 0) return null;
+
+  const pays = [...new Set(inelegibles.map(({ verdict }) => verdict.pays))].join(", ");
+  return (
+    <div className="flex items-start gap-2 text-xs rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-200 px-3 py-2">
+      <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
+      <span>
+        {inelegibles.length} ligne(s) hors Espace économique européen ({pays}) :{" "}
+        <span className="font-medium">{inelegibles.map(({ position }) => position.ticker).join(", ")}</span>.
+        Un {enveloppe} ne peut pas les détenir — si elles sont sur un compte-titres, déclare-le dans
+        l&apos;enveloppe de ce portefeuille, sinon la fiscalité affichée ici est fausse.
+      </span>
+    </div>
+  );
+}
+
+/**
  * Poche de cash — modifiable à la main, mais tout écart est enregistré comme
  * un mouvement daté (VERSEMENT ou RETRAIT) dans le journal d'opérations.
  *
@@ -366,6 +428,9 @@ export default function Bourse({
   bourse, setBourse, bourseTotal, bourseGainAbs, bourseGainPct,
   alertesWatchlist, setAlertesWatchlist,
   bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
+  // Sert de versement de référence au seuil de rentabilité d'un ordre : c'est
+  // ce qui permet de traduire un montant minimal en cadence d'achat.
+  epargneMensuelle = 0,
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -516,7 +581,12 @@ export default function Bourse({
     [bourse.positions]
   );
 
-  const dividendSummary = useMemo(() => computeDividendSummary(bourse.positions), [bourse.positions]);
+  // L'enveloppe compte : la retenue à la source étrangère est perdue dans un
+  // PEA, récupérable via crédit d'impôt sur un compte-titres ordinaire.
+  const dividendSummary = useMemo(
+    () => computeDividendSummary(bourse.positions, bourse.envelope),
+    [bourse.positions, bourse.envelope]
+  );
 
   const captureSnapshot = async (silent = false) => {
     if (!silent) { setTrackLoading(true); setTrackError(""); }
@@ -621,6 +691,7 @@ export default function Bourse({
       </div>
 
       <ForeignCurrencyWarning positions={bourse.positions} />
+      <EligibilitePeaWarning positions={bourse.positions} enveloppe={bourse.envelope} />
 
       {/* Sous-onglets */}
       <div className="relative flex items-center gap-2 border-b border-slate-800 pb-1">
@@ -689,6 +760,10 @@ export default function Bourse({
       </div>
       <div className="mt-6 flex flex-col gap-4">
         <PeaFiscalWidget bourse={bourse} setBourse={setBourse} />
+        {/* Ce que le prochain ordre va coûter, par opposition à tout le reste
+            de l'onglet qui mesure ce qui a déjà été payé. Sur de petits
+            montants, c'est le seul poste réellement pilotable. */}
+        <SeuilOrdre bourse={bourse} setBourse={setBourse} versementMensuel={epargneMensuelle} />
         {/* La plus-value affichée partout ailleurs est brute. Celle-ci est
             celle qu'on encaisserait réellement. */}
         <FiscaliteSortie bourse={bourse} bourseGainAbs={bourseGainAbs} bourseTotal={bourseTotal} />
@@ -704,8 +779,18 @@ export default function Bourse({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-1">
             <div>
-              <div className="text-[11px] text-slate-500 mb-0.5">Dividendes annuels</div>
-              <div className="font-display text-lg text-emerald-400 ghost-blur">{eur(dividendSummary.totalAnnualDividend, 2)}</div>
+              <div className="text-[11px] text-slate-500 mb-0.5">
+                {dividendSummary.totalRetenueSource > 0 ? "Dividendes nets encaissés" : "Dividendes annuels"}
+              </div>
+              <div className="font-display text-lg text-emerald-400 ghost-blur">
+                {eur(dividendSummary.totalAnnualDividendNet, 2)}
+              </div>
+              {dividendSummary.totalRetenueSource > 0 && (
+                <div className="text-[11px] text-amber-300/90 mt-0.5 ghost-blur">
+                  {eur(dividendSummary.totalAnnualDividend, 2)} bruts − {eur(dividendSummary.totalRetenueSource, 2)} de
+                  retenue étrangère
+                </div>
+              )}
             </div>
             <div>
               <div className="text-[11px] text-slate-500 mb-0.5">Moyenne mensuelle</div>

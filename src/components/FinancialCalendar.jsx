@@ -6,6 +6,7 @@ import {
 import { fetchCalendarEvents } from "../lib/api";
 import { todayIso } from "../lib/finance";
 import { SkeletonChart } from "./ui";
+import Modal from "./Modal";
 
 // ─── Types d'événements ─────────────────────────────────────────────────────
 // Code couleur demandé : vert pour les dividendes, bleu pour tout ce qui
@@ -182,21 +183,19 @@ function EventModal({ ev, onClose }) {
   const bnpa = formatEstimate(ev.estimates?.beneficeAttendu);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
+    <Modal
+      open
+      onClose={onClose}
+      label={`${ev.ticker} — ${ev.label}`}
+      overlayClassName="bg-black/80"
+      panelClassName="w-full max-w-sm rounded-2xl border bg-black"
+      style={
+        isPortfolio
+          ? { borderColor: t.color, borderWidth: 1.5, boxShadow: `0 0 40px ${t.glow}` }
+          : { borderColor: NEUTRAL.border, boxShadow: "none" }
+      }
     >
-      <div
-        className="w-full max-w-sm rounded-2xl border p-5 bg-black"
-        style={
-          isPortfolio
-            ? { borderColor: t.color, borderWidth: 1.5, boxShadow: `0 0 40px ${t.glow}` }
-            : { borderColor: NEUTRAL.border, boxShadow: "none" }
-        }
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div
             className="flex items-center justify-center w-12 h-12 rounded-full shrink-0"
@@ -264,7 +263,7 @@ function EventModal({ ev, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

@@ -22,6 +22,73 @@ export function moisEntre(depuisIso, jusquIso) {
   return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
 }
 
+/**
+ * Modèles d'objectifs — coûts d'ordre de grandeur, pas des devis.
+ *
+ * Le formulaire d'ajout demandait un libellé, un montant et une échéance, tous
+ * vides. Fixer une cible suppose pourtant de connaître le prix de ce qu'on
+ * vise, et c'est précisément ce qu'on ignore quand on s'y prend pour la
+ * première fois : la page blanche est le vrai obstacle, pas la saisie.
+ *
+ * Les montants sont des fourchettes basses observées en France, arrondies, et
+ * modifiables une fois le modèle appliqué — l'objectif est de donner un point
+ * de départ crédible, jamais de prétendre à l'exactitude. `moisParDefaut`
+ * propose une échéance plausible, elle aussi ajustable.
+ */
+export const MODELES_OBJECTIFS = [
+  {
+    id: "permis",
+    libelle: "Permis de conduire",
+    montant: 1500,
+    moisParDefaut: 12,
+    detail: "Forfait boîte manuelle, hors heures supplémentaires (souvent nécessaires).",
+  },
+  {
+    id: "installation",
+    libelle: "Premier logement",
+    montant: 2500,
+    moisParDefaut: 24,
+    detail: "Dépôt de garantie, premier loyer, frais d'agence et équipement de base.",
+  },
+  {
+    id: "vehicule",
+    libelle: "Première voiture",
+    montant: 4000,
+    moisParDefaut: 36,
+    detail: "Occasion fiable, carte grise et première assurance comprises.",
+  },
+  {
+    id: "echange",
+    libelle: "Semestre à l'étranger",
+    montant: 3000,
+    moisParDefaut: 18,
+    detail: "Reste à charge courant après bourse de mobilité : voyage, logement, caution.",
+  },
+  {
+    id: "materiel",
+    libelle: "Ordinateur / matériel",
+    montant: 1200,
+    moisParDefaut: 8,
+    detail: "Machine correcte tenant toute la durée des études.",
+  },
+  {
+    id: "matelas",
+    libelle: "Matelas de sécurité",
+    montant: 2000,
+    moisParDefaut: 18,
+    detail: "De quoi encaisser un imprévu sans toucher au reste ni emprunter.",
+  },
+];
+
+/** Échéance ISO située `mois` mois après aujourd'hui, calée en fin de mois. */
+export function echeanceDansMois(mois, depuis = new Date()) {
+  const d = new Date(depuis.getFullYear(), depuis.getMonth() + Number(mois || 0) + 1, 0);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const j = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${j}`;
+}
+
 export function creerObjectif({ libelle, cible, echeance, patrimoineActuel = 0, id }) {
   return {
     id,

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef } from "react";
 import { Check, X, AlertTriangle } from "lucide-react";
+import { uid } from "./finance";
 
 const ToastContext = createContext(null);
 const DURATION_MS = 5000;
@@ -15,7 +16,7 @@ export function ToastProvider({ children }) {
   }, []);
 
   const showToast = useCallback(({ message, type = "success", onUndo }) => {
-    const id = Math.random().toString(36).slice(2, 9);
+    const id = uid();
     setToasts((t) => [...t, { id, message, type, onUndo }]);
     timers.current[id] = setTimeout(() => dismiss(id), DURATION_MS);
     return id;

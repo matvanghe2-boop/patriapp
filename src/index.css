@@ -1,4 +1,29 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+/*
+ * Polices auto-hébergées.
+ *
+ * Elles venaient d'un `@import url("https://fonts.googleapis.com/…")`. Trois
+ * problèmes, dont le premier suffirait :
+ *
+ *  1. Un `@import` CSS est BLOQUANT et sérialisé : le navigateur télécharge
+ *     cette feuille, la lit, et découvre seulement ensuite les fichiers de
+ *     police. Deux aller-retours réseau avant le premier rendu.
+ *  2. C'était la dernière dépendance externe de l'application, après le
+ *     rapatriement de `orbit-header.js`. Sur une app dont la promesse est que
+ *     rien ne sort du navigateur, chaque requête vers un tiers lui transmet
+ *     une adresse IP et un en-tête `Referer`.
+ *  3. Hors ligne, la PWA retombait sur les polices système alors que tout le
+ *     reste de la coquille est en cache.
+ *
+ * Les fichiers sont désormais servis depuis notre origine, mis en cache par le
+ * service worker, et limités au sous-ensemble latin et aux seules graisses
+ * réellement utilisées. Inter est en version variable : un seul fichier couvre
+ * les quatre graisses que l'application emploie.
+ */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource/fraunces/latin-500.css";
+@import "@fontsource/fraunces/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
 
 @tailwind base;
 @tailwind components;
@@ -9,7 +34,10 @@
 }
 
 body {
-  font-family: "Inter", sans-serif;
+  /* `Inter Variable` est le nom de famille exposé par le paquet variable ;
+     `Inter` reste en repli pour une éventuelle version installée sur le
+     système, puis la sans-serif par défaut. */
+  font-family: "Inter Variable", "Inter", sans-serif;
 }
 
 .font-display {
@@ -68,6 +96,134 @@ input[type="checkbox"] {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ═══════════════════ RETOUR AU CLIC ═══════════════════════════════════════
+ * `btn-flash` était posée sur quatre boutons et n'a jamais existé dans cette
+ * feuille : l'effet de clic prévu ne faisait rien. Plus largement, toute
+ * l'application ne réagissait qu'en changeant de couleur — 102 occurrences de
+ * `transition-colors` contre deux de `transition-transform`, aucune mise à
+ * l'échelle. Rien ne bougeait jamais sous le doigt.
+ *
+ * L'enfoncement est volontairement discret (2 %) et surtout TRÈS court : au
+ * delà d'une centaine de millisecondes, un bouton qui s'anime donne
+ * l'impression de répondre lentement, ce qui est l'inverse du but recherché.
+ */
+.btn-flash {
+  transition:
+    transform 100ms cubic-bezier(0.4, 0, 0.2, 1),
+    filter 100ms ease-out,
+    color 150ms ease-out,
+    background-color 150ms ease-out,
+    border-color 150ms ease-out;
+}
+.btn-flash:active:not(:disabled) {
+  transform: scale(0.97);
+  filter: brightness(1.15);
+}
+
+/* Boutons pleins : l'ombre portée accompagne l'enfoncement. */
+.btn-solid {
+  transition:
+    transform 100ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 150ms ease-out,
+    background-color 150ms ease-out;
+}
+.btn-solid:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: none;
+}
+
+/* Cartes cliquables : léger soulèvement au survol, retour à plat au clic. */
+.card-interactive {
+  transition:
+    transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.6);
+}
+.card-interactive:active {
+  transform: translateY(0) scale(0.995);
+}
+
+/* ═══════════════════ OUVERTURE / FERMETURE ════════════════════════════════ */
+
+/* Sections repliables : déroulé à l'ouverture.
+ *
+ * La hauteur est animée par une grille 0fr→1fr, seule technique qui interpole
+ * vers une hauteur AUTO sans mesurer le contenu en JavaScript.
+ *
+ * C'est une animation d'ENTRÉE (keyframes) et non une transition sur un état,
+ * parce que le contenu reste démonté tant que la section est repliée. Le
+ * garder monté permettrait d'animer aussi la fermeture, mais ferait rendre en
+ * permanence les graphiques de toutes les sections fermées — ce qui va
+ * exactement à l'encontre de la raison d'être de ce composant. La fermeture
+ * est donc instantanée : c'est le déroulé qu'on a besoin de suivre des yeux,
+ * pas l'escamotage. */
+@keyframes collapseIn {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+.collapse-in {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: collapseIn 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.collapse-in > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+@keyframes modalOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-overlay {
+  animation: modalOverlayIn 150ms ease-out;
+}
+.modal-panel {
+  animation: modalPanelIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Liste déroulante de la recherche globale et menus similaires. */
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.pop-in {
+  animation: popIn 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
 }
 
 .skeleton {
@@ -224,4 +380,53 @@ input[type="checkbox"] {
 .tap-target {
   min-height: 48px;
   min-width: 48px;
+}
+
+/* ═══════════════════ MOUVEMENT RÉDUIT ═════════════════════════════════════
+ * Le système d'exploitation permet de demander la suppression des animations —
+ * un réglage utilisé notamment en cas de troubles vestibulaires, où une
+ * interface qui glisse et se met à l'échelle peut réellement donner la nausée.
+ * L'application ne le respectait nulle part.
+ *
+ * On neutralise le MOUVEMENT, pas le retour d'information : les changements de
+ * couleur et d'opacité sont conservés, car ce sont eux qui signalent qu'un
+ * bouton a été pressé ou qu'un panneau s'est ouvert. Supprimer tout
+ * indistinctement rendrait l'interface muette plutôt que calme.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Les transformations sont annulées : c'est le déplacement lui-même qui
+     pose problème, pas seulement sa durée. */
+  .btn-flash:active:not(:disabled),
+  .btn-solid:active:not(:disabled),
+  .card-interactive:hover,
+  .card-interactive:active {
+    transform: none;
+  }
+
+  /* Le déroulé reste instantané mais fonctionnel. */
+  .collapse-in {
+    animation: none;
+  }
+
+  /* Le miroitement des squelettes de chargement est une boucle infinie :
+     on le remplace par un aplat fixe. */
+  .skeleton {
+    animation: none;
+    background: #1e293b;
+  }
+
+  /* L'entrée décalée des cartes ne doit pas les laisser invisibles. */
+  .stagger-children > * {
+    opacity: 1;
+    animation: none;
+  }
 }

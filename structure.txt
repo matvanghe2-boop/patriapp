@@ -1,4 +1,4 @@
-Arborescence du projet Patrium — généré le 2026-08-11.
+Arborescence du projet Patrium.
 Ce fichier est un instantané : le regénérer après tout ajout de fichier avec
   npm run structure
 La description commentée de l'arborescence se trouve dans README.md.
@@ -37,7 +37,6 @@ api/calendar.test.js
 api/market.js
 api/parse-pdf.js
 api/rates.test.js
-env.example
 index.html
 package-lock.json
 package.json
@@ -48,6 +47,7 @@ public/icon-192.png
 public/icon-512.png
 public/icon-maskable.png
 public/manifest.json
+public/orbit-header.js
 public/sw.js
 scripts/generate-structure.mjs
 shared/adaptateursLLM.js
@@ -56,6 +56,8 @@ shared/anonymiser.js
 shared/anonymiser.test.js
 shared/dividendes.js
 shared/dividendes.test.js
+shared/eligibilitePea.js
+shared/eligibilitePea.test.js
 shared/horizon.js
 shared/horizon.test.js
 shared/horizonOutils.js
@@ -96,6 +98,7 @@ src/components/IndicesWidget.jsx
 src/components/Livrets.jsx
 src/components/Login.jsx
 src/components/Marche.jsx
+src/components/Modal.jsx
 src/components/Notifications.jsx
 src/components/Objectifs.jsx
 src/components/OperationForm.jsx
@@ -117,6 +120,7 @@ src/components/ScenariosProjet.jsx
 src/components/ScenariosProjet.test.jsx
 src/components/Screener.jsx
 src/components/SectorHeatmap.jsx
+src/components/SeuilOrdre.jsx
 src/components/Simulation.jsx
 src/components/StickySummaryHeader.jsx
 src/components/StrategieLogs.jsx
@@ -143,6 +147,8 @@ src/lib/exportOperations.test.js
 src/lib/exportReport.js
 src/lib/finance.js
 src/lib/finance.test.js
+src/lib/fraisOrdre.js
+src/lib/fraisOrdre.test.js
 src/lib/horizonClient.js
 src/lib/indexConstituents.js
 src/lib/ledger.test.js
@@ -150,9 +156,12 @@ src/lib/netWorth.test.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
 src/lib/sectors.js
+src/lib/splits.test.js
 src/lib/storage.js
+src/lib/storage.test.jsx
 src/lib/supabaseClient.js
 src/lib/syncStatus.js
+src/lib/themes.js
 src/lib/tri.test.js
 src/lib/useAlertesWatchlist.js
 src/lib/useBilanRappel.js

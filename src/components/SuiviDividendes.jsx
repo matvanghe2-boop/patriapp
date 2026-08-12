@@ -7,7 +7,7 @@ import { Card, CardLabel, EmptyState, CARD_THEMES } from "./ui";
 import { eur, pctPlain, compact, triPosition } from "../lib/finance";
 import {
   totalAttendu, comparerAttenduPercu, rendementSurPrixDeRevient,
-  percusParActif, serieAvecProjection,
+  percusParActif, serieAvecProjection, totalRetenueSource,
 } from "../../shared/dividendes";
 
 /**
@@ -44,6 +44,14 @@ export default function SuiviDividendes({ bourse }) {
   const serie = projection.serie;
   const bilan = useMemo(() => comparerAttenduPercu(operations, positions), [operations, positions]);
   const yoc = useMemo(() => rendementSurPrixDeRevient(positions), [positions]);
+
+  // Retenue à la source étrangère, définitivement perdue dans un PEA. Elle est
+  // invisible sur les rendements affichés — un titre allemand à 4 % n'en
+  // rapporte que 3,4 % — et elle change donc le classement des lignes.
+  const retenue = useMemo(
+    () => totalRetenueSource(positions, bourse?.envelope),
+    [positions, bourse?.envelope]
+  );
   const parActif = useMemo(() => percusParActif(operations), [operations]);
 
   const tris = useMemo(
@@ -103,6 +111,19 @@ export default function SuiviDividendes({ bourse }) {
                 <div className="text-[10px] text-slate-600">ne bouge pas avec le cours</div>
               </div>
             </div>
+
+            {retenue > 0 && (
+              <p className="flex items-start gap-1.5 text-[11px] text-amber-300/90 mt-2">
+                <Info size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  <span className="ghost-blur font-data">{eur(retenue, 2)}</span> par an partent en
+                  retenue à la source étrangère, et ne reviendront pas : dans un {bourse?.envelope},
+                  l&apos;absence d&apos;imposition française prive du crédit d&apos;impôt qui
+                  l&apos;annulerait ailleurs. À rendement annoncé égal, une société française
+                  rapporte donc davantage qu&apos;une société étrangère.
+                </span>
+              </p>
+            )}
 
             {bilan.realisationPct != null && bilan.realisationPct + 15 < bilan.avancementAnneePct && (
               <p className="flex items-start gap-1.5 text-[11px] text-amber-300/90 mt-2">

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
+import Modal from "../components/Modal";
 
 // Remplace `window.confirm()`. Au-delà du look — une boîte système grise au
 // milieu d'une interface sombre —, `confirm()` bloque le thread principal,
@@ -45,62 +46,31 @@ function ConfirmDialog({ request, onClose }) {
     cancelLabel = "Annuler",
     danger = false,
   } = request;
-  const panelRef = useRef(null);
   const confirmRef = useRef(null);
 
-  // Le focus part sur le bouton de confirmation, Échap annule, et Tab reste
-  // enfermé dans la boîte : sans ça, un lecteur d'écran continue de lire la
-  // page en arrière-plan comme si de rien n'était.
+  // <Modal> place le focus sur le premier élément focalisable — ici « Annuler ».
+  // Sur une confirmation, c'est le bouton d'ACTION qu'on veut sous la main, et
+  // d'autant plus quand elle est destructrice : l'utilisateur a déjà décidé en
+  // arrivant ici.
   useEffect(() => {
-    const previouslyFocused = document.activeElement;
-    confirmRef.current?.focus();
-
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose(false);
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const focusables = panelRef.current?.querySelectorAll("button, [href], input, select, textarea");
-      if (!focusables?.length) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus?.();
-    };
-  }, [onClose]);
+    const t = setTimeout(() => confirmRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, []);
 
   const tone = danger
     ? "bg-rose-400 hover:bg-rose-300 text-slate-950"
     : "bg-amber-400 hover:bg-amber-300 text-slate-950";
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 animate-[fadeIn_0.15s_ease-out]"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose(false);
-      }}
+    <Modal
+      open
+      onClose={() => onClose(false)}
+      role="alertdialog"
+      labelledBy="confirm-title"
+      overlayClassName="bg-slate-950/80 backdrop-blur-sm"
+      panelClassName="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
     >
-      <div
-        ref={panelRef}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-title"
-        aria-describedby="confirm-message"
-        className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-5"
-      >
+      <div className="p-5">
         <div className="flex items-start gap-3">
           <div className={`shrink-0 rounded-lg p-2 ${danger ? "bg-rose-500/15 text-rose-300" : "bg-amber-500/15 text-amber-300"}`}>
             <AlertTriangle size={18} aria-hidden="true" />
@@ -117,20 +87,20 @@ function ConfirmDialog({ request, onClose }) {
         <div className="flex justify-end gap-2 mt-5">
           <button
             onClick={() => onClose(false)}
-            className="text-sm text-slate-400 hover:text-slate-100 rounded-lg px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+            className="btn-flash text-sm text-slate-400 hover:text-slate-100 rounded-lg px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
           >
             {cancelLabel}
           </button>
           <button
             ref={confirmRef}
             onClick={() => onClose(true)}
-            className={`text-sm font-semibold rounded-lg px-4 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-400 ${tone}`}
+            className={`btn-solid text-sm font-semibold rounded-lg px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-amber-400 ${tone}`}
           >
             {confirmLabel}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

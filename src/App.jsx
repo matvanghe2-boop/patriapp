@@ -15,6 +15,7 @@ import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
 import { useConfirm } from "./lib/ConfirmContext";
 import { NavButton, SkeletonCard } from "./components/ui";
+import { theme } from "./lib/themes";
 import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
 import SyncIndicator from "./components/SyncIndicator";
@@ -71,14 +72,10 @@ const TAB_ALIASES = { immobilier: "simulation" };
 
 // Fond de page teinté par domaine — même esprit que le bouton de nav actif :
 // un fond dégradé bien visible derrière les cartes, pas juste un glow discret.
-const TAB_BG = {
-  dashboard: "bg-gradient-to-br from-emerald-950/70 via-slate-950 to-slate-950",
-  livrets: "bg-gradient-to-br from-indigo-950/70 via-slate-950 to-slate-950",
-  bourse: "bg-gradient-to-br from-violet-950/70 via-slate-950 to-slate-950",
-  simulation: "bg-gradient-to-br from-amber-950/70 via-slate-950 to-slate-950",
-  strategie: "bg-gradient-to-br from-rose-950/70 via-slate-950 to-slate-950",
-  abonnements: "bg-gradient-to-br from-cyan-950/70 via-slate-950 to-slate-950",
-};
+// La teinte se déduit du thème déclaré dans TABS : une septième table à tenir
+// synchrone à la main était exactement ce qui avait laissé Stratégie et
+// Abonnements partager la même couleur.
+const TAB_BG = Object.fromEntries(TABS.map((t) => [t.id, theme(t.theme).pageBg]));
 
 export default function App() {
   const [tab, setTab] = useHashRoute(TAB_IDS, "dashboard", TAB_ALIASES);

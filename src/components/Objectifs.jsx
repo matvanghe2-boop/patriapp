@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Target, TrendingUp, TrendingDown, CheckCircle2, CalendarClock } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, AddPanel, ProgressBar, CARD_THEMES } from "./ui";
 import { eur, uid, todayIso } from "../lib/finance";
-import { creerObjectif, evaluerObjectif, formaterDuree } from "../lib/objectifs";
+import {
+  creerObjectif, evaluerObjectif, formaterDuree, MODELES_OBJECTIFS, echeanceDansMois,
+} from "../lib/objectifs";
 import { useToast } from "../lib/ToastContext";
 
 function formatEcheance(iso) {
@@ -110,6 +112,21 @@ export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet,
     ]);
   };
 
+  /** Crée directement l'objectif à partir d'un modèle, sans passer par le formulaire. */
+  const appliquerModele = (modele) => {
+    setObjectifs((liste) => [
+      ...liste,
+      creerObjectif({
+        id: uid(),
+        libelle: modele.libelle,
+        cible: modele.montant,
+        echeance: echeanceDansMois(modele.moisParDefaut),
+        patrimoineActuel: patrimoineNet,
+      }),
+    ]);
+    showToast({ message: `Objectif « ${modele.libelle} » ajouté — montant et échéance ajustables.` });
+  };
+
   const supprimer = (id) => {
     const precedent = objectifs;
     const cible = objectifs.find((o) => o.id === id);
@@ -130,6 +147,33 @@ export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet,
           Ajouter un objectif
         </GhostButton>
       </div>
+
+      {/* Modèles : la page blanche est le vrai obstacle. Fixer une cible
+          suppose de connaître le prix de ce qu'on vise, et c'est justement ce
+          qu'on ignore la première fois. Un clic remplit les trois champs, tous
+          restent modifiables ensuite. */}
+      {objectifs.length === 0 && !ouvert && (
+        <div className="mt-1 mb-3">
+          <p className="text-[11px] text-slate-500 mb-2">
+            Partir d&apos;un modèle — montants indicatifs, à ajuster ensuite :
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {MODELES_OBJECTIFS.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => appliquerModele(m)}
+                title={`${m.detail} — environ ${eur(m.montant)}`}
+                className="btn-flash text-[11px] rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-400/60 px-2.5 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
+              >
+                {m.libelle}
+                <span className="text-emerald-500/70 ml-1.5 font-data tabular-nums">
+                  ~{eur(m.montant)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <AddPanel
         open={ouvert}

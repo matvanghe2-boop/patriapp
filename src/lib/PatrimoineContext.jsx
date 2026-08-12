@@ -232,24 +232,56 @@ export function PatrimoineProvider({ children }) {
     setEnveloppes(DEMO_DATASET.enveloppes);
   }, [setProfile, setLivrets, setBourse, setEnveloppes]);
 
-  const value = {
-    isEmpty, loadDemoData, profileHistory,
-    profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
-    historyPast, setHistoryPast, sim, setSim, immo, setImmo,
-    bourseHistory, setBourseHistory, watchlist, setWatchlist,
-    cash, setCash, enveloppes, setEnveloppes,
-    strategyNotes, setStrategyNotes,
-    simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
-    reminders, setReminders,
-    contracts, setContracts, subs, setSubs,
-    lastSnapshotDate, setLastSnapshotDate,
-    objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
-    horizonScenarios, setHorizonScenarios,
-    horizonReglages, setHorizonReglages,
-    horizonDernierBilan, setHorizonDernierBilan,
-    livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
-    ...derived,
-  };
+  /**
+   * L'objet de contexte doit garder son identité tant qu'aucune donnée n'a
+   * bougé. Sans cette mémoïsation, il était reconstruit à chaque rendu du
+   * provider : tous les consommateurs de `usePatrimoine()` se re-rendaient donc
+   * systématiquement, et `App` déversant ce même objet dans la page active
+   * (`<activeTab.Page {...patrimoine} />`), c'est l'onglet entier qui était
+   * re-rendu à chaque frappe dans n'importe quel champ.
+   *
+   * Les setters issus de `useState` ont une identité stable ; ils figurent
+   * quand même dans les dépendances, parce qu'une liste exhaustive est
+   * vérifiable par l'outillage là où une liste choisie à la main ne l'est pas.
+   */
+  const value = useMemo(
+    () => ({
+      isEmpty, loadDemoData, profileHistory,
+      profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
+      historyPast, setHistoryPast, sim, setSim, immo, setImmo,
+      bourseHistory, setBourseHistory, watchlist, setWatchlist,
+      cash, setCash, enveloppes, setEnveloppes,
+      strategyNotes, setStrategyNotes,
+      simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
+      reminders, setReminders,
+      contracts, setContracts, subs, setSubs,
+      lastSnapshotDate, setLastSnapshotDate,
+      objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
+      horizonScenarios, setHorizonScenarios,
+      horizonReglages, setHorizonReglages,
+      horizonDernierBilan, setHorizonDernierBilan,
+      livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
+      ...derived,
+    }),
+    [
+      isEmpty, loadDemoData, profileHistory,
+      profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
+      historyPast, setHistoryPast, sim, setSim, immo, setImmo,
+      bourseHistory, setBourseHistory, watchlist, setWatchlist,
+      cash, setCash, enveloppes, setEnveloppes,
+      strategyNotes, setStrategyNotes,
+      simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
+      reminders, setReminders,
+      contracts, setContracts, subs, setSubs,
+      lastSnapshotDate, setLastSnapshotDate,
+      objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
+      horizonScenarios, setHorizonScenarios,
+      horizonReglages, setHorizonReglages,
+      horizonDernierBilan, setHorizonDernierBilan,
+      livretsTotal, livretsAvgRate, dettesTotal, bourseInvested, bourseValuePositions,
+      derived,
+    ]
+  );
 
   return <PatrimoineContext.Provider value={value}>{children}</PatrimoineContext.Provider>;
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Shield, ShieldOff, X, AlertTriangle } from "lucide-react";
+import Modal from "./Modal";
 
 /**
  * Réglages de confidentialité de l'assistant (§5, jalon 7 de HORIZON_SPEC.md).
@@ -36,21 +37,18 @@ export default function ReglagesHorizon({ reglages, onChange, onClose }) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Réglages de confidentialité de l'assistant"
-      onClick={onClose}
+    <Modal
+      open
+      onClose={onClose}
+      label="Réglages de confidentialité de l'assistant"
+      overlayClassName="bg-slate-950/80"
+      panelClassName="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900"
     >
-      <div
-        className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <h2 className="font-display text-xl text-slate-50">Confidentialité de l&apos;assistant</h2>
-          <button onClick={onClose} aria-label="Fermer" className="text-slate-500 hover:text-slate-200">
-            <X size={20} />
+          <button onClick={onClose} aria-label="Fermer" className="btn-flash text-slate-500 hover:text-slate-200">
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -134,7 +132,7 @@ export default function ReglagesHorizon({ reglages, onChange, onClose }) {
           </>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
 

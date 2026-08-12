@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { NotebookPen, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal, Layers, Clock } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, pct } from "../lib/finance";
+import { eur, pct, uid } from "../lib/finance";
 import { useToast } from "../lib/ToastContext";
 import Operations from "./Operations";
 import AssetStats from "./AssetStats";
@@ -27,9 +27,6 @@ function formatDateShortFr(iso) {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
 
 const BLANK_NOTE = {
   ticker: "",

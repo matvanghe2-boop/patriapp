@@ -14,21 +14,42 @@
  * Module pur : aucune requête, aucune dépendance React.
  */
 
+import { dividendeNet } from "./eligibilitePea.js";
+
 /** Taux de conversion d'une position vers l'euro. */
 function taux(position) {
   return position?.currency && position.currency !== "EUR" && position?.fxRate > 0 ? position.fxRate : 1;
 }
 
-/** Dividende annuel attendu d'une position, en euros. */
-export function dividendeAttendu(position) {
+/**
+ * Dividende annuel attendu d'une position, en euros.
+ *
+ * `enveloppe` déduit la retenue à la source étrangère quand elle est
+ * définitivement perdue, c'est-à-dire dans un PEA. Sans ce paramètre, cet
+ * onglet affichait un brut et la carte « Revenus de dividendes estimés » de
+ * l'onglet Portefeuille un net : deux chiffres différents pour la même chose,
+ * à deux clics l'un de l'autre.
+ */
+export function dividendeAttendu(position, enveloppe = null) {
   const parAction = position?.annual_dividend || 0;
   if (parAction <= 0) return 0;
-  return parAction * (position?.quantity || 0) * taux(position);
+  const brut = parAction * (position?.quantity || 0) * taux(position);
+  return enveloppe ? dividendeNet(brut, position?.ticker, enveloppe).net : brut;
 }
 
 /** Somme des dividendes attendus sur l'ensemble du portefeuille. */
-export function totalAttendu(positions = []) {
-  return positions.reduce((s, p) => s + dividendeAttendu(p), 0);
+export function totalAttendu(positions = [], enveloppe = null) {
+  return positions.reduce((s, p) => s + dividendeAttendu(p, enveloppe), 0);
+}
+
+/** Retenue à la source annuelle perdue sur l'ensemble du portefeuille. */
+export function totalRetenueSource(positions = [], enveloppe = "PEA") {
+  return positions.reduce((s, p) => {
+    const parAction = p?.annual_dividend || 0;
+    if (parAction <= 0) return s;
+    const brut = parAction * (p?.quantity || 0) * taux(p);
+    return s + dividendeNet(brut, p?.ticker, enveloppe).perdue;
+  }, 0);
 }
 
 /**

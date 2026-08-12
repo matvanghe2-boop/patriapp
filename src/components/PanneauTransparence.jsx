@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Shield, ShieldAlert, X, Copy, Check } from "lucide-react";
 import { auditerContexte, REGLES_ANONYMISATION } from "../../shared/anonymiser";
+import Modal from "./Modal";
 
 /**
  * Panneau « Voir ce qui est envoyé » (§5 de HORIZON_SPEC.md).
@@ -41,17 +42,14 @@ export default function PanneauTransparence({ contexte, montantsReels = false, o
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Ce qui est envoyé à l'assistant"
-      onClick={onClose}
+    <Modal
+      open
+      onClose={onClose}
+      label="Ce qui est envoyé à l'assistant"
+      overlayClassName="bg-slate-950/80"
+      panelClassName="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900"
     >
-      <div
-        className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h2 className="font-display text-xl text-slate-50">Ce qui est envoyé</h2>
@@ -140,6 +138,6 @@ export default function PanneauTransparence({ contexte, montantsReels = false, o
           maintenant ce qui partira le jour où il le sera.
         </p>
       </div>
-    </div>
+    </Modal>
   );
 }

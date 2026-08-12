@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, TrendingUp, TrendingDown } from "lucide-react";
 import { eur, pct } from "../lib/finance";
+import { useValeurAnimee } from "./ui";
 
 const SCROLL_THRESHOLD = 48; // px de défilement avant de basculer en mode condensé
 
@@ -32,6 +33,7 @@ export default function StickySummaryHeader({ patrimoineNet, deltaPct, ghostMode
   }, []);
 
   const perfPositive = (deltaPct ?? 0) >= 0;
+  const netAnime = useValeurAnimee(patrimoineNet);
 
   return (
     <div
@@ -56,7 +58,7 @@ export default function StickySummaryHeader({ patrimoineNet, deltaPct, ghostMode
             }`}
           >
             <span className="text-slate-500 hidden sm:inline">Total :</span>
-            <span className={`font-semibold text-slate-100 ${ghostMode ? "ghost-blur" : ""}`}>{eur(patrimoineNet)}</span>
+            <span className={`font-semibold text-slate-100 ${ghostMode ? "ghost-blur" : ""}`}>{eur(netAnime)}</span>
 
             {deltaPct != null && (
               <span className={`flex items-center gap-1 ${perfPositive ? "text-emerald-400" : "text-rose-400"}`}>

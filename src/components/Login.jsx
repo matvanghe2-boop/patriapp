@@ -240,7 +240,7 @@ function NotConfigured() {
         <p className="text-sm text-slate-400 leading-relaxed">
           Ajoute <code className="text-amber-300">VITE_SUPABASE_URL</code> et{" "}
           <code className="text-amber-300">VITE_SUPABASE_ANON_KEY</code> dans les variables
-          d'environnement (voir <code className="text-amber-300">env.example</code>) pour activer la
+          d'environnement (voir <code className="text-amber-300">.env.example</code>) pour activer la
           connexion et la synchronisation multi-appareils.
         </p>
         <p className="text-sm text-slate-400">

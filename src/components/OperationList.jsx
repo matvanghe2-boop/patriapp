@@ -72,13 +72,23 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                       ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
                       : op.type === "RETRAIT"
                       ? "bg-slate-500/10 border-slate-500/30 text-slate-300"
+                      : op.type === "SPLIT"
+                      ? "bg-violet-500/10 border-violet-500/30 text-violet-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                   }`}
                 >
                   {op.type}
                 </span>
               </td>
-              <td data-label="Quantité" className="py-2.5 px-1 font-data tabular-nums text-slate-300">{op.quantity ?? <span className="text-slate-600">—</span>}</td>
+              {/* Un split n'a pas de quantité propre : il en a un RATIO, qu'on
+                  affiche à sa place pour que la ligne reste lisible. */}
+              <td data-label="Quantité" className="py-2.5 px-1 font-data tabular-nums text-slate-300">
+                {op.type === "SPLIT" ? (
+                  <span className="text-violet-300">×{op.ratio}</span>
+                ) : (
+                  op.quantity ?? <span className="text-slate-600">—</span>
+                )}
+              </td>
               <td data-label="Cours" className="py-2.5 px-1 font-data tabular-nums text-slate-300 ghost-blur">{op.price != null ? eur(op.price, 2) : <span className="text-slate-600">—</span>}</td>
               <td data-label="Frais" className="py-2.5 px-1 font-data tabular-nums text-slate-500 ghost-blur">{eur(op.fees, 2)}</td>
               <td data-label="Montant net" className="py-2.5 px-1 font-data tabular-nums text-slate-100 ghost-blur">{eur(op.montantNet, 2)}</td>

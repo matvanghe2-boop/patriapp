@@ -22,8 +22,16 @@ function walk(dir, out = []) {
   return out;
 }
 
+// Surtout PAS de date de génération dans ce fichier.
+//
+// L'en-tête portait « généré le <date du jour> ». La CI régénère structure.txt
+// puis échoue si `git diff` n'est pas vide : le fichier différait donc de sa
+// version commitée dès le LENDEMAIN, sur ce seul horodatage, et le contrôle
+// échouait sur toutes les branches sans qu'aucun fichier n'ait bougé.
+//
+// Un instantané d'arborescence ne doit dépendre que de l'arborescence.
 const header = [
-  "Arborescence du projet Patrium — généré le " + new Date().toISOString().slice(0, 10) + ".",
+  "Arborescence du projet Patrium.",
   "Ce fichier est un instantané : le regénérer après tout ajout de fichier avec",
   "  npm run structure",
   "La description commentée de l'arborescence se trouve dans README.md.",

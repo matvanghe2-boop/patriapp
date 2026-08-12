@@ -25,6 +25,17 @@ import { parseStatementText } from "./_lib/pdfParsing.js";
 const MAX_PDF_BYTES = 8 * 1024 * 1024; // 8 Mo de PDF décodé
 const MAX_BODY_BYTES = 12 * 1024 * 1024; // le base64 pèse ~33 % de plus
 
+/**
+ * ATTENTION : `api.bodyParser` est la convention de **Next.js**. Sur une
+ * fonction serverless Vercel classique — ce qu'est ce fichier — elle n'est pas
+ * lue, et la taille de corps réellement acceptée est celle de la plateforme
+ * (de l'ordre de 4,5 Mo sur le plan Hobby). Les bornes ci-dessous restent donc
+ * utiles en défense, mais un PDF de plus de ~4,5 Mo sera rejeté par Vercel
+ * AVANT d'atteindre ce code, avec une erreur générique.
+ *
+ * Conservé tel quel pour rester valable si le projet migre un jour vers Next,
+ * mais ce n'est pas ce qui gouverne la limite aujourd'hui.
+ */
 export const config = {
   api: {
     bodyParser: { sizeLimit: "12mb" },
@@ -40,7 +51,9 @@ async function handler(req, res) {
   if (!data || typeof data !== "string") throw httpError(400, "Aucun fichier reçu.");
 
   // Bornage AVANT décodage : décoder d'abord reviendrait à allouer la mémoire
-  // qu'on cherche justement à limiter.
+  // qu'on cherche justement à limiter. Le seuil porte sur le base64 (~33 % plus
+  // lourd), mais le message annonce la limite qui a du sens pour l'utilisateur :
+  // celle du PDF lui-même.
   if (data.length > MAX_BODY_BYTES) {
     throw httpError(413, `Fichier trop volumineux (max ${MAX_PDF_BYTES / 1024 / 1024} Mo).`);
   }

@@ -61,10 +61,31 @@ export function _resetRateLimit() {
   buckets.clear();
 }
 
-function clientKey(req) {
-  const fwd = req.headers?.["x-forwarded-for"];
-  const ip = (Array.isArray(fwd) ? fwd[0] : fwd || "").split(",")[0].trim();
-  return ip || req.headers?.["x-real-ip"] || req.socket?.remoteAddress || "unknown";
+/**
+ * Identifie l'appelant pour la limitation de débit.
+ *
+ * `x-forwarded-for` est une liste que CHAQUE intermédiaire complète, et dont
+ * le client contrôle entièrement le début : la version précédente prenait le
+ * premier élément, si bien qu'un `curl -H "X-Forwarded-For: 1.2.3.4"` changeait
+ * de compartiment à chaque requête et annulait purement et simplement le quota.
+ *
+ * On préfère donc `x-vercel-forwarded-for`, que la plateforme réécrit elle-même,
+ * puis — à défaut — le DERNIER élément de la chaîne, seul segment ajouté par un
+ * intermédiaire de confiance et non par l'appelant.
+ */
+export function clientKey(req) {
+  const premier = (v) => (Array.isArray(v) ? v[0] : v || "");
+
+  const vercel = premier(req.headers?.["x-vercel-forwarded-for"]).trim();
+  if (vercel) return vercel;
+
+  const chaine = premier(req.headers?.["x-forwarded-for"])
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (chaine.length > 0) return chaine[chaine.length - 1];
+
+  return premier(req.headers?.["x-real-ip"]).trim() || req.socket?.remoteAddress || "unknown";
 }
 
 // ─── Cache mémoire ───────────────────────────────────────────────────────────
@@ -122,7 +143,11 @@ export function withApi(handler, options = {}) {
       res.setHeader("Vary", "Origin");
     }
     res.setHeader("Access-Control-Allow-Methods", [...methods, "OPTIONS"].join(", "));
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    // `Authorization` est indispensable : /api/advisor exige un jeton de
+    // session. Sans lui ici, le préambule CORS échouait pour tout appel
+    // cross-origin — y compris depuis une origine pourtant listée dans
+    // ALLOWED_ORIGINS — alors que rien dans la réponse ne l'expliquait.
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
     // L'API n'expose que des données de marché publiques : rien à indexer,
     // rien à embarquer dans une autre page.
     res.setHeader("X-Content-Type-Options", "nosniff");

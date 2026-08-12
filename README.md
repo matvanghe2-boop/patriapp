@@ -211,8 +211,8 @@ Barème centralisé des taux réglementés, de crédit, de banques centrales, d'
 
 En conséquence, l'onglet fonctionne en **deux couches**, comme le reste de l'app avec Yahoo/Supabase :
 
-1. **Catalogue de référence** (`src/lib/ratesCatalog.js`) — la source de vérité par défaut : taux officiels maintenus à la main, chacun avec sa date d'entrée en vigueur, sa date de révision connue et sa source citée. Valeurs vérifiées le 26/07/2026 (Livret A 1,70 %, LDDS 1,70 %, LEP 2,50 %, CEL 1,25 % brut, PEL 1,75 % brut, taux d'usure crédit ≥20 ans 5,19 %, BCE dépôt/refi/prêt marginal 2,25/2,40/2,65 %, inflation INSEE +1,8 % sur un an).
-2. **Rafraîchissement live optionnel** (`api/rates.js` + `api/_lib/webstat.js`) — si `WEBSTAT_CLIENT_ID` est configuré, l'endpoint tente de récupérer la dernière observation des quelques séries dont la clé Webstat est confirmée (Livret A, LEP, CEL) et remplace la valeur de référence en cas de succès ; sinon la référence reste affichée, avec un badge « Référence » plutôt que « Live ».
+1. **Catalogue de référence** (`shared/ratesCatalog.js`) — la source de vérité par défaut : taux officiels maintenus à la main, chacun avec sa date d'entrée en vigueur, sa date de révision connue et sa source citée. Valeurs vérifiées le 26/07/2026 (Livret A 1,70 %, LDDS 1,70 %, LEP 2,50 %, CEL 1,25 % brut, PEL 1,75 % brut, taux d'usure crédit ≥20 ans 5,19 %, BCE dépôt/refi/prêt marginal 2,25/2,40/2,65 %, inflation INSEE +1,8 % sur un an).
+2. **Rafraîchissement live optionnel** (`api/_lib/routes/rates.js` + `api/_lib/webstat.js`, servis par `/api/market?action=rates`) — si `WEBSTAT_CLIENT_ID` est configuré, l'endpoint tente de récupérer la dernière observation des quelques séries dont la clé Webstat est confirmée (Livret A, LEP, CEL) et remplace la valeur de référence en cas de succès ; sinon la référence reste affichée, avec un badge « Référence » plutôt que « Live ».
 
 Sans clé configurée ni connexion à `/api/rates` (ex : `npm run dev` sans `vercel dev`), l'onglet retombe sur le catalogue de référence importé directement côté client — jamais d'onglet vide ni d'erreur bloquante.
 
@@ -220,28 +220,36 @@ Sans clé configurée ni connexion à `/api/rates` (ex : `npm run dev` sans `ver
 
 ## 🗂️ Structure du projet
 
+L'arborescence complète et à jour est dans `structure.txt`, régénéré par
+`npm run structure` et vérifié par la CI. Les grandes lignes :
+
 ```
 patrium/
-├── api/                        # fonctions serverless Vercel
+├── api/                        # 3 fonctions serverless Vercel (quota Hobby : 12)
 │   ├── _lib/
 │   │   ├── http.js             # CORS, limitation de débit, cache, erreurs
+│   │   ├── auth.js             # vérification du jeton Supabase (advisor)
 │   │   ├── yahoo.js            # accès Yahoo mutualisé, session, validation
+│   │   ├── yahooFondamentaux.js
 │   │   ├── pdfParsing.js       # extraction des relevés (fonctions pures, testées)
-│   │   ├── http.test.js
-│   │   └── pdfParsing.test.js
-│   ├── calendar.js             # événements (dividendes, résultats)
-│   ├── history.js              # historique de cours
-│   ├── parse-pdf.js            # import de relevés de courtage
-│   ├── profile.js              # fiche entreprise / ETF
-│   ├── quote.js                # cours actuels
-│   └── search.js               # recherche ticker/ISIN/nom
-├── public/                     # manifest PWA, service worker, icônes
+│   │   ├── webstat.js          # taux Banque de France (optionnel)
+│   │   └── routes/             # une route = un fichier, monté par market.js
+│   │       ├── quote.js  search.js  history.js  calendar.js  profile.js
+│   │       └── fx.js  screen.js  fundamentals.js  rates.js
+│   ├── market.js               # routeur unique : ?action=quote|search|…
+│   ├── advisor.js              # assistant Horizon (maxDuration 60, auth requise)
+│   └── parse-pdf.js            # import de relevés de courtage
+├── shared/                     # modules chargés par le navigateur ET par api/
+│   ├── horizon.js  horizonOutils.js  orchestrateur.js  adaptateursLLM.js
+│   ├── anonymiser.js           # base 100 + audit de fuite
+│   └── ratesCatalog.js  screener.js  dividendes.js  reequilibrage.js  …
+├── public/                     # manifest PWA, service worker, icônes, orbit-header.js
 ├── sql/
 │   └── schema.sql              # table kv_store + RLS
 ├── src/
-│   ├── components/             # 24 composants d'interface
+│   ├── components/             # composants d'interface
 │   │   ├── Dashboard.jsx  Livrets.jsx  Bourse.jsx  Simulation.jsx
-│   │   ├── Immobilier.jsx  StrategieLogs.jsx  Abonnements.jsx
+│   │   ├── Immobilier.jsx  StrategieLogs.jsx  Abonnements.jsx  Screener.jsx
 │   │   ├── Login.jsx  ErrorBoundary.jsx  SyncIndicator.jsx  BackupReminder.jsx
 │   │   ├── Marche.jsx  Watchlist.jsx  Timeline.jsx  Operations.jsx  …
 │   │   └── ui.jsx              # briques partagées (Card, AddPanel, Skeleton…)
@@ -253,7 +261,6 @@ patrium/
 │   │   ├── storage.js             # persistance locale + synchro cloud
 │   │   ├── syncStatus.js          # état de synchronisation
 │   │   ├── finance.js             # formules financières
-│   │   ├── finance.test.js
 │   │   ├── authErrors.js          # messages d'auth en français, robustesse mdp
 │   │   ├── useHashRoute.js        # onglet ↔ URL
 │   │   ├── useDailySnapshot.js    # relevé quotidien du patrimoine
@@ -281,7 +288,7 @@ Passer à un schéma relationnel (tables `positions`, `operations`, `livrets`…
 
 ## 🛠️ Pour aller plus loin
 
-- Découper `Bourse.jsx` (~1 500 lignes) et `Marche.jsx` / `StrategieLogs.jsx` en sous-composants, et les faire lire `usePatrimoine()` au lieu de recevoir l'état complet en props
+- Découper `Bourse.jsx` (~1 100 lignes), `Dashboard.jsx` (~970) et `ProChart.jsx` (~820) en sous-composants, et les faire lire `usePatrimoine()` au lieu de recevoir l'état complet en props
 - Passer à un schéma Supabase relationnel (voir ci-dessus)
 - Support multi-devises (l'euro est aujourd'hui codé en dur dans le formatage et le parsing PDF)
 - Virtualisation des longues listes d'opérations

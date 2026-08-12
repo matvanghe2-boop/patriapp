@@ -1,4 +1,18 @@
-export const uid = () => Math.random().toString(36).slice(2, 9);
+import { dividendeNet } from "../../shared/eligibilitePea";
+
+/**
+ * Identifiant local d'une entité saisie (position, opération, note, jalon…).
+ *
+ * `crypto.randomUUID` quand il est disponible — c'est-à-dire partout en
+ * contexte sécurisé, ce qui est le cas de l'application. L'ancienne version
+ * ne tirait que sept caractères de `Math.random()`, et trois copies
+ * divergentes de cette même fonction traînaient dans les composants (deux sur
+ * huit caractères, une sur sept). Ces identifiants servent notamment à
+ * reconnaître une opération déjà comptabilisée dans la ligne de base du grand
+ * livre : une collision y ferait disparaître un ordre du rejeu.
+ */
+export const uid = () =>
+  globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2, 11);
 
 export const eur = (n, digits = 0) =>
   (n ?? 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: digits });
@@ -381,23 +395,32 @@ export function solveMonthlyForTarget({
 }
 
 /**
- * Génère une séquence de rendements annuels basée sur des années historiques réelles.
- * Cycle de 8 ans incluant krachs et reprises (CAC 40 / MSCI World approximatif).
+ * Génère une séquence de rendements annuels volatils, pour montrer qu'une
+ * projection lisse à 6 %/an ne ressemble pas au chemin réellement parcouru.
+ *
+ * Il s'agit d'un PROFIL DE VOLATILITÉ, pas d'un historique daté. La version
+ * précédente annonçait des « rendements annuels réels 2018-2025 » et associait
+ * une année civile à chaque valeur — dont une pour 2025 qui n'était encore
+ * qu'une hypothèse au moment où elle a été écrite, et qui continuait d'être
+ * présentée comme constatée. Rattacher ces chiffres à des millésimes précis
+ * obligerait à les corriger tous les ans, sans rien apporter : ce qui compte
+ * ici est l'alternance d'années fortes, plates et négatives.
+ *
+ * L'ordre de grandeur reste celui d'un indice actions large sur un cycle
+ * complet, krachs compris.
  */
 export function generateVolatileReturns(years, seed = 0) {
-  // Séquence de rendements annuels réels approximatifs (2018-2025)
-  // Basé sur les performances du CAC 40 / MSCI World
   const realReturns = [
-    -0.11, // 2018 : correction (-11%)
-    0.26,  // 2019 : forte reprise (+26%)
-    -0.07, // 2020 : krach COVID (-7%)
-    0.29,  // 2021 : rebond post-COVID (+29%)
-    -0.10, // 2022 : krach inflation (-10%)
-    0.16,  // 2023 : reprise (+16%)
-    0.08,  // 2024 : consolidation (+8%)
-    -0.05, // 2025 : correction (-5%)
+    -0.11, // forte correction
+    0.26,  // reprise marquée
+    -0.07, // choc brutal en cours d'année
+    0.29,  // rebond
+    -0.10, // repli lié à l'inflation et aux taux
+    0.16,  // reprise
+    0.08,  // consolidation
+    -0.05, // correction modérée
   ];
-  
+
   const result = [];
   for (let i = 0; i < years; i++) {
     const idx = (i + seed) % realReturns.length;
@@ -456,8 +479,14 @@ export function dividendYieldOnCost(annualDividendPerShare, pru) {
  * indispensable à la logique anti-doublons.
  */
 export function sanitizeOperation(order) {
-  const { transactionId, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee, id } = order;
-  return { id, transactionId: transactionId || null, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee };
+  const { transactionId, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee, id, ratio } = order;
+  return {
+    id, transactionId: transactionId || null, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee,
+    // `ratio` n'a de sens que sur une opération sur titres, mais il DOIT
+    // survivre à la persistance : sans lui, un split relu depuis le stockage
+    // serait rejoué avec un ratio de 1, c'est-à-dire ignoré en silence.
+    ...(type === "SPLIT" ? { ratio } : {}),
+  };
 }
 
 export function generateOperationHash({ date, asset, type, quantity, price }) {
@@ -573,7 +602,29 @@ export function operationCashDelta(op) {
   if (op.type === "RETRAIT") return -Math.abs(amount);
   if (op.type === "ACHAT") return -(q * p + f);
   if (op.type === "VENTE") return q * p - f;
+  // Une opération sur titres ne fait entrer ni sortir d'argent : elle
+  // redistribue la même valeur sur un nombre de titres différent.
+  if (op.type === "SPLIT") return 0;
   return 0;
+}
+
+/**
+ * Ratio d'une opération sur titres.
+ *
+ * Convention : le ratio est le nombre de titres obtenus pour un titre détenu.
+ * Un split 1:10 vaut donc 10, un regroupement 10:1 vaut 0,1. La quantité est
+ * multipliée par ce ratio, le prix de revient unitaire divisé par lui — la
+ * valeur totale de la ligne, elle, ne bouge pas d'un centime.
+ *
+ * Sans ce traitement, un split rendait la position silencieusement fausse :
+ * le journal continuait d'appliquer l'ancienne quantité et l'ancien PRU à un
+ * cours divisé par dix, et la ligne affichait −90 % de performance. Le
+ * scénario n'a rien de théorique pour qui détient des actions en direct
+ * pendant plusieurs années.
+ */
+export function ratioSplit(op) {
+  const r = Number(op?.ratio);
+  return Number.isFinite(r) && r > 0 ? r : 1;
 }
 
 /** Types d'opérations qui font entrer ou sortir de l'argent du compte. */
@@ -680,10 +731,26 @@ export function rebuildPositionsFromOperations(operations, currentPositions = []
   }
 
   for (const op of chronologicalOperations(operations)) {
-    if (op.type !== "ACHAT" && op.type !== "VENTE") continue; // les dividendes ne touchent aucune position
+    // Les dividendes ne touchent aucune position ; les splits, si.
+    if (op.type !== "ACHAT" && op.type !== "VENTE" && op.type !== "SPLIT") continue;
     const ticker = normalizeTicker(op.asset);
     if (!ticker) continue;
     const current = replayed.get(ticker) || null;
+
+    if (op.type === "SPLIT") {
+      // Rien à diviser tant qu'aucun titre n'est détenu : un split appliqué à
+      // une ligne vide n'a pas de sens, et diviser un PRU nul propagerait des
+      // NaN dans tous les calculs aval.
+      if (!current || current.quantity <= QTY_EPSILON) continue;
+      const ratio = ratioSplit(op);
+      replayed.set(ticker, {
+        ...current,
+        quantity: current.quantity * ratio,
+        pru: current.pru / ratio,
+        touched: true,
+      });
+      continue;
+    }
 
     if (op.type === "ACHAT") {
       const { newQuantity, newPru, newTotalBuyFees } = computeBuyOperation(current, op);
@@ -881,32 +948,63 @@ export function buildCashAdjustment(currentCash, targetCash, date = todayIso()) 
   };
 }
 
-export function computeDividendSummary(positions) {
+/**
+ * Les montants agrégés ici sont des EUROS et passent donc par `tauxPosition` :
+ * une ligne cotée en dollars était auparavant comptée à parité 1:1, ce qui
+ * faussait le dividende annuel total, la moyenne mensuelle et les deux
+ * rendements de portefeuille — le reste de l'application ayant déjà été
+ * converti (voir `valeurPosition` / `coutPosition`).
+ *
+ * Les rendements PAR LIGNE, eux, restent calculés en devise de cotation : le
+ * dividende et le prix y sont libellés dans la même unité, et le rapport des
+ * deux est donc insensible au change. Les convertir ne changerait rien, sinon
+ * introduire un arrondi.
+ */
+export function computeDividendSummary(positions, enveloppe = "PEA") {
   let totalAnnualDividend = 0;
+  let totalNet = 0;
+  let totalRetenue = 0;
   let totalValue = 0;
   let totalInvested = 0;
 
   const perPosition = positions.map((p) => {
     const div = p.annual_dividend || 0;
-    const annualAmount = div * p.quantity;
-    const value = p.quantity * p.current_price;
-    const invested = p.quantity * p.pru;
+    const annualAmount = div * (p.quantity || 0) * tauxPosition(p);
+    // Retenue à la source du pays d'origine. Dans un PEA elle est
+    // DÉFINITIVEMENT perdue : l'absence d'imposition française prive le porteur
+    // de tout impôt sur lequel imputer le crédit correspondant. Deux lignes
+    // affichant le même rendement ne rapportent donc pas la même chose.
+    const retenue = dividendeNet(annualAmount, p.ticker, enveloppe);
+    const value = valeurPosition(p);
+    const invested = coutPosition(p);
     totalAnnualDividend += annualAmount;
+    totalNet += retenue.net;
+    totalRetenue += retenue.perdue;
     totalValue += value;
     totalInvested += invested;
     return {
       ...p,
       annualAmount,
+      annualAmountNet: retenue.net,
+      retenueSource: retenue.perdue,
+      tauxRetenuePct: retenue.tauxPct,
+      retenueRecuperable: retenue.recuperable,
       yieldOnPrice: dividendYieldOnPrice(div, p.current_price),
       yieldOnCost: dividendYieldOnCost(div, p.pru),
+      // Rendement réellement encaissé, seul comparable d'une ligne à l'autre.
+      yieldOnPriceNet: value > 0 ? (retenue.net / value) * 100 : 0,
     };
   });
 
   return {
     perPosition,
     totalAnnualDividend,
+    totalAnnualDividendNet: totalNet,
+    totalRetenueSource: totalRetenue,
     monthlyAverage: totalAnnualDividend / 12,
+    monthlyAverageNet: totalNet / 12,
     portfolioYieldOnValue: totalValue > 0 ? (totalAnnualDividend / totalValue) * 100 : 0,
+    portfolioYieldOnValueNet: totalValue > 0 ? (totalNet / totalValue) * 100 : 0,
     portfolioYieldOnCost: totalInvested > 0 ? (totalAnnualDividend / totalInvested) * 100 : 0,
   };
 }
@@ -1101,8 +1199,12 @@ export function triPosition(position, operations = [], options = {}) {
     quantiteJournal += lot.quantity;
   }
 
-  for (const op of operations) {
-    if (!op?.date || String(op.asset || "").toUpperCase() !== ticker) continue;
+  // Ordre chronologique indispensable : un split multiplie la quantité
+  // ACCUMULÉE JUSQUE-LÀ. L'appliquer sur un total incomplet — ce que ferait le
+  // tableau stocké, qui est anti-chronologique — donnerait un compte faux et
+  // ferait échouer la réconciliation d'une ligne pourtant complète.
+  for (const op of chronologicalOperations(operations)) {
+    if (String(op.asset || "").toUpperCase() !== ticker) continue;
     const q = Number(op.quantity) || 0;
     if (op.type === "ACHAT") {
       flux.push({ date: op.date, montant: -Math.abs(q * (op.price || 0) + (op.fees || 0)) });
@@ -1112,6 +1214,10 @@ export function triPosition(position, operations = [], options = {}) {
       quantiteJournal -= q;
     } else if (op.type === "DIVIDENDE") {
       flux.push({ date: op.date, montant: Math.abs(Number(op.amount ?? op.montantNet ?? 0) || 0) });
+    } else if (op.type === "SPLIT") {
+      // Aucun flux de trésorerie : le split ne fait qu'échanger des titres
+      // contre d'autres titres. Seul le compteur de quantité bouge.
+      quantiteJournal *= ratioSplit(op);
     }
   }
 
@@ -1339,8 +1445,12 @@ export function computeAlphaBeta(history, benchmarkKey = "sp500") {
  */
 export function computeContribution(positions) {
   const items = positions.map((p) => {
-    const gainAbs = (p.current_price - p.pru) * p.quantity;
-    return { ticker: p.ticker, name: p.name, gainAbs, invested: p.pru * p.quantity, value: p.current_price * p.quantity };
+    // Comme partout ailleurs, la contribution s'exprime en euros : sans
+    // conversion, une ligne en devise étrangère pesait dans le classement à
+    // hauteur de son montant nominal, pas de sa valeur réelle.
+    const value = valeurPosition(p);
+    const invested = coutPosition(p);
+    return { ticker: p.ticker, name: p.name, gainAbs: value - invested, invested, value };
   });
   const totalAbsGain = items.reduce((s, i) => s + Math.abs(i.gainAbs), 0);
   return items
@@ -1507,7 +1617,42 @@ export function filterHistoryByRange(history, range) {
 }
 
 
-export const PEA_PLAFOND_VERSEMENTS = 150000;
+/**
+ * Plafonds de versements du PEA.
+ *
+ * Le plafond était codé en dur à 150 000 €, ce qui est le cas du PEA
+ * classique — mais pas celui d'un titulaire de 18 à 25 ans encore RATTACHÉ AU
+ * FOYER FISCAL de ses parents. Celui-ci détient un « PEA jeune », plafonné à
+ * 20 000 € tant que dure le rattachement, et qui devient un PEA ordinaire au
+ * moment du détachement.
+ *
+ * L'écart n'est pas cosmétique : afficher 150 000 € à quelqu'un qui en a
+ * 20 000 lui fait croire qu'il a consommé sept fois moins de marge qu'en
+ * réalité, sur la jauge principale de son onglet Portefeuille.
+ *
+ * Le type est stocké dans `bourse.peaType`. En l'absence de choix explicite,
+ * on retient le PEA classique : c'est le cas le plus courant, et surestimer le
+ * plafond ne déclenche aucune alerte trompeuse — l'inverse, si.
+ */
+export const PEA_PLAFONDS = {
+  classique: { plafond: 150000, label: "PEA classique", detail: "Plafond de versements de 150 000 €." },
+  jeune: {
+    plafond: 20000,
+    label: "PEA jeune (18-25 ans rattaché)",
+    detail:
+      "Plafond de 20 000 € tant que tu es rattaché au foyer fiscal de tes parents. Il passe à 150 000 € au détachement, sans rien perdre de l'antériorité fiscale.",
+  },
+};
+
+export const PEA_PLAFOND_VERSEMENTS = PEA_PLAFONDS.classique.plafond;
+
+/** Plafond applicable à un état `bourse` donné. */
+export function plafondPea(bourse) {
+  return (PEA_PLAFONDS[bourse?.peaType] || PEA_PLAFONDS.classique).plafond;
+}
+
+/** Nombre d'années de détention à partir desquelles le PEA est exonéré d'IR. */
+export const PEA_ANNEES_EXONERATION = 5;
 
 /** Âge du PEA en années/mois + statut fiscal (règle des 5 ans). */
 export function computePeaAge(dateOuverture) {

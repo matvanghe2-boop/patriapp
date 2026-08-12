@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Receipt, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Receipt, ChevronDown, ChevronUp, Info, AlertTriangle } from "lucide-react";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
 import { eur, pctPlain, computePeaAge } from "../lib/finance";
 import { fiscaliteEnveloppe, BAREMES_FISCAUX } from "../../shared/horizon";
@@ -53,6 +53,13 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal }) 
 
   const net = bourseGainAbs - fisc.totalPrelevements;
 
+  // Avant cinq ans, l'impôt n'est PAS la principale conséquence d'un retrait :
+  // le plan est clôturé et son antériorité perdue. Cette carte ne montrait que
+  // le chiffre, c'est-à-dire la moitié la moins importante de la décision —
+  // d'autant plus sur un plan ouvert récemment, où les cinq ans sont l'actif
+  // le plus précieux du compte.
+  const peaAvantCinqAns = enveloppe === "PEA" && bourse?.peaOuverture && age && !age.eligible;
+
   return (
     <Card accent={CARD_THEMES.violet}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -90,11 +97,30 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal }) 
         {fisc.regimeApplique} — taux effectif de {pctPlain(fisc.tauxEffectifPct, 1)} sur la plus-value.
       </p>
 
-      {enveloppe === "PEA" && age && !age.eligible && (
-        <p className="text-[11px] text-amber-300/90 mt-1.5">
-          Encore {age.monthsRemaining} mois avant les {BAREMES_FISCAUX.peaDureeExonerationAnnees} ans du
-          PEA : attendre ferait tomber l'impôt à 0 € (les prélèvements sociaux resteraient dus).
-        </p>
+      {peaAvantCinqAns && (
+        <div className="mt-3 rounded-xl border border-rose-500/40 bg-rose-950/20 px-3.5 py-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={15} className="text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="text-xs text-rose-100/90 space-y-1.5 leading-relaxed">
+              <p className="font-medium text-rose-200">
+                Avant 5 ans, un retrait ne fait pas que déclencher l&apos;impôt : il CLÔTURE le plan.
+              </p>
+              <p>
+                Tout retrait avant le{" "}
+                {BAREMES_FISCAUX.peaDureeExonerationAnnees}
+                <sup>e</sup> anniversaire entraîne la fermeture du PEA et la vente de toutes les
+                lignes. L&apos;antériorité fiscale repart de zéro : rouvrir un plan le lendemain
+                signifie attendre cinq ans de plus. Quelques cas y échappent (licenciement,
+                invalidité, création d&apos;entreprise), sur justificatif.
+              </p>
+              <p className="text-rose-200/80">
+                Encore {age.monthsRemaining} mois à tenir. Attendre ferait tomber l&apos;impôt à
+                0 € — les prélèvements sociaux, eux, resteraient dus — et surtout laisserait le
+                plan ouvert.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
       {enveloppe === "PEA" && !bourse?.peaOuverture && (
         <p className="text-[11px] text-slate-600 mt-1.5">

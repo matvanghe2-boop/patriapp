@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { X, Check, TrendingUp, TrendingDown, Coins } from "lucide-react";
+import { X, Check, TrendingUp, TrendingDown, Coins, Split } from "lucide-react";
 import { todayIso } from "../lib/finance";
+import Modal from "./Modal";
 
 /**
  * Fenêtre modale flottante de saisie manuelle d'une opération
@@ -18,6 +19,9 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
     price: "",
     fees: "",
     amount: "",
+    // Nombre de titres obtenus pour un titre détenu : 10 pour un split 1:10,
+    // 0,1 pour un regroupement 10:1.
+    ratio: "",
     date: todayIso(),
   };
   const [values, setValues] = useState(blank);
@@ -32,6 +36,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         price: preset?.price != null ? String(preset.price) : "",
         fees: preset?.fees != null ? String(preset.fees) : "",
         amount: preset?.amount != null ? String(preset.amount) : "",
+        ratio: preset?.ratio != null ? String(preset.ratio) : "",
         date: preset?.date || todayIso(),
       });
     }
@@ -41,10 +46,25 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
   if (!open) return null;
 
   const isDividende = values.type === "DIVIDENDE";
+  const isSplit = values.type === "SPLIT";
 
   const submit = (e) => {
     e.preventDefault();
     if (!values.asset.trim()) return;
+    if (isSplit) {
+      const ratio = parseFloat(values.ratio);
+      if (!Number.isFinite(ratio) || ratio <= 0) return;
+      onSubmit({
+        ...(preset?.id ? { id: preset.id } : {}),
+        type: "SPLIT",
+        asset: values.asset.trim(),
+        ratio,
+        date: values.date,
+        broker: preset?.broker || "Saisie manuelle",
+        transactionId: preset?.transactionId ?? null,
+      });
+      return;
+    }
     if (isDividende) {
       if (!values.amount) return;
       onSubmit({
@@ -73,21 +93,29 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" onClick={onClose}>
-      <form
-        onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-2xl border border-cyan-500/30 bg-slate-900 p-5 flex flex-col gap-4 shadow-2xl"
-      >
+    // Fermeture au clic sur le fond volontairement désactivée : un clic à côté
+    // pendant la saisie d'un ordre faisait perdre le formulaire entier sans
+    // confirmation. Échap et la croix restent disponibles.
+    <Modal
+      open={open}
+      onClose={onClose}
+      labelledBy="titre-operation"
+      closeOnOverlayClick={false}
+      overlayClassName="bg-slate-950/70 backdrop-blur-sm"
+      panelClassName="w-full max-w-lg rounded-2xl border border-cyan-500/30 bg-slate-900 shadow-2xl"
+    >
+      <form onSubmit={submit} className="p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg text-slate-50">{preset?.id ? "Modifier l'opération" : "Nouvelle opération"}</h3>
-          <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-200 p-1">
-            <X size={16} />
+          <h3 id="titre-operation" className="font-display text-lg text-slate-50">
+            {preset?.id ? "Modifier l'opération" : "Nouvelle opération"}
+          </h3>
+          <button type="button" onClick={onClose} aria-label="Fermer" className="btn-flash text-slate-500 hover:text-slate-200 p-1">
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Toggle ACHAT / VENTE / DIVIDENDE */}
-        <div className="grid grid-cols-3 gap-2">
+        {/* Toggle ACHAT / VENTE / DIVIDENDE / SPLIT */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button
             type="button"
             onClick={() => setValues((v) => ({ ...v, type: "ACHAT" }))}
@@ -121,6 +149,17 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           >
             <Coins size={15} /> Dividende
           </button>
+          <button
+            type="button"
+            onClick={() => setValues((v) => ({ ...v, type: "SPLIT" }))}
+            className={`btn-flash flex items-center justify-center gap-1.5 rounded-xl border py-2 text-sm font-semibold transition-colors ${
+              values.type === "SPLIT"
+                ? "bg-violet-500/15 border-violet-500/50 text-violet-300"
+                : "border-slate-700 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            <Split size={15} /> Split
+          </button>
         </div>
 
         {/* Actif */}
@@ -142,7 +181,29 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           </datalist>
         </div>
 
-        {isDividende ? (
+        {isSplit ? (
+          <div>
+            <label className="text-[11px] text-slate-500">
+              Nombre de titres obtenus pour 1 titre détenu
+            </label>
+            <input
+              required
+              type="number"
+              step="0.0001"
+              min="0"
+              placeholder="10 pour un split 1:10, 0,1 pour un regroupement 10:1"
+              value={values.ratio}
+              onChange={(e) => setValues((v) => ({ ...v, ratio: e.target.value }))}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60"
+            />
+            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+              Ta quantité est multipliée par ce ratio et ton prix de revient divisé par lui : la
+              valeur totale de la ligne ne change pas d&apos;un centime, et aucun argent ne bouge.
+              Sans cette écriture, la position resterait comptée à l&apos;ancienne quantité face à
+              un cours divisé — la ligne afficherait une perte qui n&apos;existe pas.
+            </p>
+          </div>
+        ) : isDividende ? (
           <div>
             <label className="text-[11px] text-slate-500">Montant du dividende reçu (€)</label>
             <input
@@ -219,6 +280,6 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

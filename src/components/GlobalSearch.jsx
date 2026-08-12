@@ -85,7 +85,7 @@ export default function GlobalSearch({
       </div>
 
       {open && query && (
-        <div className="absolute z-30 mt-1 w-full max-h-72 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 shadow-xl">
+        <div className="pop-in absolute z-30 mt-1 w-full max-h-72 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 shadow-xl">
           {results.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-500">Aucun résultat pour « {query} ».</div>
           ) : (
@@ -93,7 +93,7 @@ export default function GlobalSearch({
               <button
                 key={r.id}
                 onClick={() => go(r)}
-                className="w-full flex items-center justify-between gap-2 text-left px-3 py-2 text-xs hover:bg-slate-900 border-b border-slate-900 last:border-b-0"
+                className="btn-flash w-full flex items-center justify-between gap-2 text-left px-3 py-2 text-xs hover:bg-slate-900 border-b border-slate-900 last:border-b-0"
               >
                 <span className="flex flex-col">
                   <span className="text-slate-200">{r.label}</span>

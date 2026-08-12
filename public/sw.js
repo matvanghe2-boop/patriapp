@@ -19,7 +19,14 @@
 //    servi silencieusement serait pire qu'une erreur réseau visible. Les
 //    endpoints portent déjà leur propre cache HTTP côté serveur.
 
-const VERSION = "patrium-v1";
+// À INCRÉMENTER dès que la coquille change de façon non hachée : les fichiers
+// de `public/` (orbit-header.js, icônes) et ce fichier lui-même gardent une URL
+// stable, donc la stratégie « cache d'abord » continue de servir l'ancienne
+// version tant que ce nom ne bouge pas. Les fragments produits par Vite, eux,
+// portent un hachage dans leur nom et se renouvellent d'eux-mêmes.
+//
+// v2 : polices auto-hébergées, orbit-header.js rapatrié, refonte des styles.
+const VERSION = "patrium-v2";
 const CACHE_COQUILLE = `${VERSION}-coquille`;
 
 // Le strict minimum pour afficher quelque chose hors ligne. Les fragments

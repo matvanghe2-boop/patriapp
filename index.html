@@ -14,8 +14,22 @@
 
     <title>Patrium</title>
 
-    <!-- Signature du réseau Orbit — composant hébergé par le hub -->
-    <script src="https://orbit-umber-sigma.vercel.app/orbit-header.js" defer></script>
+    <!--
+      Signature du réseau Orbit, servie depuis NOTRE origine.
+
+      Elle était chargée depuis le hub (https://orbit-umber-sigma.vercel.app).
+      Un script tiers s'exécute avec les mêmes droits que l'application : il
+      peut lire le localStorage, donc le jeton de session Supabase et toutes
+      les données patrimoniales. Sur une application dont la promesse centrale
+      est la confidentialité, faire dépendre cette promesse de la disponibilité
+      et de l'intégrité d'un autre déploiement n'était pas tenable — et sans
+      `integrity`, aucun changement de contenu n'aurait été détecté.
+
+      Le fichier est donc une copie locale : pour le mettre à jour, la recopier
+      depuis le hub. Bénéfice secondaire, il est désormais mis en cache par le
+      service worker et l'en-tête survit hors ligne.
+    -->
+    <script src="/orbit-header.js" defer></script>
   </head>
   <body class="bg-slate-950">
     <!-- "static" au lieu de "compact" : le header défile au lieu de rester
