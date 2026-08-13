@@ -26,7 +26,8 @@
 // portent un hachage dans leur nom et se renouvellent d'eux-mêmes.
 //
 // v2 : polices auto-hébergées, orbit-header.js rapatrié, refonte des styles.
-const VERSION = "patrium-v2";
+// v3 : orbit-splash.js rapatrié à son tour (écran de chargement du réseau).
+const VERSION = "patrium-v3";
 const CACHE_COQUILLE = `${VERSION}-coquille`;
 
 // Le strict minimum pour afficher quelque chose hors ligne. Les fragments

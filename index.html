@@ -30,8 +30,12 @@
       service worker et l'en-tête survit hors ligne.
     -->
     <script src="/orbit-header.js" defer></script>
+    <!-- Écran de chargement, copie locale pour les mêmes raisons. Sans "defer" :
+         il doit couvrir la page avant le premier paint. -->
+    <script src="/orbit-splash.js"></script>
   </head>
   <body class="bg-slate-950">
+    <orbit-splash app-name="Patrium" theme="finance"></orbit-splash>
     <!-- "static" au lieu de "compact" : le header défile au lieu de rester
          collé, pour ne pas doubler la barre de navigation de l'app. -->
     <orbit-header app-name="Patrium" theme="finance" static></orbit-header>
