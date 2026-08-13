@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, Search, CalendarDays, Filter } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
+import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
 import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux } from "../lib/finance";
@@ -15,7 +15,6 @@ import Reequilibrage from "./Reequilibrage";
 import PerformanceTab from "./BoursePerformance";
 import FiscaliteSortie from "./FiscaliteSortie";
 import Screener from "./Screener";
-import SeuilOrdre from "./SeuilOrdre";
 import { verifierEligibilite } from "../../shared/eligibilitePea";
 
 // Reprend le même code couleur que le module Stratégie & Logs pour que le
@@ -187,7 +186,7 @@ function AntiPanicModal({ position, note, onClose }) {
 import { computePeaAge, PEA_PLAFONDS, plafondPea } from "../lib/finance";
 // ... imports existants inchangés ...
 
-function PeaFiscalWidget({ bourse, setBourse }) {
+function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ peaOuverture: bourse.peaOuverture || "", peaVersements: bourse.peaVersements || 0 });
 
@@ -209,13 +208,21 @@ function PeaFiscalWidget({ bourse, setBourse }) {
   };
 
   return (
-    <Card accent={CARD_THEMES.violet}>
-      <div className="flex items-center justify-between mb-2">
-        <CardLabel>Plafond de versements PEA</CardLabel>
-        <button onClick={() => { setDraft({ peaOuverture: bourse.peaOuverture || "", peaVersements: versements }); setEditing((e) => !e); }} className="text-[11px] text-violet-300/80 hover:text-violet-200">
+    <CarteRepliable
+      titre="Plafond de versements PEA"
+      accent={CARD_THEMES.violet}
+      replie={replie}
+      onBasculer={onBasculer}
+      resume={`${pctPlafond.toFixed(0)} % de ${eur(plafond, 0)}`}
+      actions={
+        <button
+          onClick={() => { setDraft({ peaOuverture: bourse.peaOuverture || "", peaVersements: versements }); setEditing((e) => !e); }}
+          className="btn-flash text-[11px] text-violet-300/80 hover:text-violet-200"
+        >
           {editing ? "Fermer" : "Modifier"}
         </button>
-      </div>
+      }
+    >
 
       {editing ? (
         <div className="flex flex-wrap items-end gap-3 mb-3">
@@ -285,7 +292,7 @@ function PeaFiscalWidget({ bourse, setBourse }) {
           <span className="text-[11px] text-slate-600">Renseigne la date d'ouverture pour voir le décompte fiscal.</span>
         )}
       </div>
-    </Card>
+    </CarteRepliable>
   );
 }
 
@@ -428,10 +435,12 @@ export default function Bourse({
   bourse, setBourse, bourseTotal, bourseGainAbs, bourseGainPct,
   alertesWatchlist, setAlertesWatchlist,
   bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
-  // Sert de versement de référence au seuil de rentabilité d'un ordre : c'est
-  // ce qui permet de traduire un montant minimal en cadence d'achat.
-  epargneMensuelle = 0,
+  // Composition de l'écran : quels blocs sont repliés. Persisté, donc retrouvé
+  // tel quel au rechargement et sur les autres appareils.
+  widgetsReplies = {}, basculerWidget,
 }) {
+  const replie = (id) => Boolean(widgetsReplies?.[id]);
+  const basculer = (id) => () => basculerWidget?.(id);
   const [showAdd, setShowAdd] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
@@ -759,19 +768,36 @@ export default function Bourse({
         <CashPocketCard bourse={bourse} setBourse={setBourse} />
       </div>
       <div className="mt-6 flex flex-col gap-4">
-        <PeaFiscalWidget bourse={bourse} setBourse={setBourse} />
-        {/* Ce que le prochain ordre va coûter, par opposition à tout le reste
-            de l'onglet qui mesure ce qui a déjà été payé. Sur de petits
-            montants, c'est le seul poste réellement pilotable. */}
-        <SeuilOrdre bourse={bourse} setBourse={setBourse} versementMensuel={epargneMensuelle} />
+        <PeaFiscalWidget
+          bourse={bourse}
+          setBourse={setBourse}
+          replie={replie("plafondPea")}
+          onBasculer={basculer("plafondPea")}
+        />
         {/* La plus-value affichée partout ailleurs est brute. Celle-ci est
             celle qu'on encaisserait réellement. */}
-        <FiscaliteSortie bourse={bourse} bourseGainAbs={bourseGainAbs} bourseTotal={bourseTotal} />
+        <FiscaliteSortie
+          bourse={bourse}
+          bourseGainAbs={bourseGainAbs}
+          bourseTotal={bourseTotal}
+          replie={replie("fiscalite")}
+          onBasculer={basculer("fiscalite")}
+        />
       </div>
 
       {/* Dividendes */}
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel icon={Coins}>Revenus de dividendes estimés</CardLabel>
+      <CarteRepliable
+        titre="Revenus de dividendes estimés"
+        icon={Coins}
+        accent={CARD_THEMES.violet}
+        replie={replie("dividendes")}
+        onBasculer={basculer("dividendes")}
+        resume={
+          dividendSummary.totalAnnualDividendNet > 0
+            ? `${eur(dividendSummary.totalAnnualDividendNet, 0)} par an`
+            : null
+        }
+      >
         {bourse.positions.length === 0 || dividendSummary.totalAnnualDividend === 0 ? (
           <EmptyState>
             Renseigne le dividende annuel par action de tes lignes (via le crayon d'édition) pour voir ton rendement et tes revenus estimés.
@@ -806,12 +832,18 @@ export default function Bourse({
             </div>
           </div>
         )}
-      </Card>
+      </CarteRepliable>
 
       {/* ─── Positions Table ─── */}
-      <Card accent={CARD_THEMES.violet}>
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <CardLabel icon={TrendingUp}>Positions</CardLabel>
+      <CarteRepliable
+        titre="Positions"
+        icon={TrendingUp}
+        accent={CARD_THEMES.violet}
+        replie={replie("positions")}
+        onBasculer={basculer("positions")}
+        resume={`${bourse.positions.length} ligne(s)`}
+      >
+        <div className="flex items-center justify-end mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <SortButton sort={sort} setSort={setSort} />
             <button
@@ -971,20 +1003,24 @@ export default function Bourse({
         <p className="text-[11px] text-slate-600 mt-4">
           La variation journalière est calculée par rapport au cours de clôture de la veille, récupéré lors du dernier « Actualiser les cours ».
         </p>
-      </Card>
-      
+      </CarteRepliable>
+
       {/* Remplace le simulateur d'ordre : celui-ci ne traitait qu'une ligne à
           la fois, alors que vendre une position modifie le poids de toutes les
           autres. */}
       <Reequilibrage bourse={bourse} setBourse={setBourse} />
 
-
-
       <Watchlist watchlist={watchlist} setWatchlist={setWatchlist} onOpenMarket={openInMarche} alertes={alertesWatchlist} setAlertes={setAlertesWatchlist} />
 
       {/* Pie */}
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel icon={PieIcon}>Répartition par ligne</CardLabel>
+      <CarteRepliable
+        titre="Répartition par ligne"
+        icon={PieIcon}
+        accent={CARD_THEMES.violet}
+        replie={replie("repartition")}
+        onBasculer={basculer("repartition")}
+        resume={`${pieData.length} ligne(s)`}
+      >
         {pieData.length === 0 ? (
           <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
         ) : (
@@ -1019,7 +1055,7 @@ export default function Bourse({
             </div>
           </div>
         )}
-      </Card>
+      </CarteRepliable>
 
       <SectorHeatmap positions={bourse.positions} />
       </>

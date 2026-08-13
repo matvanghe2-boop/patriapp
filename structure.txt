@@ -99,6 +99,7 @@ src/components/BilanMensuel.test.jsx
 src/components/BottomNav.jsx
 src/components/Bourse.jsx
 src/components/BoursePerformance.jsx
+src/components/CarteRepliable.test.jsx
 src/components/ChartFocusModal.jsx
 src/components/Dashboard.jsx
 src/components/ErrorBoundary.jsx
@@ -134,7 +135,6 @@ src/components/ScenariosProjet.jsx
 src/components/ScenariosProjet.test.jsx
 src/components/Screener.jsx
 src/components/SectorHeatmap.jsx
-src/components/SeuilOrdre.jsx
 src/components/Simulation.jsx
 src/components/StickySummaryHeader.jsx
 src/components/StrategieLogs.jsx
@@ -155,16 +155,12 @@ src/lib/api.test.js
 src/lib/authErrors.js
 src/lib/authErrors.test.js
 src/lib/compact.test.js
-src/lib/courtiers.js
 src/lib/devises.test.js
 src/lib/exportOperations.js
 src/lib/exportOperations.test.js
 src/lib/exportReport.js
 src/lib/finance.js
 src/lib/finance.test.js
-src/lib/fraisOrdre.js
-src/lib/fraisOrdre.test.js
-src/lib/fraisOrdre.tranches.test.js
 src/lib/horizonClient.js
 src/lib/indexConstituents.js
 src/lib/ledger.test.js

@@ -25,7 +25,7 @@ export const STORAGE_KEYS = [
   "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios",
   "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate", "allocationTarget",
   "profileHistory", "horizonScenarios", "horizonReglages", "horizonDernierBilan",
-  "matelasHistory", "objectifs", "alertesWatchlist",
+  "matelasHistory", "objectifs", "alertesWatchlist", "widgetsReplies",
 ];
 
 /**
@@ -148,6 +148,24 @@ export function PatrimoineProvider({ children }) {
   const [objectifs, setObjectifs] = usePersistentState("objectifs", []);
   // Seuils de prix surveillés sur la watchlist.
   const [alertesWatchlist, setAlertesWatchlist] = usePersistentState("alertesWatchlist", []);
+  /**
+   * Widgets repliés, par identifiant — `{ dividendes: true, positions: false }`.
+   *
+   * Une seule clé pour tout l'écran plutôt qu'une par widget : `usePersistentState`
+   * n'enregistre qu'un setter par clé de stockage (voir `activeSetters` dans
+   * storage.js), donc plusieurs composants partageant la même clé se
+   * neutraliseraient mutuellement à la synchronisation.
+   *
+   * Passe par l'état persistant, donc par le cloud : la composition de l'écran
+   * suit d'un appareil à l'autre, au même titre que le reste.
+   */
+  const [widgetsReplies, setWidgetsReplies] = usePersistentState("widgetsReplies", {});
+
+  /** Bascule le repli d'un widget, sans avoir à recomposer l'objet à l'appel. */
+  const basculerWidget = useCallback(
+    (id) => setWidgetsReplies((w) => ({ ...(w || {}), [id]: !w?.[id] })),
+    [setWidgetsReplies]
+  );
   // ─── Horizon (sous-onglet Projet) ──────────────────────────────────────────
   // Projets chiffrés et mis de côté, comparables plus tard.
   const [horizonScenarios, setHorizonScenarios] = usePersistentState("horizonScenarios", []);
@@ -257,6 +275,7 @@ export function PatrimoineProvider({ children }) {
       contracts, setContracts, subs, setSubs,
       lastSnapshotDate, setLastSnapshotDate,
       objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
+      widgetsReplies, setWidgetsReplies, basculerWidget,
       horizonScenarios, setHorizonScenarios,
       horizonReglages, setHorizonReglages,
       horizonDernierBilan, setHorizonDernierBilan,
@@ -275,6 +294,7 @@ export function PatrimoineProvider({ children }) {
       contracts, setContracts, subs, setSubs,
       lastSnapshotDate, setLastSnapshotDate,
       objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
+      widgetsReplies, setWidgetsReplies, basculerWidget,
       horizonScenarios, setHorizonScenarios,
       horizonReglages, setHorizonReglages,
       horizonDernierBilan, setHorizonDernierBilan,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Receipt, ChevronDown, ChevronUp, Info, AlertTriangle } from "lucide-react";
-import { Card, CardLabel, CARD_THEMES } from "./ui";
+import { CarteRepliable, CARD_THEMES } from "./ui";
 import { eur, pctPlain, computePeaAge } from "../lib/finance";
 import { fiscaliteEnveloppe, BAREMES_FISCAUX } from "../../shared/horizon";
 
@@ -19,7 +19,7 @@ import { fiscaliteEnveloppe, BAREMES_FISCAUX } from "../../shared/horizon";
  * Il s'agit d'une simulation de sortie TOTALE et immédiate : c'est la borne
  * haute de l'imposition, utile comme repère, pas un conseil fiscal.
  */
-export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal }) {
+export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal, replie, onBasculer }) {
   const [ouvert, setOuvert] = useState(false);
 
   const enveloppe = bourse?.envelope || "PEA";
@@ -40,14 +40,19 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal }) 
 
   if (!fisc) {
     return (
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel icon={Receipt}>Plus-value nette après impôt</CardLabel>
-        <p className="text-sm text-slate-500 mt-1">
+      <CarteRepliable
+        titre="Plus-value nette après impôt"
+        icon={Receipt}
+        accent={CARD_THEMES.violet}
+        replie={replie}
+        onBasculer={onBasculer}
+      >
+        <p className="text-sm text-slate-500">
           {bourseGainAbs < 0
             ? "Le portefeuille est en moins-value : aucune imposition à simuler. Une moins-value est reportable sur les plus-values des dix années suivantes (hors PEA)."
             : "Aucune plus-value latente à imposer pour le moment."}
         </p>
-      </Card>
+      </CarteRepliable>
     );
   }
 
@@ -61,18 +66,24 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal }) 
   const peaAvantCinqAns = enveloppe === "PEA" && bourse?.peaOuverture && age && !age.eligible;
 
   return (
-    <Card accent={CARD_THEMES.violet}>
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <CardLabel icon={Receipt}>Plus-value nette après impôt</CardLabel>
+    <CarteRepliable
+      titre="Plus-value nette après impôt"
+      icon={Receipt}
+      accent={CARD_THEMES.violet}
+      replie={replie}
+      onBasculer={onBasculer}
+      resume={eur(net)}
+      actions={
         <button
           onClick={() => setOuvert((o) => !o)}
           aria-expanded={ouvert}
-          className="flex items-center gap-1 text-[11px] text-violet-300/80 hover:text-violet-200"
+          className="btn-flash flex items-center gap-1 text-[11px] text-violet-300/80 hover:text-violet-200"
         >
           {ouvert ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
           Détail
         </button>
-      </div>
+      }
+    >
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
@@ -149,6 +160,6 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal }) 
           </p>
         </div>
       )}
-    </Card>
+    </CarteRepliable>
   );
 }

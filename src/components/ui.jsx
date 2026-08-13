@@ -180,6 +180,81 @@ export function useValeurAnimee(cible, { duree = DUREE_ANIMATION_MS } = {}) {
   return affichee;
 }
 
+/**
+ * Carte dont on peut replier le contenu, pour composer son écran.
+ *
+ * Distincte de `SectionRepliable`, et la différence est le point important :
+ * cette dernière garde son état en local parce que c'est une préférence de
+ * lecture du moment. Ici l'état est REMONTÉ à l'appelant, qui le persiste —
+ * un écran qu'on a pris la peine d'organiser doit se retrouver tel quel au
+ * rechargement, sinon le réglage ne sert à rien.
+ *
+ * Le repli passe par une grille `0fr → 1fr` (voir `.collapsible` dans
+ * index.css) : c'est la seule technique qui anime vers une hauteur AUTO sans
+ * mesurer le contenu en JavaScript, et elle se neutralise d'elle-même sous
+ * `prefers-reduced-motion`.
+ */
+export function CarteRepliable({
+  titre,
+  icon: Icon,
+  replie = false,
+  onBasculer,
+  accent = "",
+  /** Résumé affiché à la place du contenu quand la carte est repliée. */
+  resume,
+  /** Actions de l'en-tête (boutons), qui ne doivent pas déclencher le repli. */
+  actions,
+  className = "",
+  children,
+}) {
+  const idContenu = `carte-${String(titre).replace(/\W+/g, "-").toLowerCase()}`;
+
+  return (
+    <div className={`rounded-2xl border bg-slate-900 transition-colors duration-300 ${accent || "border-slate-800"} ${className}`}>
+      <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-1">
+        <button
+          onClick={onBasculer}
+          aria-expanded={!replie}
+          aria-controls={idContenu}
+          className="btn-flash flex items-center gap-2 min-w-0 flex-1 text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+        >
+          {Icon && <Icon size={13} className="text-slate-500 shrink-0" aria-hidden="true" />}
+          <span className="text-xs uppercase tracking-wider text-slate-500 truncate">{titre}</span>
+          {replie && resume && (
+            <span className="text-[11px] text-slate-600 truncate hidden sm:inline">— {resume}</span>
+          )}
+          {/* Même chevron pivotant que SectionRepliable : la rotation montre le
+              sens de l'action, là où deux icônes échangées ne font que changer
+              le symbole. */}
+          <ChevronDown
+            size={14}
+            aria-hidden="true"
+            className={`text-slate-600 shrink-0 ml-auto transition-transform duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
+              replie ? "" : "rotate-180"
+            }`}
+          />
+        </button>
+        {actions && <div className="shrink-0">{actions}</div>}
+      </div>
+
+      {/* Contenu DÉMONTÉ quand la carte est repliée, comme dans
+          SectionRepliable : c'est ce qui fait qu'un bloc replié cesse
+          réellement de coûter quelque chose. Replier « Répartition par ligne »
+          arrête de rendre son graphique recharts, ce qu'un simple `hidden`
+          n'aurait pas fait. */}
+      {!replie && (
+        <div className="collapse-in">
+          <div>
+            <div id={idContenu} className="px-5 pb-5 pt-2">
+              {children}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CardLabel({ children, icon: Icon }) {
   return (
     <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-slate-500 mb-2">
