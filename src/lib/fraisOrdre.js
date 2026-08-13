@@ -24,10 +24,45 @@ export const COUT_CIBLE_DEFAUT = 0.5;
 
 const nombre = (v, defaut = 0) => (Number.isFinite(Number(v)) ? Number(v) : defaut);
 
+/**
+ * Tranche applicable à un montant.
+ *
+ * Les courtiers français ne facturent pas un forfait unique mais un barème par
+ * PALIER : « 1,99 € jusqu'à 500 €, puis 0,60 % au-delà ». Le modèle plat
+ * initial ne savait pas représenter ça, et sous-estimait donc le coût réel de
+ * tout ordre dépassant le premier palier.
+ *
+ * Convention, celle des brochures tarifaires : le tarif d'une tranche
+ * s'applique au montant TOTAL de l'ordre, pas à la seule fraction qui dépasse
+ * le palier précédent. Un ordre de 600 € au barème ci-dessus coûte donc
+ * 0,60 % × 600 = 3,60 €, et non 1,99 € + 0,60 % × 100.
+ */
+function trancheApplicable(montant, tranches) {
+  return (tranches || []).find((t) => t.jusqua == null || montant <= t.jusqua) ?? null;
+}
+
+/** Le barème est-il exprimé par paliers ? */
+function estParTranches(bareme) {
+  return Array.isArray(bareme?.tranches) && bareme.tranches.length > 0;
+}
+
 /** Frais facturés pour un ordre d'un montant donné. */
 export function fraisPourMontant(montant, bareme = BAREME_DEFAUT) {
   const m = Math.max(0, nombre(montant));
   if (m === 0) return 0;
+
+  if (estParTranches(bareme)) {
+    const t = trancheApplicable(m, bareme.tranches);
+    if (!t) return 0;
+    const fixe = Math.max(0, nombre(t.fixe));
+    const pourcent = Math.max(0, nombre(t.pourcent));
+    const minimum = Math.max(0, nombre(t.minimum ?? bareme.minimum));
+    // Une tranche porte soit un forfait, soit un pourcentage — jamais les deux
+    // dans les brochures rencontrées, mais les additionner reste le
+    // comportement correct si le cas se présentait.
+    return Math.max(minimum, fixe + (m * pourcent) / 100);
+  }
+
   const fixe = Math.max(0, nombre(bareme?.fixe));
   const pourcent = Math.max(0, nombre(bareme?.pourcent));
   const minimum = Math.max(0, nombre(bareme?.minimum));
@@ -53,6 +88,8 @@ export function montantMinimal(bareme = BAREME_DEFAUT, coutCible = COUT_CIBLE_DE
   const cible = nombre(coutCible);
   if (cible <= 0) return null;
 
+  if (estParTranches(bareme)) return montantMinimalParTranches(bareme, cible);
+
   const fixe = Math.max(0, nombre(bareme?.fixe));
   const pourcent = Math.max(0, nombre(bareme?.pourcent));
   const minimum = Math.max(0, nombre(bareme?.minimum));
@@ -77,6 +114,51 @@ export function montantMinimal(bareme = BAREME_DEFAUT, coutCible = COUT_CIBLE_DE
 }
 
 /**
+ * Seuil de rentabilité d'un barème par paliers.
+ *
+ * Le coût en pourcentage n'y est pas monotone : il décroît à l'intérieur d'une
+ * tranche à forfait, puis SAUTE au passage du palier suivant. Chez BoursoBank
+ * Découverte, un ordre de 500 € coûte 0,40 % (1,99 € de forfait) et un ordre
+ * de 501 € coûte 0,60 % — plus cher en pourcentage pour un euro de plus.
+ *
+ * On résout donc tranche par tranche et on retient le plus petit montant
+ * satisfaisant la cible, plutôt que d'inverser une formule unique qui
+ * n'existe pas.
+ */
+function montantMinimalParTranches(bareme, cible) {
+  const candidats = [];
+  let debut = 0;
+
+  for (const t of bareme.tranches) {
+    const fin = t.jusqua == null ? Infinity : t.jusqua;
+    const fixe = Math.max(0, nombre(t.fixe));
+    const pourcent = Math.max(0, nombre(t.pourcent));
+    const minimum = Math.max(0, nombre(t.minimum ?? bareme.minimum));
+
+    // Plus petit montant de CETTE tranche qui tient la cible.
+    let requis = debut;
+    if (fixe > 0) {
+      if (pourcent >= cible) {
+        debut = fin;
+        continue; // la part proportionnelle mange déjà la cible
+      }
+      requis = Math.max(requis, (100 * fixe) / (cible - pourcent));
+    } else if (pourcent > cible) {
+      debut = fin;
+      continue; // taux constant supérieur à la cible : aucun montant n'y arrive
+    }
+    if (minimum > 0) requis = Math.max(requis, (100 * minimum) / cible);
+
+    // Le montant trouvé doit rester DANS la tranche, sinon c'est la tranche
+    // suivante qui s'applique et le calcul ne vaut plus.
+    if (requis <= fin) candidats.push(Math.max(requis, debut === 0 ? 0 : debut));
+    debut = fin;
+  }
+
+  return candidats.length > 0 ? Math.min(...candidats) : null;
+}
+
+/**
  * Cadence conseillée : nombre de mois d'épargne à accumuler avant de passer un
  * ordre, et ce que cela représente concrètement.
  *
@@ -98,18 +180,62 @@ export function cadenceConseillee({
   }
 
   const moisAAccumuler = versement > 0 ? Math.max(1, Math.ceil(montantMin / versement)) : null;
-  // Le coût réel au seuil se mesure sur le montant effectivement accumulé
-  // (un multiple entier du versement), pas sur le seuil théorique.
-  const montantEffectif = moisAAccumuler != null ? moisAAccumuler * versement : montantMin;
-  const coutAuSeuil = coutEnPourcent(montantEffectif, bareme);
+  const disponible = moisAAccumuler != null ? moisAAccumuler * versement : montantMin;
+
+  // Le montant conseillé n'est PAS forcément tout ce qu'on a accumulé.
+  //
+  // Avec un barème par paliers, le coût en pourcentage n'est pas monotone : il
+  // décroît tant qu'on amortit un forfait, puis saute d'un coup au palier
+  // suivant. Chez BoursoBank Découverte, 500 € coûtent 0,40 % et 600 € coûtent
+  // 0,60 %. Investir tout ce qu'on a mis de côté serait donc parfois PLUS cher,
+  // en proportion, que d'en investir une partie et de garder le reste pour le
+  // prochain ordre.
+  const montantOrdreConseille = meilleurMontant(bareme, montantMin, disponible);
+  const coutAuSeuil = coutEnPourcent(montantOrdreConseille, bareme);
 
   return {
     montantMin,
     moisAAccumuler,
+    montantOrdreConseille,
+    // Ce qui reste sur le compte quand le montant optimal est inférieur à ce
+    // qu'on a accumulé : ce n'est pas perdu, c'est le début du prochain ordre.
+    resteApresOrdre: Math.max(0, disponible - montantOrdreConseille),
     coutSiMensuel,
     coutAuSeuil,
     economiePct: coutSiMensuel != null && coutAuSeuil != null ? coutSiMensuel - coutAuSeuil : null,
   };
+}
+
+/**
+ * Montant le moins coûteux en pourcentage, entre un plancher et ce dont on
+ * dispose.
+ *
+ * À l'intérieur d'une tranche à forfait, le coût décroît : l'optimum local est
+ * donc le haut de la tranche. Dans une tranche au pourcentage, il est constant.
+ * Il suffit d'évaluer ces quelques points de rupture plutôt que de balayer
+ * tous les montants.
+ */
+function meilleurMontant(bareme, plancher, disponible) {
+  const min = Math.max(0, nombre(plancher));
+  const max = Math.max(min, nombre(disponible));
+  if (!estParTranches(bareme)) return max;
+
+  const candidats = [max];
+  for (const t of bareme.tranches) {
+    const fin = t.jusqua == null ? Infinity : t.jusqua;
+    if (fin >= min && fin <= max) candidats.push(fin);
+  }
+
+  let meilleur = max;
+  let coutMeilleur = coutEnPourcent(max, bareme) ?? Infinity;
+  for (const c of candidats) {
+    const cout = coutEnPourcent(c, bareme);
+    if (cout != null && cout < coutMeilleur - 1e-9) {
+      coutMeilleur = cout;
+      meilleur = c;
+    }
+  }
+  return meilleur;
 }
 
 /**

@@ -8,6 +8,27 @@ import {
   cadenceConseillee,
   fraisAnnuelsSelonCadence,
 } from "../lib/fraisOrdre";
+import { COURTIERS, MARCHES, courtierParId, PLAFOND_LEGAL_PEA_PCT } from "../lib/courtiers";
+
+/** Barème en une phrase lisible, paliers compris. */
+function decrireBareme(bareme) {
+  if (Array.isArray(bareme?.tranches)) {
+    return bareme.tranches
+      .map((t) => {
+        const tarif = t.fixe ? `${t.fixe.toFixed(2).replace(".", ",")} €` : `${String(t.pourcent).replace(".", ",")} %`;
+        const plancher = t.minimum ? ` (min. ${String(t.minimum).replace(".", ",")} €)` : "";
+        return t.jusqua == null
+          ? `puis ${tarif} au-delà${plancher}`
+          : `${tarif} jusqu'à ${t.jusqua.toLocaleString("fr-FR")} €`;
+      })
+      .join(", ");
+  }
+  const bouts = [];
+  if (bareme?.fixe) bouts.push(`${String(bareme.fixe).replace(".", ",")} € par ordre`);
+  if (bareme?.pourcent) bouts.push(`${String(bareme.pourcent).replace(".", ",")} % du montant`);
+  if (bareme?.minimum) bouts.push(`minimum ${String(bareme.minimum).replace(".", ",")} €`);
+  return bouts.join(" + ") || "aucun frais";
+}
 
 /**
  * « À partir de quel montant un ordre vaut-il le coup ? »
@@ -23,7 +44,14 @@ import {
  * que son enveloppe ou sa poche de cash.
  */
 export default function SeuilOrdre({ bourse, setBourse, versementMensuel = 0 }) {
-  const bareme = bourse?.fraisCourtier || BAREME_DEFAUT;
+  const courtierId = bourse?.courtierId || "boursorama-decouverte";
+  const marche = bourse?.marcheOrdre || "euronext";
+  const courtier = courtierParId(courtierId) ?? courtierParId("personnalise");
+
+  // Un barème saisi à la main prime sur le catalogue : le courtier peut avoir
+  // une offre promotionnelle, et c'est l'avis d'opéré qui fait foi.
+  const bareme = bourse?.fraisCourtier || courtier?.baremes?.[marche] || BAREME_DEFAUT;
+  const personnalise = courtierId === "personnalise" || Boolean(bourse?.fraisCourtier);
   const coutCible = Number.isFinite(bourse?.coutCibleOrdre) ? bourse.coutCibleOrdre : COUT_CIBLE_DEFAUT;
 
   const majBareme = (champ, valeur) => {
@@ -33,6 +61,14 @@ export default function SeuilOrdre({ bourse, setBourse, versementMensuel = 0 }) 
       fraisCourtier: { ...BAREME_DEFAUT, ...(b?.fraisCourtier || {}), [champ]: Number.isFinite(nombre) ? nombre : 0 },
     }));
   };
+
+  const choisirCourtier = (id) =>
+    // On efface le barème manuel : garder une saisie d'un autre courtier
+    // par-dessus le catalogue produirait un chiffre qui n'est celui de personne.
+    setBourse((b) => ({ ...b, courtierId: id, fraisCourtier: undefined }));
+
+  const choisirMarche = (cle) =>
+    setBourse((b) => ({ ...b, marcheOrdre: cle, fraisCourtier: undefined }));
 
   const majCible = (valeur) => {
     const nombre = parseFloat(valeur);
@@ -69,12 +105,62 @@ export default function SeuilOrdre({ bourse, setBourse, versementMensuel = 0 }) 
     <Card accent="border-violet-500/40 bg-gradient-to-br from-violet-950/40 via-slate-900 to-slate-900">
       <CardLabel icon={Receipt}>À partir de quel montant passer un ordre ?</CardLabel>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
-        {champ("Forfait par ordre", bareme.fixe ?? 0, (v) => majBareme("fixe", v), "€", "0.01")}
-        {champ("Part variable", bareme.pourcent ?? 0, (v) => majBareme("pourcent", v), "%", "0.01")}
-        {champ("Plancher facturé", bareme.minimum ?? 0, (v) => majBareme("minimum", v), "€", "0.01")}
+      <div className="flex flex-wrap items-end gap-3 mt-2">
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] text-slate-500">Courtier</label>
+          <select
+            value={courtierId}
+            onChange={(e) => choisirCourtier(e.target.value)}
+            className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-violet-400/60"
+          >
+            {COURTIERS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.courtier} — {c.offre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] text-slate-500">Place d&apos;exécution</label>
+          <select
+            value={marche}
+            onChange={(e) => choisirMarche(e.target.value)}
+            className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-violet-400/60 max-w-[18rem]"
+          >
+            {MARCHES.map((m) => (
+              <option key={m.cle} value={m.cle}>{m.label}</option>
+            ))}
+          </select>
+        </div>
         {champ("Coût acceptable", coutCible, majCible, "%", "0.1")}
       </div>
+
+      {/* Barème effectivement appliqué, en toutes lettres : un chiffre qu'on ne
+          peut pas relire est un chiffre qu'on ne peut pas contester. */}
+      <p className="text-[11px] text-slate-500 mt-2">
+        {decrireBareme(bareme)}
+        {courtier?.verifieLe && !personnalise && (
+          <>
+            {" "}· relevé le {new Date(courtier.verifieLe).toLocaleDateString("fr-FR")} sur la{" "}
+            {courtier.urlSource ? (
+              <a href={courtier.urlSource} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-slate-300">
+                brochure tarifaire
+              </a>
+            ) : (
+              "brochure tarifaire"
+            )}
+            . À confronter à un avis d&apos;opéré réel.
+          </>
+        )}
+      </p>
+
+      {personnalise && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+          {champ("Forfait par ordre", bareme.fixe ?? 0, (v) => majBareme("fixe", v), "€", "0.01")}
+          {champ("Part variable", bareme.pourcent ?? 0, (v) => majBareme("pourcent", v), "%", "0.01")}
+          {champ("Plancher facturé", bareme.minimum ?? 0, (v) => majBareme("minimum", v), "€", "0.01")}
+        </div>
+      )}
 
       {/* ─── Verdict ─────────────────────────────────────────────────────── */}
       <div className="mt-4">
@@ -119,10 +205,37 @@ export default function SeuilOrdre({ bourse, setBourse, versementMensuel = 0 }) 
               </p>
             )}
 
-            {cadence.moisAAccumuler === 1 && (
+            {/* Le piège des barèmes par paliers : investir tout ce qu'on a
+                accumulé peut coûter PLUS cher, en proportion, que d'en investir
+                une partie. Chez BoursoBank, 500 € coûtent 0,40 % et 600 €
+                coûtent 0,60 %. */}
+            {cadence.resteApresOrdre > 0 && (
+              <p className="text-xs text-violet-200/90 mt-2 leading-relaxed rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-2">
+                N&apos;investis que{" "}
+                <span className="font-data tabular-nums font-semibold text-violet-300">
+                  {eur(cadence.montantOrdreConseille)}
+                </span>{" "}
+                et garde <span className="font-data tabular-nums">{eur(cadence.resteApresOrdre)}</span> pour
+                l&apos;ordre suivant : passer le palier ferait basculer tout l&apos;ordre au tarif
+                supérieur, et coûterait plus cher en proportion qu&apos;un ordre plus petit.
+              </p>
+            )}
+
+            {cadence.moisAAccumuler === 1 && cadence.resteApresOrdre === 0 && (
               <p className="flex items-center gap-1.5 text-xs text-emerald-400 mt-2">
                 <CheckCircle2 size={12} aria-hidden="true" />
                 Rien à optimiser de ce côté.
+              </p>
+            )}
+
+            {/* Le plafond légal s'impose au barème : un écart signale soit une
+                offre plus favorable que la brochure, soit une erreur de
+                facturation. Dans les deux cas c'est bon à savoir. */}
+            {cadence.coutAuSeuil != null && cadence.coutAuSeuil > PLAFOND_LEGAL_PEA_PCT && (
+              <p className="text-[11px] text-amber-300/90 mt-2 leading-relaxed">
+                Ce barème dépasse les {pctPlain(PLAFOND_LEGAL_PEA_PCT, 2)} que la loi plafonne pour un
+                ordre passé en ligne dans un PEA. Vérifie ce qui t&apos;est réellement facturé sur un
+                avis d&apos;opéré : le plafond s&apos;impose au courtier.
               </p>
             )}
           </div>

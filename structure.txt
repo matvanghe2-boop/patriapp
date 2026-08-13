@@ -155,6 +155,7 @@ src/lib/api.test.js
 src/lib/authErrors.js
 src/lib/authErrors.test.js
 src/lib/compact.test.js
+src/lib/courtiers.js
 src/lib/devises.test.js
 src/lib/exportOperations.js
 src/lib/exportOperations.test.js
@@ -163,6 +164,7 @@ src/lib/finance.js
 src/lib/finance.test.js
 src/lib/fraisOrdre.js
 src/lib/fraisOrdre.test.js
+src/lib/fraisOrdre.tranches.test.js
 src/lib/horizonClient.js
 src/lib/indexConstituents.js
 src/lib/ledger.test.js
