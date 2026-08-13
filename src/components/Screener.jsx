@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, Fragment } from "react";
+import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import {
   Filter, RefreshCw, Check, X, AlertTriangle, Search, Compass, Briefcase,
   ChevronDown, ChevronUp, Info, Plus, GitCompare,
@@ -6,7 +6,10 @@ import {
 import { Card, CardLabel, GhostButton, EmptyState, SkeletonTable, CARD_THEMES } from "./ui";
 import { eur, pctPlain, uid, compact } from "../lib/finance";
 import { fetchScreen } from "../lib/api";
-import { INDEX_CONSTITUENTS, INDEX_TABS } from "../lib/indexConstituents";
+import {
+  UNIVERS, universParCle, chargerUnivers, appliquerPrefiltres,
+  secteursDisponibles, TRANCHES_CAPITALISATION,
+} from "../lib/univers";
 import {
   RECETTES, CRITERES, SENS, recetteParId, appliquerRecette,
   auditerPortefeuille, suggererDiversification, poidsSectoriels,
@@ -254,16 +257,26 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
   const positions = useMemo(() => bourse?.positions || [], [bourse]);
 
   const [mode, setMode] = useState("marche");
-  const [indexActif, setIndexActif] = useState("cac40");
+  const [universActif, setUniversActif] = useState("sbf120");
   const [recetteId, setRecetteId] = useState("dividende-solide");
   const [criteres, setCriteres] = useState(() => recetteParId("dividende-solide").criteres);
   const [reglagesOuverts, setReglagesOuverts] = useState(false);
+
+  // Pré-filtres, appliqués AVANT la recette. Sans eux, un univers de plusieurs
+  // centaines de titres n'est qu'une liste : c'est la borne de capitalisation
+  // qui transforme « dividende solide » en « small cap française à dividende
+  // solide », c'est-à-dire en question à laquelle on cherchait une réponse.
+  const [tranche, setTranche] = useState("toutes");
+  const [secteurFiltre, setSecteurFiltre] = useState("");
+  const [peaSeul, setPeaSeul] = useState(false);
+  const [limite, setLimite] = useState(50);
 
   const [donnees, setDonnees] = useState([]);
   const [chargement, setChargement] = useState(false);
   const [progression, setProgression] = useState(null);
   const [erreur, setErreur] = useState("");
   const [chargeLe, setChargeLe] = useState(null);
+  const [genereLe, setGenereLe] = useState(null);
   // Deux titres au maximum : au-delà, une comparaison côte à côte cesse d'être
   // lisible et redevient un tableau.
   const [selection, setSelection] = useState([]);
@@ -275,13 +288,19 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
     setCriteres(recetteParId(id).criteres);
   };
 
-  /** Symboles à interroger selon le mode courant. */
-  const symbolesCibles = useMemo(() => {
-    if (mode === "portefeuille") return [...new Set(positions.map((p) => p.ticker).filter(Boolean))];
-    return INDEX_CONSTITUENTS[indexActif] || [];
-  }, [mode, indexActif, positions]);
+  /** Tickers du portefeuille — seul mode qui interroge encore le réseau. */
+  const symbolesCibles = useMemo(
+    () => [...new Set(positions.map((p) => p.ticker).filter(Boolean))],
+    [positions]
+  );
 
-  const charger = useCallback(async (symboles) => {
+  /**
+   * Mode « Mes lignes » : les titres détenus ne sont pas forcément dans un
+   * univers, et on les veut à jour. On garde donc l'appel direct — c'est une
+   * poignée de symboles, exactement le dimensionnement pour lequel
+   * `/api/market?action=screen` a été conçu.
+   */
+  const chargerPortefeuille = useCallback(async (symboles) => {
     if (symboles.length === 0) {
       setDonnees([]);
       return;
@@ -290,11 +309,10 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
     setErreur("");
     setProgression({ faites: 0, total: Math.ceil(symboles.length / 20), titres: 0 });
     try {
-      // Les titres arrivent par tranches : on les affiche au fur et à mesure
-      // plutôt que de laisser un écran vide pendant plusieurs secondes.
       const out = await fetchScreen(symboles, { onProgression: setProgression });
       setDonnees(out);
       setChargeLe(new Date());
+      setGenereLe(null);
       const echecs = out.filter((t) => t.ok === false).length;
       if (echecs > 0) {
         setErreur(`${echecs} titre(s) sur ${out.length} sans données fondamentales — ils sont affichés à part.`);
@@ -308,23 +326,75 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
     }
   }, []);
 
-  // Chargement à la demande plutôt qu'au montage : une requête déclenche
-  // jusqu'à vingt appels Yahoo, et ouvrir l'onglet ne signifie pas vouloir
-  // screener tout de suite.
-  const rafraichir = () => charger(symbolesCibles);
+  /**
+   * Modes « Marché » et « Diversifier » : l'instantané est un fichier statique
+   * déjà en cache après le premier chargement. Aucun appel réseau, aucun
+   * quota, et le screening redevient instantané quelle que soit la taille de
+   * l'univers — ce que le chargement à la demande ne permettait pas au-delà de
+   * quelques centaines de titres.
+   */
+  useEffect(() => {
+    if (mode === "portefeuille") return undefined;
+    const univers = universParCle(universActif);
+    if (!univers?.disponible) {
+      setDonnees([]);
+      setGenereLe(null);
+      setErreur(`${univers?.libelle ?? "Cet univers"} n'est pas encore disponible : sa composition n'a pas été fournie.`);
+      return undefined;
+    }
+
+    let annule = false;
+    setChargement(true);
+    setErreur("");
+    chargerUnivers(universActif)
+      .then(({ titres, genereLe: date }) => {
+        if (annule) return;
+        setDonnees(titres);
+        setGenereLe(date);
+        setChargeLe(new Date());
+      })
+      .catch((e) => {
+        if (annule) return;
+        setDonnees([]);
+        setErreur(e.message || "Univers indisponible.");
+      })
+      .finally(() => {
+        if (!annule) setChargement(false);
+      });
+
+    return () => {
+      annule = true;
+    };
+  }, [mode, universActif]);
+
+  // Revenir en haut de liste dès qu'un filtre change : garder 300 lignes
+  // dépliées après avoir restreint la sélection n'a aucun sens.
+  useEffect(() => setLimite(50), [universActif, recetteId, tranche, secteurFiltre, peaSeul, mode]);
+
+  const rafraichir = () => {
+    if (mode === "portefeuille") chargerPortefeuille(symbolesCibles);
+  };
+
+  const secteurs = useMemo(() => secteursDisponibles(donnees), [donnees]);
+
+  /** Univers réduit par les pré-filtres, avant application de la recette. */
+  const universFiltre = useMemo(() => {
+    if (mode === "portefeuille") return donnees;
+    return appliquerPrefiltres(donnees, { tranche, secteur: secteurFiltre, peaSeul });
+  }, [donnees, mode, tranche, secteurFiltre, peaSeul]);
 
   // Classement : les retenus d'abord (via appliquerRecette), puis par score
   // décroissant à l'intérieur de chaque groupe — c'est ce qui répond à
   // « lequel d'abord ? » une fois le filtre passé.
   const resultats = useMemo(() => {
-    const base = appliquerRecette(donnees, criteres);
+    const base = appliquerRecette(universFiltre, criteres);
     return base
       .map((r) => ({ ...r, note: scoreComposite(r.titre, criteres) }))
       .sort((a, b) => {
         if (a.evaluation.retenu !== b.evaluation.retenu) return a.evaluation.retenu ? -1 : 1;
         return (b.note.score ?? -1) - (a.note.score ?? -1);
       });
-  }, [donnees, criteres]);
+  }, [universFiltre, criteres]);
   const indisponibles = useMemo(() => donnees.filter((t) => t.ok === false), [donnees]);
 
   const auditLignes = useMemo(
@@ -340,12 +410,15 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
   const suggestions = useMemo(
     () =>
       mode === "diversifier"
-        ? suggererDiversification(donnees, poidsSecteurs, {
+        ? // Les pré-filtres s'appliquent aussi ici : suggérer une valeur que
+          // l'enveloppe déclarée ne peut pas détenir, ou hors de la tranche de
+          // capitalisation visée, serait une suggestion inutilisable.
+          suggererDiversification(universFiltre, poidsSecteurs, {
             exclure: positions.map((p) => p.ticker),
             limite: 8,
           })
         : [],
-    [mode, donnees, poidsSecteurs, positions]
+    [mode, universFiltre, poidsSecteurs, positions]
   );
 
   const basculerComparaison = (symbole) =>
@@ -385,15 +458,20 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
       <Card accent={CARD_THEMES.violet}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <CardLabel icon={Filter}>Screener fondamental</CardLabel>
-          <GhostButton icon={RefreshCw} theme="violet" onClick={rafraichir} disabled={chargement}>
-            {chargement
-              ? progression?.total > 1
-                ? `Chargement ${progression.faites}/${progression.total}…`
-                : "Chargement…"
-              : donnees.length > 0
-                ? "Actualiser"
-                : `Analyser ${symbolesCibles.length} valeurs`}
-          </GhostButton>
+          {/* Le bouton n'a plus de raison d'être hors du mode portefeuille :
+              les univers sont chargés depuis un instantané statique, et
+              filtrer ne coûte plus rien. */}
+          {mode === "portefeuille" && (
+            <GhostButton icon={RefreshCw} theme="violet" onClick={rafraichir} disabled={chargement}>
+              {chargement
+                ? progression?.total > 1
+                  ? `Chargement ${progression.faites}/${progression.total}…`
+                  : "Chargement…"
+                : donnees.length > 0
+                  ? "Actualiser"
+                  : `Analyser ${symbolesCibles.length} valeurs`}
+            </GhostButton>
+          )}
         </div>
 
         <div className="flex gap-2 flex-wrap mt-1">
@@ -415,25 +493,75 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
         </div>
 
         {mode !== "portefeuille" && (
-          <div className="flex gap-2 flex-wrap mt-3">
-            {INDEX_TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => { setIndexActif(t.key); setDonnees([]); }}
-                aria-pressed={indexActif === t.key}
-                className={`text-[11px] rounded-lg border px-2.5 py-1 ${
-                  indexActif === t.key
-                    ? "text-slate-100 border-slate-500 bg-slate-800/60"
-                    : "text-slate-500 border-slate-800 hover:text-slate-300"
-                }`}
+          <>
+            <div className="flex gap-2 flex-wrap mt-3">
+              {UNIVERS.map((u) => (
+                <button
+                  key={u.cle}
+                  onClick={() => u.disponible && setUniversActif(u.cle)}
+                  disabled={!u.disponible}
+                  aria-pressed={universActif === u.cle}
+                  title={u.disponible ? u.description : `${u.description} — composition non fournie.`}
+                  className={`btn-flash text-[11px] rounded-lg border px-2.5 py-1 ${
+                    !u.disponible
+                      ? "text-slate-700 border-slate-800/60 cursor-not-allowed"
+                      : universActif === u.cle
+                      ? "text-slate-100 border-slate-500 bg-slate-800/60"
+                      : "text-slate-500 border-slate-800 hover:text-slate-300"
+                  }`}
+                >
+                  {u.libelle}
+                  {!u.disponible && " ·"}
+                </button>
+              ))}
+            </div>
+
+            {/* Pré-filtres — appliqués avant la recette. C'est ce qui rend un
+                univers de plusieurs centaines de titres exploitable. */}
+            <div className="flex gap-2 flex-wrap items-center mt-3">
+              <select
+                value={tranche}
+                onChange={(e) => setTranche(e.target.value)}
+                aria-label="Tranche de capitalisation"
+                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-violet-400/60"
               >
-                {t.label}
-              </button>
-            ))}
-            <span className="text-[11px] text-slate-600 self-center">
-              {symbolesCibles.length} valeurs
-            </span>
-          </div>
+                {TRANCHES_CAPITALISATION.map((t) => (
+                  <option key={t.cle} value={t.cle}>
+                    {t.cle === "toutes" ? "Toutes tailles" : t.libelle}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={secteurFiltre}
+                onChange={(e) => setSecteurFiltre(e.target.value)}
+                aria-label="Secteur"
+                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-violet-400/60 max-w-[12rem]"
+              >
+                <option value="">Tous secteurs</option>
+                {secteurs.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+
+              <label
+                className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer"
+                title="Siège social dans l'Espace économique européen. Attention : une société éligible mais cotée uniquement hors d'Europe (cas de quelques valeurs du Russell) reste inatteignable depuis un PEA, faute de place de cotation européenne."
+              >
+                <input
+                  type="checkbox"
+                  checked={peaSeul}
+                  onChange={(e) => setPeaSeul(e.target.checked)}
+                  className="accent-violet-400"
+                />
+                Éligible PEA
+              </label>
+
+              <span className="text-[11px] text-slate-600">
+                {universFiltre.length} sur {donnees.length} valeurs
+              </span>
+            </div>
+          </>
         )}
 
         {mode === "portefeuille" && (
@@ -442,7 +570,20 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
           </p>
         )}
 
-        {chargeLe && (
+        {/* La date de génération est affichée sans exception : un instantané
+            servi par un job silencieusement cassé serait indiscernable d'un
+            instantané frais. */}
+        {genereLe && mode !== "portefeuille" && (
+          <p className="text-[10px] text-slate-600 mt-2">
+            Fondamentaux du{" "}
+            {new Date(genereLe).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}, filtrés
+            localement — aucun appel réseau.{" "}
+            {universParCle(universActif)?.rafraichiALaDemande
+              ? "Cet univers est rafraîchi à la demande : cette date peut être ancienne."
+              : "Rafraîchis chaque semaine."}
+          </p>
+        )}
+        {chargeLe && mode === "portefeuille" && (
           <p className="text-[10px] text-slate-600 mt-2">
             Fondamentaux chargés à {chargeLe.toLocaleTimeString("fr-FR")} · mis en cache une heure côté serveur.
           </p>
@@ -530,7 +671,11 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
               {resultats.filter((r) => r.evaluation.retenu).length} retenu(s) sur {resultats.length} analysé(s)
             </CardLabel>
             <div className="flex flex-col gap-2 mt-1">
-              {resultats.map(({ titre, evaluation }) => (
+              {/* Rendu borné : un univers de plusieurs centaines de titres ne
+                  se rend pas d'un bloc. Le tri place les retenus et les
+                  meilleurs scores en tête, donc la coupure tombe toujours sur
+                  ce qui intéresse le moins. */}
+              {resultats.slice(0, limite).map(({ titre, evaluation }) => (
                 <LigneResultat
                   key={titre.symbole}
                   symbole={titre.symbole}
@@ -561,6 +706,14 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                 />
               ))}
             </div>
+            {resultats.length > limite && (
+              <button
+                onClick={() => setLimite((l) => l + 100)}
+                className="btn-flash w-full mt-3 text-xs text-violet-300 hover:text-violet-100 border border-violet-500/30 hover:border-violet-400/60 rounded-lg py-2 transition-colors"
+              >
+                Afficher 100 de plus — {resultats.length - limite} valeurs restantes
+              </button>
+            )}
           </>
         ) : mode === "portefeuille" ? (
           <>

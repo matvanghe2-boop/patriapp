@@ -21,7 +21,15 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    include: ["src/**/*.test.{js,jsx}", "api/**/*.test.js", "shared/**/*.test.js"],
+    include: [
+      "src/**/*.test.{js,jsx}",
+      "api/**/*.test.js",
+      "shared/**/*.test.js",
+      // La conversion des tickers iShares vit dans `scripts/` et n'est pas
+      // moins critique pour autant : une correspondance de place fausse fait
+      // disparaître des titres de l'univers sans lever la moindre erreur.
+      "scripts/**/*.test.js",
+    ],
     setupFiles: ["./src/test/setup.js"],
   },
 });

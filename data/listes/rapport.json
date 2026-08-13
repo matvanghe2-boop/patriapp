@@ -1,0 +1,41 @@
+{
+  "genereLe": "2026-08-13T10:26:11.106Z",
+  "univers": {
+    "sbf120": {
+      "demandes": 107,
+      "retenus": 107,
+      "morts": [],
+      "tailleKo": 16
+    },
+    "fr-small": {
+      "demandes": 97,
+      "retenus": 97,
+      "morts": [],
+      "tailleKo": 14
+    },
+    "stoxx600": {
+      "demandes": 600,
+      "retenus": 600,
+      "morts": [],
+      "tailleKo": 83
+    },
+    "russell2000": {
+      "demandes": 1958,
+      "retenus": 1947,
+      "morts": [
+        "AKE",
+        "DK",
+        "DLO",
+        "DLX",
+        "DMAC",
+        "GEFB",
+        "GTXI",
+        "MOGA",
+        "PDLI",
+        "SBT",
+        "THRD"
+      ],
+      "tailleKo": 256
+    }
+  }
+}

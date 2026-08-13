@@ -1,0 +1,71 @@
+name: Rafraîchir les univers du screener
+
+# Hebdomadaire et non quotidien : un PER, un ROE ou une marge ne bougent pas à
+# la journée. Un instantané quotidien ferait grossir le dépôt cinq fois plus
+# vite pour une fraîcheur dont le screener n'a aucun usage.
+#
+# Le dimanche matin : la semaine boursière est close, les données sont stables,
+# et un éventuel échec laisse toute la semaine pour être vu et corrigé.
+#
+# LE RUSSELL 2000 EST VOLONTAIREMENT EXCLU du rafraîchissement automatique.
+# À lui seul il pèse 256 Ko et représente les trois quarts du temps d'exécution
+# (1 951 titres sur 2 755). Le régénérer chaque semaine ajouterait des dizaines
+# de mégaoctets à l'historique du dépôt pour un univers consulté rarement — et
+# des small caps américaines ne sont de toute façon pas éligibles au PEA.
+# Il se relance à la demande, voir plus bas.
+on:
+  schedule:
+    - cron: "0 6 * * 0"
+  workflow_dispatch:
+    inputs:
+      univers:
+        description: >-
+          Univers à régénérer, séparés par une espace. Laisser tel quel pour le
+          lot hebdomadaire ; saisir « russell2000 » pour le rafraîchir seul, ou
+          « sbf120 fr-small stoxx600 russell2000 » pour tout reprendre.
+        required: false
+        default: "sbf120 fr-small stoxx600"
+
+# Nécessaire pour que le job puisse committer les instantanés régénérés.
+permissions:
+  contents: write
+
+jobs:
+  rafraichir:
+    runs-on: ubuntu-latest
+    # Le script est volontairement lent (concurrence basse, pauses entre les
+    # lots) : Yahoo renvoie des réponses vides sans erreur explicite quand on
+    # le brusque, ce qui produirait un univers silencieusement amputé.
+    # Le lot hebdomadaire prend ~5 min, le Russell seul une quinzaine.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Régénérer les instantanés
+        env:
+          # Le déclenchement manuel fournit sa propre liste ; le cron n'a pas
+          # d'`inputs`, d'où le repli explicite.
+          UNIVERS: ${{ github.event.inputs.univers || 'sbf120 fr-small stoxx600' }}
+        run: npm run univers -- $UNIVERS
+
+      - name: Committer si les données ont changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/univers data/listes/rapport.json
+          # `--quiet` sort en 1 s'il y a des changements indexés : pas de
+          # commit vide, donc pas de redéploiement Vercel inutile les semaines
+          # où rien n'a bougé.
+          if git diff --cached --quiet; then
+            echo "Aucun changement dans les univers."
+            exit 0
+          fi
+          git commit -m "Rafraichit les instantanes d'univers du screener"
+          git push

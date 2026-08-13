@@ -1,0 +1,131 @@
+# SBF 120 — CAC 40 + CAC Next 20 + CAC Mid 60
+#
+# Un symbole par ligne, au format Yahoo. Lignes vides et lignes commençant par
+# « # » ignorées.
+#
+# Chaque symbole ci-dessous a répondu à l'API au moins une fois : la liste a
+# été passée au crible par `npm run univers`, qui écrit dans
+# data/listes/rapport.json ceux qui ne renvoient rien. Un symbole mort ne casse
+# rien — il ressort simplement absent de l'instantané — mais il consomme un
+# appel à chaque rafraîchissement, donc autant l'élaguer.
+#
+# La composition d'un indice bouge quelques fois par an, et les tickers
+# changent avec les raisons sociales. Renommages déjà rencontrés :
+#   FDJ.PA   → FDJU.PA  (FDJ United)
+#   POM.PA   → OPM.PA   (OPmobility, ex-Plastic Omnium)
+#   ALD.PA   → AYV.PA   (Ayvens)
+#   CGG.PA   → VIRI.PA  (Viridien)
+#   ORPA.PA  → EMEIS.PA (Emeis, ex-Orpea)
+#   URW.AS   → URW.PA
+# Retirés faute de cotation : TKTT.PA (Tarkett, retiré de la cote), EDF.PA.
+
+# ─── CAC 40 ──────────────────────────────────────────────────────────────────
+AC.PA
+AI.PA
+AIR.PA
+ALO.PA
+MT.AS
+CS.PA
+BNP.PA
+EN.PA
+CAP.PA
+CA.PA
+ACA.PA
+BN.PA
+DSY.PA
+EDEN.PA
+ENGI.PA
+EL.PA
+ERF.PA
+RMS.PA
+KER.PA
+LR.PA
+OR.PA
+MC.PA
+ML.PA
+ORA.PA
+RI.PA
+PUB.PA
+RNO.PA
+SAF.PA
+SGO.PA
+SAN.PA
+SU.PA
+GLE.PA
+STLAP.PA
+STMPA.PA
+TE.PA
+HO.PA
+TTE.PA
+VIE.PA
+DG.PA
+VIV.PA
+SW.PA
+BVI.PA
+
+# ─── CAC Next 20 / Mid 60 ────────────────────────────────────────────────────
+ADP.PA
+AF.PA
+AKE.PA
+ALTA.PA
+ATO.PA
+AYV.PA
+BB.PA
+BEN.PA
+BIM.PA
+BOL.PA
+CLARI.PA
+COFA.PA
+COV.PA
+DBV.PA
+DEC.PA
+ELIOR.PA
+ELIS.PA
+EMEIS.PA
+ENX.PA
+ERA.PA
+ETL.PA
+FDJU.PA
+FGR.PA
+FR.PA
+GET.PA
+GFC.PA
+GTT.PA
+ICAD.PA
+IPH.PA
+IPN.PA
+IPS.PA
+KOF.PA
+LI.PA
+LNA.PA
+MAU.PA
+MERY.PA
+MMT.PA
+NEX.PA
+NK.PA
+NXI.PA
+OPM.PA
+OVH.PA
+RCO.PA
+RUI.PA
+RXL.PA
+SAVE.PA
+SCR.PA
+SESG.PA
+SK.PA
+SOI.PA
+SOP.PA
+SPIE.PA
+STF.PA
+TEP.PA
+TFI.PA
+TKO.PA
+TRI.PA
+UBI.PA
+URW.PA
+VCT.PA
+VETO.PA
+VIRI.PA
+VLA.PA
+VRLA.PA
+WLN.PA

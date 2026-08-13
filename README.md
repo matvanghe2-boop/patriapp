@@ -53,9 +53,23 @@ Le service worker met la coquille applicative en cache : l'app **démarre et res
 
 ### Ce que le screener sait et ne sait pas
 
-Les fondamentaux viennent de Yahoo, via `/api/market?action=screen` (lot de titres, sans traduction, cache d'une heure) et `?action=fundamentals` (fiche détaillée). Trois limites, énoncées parce qu'elles se voient à l'usage :
+Les fondamentaux ne sont **pas** récupérés à la demande. Ils sont générés hors ligne, une fois par semaine, et servis comme actifs statiques depuis `public/univers/` : le navigateur les charge une fois puis filtre en local, sans aucun appel réseau.
 
-- **L'univers est curaté**, pas exhaustif : 162 valeurs listées dans `indexConstituents.js` (42 pour le CAC 40, 60 pour le S&P 500, 60 pour le Nasdaq). Chaque symbole a été vérifié contre l'API — un ticker mort ne provoque pas d'erreur visible, il ressort simplement comme « non évaluable », ce qui ressemble à un titre qui ne passe pas le filtre. Ce sont des instantanés de composition, pas un miroir en direct des indices. Screener une cote entière demanderait des milliers d'appels.
+Ce n'est pas une optimisation, c'est ce qui rend l'échelle possible. Le quota de `/api/market?action=screen` (20 requêtes/minute) imposait à lui seul plus de sept minutes d'attente pour quelques milliers de titres, et Yahoo renvoie des réponses vides sans erreur explicite bien avant ça — donc un univers silencieusement amputé.
+
+Effet de bord appréciable : ces fichiers étant de simples ressources statiques de même origine, le service worker les met en cache comme le reste de la coquille. **Le screener fonctionne hors ligne.**
+
+```bash
+npm run univers                    # régénère tous les instantanés
+npm run univers -- sbf120          # un seul
+node scripts/importer-ishares.mjs <export.xls> russell2000   # composition → liste de tickers
+```
+
+Trois limites, énoncées parce qu'elles se voient à l'usage :
+
+- **Les compositions sont des instantanés**, pas un miroir en direct des indices. Celles du SBF 120 et des small caps françaises sont maintenues à la main ; celles du STOXX 600 et du Russell 2000 sont importées d'un export iShares. Un symbole qui ne répond plus est rapporté dans `data/listes/rapport.json` — il ne provoque aucune erreur visible, il ressort simplement absent, ce qui ressemble à un titre qui ne passe pas le filtre.
+- **Les fondamentaux datent d'au plus une semaine.** Un PER ou un ROE ne bougent pas à la journée, et la date de génération est affichée dans l'interface : un job silencieusement cassé serait sinon indiscernable d'un job sain. Le sous-onglet « Mes lignes » interroge, lui, l'API en direct — ce sont quelques symboles, exactement le dimensionnement pour lequel l'endpoint a été conçu.
+- **La couverture chute sur les petites valeurs** : 96 % des champs renseignés sur le SBF 120, 88 % sur les small caps françaises, où le PER n'est publié que pour un titre sur deux (beaucoup sont en perte, ou relèvent d'Euronext Growth). `couvertureTitre` mesure cette disponibilité titre par titre.
 - **Le consensus s'arrête à l'exercice suivant.** L'application affiche donc un PER estimé sur deux exercices — l'année en cours et la suivante. Pas de troisième année : elle ne pourrait qu'être extrapolée, et s'afficherait à côté de vrais consensus sans que rien ne les distingue.
 - **Une donnée manquante n'est pas un échec.** Un titre dont le taux de distribution n'est pas publié n'est pas éliminé du filtre : le critère ressort « indéterminé » et le nombre de critères réellement évalués est affiché. Sans cette distinction, un titre disparaîtrait d'un écran pour une raison étrangère au filtre.
 

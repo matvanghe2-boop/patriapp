@@ -7,6 +7,7 @@ La description commentée de l'arborescence se trouve dans README.md.
 .claude/settings.local.json
 .eslintrc.cjs
 .github/workflows/ci.yml
+.github/workflows/univers.yml
 .gitignore
 .prettierignore
 .prettierrc.json
@@ -37,6 +38,11 @@ api/calendar.test.js
 api/market.js
 api/parse-pdf.js
 api/rates.test.js
+data/listes/fr-small.txt
+data/listes/rapport.json
+data/listes/russell2000.txt
+data/listes/sbf120.txt
+data/listes/stoxx600.txt
 index.html
 package-lock.json
 package.json
@@ -49,7 +55,14 @@ public/icon-maskable.png
 public/manifest.json
 public/orbit-header.js
 public/sw.js
+public/univers/fr-small.json
+public/univers/russell2000.json
+public/univers/sbf120.json
+public/univers/stoxx600.json
 scripts/generate-structure.mjs
+scripts/importer-ishares.mjs
+scripts/importer-ishares.test.js
+scripts/rafraichir-univers.mjs
 shared/adaptateursLLM.js
 shared/adaptateursLLM.test.js
 shared/anonymiser.js
@@ -71,6 +84,7 @@ shared/reequilibrage.js
 shared/reequilibrage.test.js
 shared/screener.js
 shared/screener.test.js
+shared/universSnapshot.js
 sql/schema.sql
 src/App.jsx
 src/App.test.jsx
@@ -163,6 +177,7 @@ src/lib/supabaseClient.js
 src/lib/syncStatus.js
 src/lib/themes.js
 src/lib/tri.test.js
+src/lib/univers.js
 src/lib/useAlertesWatchlist.js
 src/lib/useBilanRappel.js
 src/lib/useDailySnapshot.js

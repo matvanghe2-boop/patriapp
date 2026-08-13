@@ -1,0 +1,119 @@
+# Small et mid caps françaises — hors SBF 120
+#
+# C'est l'univers qui manquait. Le screener ne connaissait que de grandes
+# capitalisations déjà suivies par des dizaines d'analystes : une décote y est
+# rare et rarement durable. Les petites valeurs sont le seul endroit où un
+# screener fondamental a une chance de trouver quelque chose que le marché n'a
+# pas déjà passé au peigne fin.
+#
+# CONTREPARTIE, ET ELLE EST RÉELLE : la couverture Yahoo y est bien plus
+# lacunaire. Beaucoup de ces titres n'ont ni PEG, ni bêta, ni ratio de
+# liquidité publié. Le moteur ne les élimine pas pour autant — un critère non
+# publié ressort « indéterminé » et non « échec » — et l'instantané mesure la
+# donnée disponible titre par titre (`couvertureTitre`). Un titre noté sur
+# trois critères sur seize ne vaut pas un titre noté sur seize.
+#
+# Symboles vérifiés contre l'API. Le préfixe AL désigne Euronext Growth, ML
+# Euronext Access — deux compartiments aux obligations de publication plus
+# légères, ce qui explique une bonne part des trous de données.
+
+# ─── Euronext Paris compartiments B et C ─────────────────────────────────────
+ABCA.PA
+AKW.PA
+ARG.PA
+ASY.PA
+ATE.PA
+ATEME.PA
+AURE.PA
+BIG.PA
+BLC.PA
+CBOT.PA
+CRAP.PA
+CRI.PA
+DBG.PA
+EKI.PA
+EXPL.PA
+FII.PA
+GBT.PA
+GEA.PA
+HDF.PA
+ITP.PA
+JCQ.PA
+LOCAL.PA
+LSS.PA
+MRN.PA
+NRO.PA
+OSE.PA
+PIG.PA
+PROAC.PA
+PVL.PA
+RBT.PA
+SPEL.PA
+VLTSA.PA
+VMX.PA
+COH.PA
+EOS.PA
+EXE.PA
+FDE.PA
+FPG.PA
+GLO.PA
+GNFT.PA
+GUI.PA
+HCO.PA
+IDIP.PA
+INF.PA
+LACR.PA
+LAT.PA
+LBIRD.PA
+LOUP.PA
+MALT.PA
+MEDCL.PA
+NACON.PA
+NANO.PA
+NRG.PA
+PARRO.PA
+PAT.PA
+PLNW.PA
+POXEL.PA
+RAL.PA
+SAMS.PA
+SDG.PA
+SRP.PA
+TNG.PA
+VANTI.PA
+VIL.PA
+VIRP.PA
+VU.PA
+WAVE.PA
+CAT31.PA
+CBSM.PA
+EAPI.PA
+
+# ─── Euronext Growth / Access ────────────────────────────────────────────────
+ALBPS.PA
+ALCLS.PA
+ALCRB.PA
+ALCUR.PA
+ALDBL.PA
+ALDLS.PA
+ALDOL.PA
+ALEAC.PA
+ALEUP.PA
+ALGEV.PA
+ALGIL.PA
+ALHRG.PA
+ALINT.PA
+ALLDL.PA
+ALMDT.PA
+ALNOV.PA
+ALPAT.PA
+ALPRE.PA
+ALSAS.PA
+ALSPW.PA
+ALTHE.PA
+ALTUV.PA
+ALVAP.PA
+ALVDM.PA
+ALWIT.PA
+MLBSP.PA
+MLHK.PA

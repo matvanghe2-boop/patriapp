@@ -81,6 +81,45 @@ export const PLACE_SANS_SUFFIXE = {
 const ENVELOPPES_RESTREINTES = new Set(["PEA", "PEA-PME"]);
 
 /**
+ * Pays de l'Espace économique européen, tels que Yahoo les nomme.
+ *
+ * C'est le SIÈGE SOCIAL qui détermine l'éligibilité au PEA, pas la place de
+ * cotation — et les deux divergent plus souvent qu'on ne le croit. Shell plc
+ * se négocie sur Euronext Amsterdam mais est domiciliée au Royaume-Uni : elle
+ * est inéligible, alors que son suffixe `.AS` laisse croire l'inverse. Sur le
+ * seul STOXX 600, six sociétés sont dans ce cas.
+ *
+ * Le suffixe reste le repli quand le pays n'est pas publié : il est juste dans
+ * l'immense majorité des cas, et vaut mieux qu'une absence de réponse.
+ *
+ * ⚠️ NUANCE PRATIQUE, dans l'autre sens cette fois. Le critère légal est bien
+ * le siège social, et une douzaine de sociétés du Russell 2000 le satisfont —
+ * Adient, Alkermes, Perrigo (Irlande), Constellium (France), Zegna (Italie)…
+ * Mais elles ne sont cotées qu'aux États-Unis, et un PEA ne peut router
+ * d'ordre que vers une place européenne : en pratique le courtier les
+ * refusera, faute de ligne de cotation atteignable. Le drapeau répond donc à
+ * « cette société est-elle éligible ? », pas à « puis-je l'acheter sur mon
+ * PEA ? ». Pour ces titres, il faut chercher une éventuelle cotation
+ * européenne du même émetteur.
+ */
+const PAYS_EEE = new Set([
+  "France", "Germany", "Netherlands", "Spain", "Italy", "Belgium", "Portugal",
+  "Austria", "Ireland", "Finland", "Sweden", "Denmark", "Norway", "Poland",
+  "Czech Republic", "Czechia", "Hungary", "Greece", "Luxembourg", "Iceland",
+  "Liechtenstein", "Estonia", "Latvia", "Lithuania", "Slovakia", "Slovenia",
+  "Croatia", "Romania", "Bulgaria", "Cyprus", "Malta",
+]);
+
+/**
+ * Le siège social est-il dans l'EEE ?
+ * `null` quand le pays n'est pas renseigné — on ne devine pas.
+ */
+export function paysDansEee(pays) {
+  if (!pays || typeof pays !== "string") return null;
+  return PAYS_EEE.has(pays.trim());
+}
+
+/**
  * Place de cotation d'un ticker. `null` si le suffixe est inconnu — on ne
  * devine pas : une éligibilité supposée à tort est pire qu'une absence de
  * réponse.
@@ -97,15 +136,30 @@ export function placeDuTicker(ticker) {
 /**
  * Le titre est-il détenable dans cette enveloppe ?
  *
+ * @param ticker      symbole Yahoo
+ * @param enveloppe   "PEA", "CTO"…
+ * @param paysSiege   pays du siège social, quand il est connu. C'est LUI qui
+ *                    fait foi : le suffixe de cotation n'est qu'un repli.
  * @returns {{eligible: boolean|null, pays: string|null, motif: string|null}}
- *   `eligible: null` quand la place n'a pas pu être identifiée.
  */
-export function verifierEligibilite(ticker, enveloppe = "PEA") {
+export function verifierEligibilite(ticker, enveloppe = "PEA", paysSiege = null) {
+  const place = placeDuTicker(ticker);
+
   if (!ENVELOPPES_RESTREINTES.has(String(enveloppe || "").toUpperCase())) {
-    return { eligible: true, pays: placeDuTicker(ticker)?.pays ?? null, motif: null };
+    return { eligible: true, pays: paysSiege ?? place?.pays ?? null, motif: null };
   }
 
-  const place = placeDuTicker(ticker);
+  // Le siège social prime quand il est connu.
+  const parSiege = paysDansEee(paysSiege);
+  if (parSiege === true) return { eligible: true, pays: paysSiege, motif: null };
+  if (parSiege === false) {
+    return {
+      eligible: false,
+      pays: paysSiege,
+      motif: `Siège social hors Espace économique européen (${paysSiege}) : un PEA ne peut pas la détenir, quelle que soit sa place de cotation.`,
+    };
+  }
+
   if (!place) {
     return {
       eligible: null,

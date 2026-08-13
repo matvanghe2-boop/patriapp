@@ -57,6 +57,40 @@ describe("verifierEligibilite", () => {
   it("signale son incertitude plutôt que de trancher", () => {
     expect(verifierEligibilite("TOTO.ZZ", "PEA")).toMatchObject({ eligible: null });
   });
+
+  describe("le siège social prime sur la place de cotation", () => {
+    it("refuse une société cotée dans l'EEE mais domiciliée hors EEE", () => {
+      // Shell plc : Euronext Amsterdam, siège au Royaume-Uni. Le suffixe .AS
+      // laisse croire à l'éligibilité — c'est faux, et le courtier refusera.
+      const r = verifierEligibilite("SHELL.AS", "PEA", "United Kingdom");
+      expect(r.eligible).toBe(false);
+      expect(r.motif).toMatch(/Siège social hors Espace économique européen/);
+    });
+
+    it("refuse aussi les domiciliations américaines et suisses", () => {
+      expect(verifierEligibilite("CVC.AS", "PEA", "United States").eligible).toBe(false);
+      expect(verifierEligibilite("DSFIR.AS", "PEA", "Switzerland").eligible).toBe(false);
+      expect(verifierEligibilite("OCTV-SDB.ST", "PEA", "United States").eligible).toBe(false);
+    });
+
+    it("accepte une société de l'EEE quelle que soit sa place de cotation", () => {
+      // Cotée à Londres, siège en Irlande : éligible malgré le suffixe .L.
+      expect(verifierEligibilite("XYZ.L", "PEA", "Ireland").eligible).toBe(true);
+      expect(verifierEligibilite("CSG.AS", "PEA", "Czech Republic").eligible).toBe(true);
+    });
+
+    it("retombe sur le suffixe quand le pays n'est pas publié", () => {
+      expect(verifierEligibilite("AI.PA", "PEA", null).eligible).toBe(true);
+      expect(verifierEligibilite("AAPL", "PEA", "").eligible).toBe(false);
+    });
+
+    it("n'impose rien hors PEA, mais rapporte le siège", () => {
+      expect(verifierEligibilite("SHELL.AS", "CTO", "United Kingdom")).toMatchObject({
+        eligible: true,
+        pays: "United Kingdom",
+      });
+    });
+  });
 });
 
 describe("tauxRetenue", () => {
