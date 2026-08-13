@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown, Bell, BellRing, Check, X} from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
+import { CarteRepliable, CardLabel, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
 import AssetLogo from "./AssetLogo";
 import { eur, pct, uid, computeReturnMetrics } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
@@ -183,7 +183,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
   );
 }
 
-export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alertes = [], setAlertes }) {
+export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alertes = [], setAlertes, replie, onBasculer }) {
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -305,9 +305,15 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
   const isInitialLoad = isLoading && Object.keys(metricsBySymbol).length === 0 && watchlist.length > 0;
 
   return (
-    <Card accent="border-fuchsia-500/40 bg-gradient-to-br from-fuchsia-950/40 via-slate-900 to-slate-900 hover:border-fuchsia-400/60">
-      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-        <CardLabel icon={Star}>Watchlist — produits à suivre</CardLabel>
+    <CarteRepliable
+      titre="Watchlist — produits à suivre"
+      icon={Star}
+      accent="border-fuchsia-500/40 bg-gradient-to-br from-fuchsia-950/40 via-slate-900 to-slate-900 hover:border-fuchsia-400/60"
+      replie={replie}
+      onBasculer={onBasculer}
+      resume={`${watchlist.length} produit(s)`}
+    >
+      <div className="flex items-center justify-end mb-1 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <SortButton sort={sort} setSort={setSort} />
           <button
@@ -444,7 +450,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
         aucune projection, uniquement de l'historique factuel. La variation journalière est calculée par rapport au
         cours de clôture de la veille.
       </p>
-    </Card>
+    </CarteRepliable>
   );
 }
 

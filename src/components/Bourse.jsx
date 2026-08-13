@@ -1008,9 +1008,22 @@ export default function Bourse({
       {/* Remplace le simulateur d'ordre : celui-ci ne traitait qu'une ligne à
           la fois, alors que vendre une position modifie le poids de toutes les
           autres. */}
-      <Reequilibrage bourse={bourse} setBourse={setBourse} />
+      <Reequilibrage
+        bourse={bourse}
+        setBourse={setBourse}
+        replie={replie("reequilibrage")}
+        onBasculer={basculer("reequilibrage")}
+      />
 
-      <Watchlist watchlist={watchlist} setWatchlist={setWatchlist} onOpenMarket={openInMarche} alertes={alertesWatchlist} setAlertes={setAlertesWatchlist} />
+      <Watchlist
+        watchlist={watchlist}
+        setWatchlist={setWatchlist}
+        onOpenMarket={openInMarche}
+        alertes={alertesWatchlist}
+        setAlertes={setAlertesWatchlist}
+        replie={replie("watchlist")}
+        onBasculer={basculer("watchlist")}
+      />
 
       {/* Pie */}
       <CarteRepliable
@@ -1057,7 +1070,11 @@ export default function Bourse({
         )}
       </CarteRepliable>
 
-      <SectorHeatmap positions={bourse.positions} />
+      <SectorHeatmap
+        positions={bourse.positions}
+        replie={replie("heatmap")}
+        onBasculer={basculer("heatmap")}
+      />
       </>
       )}
 

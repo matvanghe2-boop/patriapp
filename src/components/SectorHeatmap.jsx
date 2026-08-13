@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { LayoutGrid } from "lucide-react";
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
-import { Card, CardLabel, EmptyState } from "./ui";
+import { CarteRepliable, EmptyState } from "./ui";
 import { eur, pctPlain } from "../lib/finance";
 import { getSector, SECTOR_HEX } from "../lib/sectors";
 import AssetLogo from "./AssetLogo";
@@ -12,7 +12,7 @@ import AssetLogo from "./AssetLogo";
  * ligne dans le portefeuille. La couleur code le secteur (pas la
  * performance) — chaque case garde le nom du secteur affiché à l'intérieur.
  */
-export default function SectorHeatmap({ positions = [] }) {
+export default function SectorHeatmap({ positions = [], replie, onBasculer }) {
   const { data, total, sectorTotals } = useMemo(() => {
     const withValue = positions
       .map((p) => ({ ...p, value: (p.quantity || 0) * (p.current_price || 0), sector: getSector(p.ticker) }))
@@ -48,8 +48,13 @@ export default function SectorHeatmap({ positions = [] }) {
   );
 
   return (
-    <Card>
-      <CardLabel icon={LayoutGrid}>Répartition sectorielle</CardLabel>
+    <CarteRepliable
+      titre="Répartition sectorielle"
+      icon={LayoutGrid}
+      replie={replie}
+      onBasculer={onBasculer}
+      resume={`${data.length} secteur(s)`}
+    >
       {data.length === 0 ? (
         <EmptyState>Ajoute une position pour voir sa répartition sectorielle.</EmptyState>
       ) : (
@@ -82,7 +87,7 @@ export default function SectorHeatmap({ positions = [] }) {
           </div>
         </div>
       )}
-    </Card>
+    </CarteRepliable>
   );
 }
 

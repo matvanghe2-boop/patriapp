@@ -123,6 +123,7 @@ src/components/Operations.jsx
 src/components/OrderSimulator.jsx
 src/components/PanneauTransparence.jsx
 src/components/PanneauTransparence.test.jsx
+src/components/PortefeuilleRepli.test.jsx
 src/components/ProChart.jsx
 src/components/Projet.jsx
 src/components/Projet.test.jsx

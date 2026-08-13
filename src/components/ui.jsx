@@ -212,14 +212,20 @@ export function CarteRepliable({
   return (
     <div className={`rounded-2xl border bg-slate-900 transition-colors duration-300 ${accent || "border-slate-800"} ${className}`}>
       <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-1">
+        {/* `group` + un titre qui s'éclaircit au survol : sans ce signal, rien
+            ne distinguait une carte repliable d'une carte ordinaire, et on ne
+            savait pas où cliquer. Le chevron seul était trop discret. */}
         <button
           onClick={onBasculer}
           aria-expanded={!replie}
           aria-controls={idContenu}
-          className="btn-flash flex items-center gap-2 min-w-0 flex-1 text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+          title={replie ? "Déplier" : "Replier"}
+          className="btn-flash group flex items-center gap-2 min-w-0 flex-1 text-left rounded -mx-1 px-1 py-0.5 hover:bg-slate-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
         >
-          {Icon && <Icon size={13} className="text-slate-500 shrink-0" aria-hidden="true" />}
-          <span className="text-xs uppercase tracking-wider text-slate-500 truncate">{titre}</span>
+          {Icon && <Icon size={13} className="text-slate-500 group-hover:text-slate-300 shrink-0 transition-colors" aria-hidden="true" />}
+          <span className="text-xs uppercase tracking-wider text-slate-500 group-hover:text-slate-200 truncate transition-colors">
+            {titre}
+          </span>
           {replie && resume && (
             <span className="text-[11px] text-slate-600 truncate hidden sm:inline">— {resume}</span>
           )}

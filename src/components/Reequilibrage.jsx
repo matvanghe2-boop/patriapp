@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Scale, RotateCcw, Wallet, AlertTriangle, Info, ArrowUp, ArrowDown } from "lucide-react";
-import { Card, CardLabel, EmptyState, ProgressBar, CARD_THEMES } from "./ui";
+import { CarteRepliable, EmptyState, ProgressBar, CARD_THEMES } from "./ui";
 import { eur, pctPlain } from "../lib/finance";
 import { fiscaliteEnveloppe } from "../../shared/horizon";
 import {
@@ -19,7 +19,7 @@ import {
  * persistés et synchronisés comme le reste du portefeuille. Deux préréglages
  * évitent d'avoir à saisir douze pourcentages avant d'obtenir quoi que ce soit.
  */
-export default function Reequilibrage({ bourse, setBourse }) {
+export default function Reequilibrage({ bourse, setBourse, replie, onBasculer }) {
   const positions = useMemo(() => bourse?.positions || [], [bourse]);
 
   const [apport, setApport] = useState("");
@@ -77,17 +77,28 @@ export default function Reequilibrage({ bourse, setBourse }) {
 
   if (positions.length === 0) {
     return (
-      <Card accent={CARD_THEMES.violet}>
-        <CardLabel icon={Scale}>Plan de rééquilibrage</CardLabel>
+      <CarteRepliable
+        titre="Plan de rééquilibrage"
+        icon={Scale}
+        accent={CARD_THEMES.violet}
+        replie={replie}
+        onBasculer={onBasculer}
+      >
         <EmptyState>Ajoute des positions pour construire un plan de rééquilibrage.</EmptyState>
-      </Card>
+      </CarteRepliable>
     );
   }
 
   return (
-    <Card accent={CARD_THEMES.violet}>
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <CardLabel icon={Scale}>Plan de rééquilibrage</CardLabel>
+    <CarteRepliable
+      titre="Plan de rééquilibrage"
+      icon={Scale}
+      accent={CARD_THEMES.violet}
+      replie={replie}
+      onBasculer={onBasculer}
+      resume={`${positions.length} ligne(s)`}
+    >
+      <div className="flex items-center justify-end gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => definirCibles(ciblesEquiponderees(positions))}
@@ -318,6 +329,6 @@ export default function Reequilibrage({ bourse, setBourse }) {
         Plan indicatif : les ordres sont à passer chez ton courtier, rien n'est exécuté ici. Les
         quantités sont théoriques — la plupart des courtiers n'acceptent pas les fractions de titre.
       </p>
-    </Card>
+    </CarteRepliable>
   );
 }
