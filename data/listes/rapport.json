@@ -1,5 +1,5 @@
 {
-  "genereLe": "2026-08-13T10:26:11.106Z",
+  "genereLe": "2026-08-16T06:38:56.073Z",
   "univers": {
     "sbf120": {
       "demandes": 107,
@@ -9,8 +9,10 @@
     },
     "fr-small": {
       "demandes": 97,
-      "retenus": 97,
-      "morts": [],
+      "retenus": 96,
+      "morts": [
+        "PVL.PA"
+      ],
       "tailleKo": 14
     },
     "stoxx600": {
@@ -18,24 +20,6 @@
       "retenus": 600,
       "morts": [],
       "tailleKo": 83
-    },
-    "russell2000": {
-      "demandes": 1958,
-      "retenus": 1947,
-      "morts": [
-        "AKE",
-        "DK",
-        "DLO",
-        "DLX",
-        "DMAC",
-        "GEFB",
-        "GTXI",
-        "MOGA",
-        "PDLI",
-        "SBT",
-        "THRD"
-      ],
-      "tailleKo": 256
     }
   }
 }
