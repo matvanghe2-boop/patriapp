@@ -27,7 +27,9 @@
 //
 // v2 : polices auto-hébergées, orbit-header.js rapatrié, refonte des styles.
 // v3 : orbit-splash.js rapatrié à son tour (écran de chargement du réseau).
-const VERSION = "patrium-v3";
+// v4 : polices réduites au latin, et surtout FIN DU skipWaiting automatique
+//      (voir plus bas) — la mise à jour est désormais proposée, pas imposée.
+const VERSION = "patrium-v4";
 const CACHE_COQUILLE = `${VERSION}-coquille`;
 
 // Le strict minimum pour afficher quelque chose hors ligne. Les fragments
@@ -35,6 +37,22 @@ const CACHE_COQUILLE = `${VERSION}-coquille`;
 // ici serait vain, ils sont mis en cache au fil de l'eau par le `fetch`.
 const RESSOURCES_INITIALES = ["/", "/index.html", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
+/**
+ * PAS DE `skipWaiting()` AUTOMATIQUE.
+ *
+ * L'ancienne version prenait la main dès son installation et purgeait les
+ * caches de la précédente — dans un onglet DÉJÀ OUVERT. Or les onglets de
+ * l'application sont chargés à la demande (`React.lazy`) et leurs fragments
+ * portent un nom haché qui change à chaque build. Ouvrir « PEA & Bourse »
+ * après un déploiement pouvait donc échouer sur un
+ * `Failed to fetch dynamically imported module` : l'écran restait vide, sans
+ * la moindre explication, et seul un rechargement manuel réparait.
+ *
+ * Le nouveau worker attend désormais. L'application détecte son arrivée
+ * (voir `main.jsx`) et propose un rechargement ; c'est ce clic qui envoie le
+ * message `SKIP_WAITING` ci-dessous. La mise à jour reste immédiate quand
+ * l'utilisateur la veut, et ne casse plus une session en cours.
+ */
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
@@ -42,8 +60,12 @@ self.addEventListener("install", (event) => {
       // `addAll` échoue en bloc si une seule ressource manque : on tolère les
       // absences pour ne pas empêcher l'installation du service worker.
       .then((cache) => Promise.allSettled(RESSOURCES_INITIALES.map((url) => cache.add(url))))
-      .then(() => self.skipWaiting())
   );
+});
+
+// Déclenché par l'application quand l'utilisateur accepte le rechargement.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

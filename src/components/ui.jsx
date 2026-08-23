@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { Plus, Trash2, X, Lock, ChevronDown } from "lucide-react";
-import { eur } from "../lib/finance";
+import { eur, lireNombre } from "../lib/finance";
 import { theme as themeDe, CARD_THEMES, GHOST_THEMES } from "../lib/themes";
 
 // Les palettes vivent désormais dans `lib/themes.js`, où elles ne sont écrites
@@ -189,7 +189,7 @@ export function useValeurAnimee(cible, { duree = DUREE_ANIMATION_MS } = {}) {
  * un écran qu'on a pris la peine d'organiser doit se retrouver tel quel au
  * rechargement, sinon le réglage ne sert à rien.
  *
- * Le repli passe par une grille `0fr → 1fr` (voir `.collapsible` dans
+ * Le repli passe par une grille `0fr → 1fr` (voir `.collapse-in` dans
  * index.css) : c'est la seule technique qui anime vers une hauteur AUTO sans
  * mesurer le contenu en JavaScript, et elle se neutralise d'elle-même sous
  * `prefers-reduced-motion`.
@@ -304,23 +304,100 @@ export function IconTrash({ onClick, label = "Supprimer" }) {
   );
 }
 
+/**
+ * Champ numérique dont la saisie n'est validée qu'à la sortie du champ.
+ *
+ * POURQUOI CE COMPOSANT EXISTE
+ *
+ * Les deux champs du profil mensuel (revenu, dépenses) appelaient `setProfile`
+ * à CHAQUE CARACTÈRE. Or `setProfile` ne se contente pas de ranger un nombre :
+ * il horodate la saisie, ajoute une entrée datée à `profileHistory`, écrit
+ * deux clés dans le localStorage et programme deux écritures cloud. Et comme
+ * ces deux clés vivent dans le contexte patrimonial, chaque frappe
+ * reconstruisait l'objet de contexte et re-rendait tout l'onglet — graphiques
+ * recharts compris.
+ *
+ * Saisir « 2100 » déclenchait donc quatre fois ce cycle complet, dont trois
+ * pour des valeurs intermédiaires (« 2 », « 21 », « 210 ») qui n'ont aucun
+ * sens et se retrouvaient réellement dans l'historique du profil.
+ *
+ * Le brouillon reste donc local pendant la frappe et n'est remonté qu'à la
+ * validation : perte du focus, ou touche Entrée. Échap annule et restaure la
+ * valeur d'origine — même convention que les champs éditables de Livrets.
+ */
+export function ChampNumerique({
+  id,
+  value,
+  onCommit,
+  className = "",
+  /** Valeur retenue quand le champ est laissé vide. */
+  valeurSiVide = 0,
+  ...rest
+}) {
+  const [brouillon, setBrouillon] = useState(() => String(value ?? ""));
+
+  // Resynchronisation quand la valeur de référence change ailleurs (import,
+  // synchronisation cloud) : ajustement pendant le rendu, pas dans un effet.
+  const [refPrecedente, setRefPrecedente] = useState(value);
+  if (value !== refPrecedente) {
+    setRefPrecedente(value);
+    setBrouillon(String(value ?? ""));
+  }
+
+  const valider = () => {
+    const lu = lireNombre(brouillon);
+    const retenu = brouillon.trim() === "" ? valeurSiVide : lu;
+    if (retenu == null) {
+      // Saisie inexploitable : on revient à la valeur en place plutôt que
+      // d'écrire un zéro que personne n'a demandé.
+      setBrouillon(String(value ?? ""));
+      return;
+    }
+    setBrouillon(String(retenu));
+    if (retenu !== value) onCommit(retenu);
+  };
+
+  return (
+    <input
+      {...rest}
+      id={id}
+      value={brouillon}
+      onChange={(e) => setBrouillon(e.target.value)}
+      onBlur={valider}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          setBrouillon(String(value ?? ""));
+          e.currentTarget.blur();
+        }
+      }}
+      className={className}
+    />
+  );
+}
+
 export function SliderField({ label, value, onChange, min, max, step, unit = "", format }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs text-slate-400">{label}</label>
+        <label htmlFor={`${idsChamps}-champ`} className="text-xs text-slate-400">{label}</label>
         <span className="font-data tabular-nums text-sm text-amber-300">
           {format ? format(value) : value}
           {unit}
         </span>
       </div>
-      <input
+      <input id={`${idsChamps}-champ`}
         type="range"
         min={min}
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onChange={(e) => onChange(lireNombre(e.target.value))}
         className="w-full"
       />
     </div>
@@ -352,6 +429,23 @@ export function AddPanel({ open, onClose, fields, onSubmit }) {
   const blank = () => Object.fromEntries(fields.map((f) => [f.key, f.default ?? ""]));
   const [values, setValues] = useState(blank());
 
+  /**
+   * Préfixe d'identifiant pour relier chaque étiquette à son champ.
+   *
+   * Les `<label>` étaient de simples voisines visuelles : ni `htmlFor`, ni
+   * enveloppement du champ. Un lecteur d'écran annonçait donc « zone
+   * d'édition, vide » sans jamais dire de quoi il s'agissait, et cliquer sur
+   * l'intitulé ne donnait pas le focus au champ.
+   *
+   * `useId` plutôt qu'un compteur ou la seule clé de champ : ce composant est
+   * monté PLUSIEURS FOIS sur le même écran (le Dashboard en affiche deux, pour
+   * les passifs et pour l'historique), et deux formulaires partageant `id`
+   * rendraient l'association fausse — un clic sur l'étiquette de l'un
+   * donnerait le focus au champ de l'autre. C'est pire qu'une association
+   * absente.
+   */
+  const prefixeId = useId();
+
   if (!open) return null;
 
   const submit = (e) => {
@@ -359,7 +453,7 @@ export function AddPanel({ open, onClose, fields, onSubmit }) {
     const parsed = {};
     fields.forEach((f) => {
       const raw = values[f.key];
-      parsed[f.key] = f.type === "number" ? parseFloat(raw === "" ? f.default ?? 0 : raw) : raw;
+      parsed[f.key] = f.type === "number" ? lireNombre(raw === "" ? f.default ?? 0 : raw) : raw;
     });
     onSubmit(parsed);
     setValues(blank());
@@ -370,9 +464,10 @@ export function AddPanel({ open, onClose, fields, onSubmit }) {
     <form onSubmit={submit} className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950">
       {fields.map((f) => (
         <div key={f.key} className="flex flex-col gap-1 col-span-1">
-          <label className="text-[11px] text-slate-500">{f.label}</label>
+          <label htmlFor={`${prefixeId}-${f.key}`} className="text-[11px] text-slate-500">{f.label}</label>
           {f.type === "select" ? (
             <select
+              id={`${prefixeId}-${f.key}`}
               required={f.required}
               value={values[f.key]}
               onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
@@ -386,6 +481,7 @@ export function AddPanel({ open, onClose, fields, onSubmit }) {
             </select>
           ) : (
             <input
+              id={`${prefixeId}-${f.key}`}
               required={f.required}
               type={f.type || "text"}
               step={f.step}

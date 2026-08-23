@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { Coins, TrendingUp, TrendingDown, Info } from "lucide-react";
 import {
-  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
+  ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from "recharts";
 import { Card, CardLabel, EmptyState, CARD_THEMES } from "./ui";
-import { eur, pctPlain, compact, triPosition } from "../lib/finance";
+import { eur, pctPlain, compact, triPosition, lireNombre } from "../lib/finance";
 import {
   totalAttendu, comparerAttenduPercu, rendementSurPrixDeRevient,
   percusParActif, serieAvecProjection, totalRetenueSource,
@@ -37,7 +37,7 @@ export default function SuiviDividendes({ bourse }) {
     () =>
       serieAvecProjection(operations, positions, {
         anneesProjection: horizon,
-        tauxForce: tauxManuel === "" ? null : parseFloat(tauxManuel),
+        tauxForce: tauxManuel === "" ? null : lireNombre(tauxManuel),
       }),
     [operations, positions, horizon, tauxManuel]
   );

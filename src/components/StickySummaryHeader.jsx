@@ -44,7 +44,12 @@ export default function StickySummaryHeader({ patrimoineNet, deltaPct, ghostMode
       <div className="flex items-center justify-between gap-3">
         {/* Bloc résumé chiffré — se condense au scroll */}
         <div className="flex items-center gap-3 min-w-0 overflow-hidden">
+          {/* `aria-hidden` au repos : ce mot-clé fait doublon avec le titre de
+              page affiché plus bas, et `opacity-0 h-0` ne le retire pas de
+              l'arbre d'accessibilité — un lecteur d'écran annonçait donc
+              « Patrium » deux fois. */}
           <span
+            aria-hidden={!scrolled}
             className={`font-display text-slate-50 shrink-0 transition-all duration-300 ${
               scrolled ? "text-sm" : "text-lg opacity-0 h-0 -mt-6" // masqué/rétréci au repos, le vrai titre de page reste affiché plus bas
             }`}
@@ -52,7 +57,23 @@ export default function StickySummaryHeader({ patrimoineNet, deltaPct, ghostMode
             Patrium
           </span>
 
+          {/*
+            `inert` plutôt que `pointer-events-none`.
+
+            Ce bloc est masqué au repos par `opacity-0 h-0`, et
+            `pointer-events-none` neutralisait la SOURIS — rien d'autre. Le
+            bouton de mode Ghost qu'il contient restait donc atteignable au
+            clavier et annoncé par les lecteurs d'écran : on tabulait sur une
+            commande invisible, dans un en-tête qui en expose déjà une autre,
+            identique, dans la barre latérale.
+
+            `inert` retire l'ensemble du sous-arbre du focus ET de l'arbre
+            d'accessibilité en une seule propriété. Il est ignoré par les
+            navigateurs qui ne le connaissent pas, où `pointer-events-none`
+            conservé ci-dessous garde l'ancien comportement.
+          */}
           <div
+            inert={!scrolled ? "" : undefined}
             className={`flex items-center gap-3 font-data tabular-nums transition-all duration-300 ${
               scrolled ? "opacity-100 text-sm" : "opacity-0 pointer-events-none h-0 text-xs"
             }`}

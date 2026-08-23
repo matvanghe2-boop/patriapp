@@ -8,10 +8,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(isSupabaseConfigured);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setLoading(false);
-      return;
-    }
+    // Rien à faire sans Supabase : `loading` est initialisé à
+    // `isSupabaseConfigured`, il vaut donc DÉJÀ `false` ici. Le
+    // `setLoading(false)` qui s'y trouvait provoquait un rendu supplémentaire
+    // au démarrage pour réécrire la valeur qui était déjà en place.
+    if (!isSupabaseConfigured) return undefined;
     // Récupère la session persistée (localStorage) au chargement — c'est ce
     // qui évite d'avoir à se reconnecter à chaque ouverture de l'app.
     supabase.auth.getSession().then(({ data }) => {

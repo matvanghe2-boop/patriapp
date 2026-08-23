@@ -1,11 +1,12 @@
 Arborescence du projet Patrium.
 Ce fichier est un instantané : le regénérer après tout ajout de fichier avec
   npm run structure
+La liste vient de `git ls-files` : elle ne contient donc que ce qui fait
+partie du dépôt, et elle est identique sur toutes les machines.
 La description commentée de l'arborescence se trouve dans README.md.
 
 .claude/launch.json
-.claude/settings.local.json
-.eslintrc.cjs
+.env.example
 .github/workflows/ci.yml
 .github/workflows/univers.yml
 .gitignore
@@ -23,6 +24,7 @@ api/_lib/pdfParsing.test.js
 api/_lib/routes/calendar.js
 api/_lib/routes/fundamentals.js
 api/_lib/routes/fx.js
+api/_lib/routes/health.js
 api/_lib/routes/history.js
 api/_lib/routes/profile.js
 api/_lib/routes/quote.js
@@ -35,6 +37,7 @@ api/_lib/yahoo.js
 api/_lib/yahooFondamentaux.js
 api/advisor.js
 api/calendar.test.js
+api/health.test.js
 api/market.js
 api/parse-pdf.js
 api/rates.test.js
@@ -43,6 +46,7 @@ data/listes/rapport.json
 data/listes/russell2000.txt
 data/listes/sbf120.txt
 data/listes/stoxx600.txt
+eslint.config.js
 index.html
 package-lock.json
 package.json
@@ -54,6 +58,7 @@ public/icon-512.png
 public/icon-maskable.png
 public/manifest.json
 public/orbit-header.js
+public/orbit-splash.js
 public/sw.js
 public/univers/fr-small.json
 public/univers/russell2000.json
@@ -88,6 +93,7 @@ shared/universSnapshot.js
 sql/schema.sql
 src/App.jsx
 src/App.test.jsx
+src/classesCss.test.js
 src/components/Abonnements.jsx
 src/components/AssetLogo.jsx
 src/components/AssetStats.jsx
@@ -103,6 +109,7 @@ src/components/CarteRepliable.test.jsx
 src/components/ChartFocusModal.jsx
 src/components/Dashboard.jsx
 src/components/ErrorBoundary.jsx
+src/components/EtatSourceMarche.jsx
 src/components/FicheFinanciere.jsx
 src/components/FinancialCalendar.jsx
 src/components/FinancialCalendar.test.jsx
@@ -113,6 +120,7 @@ src/components/IndicesWidget.jsx
 src/components/Livrets.jsx
 src/components/Login.jsx
 src/components/Marche.jsx
+src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
 src/components/Notifications.jsx
 src/components/Objectifs.jsx
@@ -165,6 +173,7 @@ src/lib/finance.test.js
 src/lib/horizonClient.js
 src/lib/indexConstituents.js
 src/lib/ledger.test.js
+src/lib/lireNombre.test.js
 src/lib/netWorth.test.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
@@ -181,6 +190,7 @@ src/lib/useAlertesWatchlist.js
 src/lib/useBilanRappel.js
 src/lib/useDailySnapshot.js
 src/lib/useHashRoute.js
+src/lib/useMaintenant.js
 src/main.jsx
 src/test/setup.js
 structure.txt

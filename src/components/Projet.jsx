@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useId } from "react";
 import {
   Target, AlertTriangle, Wallet, TrendingDown, Info, Landmark, Coins, Shield, SlidersHorizontal,
   Save,
@@ -58,6 +58,9 @@ export default function Projet({
   horizonDernierBilan = null,
   setHorizonDernierBilan = () => {},
 }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [panneauOuvert, setPanneauOuvert] = useState(false);
   const [reglagesOuverts, setReglagesOuverts] = useState(false);
   const [libelle, setLibelle] = useState("Voiture");
@@ -286,16 +289,16 @@ export default function Projet({
           <CardLabel icon={Wallet}>Le projet</CardLabel>
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Libellé</label>
-              <input
+              <label htmlFor={`${idsChamps}-libelle`} className="text-xs text-slate-400 block mb-1.5">Libellé</label>
+              <input id={`${idsChamps}-libelle`}
                 value={libelle}
                 onChange={(e) => setLibelle(e.target.value)}
                 className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-1.5 text-sm text-slate-100"
               />
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Catégorie</label>
-              <select
+              <label htmlFor={`${idsChamps}-categorie`} className="text-xs text-slate-400 block mb-1.5">Catégorie</label>
+              <select id={`${idsChamps}-categorie`}
                 value={categorie}
                 onChange={(e) => setCategorie(e.target.value)}
                 className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-1.5 text-sm text-slate-100"
@@ -369,8 +372,8 @@ export default function Projet({
               min={5000} max={500000} step={5000} format={eur}
             />
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Date cible</label>
-              <input
+              <label htmlFor={`${idsChamps}-date-cible`} className="text-xs text-slate-400 block mb-1.5">Date cible</label>
+              <input id={`${idsChamps}-date-cible`}
                 type="date"
                 value={objectifDate}
                 onChange={(e) => setObjectifDate(e.target.value)}

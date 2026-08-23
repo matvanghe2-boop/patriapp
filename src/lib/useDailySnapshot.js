@@ -14,7 +14,7 @@ import { uid, todayIso, compactHistory } from "./finance";
  * synchronisation cloud) plutôt que par un accès direct au localStorage :
  * sinon, chaque appareil re-crée son propre point pour la même journée.
  */
-export function useDailySnapshot({ patrimoineNet, historyPast, setHistoryPast, lastSnapshotDate, setLastSnapshotDate }) {
+export function useDailySnapshot({ patrimoineNet, setHistoryPast, lastSnapshotDate, setLastSnapshotDate }) {
   useEffect(() => {
     const today = todayIso();
     if (lastSnapshotDate === today) return;

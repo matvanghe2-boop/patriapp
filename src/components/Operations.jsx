@@ -47,6 +47,11 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
   // Ouverture externe de la modale (passerelle Thèse ➔ Ordre).
   React.useEffect(() => {
     if (presetOperation) {
+      // Effet de CHARGEMENT : Ouverture pilotée par le parent. Ne peut PAS passer
+      // en ajustement pendant le rendu comme les autres : `onConsumePreset` met à
+      // jour le parent, et React interdit de modifier un autre composant pendant
+      // un rendu.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormPreset({ asset: presetOperation.asset, type: presetOperation.type || "ACHAT" });
       setFormOpen(true);
       onConsumePreset?.();

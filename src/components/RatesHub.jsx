@@ -251,6 +251,9 @@ export default function RatesHub({ livrets = [] }) {
   }, []);
 
   useEffect(() => {
+    // Effet de CHARGEMENT : `load` interroge Webstat et gère son propre témoin
+    // de chargement.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

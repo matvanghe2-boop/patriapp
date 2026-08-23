@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useId } from "react";
 import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, Search, CalendarDays, Filter } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
-import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux } from "../lib/finance";
+import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux, lireNombre } from "../lib/finance";
 import { searchSecurity, fetchQuotes, fetchTauxChange } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
+import { useToast } from "../lib/ToastContext";
 
 import Watchlist from "./Watchlist";
 import FinancialCalendar from "./FinancialCalendar";
@@ -187,6 +188,9 @@ import { computePeaAge, PEA_PLAFONDS, plafondPea } from "../lib/finance";
 // ... imports existants inchangés ...
 
 function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ peaOuverture: bourse.peaOuverture || "", peaVersements: bourse.peaVersements || 0 });
 
@@ -202,7 +206,7 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
   // l'ancien ancrage et la correction manuelle serait perdue.
   const save = () => {
     setBourse((b) =>
-      rebaselineLedger({ ...b, peaOuverture: draft.peaOuverture, peaVersements: parseFloat(draft.peaVersements) || 0 })
+      rebaselineLedger({ ...b, peaOuverture: draft.peaOuverture, peaVersements: lireNombre(draft.peaVersements) ?? 0 })
     );
     setEditing(false);
   };
@@ -227,12 +231,12 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
       {editing ? (
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <div>
-            <label className="text-[11px] text-slate-500 block mb-1">Date d'ouverture du PEA</label>
-            <input type="date" value={draft.peaOuverture} onChange={(e) => setDraft((d) => ({ ...d, peaOuverture: e.target.value }))} className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
+            <label htmlFor={`${idsChamps}-date-d-ouverture`} className="text-[11px] text-slate-500 block mb-1">Date d'ouverture du PEA</label>
+            <input id={`${idsChamps}-date-d-ouverture`} type="date" value={draft.peaOuverture} onChange={(e) => setDraft((d) => ({ ...d, peaOuverture: e.target.value }))} className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
           </div>
           <div>
-            <label className="text-[11px] text-slate-500 block mb-1">Total versé (€)</label>
-            <input type="number" step="100" value={draft.peaVersements} onChange={(e) => setDraft((d) => ({ ...d, peaVersements: e.target.value }))} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
+            <label htmlFor={`${idsChamps}-total-verse`} className="text-[11px] text-slate-500 block mb-1">Total versé (€)</label>
+            <input id={`${idsChamps}-total-verse`} type="number" step="100" value={draft.peaVersements} onChange={(e) => setDraft((d) => ({ ...d, peaVersements: e.target.value }))} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
             <p className="text-[10px] text-slate-600 mt-1 max-w-[13rem]">
               Point de départ de la courbe « Capital investi ». Il évoluera ensuite tout seul à chaque versement ou retrait de cash.
             </p>
@@ -241,8 +245,8 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
               25 ans, tant que le titulaire est rattaché au foyer fiscal de ses
               parents, il est de 20 000 € — sept fois moins. */}
           <div>
-            <label className="text-[11px] text-slate-500 block mb-1">Type de PEA</label>
-            <select
+            <label htmlFor={`${idsChamps}-type-de-pea`} className="text-[11px] text-slate-500 block mb-1">Type de PEA</label>
+            <select id={`${idsChamps}-type-de-pea`}
               value={typeCourant}
               onChange={(e) => setBourse((b) => ({ ...b, peaType: e.target.value }))}
               className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-violet-400/60"
@@ -396,12 +400,21 @@ function CashPocketCard({ bourse, setBourse }) {
   const current = bourse.cash_pocket || 0;
   const [draft, setDraft] = useState(String(current));
 
-  useEffect(() => {
+  // Resynchronisation du brouillon quand la valeur de référence change
+  // (import de relevé, rejeu du journal, arrivée d'une valeur cloud).
+  //
+  // C'était un effet, qui repeignait donc le champ avec l'ancienne valeur
+  // avant de le corriger au rendu suivant. L'ajustement pendant le rendu est
+  // le motif documenté par React pour « réagir au changement d'une prop » :
+  // le rendu est relancé immédiatement, sans rien afficher entre les deux.
+  const [refPrecedente, setRefPrecedente] = useState(current);
+  if (current !== refPrecedente) {
+    setRefPrecedente(current);
     setDraft(String(current));
-  }, [current]);
+  }
 
   const commit = () => {
-    const target = parseFloat(draft);
+    const target = lireNombre(draft);
     if (!Number.isFinite(target)) {
       setDraft(String(current));
       return;
@@ -439,6 +452,7 @@ export default function Bourse({
   // tel quel au rechargement et sur les autres appareils.
   widgetsReplies = {}, basculerWidget,
 }) {
+  const { showToast } = useToast();
   const replie = (id) => Boolean(widgetsReplies?.[id]);
   const basculer = (id) => () => basculerWidget?.(id);
   const [showAdd, setShowAdd] = useState(false);
@@ -447,11 +461,20 @@ export default function Bourse({
   const [panicPosition, setPanicPosition] = useState(null);
   const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "performance" | "marche"
   // Requête d'ouverture d'une fiche dans l'onglet Marché depuis le tableau de
-  // positions ou la watchlist. Le "ts" force le re-déclenchement de l'effet
-  // dans <Marche> même si on reclique deux fois de suite sur la même valeur.
+  // positions ou la watchlist. Le "ts" force le rechargement dans <Marche>
+  // même si on reclique deux fois de suite sur la même valeur.
+  //
+  // C'est un COMPTEUR et non `Date.now()`. L'horodatage avait deux défauts :
+  // il rendait ce composant impur aux yeux du compilateur React, et surtout
+  // deux clics dans la même milliseconde produisaient le même « ts » — le
+  // second était alors pris pour une demande déjà traitée et ne rechargeait
+  // rien. Un compteur ne peut pas collisionner.
   const [marcheRequest, setMarcheRequest] = useState(null);
   const openInMarche = (ticker) => {
-    setMarcheRequest({ symbol: ticker.toUpperCase(), ts: Date.now() });
+    setMarcheRequest((precedent) => ({
+      symbol: ticker.toUpperCase(),
+      ts: (precedent?.ts ?? 0) + 1,
+    }));
     setSubTab("marche");
   };
 
@@ -493,8 +516,34 @@ export default function Bourse({
         ],
       })
     );
-  const removePosition = (id) =>
+  /**
+   * Suppression d'une ligne, annulable.
+   *
+   * La position est l'objet le plus coûteux à ressaisir de toute
+   * l'application — quantité, PRU, devise, dividende, et surtout le
+   * rattachement au journal d'opérations. Elle se supprimait pourtant en un
+   * clic, sans confirmation ni retour en arrière, et la suppression se
+   * propageait à tous les appareils via Supabase avant qu'on ait pu s'en
+   * apercevoir.
+   *
+   * C'est l'état COMPLET de `bourse` qui est capturé, pas la seule liste de
+   * positions : `rebaselineLedger` réécrit aussi la ligne de base du grand
+   * livre, et restaurer les positions sans elle laisserait le journal
+   * désaccordé.
+   *
+   * L'annulation est préférable à une confirmation : elle ne coûte rien à
+   * l'usage normal, là où une modale à chaque suppression finit par être
+   * cliquée sans être lue.
+   */
+  const removePosition = (id) => {
+    const precedent = bourse;
+    const cible = bourse.positions.find((p) => p.id === id);
     setBourse((b) => rebaselineLedger({ ...b, positions: b.positions.filter((x) => x.id !== id) }));
+    showToast({
+      message: `${cible?.name || cible?.ticker || "Position"} supprimée du portefeuille.`,
+      onUndo: () => setBourse(precedent),
+    });
+  };
 
   const startEdit = (p) => { setEditingId(p.id); setEditValues({ quantity: String(p.quantity), pru: String(p.pru), current_price: String(p.current_price), annual_dividend: String(p.annual_dividend || 0) }); };
   const cancelEdit = () => setEditingId(null);
@@ -503,7 +552,7 @@ export default function Bourse({
       rebaselineLedger({
         ...b,
         positions: b.positions.map((p) =>
-          p.id === id ? { ...p, quantity: parseFloat(editValues.quantity) || 0, pru: parseFloat(editValues.pru) || 0, current_price: parseFloat(editValues.current_price) || 0, annual_dividend: parseFloat(editValues.annual_dividend) || 0 } : p
+          p.id === id ? { ...p, quantity: lireNombre(editValues.quantity) ?? 0, pru: lireNombre(editValues.pru) ?? 0, current_price: lireNombre(editValues.current_price) ?? 0, annual_dividend: lireNombre(editValues.annual_dividend) ?? 0 } : p
         ),
       })
     );
@@ -633,6 +682,11 @@ export default function Bourse({
 
   useEffect(() => {
     const hasToday = bourseHistory.some((e) => e.date === today());
+    // Effet de CHARGEMENT : Relevé de performance du jour au montage :
+    // `captureSnapshot` lève son propre témoin de chargement avant d'interroger
+    // le réseau. C'est la définition même d'un effet — synchroniser avec un
+    // système externe.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!hasToday) captureSnapshot(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1129,6 +1183,9 @@ export default function Bourse({
 }
 
 function AddPositionPanel({ open, onClose, onSubmit }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1140,16 +1197,28 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
   const [manual, setManual] = useState(false);
   const debounceRef = useRef(null);
 
-  useEffect(() => {
-    if (!open) { setQuery(""); setResults([]); setSelected(null); setQuantity(""); setPru(""); setAnnualDividend(""); setManual(false); setError(""); }
-  }, [open]);
+  // Remise à zéro à la FERMETURE, décidée pendant le rendu plutôt que dans un
+  // effet : sinon le panneau se rouvrait brièvement avec la saisie précédente
+  // encore affichée, le temps que l'effet s'exécute.
+  const [ouvertPrecedent, setOuvertPrecedent] = useState(open);
+  if (open !== ouvertPrecedent) {
+    setOuvertPrecedent(open);
+    if (!open) {
+      setQuery(""); setResults([]); setSelected(null); setQuantity("");
+      setPru(""); setAnnualDividend(""); setManual(false); setError("");
+    }
+  }
 
   useEffect(() => {
-    if (manual || selected) return;
-    if (query.trim().length < 2) { setResults([]); return; }
-    setLoading(true); setError("");
+    if (manual || selected) return undefined;
     clearTimeout(debounceRef.current);
+    if (query.trim().length < 2) return undefined;
+    // `setLoading(true)` était appelé ici, synchroniquement : chaque caractère
+    // tapé allumait donc le témoin de chargement pour une recherche qui, neuf
+    // fois sur dix, allait être annulée par la frappe suivante. Il part
+    // désormais avec la requête, à l'expiration du délai.
     debounceRef.current = setTimeout(async () => {
+      setLoading(true); setError("");
       try { const r = await searchSecurity(query.trim()); setResults(r); }
       catch { setError("Recherche indisponible pour le moment."); }
       finally { setLoading(false); }
@@ -1177,9 +1246,9 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
     e.preventDefault();
     if (!quantity || !pru || !ready) return;
     if (manual) {
-      onSubmit({ ticker: query.toUpperCase(), name: query, type: "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: parseFloat(pru), annual_dividend: parseFloat(annualDividend) || 0 });
+      onSubmit({ ticker: query.toUpperCase(), name: query, type: "Autre", quantity: lireNombre(quantity), pru: lireNombre(pru), current_price: lireNombre(pru), annual_dividend: lireNombre(annualDividend) ?? 0 });
     } else {
-      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", quantity: parseFloat(quantity), pru: parseFloat(pru), current_price: selected.current_price || 0, annual_dividend: parseFloat(annualDividend) || 0, currency: selected.currency || "EUR" });
+      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", quantity: lireNombre(quantity), pru: lireNombre(pru), current_price: selected.current_price || 0, annual_dividend: lireNombre(annualDividend) ?? 0, currency: selected.currency || "EUR" });
     }
     onClose();
   };
@@ -1188,11 +1257,16 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
     <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950 space-y-3">
       {!manual ? (
         <>
-          <label className="text-[11px] text-slate-500">Ticker, ISIN ou nom du produit</label>
-          <input autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Ex : CW8, FR0011550185, Air Liquide..." className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60" />
+          <label htmlFor={`${idsChamps}-ticker-isin-ou`} className="text-[11px] text-slate-500">Ticker, ISIN ou nom du produit</label>
+          <input id={`${idsChamps}-ticker-isin-ou`} autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Ex : CW8, FR0011550185, Air Liquide..." className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60" />
           {loading && <p className="text-xs text-slate-500">Recherche en cours…</p>}
           {error && <p className="text-xs text-amber-400/90">{error}</p>}
-          {!selected && results.length > 0 && (
+          {/* La liste est DÉRIVÉE de la requête courante, elle n'est plus vidée
+              par un effet. L'ancien code appelait `setResults([])` dès que la
+              saisie repassait sous deux caractères ; en dériver l'affichage
+              évite à la fois ce rendu supplémentaire et le risque d'afficher
+              des résultats qui ne correspondent plus à ce qui est tapé. */}
+          {!selected && query.trim().length >= 2 && results.length > 0 && (
             <div className="border border-slate-800 rounded-lg divide-y divide-slate-800 max-h-44 overflow-y-auto">
               {results.map((r) => (
                 <button type="button" key={r.symbol} onClick={() => pickResult(r)} className="w-full text-left px-3 py-2 hover:bg-slate-800 text-sm">
@@ -1215,24 +1289,24 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
         </>
       ) : (
         <>
-          <label className="text-[11px] text-slate-500">Nom / ticker (saisie libre)</label>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60" placeholder="Ex : Plan Épargne Entreprise" />
+          <label htmlFor={`${idsChamps}-nom-ticker-saisie`} className="text-[11px] text-slate-500">Nom / ticker (saisie libre)</label>
+          <input id={`${idsChamps}-nom-ticker-saisie`} value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60" placeholder="Ex : Plan Épargne Entreprise" />
           <button type="button" onClick={() => setManual(false)} className="text-[11px] text-slate-500 hover:text-slate-300 underline">Revenir à la recherche</button>
         </>
       )}
       {ready && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[11px] text-slate-500">Quantité</label>
-            <input required type="number" step="0.0001" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
+            <label htmlFor={`${idsChamps}-quantite`} className="text-[11px] text-slate-500">Quantité</label>
+            <input id={`${idsChamps}-quantite`} required type="number" step="0.0001" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
           </div>
           <div>
-            <label className="text-[11px] text-slate-500">Prix de revient unitaire (€)</label>
-            <input required type="number" step="0.01" value={pru} onChange={(e) => setPru(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
+            <label htmlFor={`${idsChamps}-prix-de-revient`} className="text-[11px] text-slate-500">Prix de revient unitaire (€)</label>
+            <input id={`${idsChamps}-prix-de-revient`} required type="number" step="0.01" value={pru} onChange={(e) => setPru(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
           </div>
           <div className="col-span-2">
-            <label className="text-[11px] text-slate-500">Dividende annuel par action (€) — optionnel</label>
-            <input type="number" step="0.01" placeholder="Ex : 1.20" value={annualDividend} onChange={(e) => setAnnualDividend(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
+            <label htmlFor={`${idsChamps}-dividende-annuel-par`} className="text-[11px] text-slate-500">Dividende annuel par action (€) — optionnel</label>
+            <input id={`${idsChamps}-dividende-annuel-par`} type="number" step="0.01" placeholder="Ex : 1.20" value={annualDividend} onChange={(e) => setAnnualDividend(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
           </div>
         </div>
       )}

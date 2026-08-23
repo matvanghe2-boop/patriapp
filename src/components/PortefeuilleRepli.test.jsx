@@ -14,7 +14,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.setConfig({ testTimeout: 60_000 });
+// Ce fichier monte l'application entière : il lui faut plus que le délai
+// global de 30 s déclaré dans vite.config.js.
+vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 // Stockage local pur : la coquille et la persistance sont identiques, sans
 // avoir à simuler une session Supabase.

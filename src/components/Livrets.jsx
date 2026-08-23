@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useId } from "react";
 import { PiggyBank, ShieldCheck, Banknote, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, uid, guessEnvelope, todayIso } from "../lib/finance";
+import { eur, uid, guessEnvelope, todayIso, lireNombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
+import { useToast } from "../lib/ToastContext";
 import RatesHub from "./RatesHub";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
@@ -136,7 +137,7 @@ function CompteCourant({ cash, setCash }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(cash);
 
-  const save = () => { setCash(parseFloat(draft) || 0); setEditing(false); };
+  const save = () => { setCash(lireNombre(draft) ?? 0); setEditing(false); };
 
   return (
     <Card accent={CARD_THEMES.indigo} className="flex items-center gap-4 relative">
@@ -178,6 +179,9 @@ function CompteCourant({ cash, setCash }) {
 
 // ─── Simulateur : où placer mon prochain versement ────────────────────────────
 function NextDepositAdvisor({ livrets }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [amount, setAmount] = useState(500);
 
   const ranked = useMemo(() => {
@@ -211,11 +215,11 @@ function NextDepositAdvisor({ livrets }) {
     <Card accent={CARD_THEMES.indigo}>
       <CardLabel icon={Wallet}>Où placer mon prochain versement ?</CardLabel>
       <div className="flex items-center gap-2 mt-2">
-        <label className="text-xs text-slate-500">Montant à placer</label>
-        <input
+        <label htmlFor={`${idsChamps}-montant-a-placer`} className="text-xs text-slate-500">Montant à placer</label>
+        <input id={`${idsChamps}-montant-a-placer`}
           type="number"
           value={amount}
-          onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+          onChange={(e) => setAmount(lireNombre(e.target.value) ?? 0)}
           className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-indigo-400/60"
         />
         <span className="text-xs text-slate-600">€</span>
@@ -259,6 +263,9 @@ const ENVELOPPE_COLORS = [
 ];
 
 function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState({ label: "", amount: "" });
   const [expanded, setExpanded] = useState(true);
@@ -270,14 +277,14 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
     if (!draft.label || !draft.amount) return;
     setEnveloppes((prev) => [
       ...prev,
-      { id: uid(), label: draft.label, amount: parseFloat(draft.amount) || 0, colorIdx: prev.length % ENVELOPPE_COLORS.length },
+      { id: uid(), label: draft.label, amount: lireNombre(draft.amount) ?? 0, colorIdx: prev.length % ENVELOPPE_COLORS.length },
     ]);
     setDraft({ label: "", amount: "" });
     setShowAdd(false);
   };
   const removeEnv = (id) => setEnveloppes((prev) => prev.filter((e) => e.id !== id));
   const updateEnv = (id, amount) =>
-    setEnveloppes((prev) => prev.map((e) => e.id === id ? { ...e, amount: parseFloat(amount) || 0 } : e));
+    setEnveloppes((prev) => prev.map((e) => e.id === id ? { ...e, amount: lireNombre(amount) ?? 0 } : e));
 
   return (
     <Card accent={CARD_THEMES.indigo}>
@@ -368,8 +375,8 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
           {showAdd && (
             <div className="mt-3 flex items-end gap-2 p-3 rounded-xl border border-amber-400/20 bg-slate-950">
               <div className="flex-1">
-                <label className="text-[11px] text-slate-500 block mb-1">Nom de l'enveloppe</label>
-                <input
+                <label htmlFor={`${idsChamps}-nom-de-l`} className="text-[11px] text-slate-500 block mb-1">Nom de l'enveloppe</label>
+                <input id={`${idsChamps}-nom-de-l`}
                   type="text"
                   placeholder="Matelas urgence, Voyage..."
                   value={draft.label}
@@ -378,8 +385,8 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                 />
               </div>
               <div className="w-28">
-                <label className="text-[11px] text-slate-500 block mb-1">Montant (€)</label>
-                <input
+                <label htmlFor={`${idsChamps}-montant`} className="text-[11px] text-slate-500 block mb-1">Montant (€)</label>
+                <input id={`${idsChamps}-montant`}
                   type="number"
                   placeholder="3000"
                   value={draft.amount}
@@ -480,7 +487,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
     : "bg-indigo-400";
 
   const saveGoal = () => {
-    const g = parseFloat(goalDraft);
+    const g = lireNombre(goalDraft);
     onUpdateGoal(l.id, g > 0 ? g : null);
     setShowGoalEdit(false);
   };
@@ -490,7 +497,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
     setEditingBalance(true);
   };
   const saveBalance = () => {
-    const v = parseFloat(balanceDraft);
+    const v = lireNombre(balanceDraft);
     if (Number.isFinite(v) && v >= 0) onUpdateBalance(l.id, v);
     setEditingBalance(false);
   };
@@ -609,15 +616,26 @@ export default function Livrets({
   livrets, setLivrets, matelasMois, livretsTotal, livretsAvgRate,
   cash, setCash, enveloppes, setEnveloppes,
 }) {
+  const { showToast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
   const [subTab, setSubTab] = useState("mes-livrets"); // "mes-livrets" | "taux"
 
   const addLivret = (v) =>
     setLivrets((l) => [
       ...l,
-      { id: uid(), name: v.name, balance: parseFloat(v.balance) || 0, rate: parseFloat(v.rate) / 100, limit: parseFloat(v.limit) > 0 ? parseFloat(v.limit) : null, goal: null, envelope: v.envelope || "Livret" },
+      { id: uid(), name: v.name, balance: lireNombre(v.balance) ?? 0, rate: lireNombre(v.rate) / 100, limit: lireNombre(v.limit) > 0 ? lireNombre(v.limit) : null, goal: null, envelope: v.envelope || "Livret" },
     ]);
-  const removeLivret = (id) => setLivrets((l) => l.filter((x) => x.id !== id));
+  // Annulable : un livret porte un solde, un taux et un plafond ressaisis à la
+  // main, et sa suppression se propage à tous les appareils.
+  const removeLivret = (id) => {
+    const precedent = livrets;
+    const cible = livrets.find((l) => l.id === id);
+    setLivrets((l) => l.filter((x) => x.id !== id));
+    showToast({
+      message: `${cible?.name || "Support"} supprimé.`,
+      onUndo: () => setLivrets(precedent),
+    });
+  };
   const updateGoal = (id, goal) => setLivrets((l) => l.map((x) => x.id === id ? { ...x, goal } : x));
   const updateBalance = (id, balance) => setLivrets((l) => l.map((x) => x.id === id ? { ...x, balance } : x));
 

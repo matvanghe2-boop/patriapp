@@ -276,6 +276,10 @@ export default function FicheFinanciere({ symbole, devise }) {
   useEffect(() => {
     if (!symbole) return;
     let annule = false;
+    // Effet de CHARGEMENT : Chargement des fondamentaux : le témoin doit être
+    // levé AVANT l'appel, sinon la fiche affiche les chiffres du titre précédent
+    // pendant la requête.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setChargement(true);
     setErreur("");
     fetchFundamentals(symbole)

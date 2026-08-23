@@ -208,10 +208,17 @@ export default function ProChart({
   const [crosshair, setCrosshair] = useState(null); // { x, y, i }
 
   // Nouvelle série (changement de valeur ou de période) → on repart sur la vue complète.
-  useEffect(() => {
+  //
+  // Ajustement pendant le rendu et non effet : le graphique était sinon dessiné
+  // une première fois avec la fenêtre de l'ANCIENNE série appliquée aux
+  // nouvelles bougies — donc une vue tronquée, ou vide quand la nouvelle série
+  // est plus courte — avant d'être redessiné au rendu suivant.
+  const [barresPrecedentes, setBarresPrecedentes] = useState(bars);
+  if (bars !== barresPrecedentes) {
+    setBarresPrecedentes(bars);
     setView({ start: 0, end: bars.length });
     setCrosshair(null);
-  }, [bars]);
+  }
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
