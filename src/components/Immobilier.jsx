@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useId } from "react";
 import { Landmark, AlertTriangle, Shield, Wallet, Gauge, HardHat } from "lucide-react";
 import { Card, CardLabel, SliderField, PageGlow, CARD_THEMES, AddPanel, IconTrash, EmptyState, GhostButton } from "./ui";
-import { monthlyPayment, eur, pctPlain, uid } from "../lib/finance";
+import { monthlyPayment, eur, pctPlain, uid, lireNombre } from "../lib/finance";
+import { useToast } from "../lib/ToastContext";
 
 const DURATIONS = [15, 20, 25];
 
@@ -34,6 +35,7 @@ function DebtGauge({ rate }) {
 
 // ─── Suivi travaux / charges : budget prévisionnel vs réel ───────────────────
 function TravauxTracker({ items, setItems }) {
+  const { showToast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
 
   const addItem = (v) =>
@@ -43,11 +45,21 @@ function TravauxTracker({ items, setItems }) {
         id: uid(),
         label: v.label,
         category: v.category,
-        budget: parseFloat(v.budget) || 0,
-        reel: parseFloat(v.reel) || 0,
+        budget: lireNombre(v.budget) ?? 0,
+        reel: lireNombre(v.reel) ?? 0,
       },
     ]);
-  const removeItem = (id) => setItems((list) => list.filter((x) => x.id !== id));
+  // Annulable : une ligne de travaux porte un budget prévisionnel et un réalisé
+  // saisis à la main, sans source externe pour les retrouver.
+  const removeItem = (id) => {
+    const precedent = items;
+    const cible = items.find((x) => x.id === id);
+    setItems((list) => list.filter((x) => x.id !== id));
+    showToast({
+      message: `Ligne « ${cible?.label || "sans nom"} » supprimée.`,
+      onUndo: () => setItems(precedent),
+    });
+  };
   const updateReel = (id, reel) => setItems((list) => list.map((x) => (x.id === id ? { ...x, reel } : x)));
 
   const totalBudget = items.reduce((s, i) => s + i.budget, 0);
@@ -106,7 +118,7 @@ function TravauxTracker({ items, setItems }) {
                         <input
                           type="number"
                           value={i.reel}
-                          onChange={(e) => updateReel(i.id, parseFloat(e.target.value) || 0)}
+                          onChange={(e) => updateReel(i.id, lireNombre(e.target.value) ?? 0)}
                           className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-1 text-xs font-data tabular-nums ghost-blur focus:outline-none focus:border-rose-400/60"
                         />
                       </td>
@@ -141,6 +153,9 @@ function TravauxTracker({ items, setItems }) {
 }
 
 export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, profile, immoTravaux = [], setImmoTravaux }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [showDetails, setShowDetails] = useState(false);
   
   const set = (key) => (v) => setImmo((s) => ({ ...s, [key]: v }));
@@ -251,12 +266,12 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           <CardLabel icon={Shield}>Apport &amp; Assurance</CardLabel>
           <div className="flex flex-col gap-3 mt-2">
             <div>
-              <label className="text-[11px] text-slate-500">Taux d'assurance emprunteur (annuel)</label>
-              <input
+              <label htmlFor={`${idsChamps}-taux-d-assurance`} className="text-[11px] text-slate-500">Taux d'assurance emprunteur (annuel)</label>
+              <input id={`${idsChamps}-taux-d-assurance`}
                 type="number"
                 step="0.01"
                 value={immo.assurance_rate ?? 0.20}
-                onChange={(e) => set("assurance_rate")(parseFloat(e.target.value) || 0)}
+                onChange={(e) => set("assurance_rate")(lireNombre(e.target.value) ?? 0)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data tabular-nums mt-1 focus:outline-none focus:border-amber-400/60"
               />
               <p className="text-[10px] text-slate-500 mt-0.5">Taux moyen : 0.20 % du capital emprunté par an</p>
@@ -271,11 +286,11 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
               Inclure le portefeuille Bourse (<span className="ghost-blur">{eur(bourseTotal)}</span>)
             </label>
             <div>
-              <label className="text-[11px] text-slate-500">Apport retenu (€) — ajustable</label>
-              <input
+              <label htmlFor={`${idsChamps}-apport-retenu-ajustable`} className="text-[11px] text-slate-500">Apport retenu (€) — ajustable</label>
+              <input id={`${idsChamps}-apport-retenu-ajustable`}
                 type="number"
                 value={Math.round(apport)}
-                onChange={(e) => set("apport_manuel")(parseFloat(e.target.value) || 0)}
+                onChange={(e) => set("apport_manuel")(lireNombre(e.target.value) ?? 0)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data tabular-nums mt-1 ghost-blur focus:outline-none focus:border-amber-400/60"
               />
               {immo.apport_manuel != null && (

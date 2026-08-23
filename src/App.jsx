@@ -20,6 +20,7 @@ import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
 import SyncIndicator from "./components/SyncIndicator";
 import BackupReminder from "./components/BackupReminder";
+import EtatSourceMarche from "./components/EtatSourceMarche";
 import BottomNav from "./components/BottomNav";
 import StickySummaryHeader from "./components/StickySummaryHeader";
 import { useAuth } from "./lib/AuthContext";
@@ -121,7 +122,6 @@ export default function App() {
   // Relevé quotidien du patrimoine net, quel que soit l'onglet ouvert.
   useDailySnapshot({
     patrimoineNet: patrimoine.patrimoineNet,
-    historyPast: patrimoine.historyPast,
     setHistoryPast: patrimoine.setHistoryPast,
     lastSnapshotDate: patrimoine.lastSnapshotDate,
     setLastSnapshotDate: patrimoine.setLastSnapshotDate,
@@ -318,6 +318,10 @@ export default function App() {
             </button>
           )}
         </StickySummaryHeader>
+
+        {/* Une panne de la source de marché se manifestait par une série
+            d'échecs isolés dont rien ne donnait la cause commune. */}
+        <EtatSourceMarche />
 
         <BackupReminder onExport={handleExport} />
 

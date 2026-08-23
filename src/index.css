@@ -15,15 +15,52 @@
  *     reste de la coquille est en cache.
  *
  * Les fichiers sont désormais servis depuis notre origine, mis en cache par le
- * service worker, et limités au sous-ensemble latin et aux seules graisses
- * réellement utilisées. Inter est en version variable : un seul fichier couvre
- * les quatre graisses que l'application emploie.
+ * service worker, et limités aux seules graisses réellement utilisées. Inter
+ * est en version variable : un seul fichier couvre les quatre graisses que
+ * l'application emploie.
+ *
+ * SOUS-ENSEMBLES : le paquet expose `wght.css`, qui déclare SEPT jeux de
+ * caractères (latin, latin étendu, cyrillique, cyrillique étendu, grec, grec
+ * étendu, vietnamien). Le commentaire affirmait ici qu'ils étaient « limités au
+ * sous-ensemble latin » — c'était faux. Les cinq jeux inutiles ne coûtaient
+ * rien au CHARGEMENT (leur `unicode-range` empêche le navigateur de les
+ * télécharger tant qu'aucun caractère concerné n'apparaît), mais 85 Ko de
+ * woff2 partaient à chaque déploiement pour n'être jamais servis.
+ *
+ * Les deux jeux réellement nécessaires sont donc déclarés à la main. `latin`
+ * couvre le français courant, y compris « œ » (U+0152-0153) et les voyelles
+ * accentuées ; `latin-ext` couvre les noms d'entreprises d'Europe centrale que
+ * Yahoo renvoie tels quels (Škoda, Ørsted, Poczta Polska…) — sans lui, ces
+ * caractères retomberaient sur la police système au milieu d'un mot.
  */
-@import "@fontsource-variable/inter/wght.css";
 @import "@fontsource/fraunces/latin-500.css";
 @import "@fontsource/fraunces/latin-600.css";
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-500.css";
+
+/* Les @font-face ci-dessous suivent les @import : la spécification CSS impose
+   que tout `@import` précède les autres règles, et Vite 8 refuse désormais un
+   fichier qui l'enfreint (Vite 5 se contentait de l'accepter en silence). */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 @tailwind base;
 @tailwind components;
@@ -286,6 +323,33 @@ input[type="checkbox"] {
   filter: none;
 }
 
+/* ═══════════════════ CONTRASTE DU TEXTE SECONDAIRE ════════════════════════
+ * Cette correction existait déjà — mais enfermée dans le `@media (max-width:
+ * 767px)` ci-dessous, comme s'il s'agissait d'une rustine mobile. Les ratios
+ * ne dépendent pourtant pas de la largeur de l'écran :
+ *
+ *     sur bg-slate-900   sur bg-slate-950   occurrences   AA (4,5:1)
+ *   text-slate-600     2,36              2,66              155         ✗
+ *   text-slate-500     3,75              4,24              362         ✗
+ *   text-slate-400     6,96              7,87              109         ✓
+ *
+ * Les deux gris les plus employés de l'application étaient donc sous la norme
+ * partout sauf sur téléphone — c'est-à-dire précisément sur le bureau, là où
+ * se fait la saisie. Le remplacement par #94a3b8 (slate-400) les fait passer
+ * à 6,96:1.
+ *
+ * `slate-600` reste parfaitement légitime en BORDURE et en icône décorative :
+ * seule sa déclinaison `text-` est corrigée, et la règle est écrite au niveau
+ * de la classe utilitaire pour ne rien avoir à modifier dans les 517 endroits
+ * qui l'emploient.
+ *
+ * `!important` est nécessaire : Tailwind génère ces mêmes classes, et sans lui
+ * l'ordre de la feuille déciderait du gagnant. */
+.text-slate-500,
+.text-slate-600 {
+  color: #94a3b8 !important;
+}
+
 /* ═══════════════════ MOBILE ONLY (≤767px) — desktop inchangé ═══════════════════ */
 @media (max-width: 767px) {
   /* Tap targets ≥48px partout, sans toucher aux tailles desktop */
@@ -295,14 +359,6 @@ input[type="checkbox"] {
   input[type="radio"],
   select {
     min-height: 44px;
-  }
-
-  /* Contraste renforcé pour le texte secondaire, souvent trop faible en plein soleil */
-  .text-slate-500 {
-    color: #94a3b8 !important;
-  }
-  .text-slate-600 {
-    color: #94a3b8 !important;
   }
 
   /* Tableaux : on garde le scroll horizontal existant (overflow-x-auto) mais

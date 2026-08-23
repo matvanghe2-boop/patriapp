@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useId } from "react";
 import { NotebookPen, Pencil, X, Check, Search, Filter, TableProperties, Archive, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal, Layers, Clock } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, pct, uid } from "../lib/finance";
+import { eur, pct, uid, lireNombre } from "../lib/finance";
 import { useToast } from "../lib/ToastContext";
 import Operations from "./Operations";
 import AssetStats from "./AssetStats";
@@ -41,6 +41,9 @@ const BLANK_NOTE = {
 
 // ─── Formulaire d'ajout / édition d'une note ────────────────────────────────
 function NoteForm({ initial, onCancel, onSubmit }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [values, setValues] = useState(initial || BLANK_NOTE);
 
   const submit = (e) => {
@@ -48,7 +51,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
     if (!values.titre.trim() && !values.ticker.trim()) return;
     onSubmit({
       ...values,
-      objectif_cours: values.objectif_cours === "" ? null : parseFloat(values.objectif_cours),
+      objectif_cours: values.objectif_cours === "" ? null : lireNombre(values.objectif_cours),
     });
   };
 
@@ -56,8 +59,8 @@ function NoteForm({ initial, onCancel, onSubmit }) {
     <form onSubmit={submit} className="rounded-xl border border-rose-400/20 bg-slate-950 p-4 flex flex-col gap-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="col-span-1">
-          <label className="text-[11px] text-slate-500">Ticker (optionnel)</label>
-          <input
+          <label htmlFor={`${idsChamps}-ticker-optionnel`} className="text-[11px] text-slate-500">Ticker (optionnel)</label>
+          <input id={`${idsChamps}-ticker-optionnel`}
             type="text"
             placeholder="AI.PA"
             value={values.ticker}
@@ -66,8 +69,8 @@ function NoteForm({ initial, onCancel, onSubmit }) {
           />
         </div>
         <div className="col-span-2 sm:col-span-2">
-          <label className="text-[11px] text-slate-500">Titre de la note</label>
-          <input
+          <label htmlFor={`${idsChamps}-titre-de-la`} className="text-[11px] text-slate-500">Titre de la note</label>
+          <input id={`${idsChamps}-titre-de-la`}
             required
             type="text"
             placeholder="Ex : Renforcement Air Liquide"
@@ -77,8 +80,8 @@ function NoteForm({ initial, onCancel, onSubmit }) {
           />
         </div>
         <div className="col-span-1">
-          <label className="text-[11px] text-slate-500">Objectif de cours (€)</label>
-          <input
+          <label htmlFor={`${idsChamps}-objectif-de-cours`} className="text-[11px] text-slate-500">Objectif de cours (€)</label>
+          <input id={`${idsChamps}-objectif-de-cours`}
             type="number"
             step="0.01"
             placeholder="200"
@@ -90,8 +93,8 @@ function NoteForm({ initial, onCancel, onSubmit }) {
       </div>
 
       <div>
-        <label className="text-[11px] text-slate-500">Pitch d'achat — pourquoi cette thèse tient (2-3 phrases)</label>
-        <textarea
+        <label htmlFor={`${idsChamps}-pitch-d-achat`} className="text-[11px] text-slate-500">Pitch d'achat — pourquoi cette thèse tient (2-3 phrases)</label>
+        <textarea id={`${idsChamps}-pitch-d-achat`}
           rows={3}
           maxLength={500}
           placeholder="Ex : Leader mondial des gaz industriels, moat fort (contrats long terme + coûts de changement élevés), croissance des bénéfices régulière > 6%/an, dividende en hausse depuis 20 ans."
@@ -102,10 +105,10 @@ function NoteForm({ initial, onCancel, onSubmit }) {
       </div>
 
       <div>
-        <label className="text-[11px] text-slate-500">
+        <label htmlFor={`${idsChamps}-conditions-de-vente`} className="text-[11px] text-slate-500">
           Conditions de vente — ce qui invaliderait la thèse (pas "si ça baisse de X%")
         </label>
-        <textarea
+        <textarea id={`${idsChamps}-conditions-de-vente`}
           rows={2}
           maxLength={500}
           placeholder="Ex : Si la marge opérationnelle passe sous 18%, si le dividende est coupé, si un changement de direction remet la stratégie en cause."
@@ -117,8 +120,8 @@ function NoteForm({ initial, onCancel, onSubmit }) {
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          <label className="text-[11px] text-slate-500">Statut de la thèse</label>
-          <select
+          <label htmlFor={`${idsChamps}-statut-de-la`} className="text-[11px] text-slate-500">Statut de la thèse</label>
+          <select id={`${idsChamps}-statut-de-la`}
             value={values.statut}
             onChange={(e) => setValues((v) => ({ ...v, statut: e.target.value }))}
             className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-rose-400/60"
@@ -149,6 +152,9 @@ const DECISIONS = {
 };
 
 function PostMortemForm({ note, onCancel, onSubmit }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [resultatPct, setResultatPct] = useState(note.postmortem?.resultat_pct ?? "");
   const [decision, setDecision] = useState(note.postmortem?.decision ?? "bonne_decision");
   const [bilan, setBilan] = useState(note.postmortem?.bilan ?? "");
@@ -158,7 +164,7 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
     onSubmit({
       postmortem: {
         date: note.postmortem?.date || new Date().toISOString(),
-        resultat_pct: resultatPct === "" ? null : parseFloat(resultatPct),
+        resultat_pct: resultatPct === "" ? null : lireNombre(resultatPct),
         decision,
         bilan,
       },
@@ -174,8 +180,8 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-[11px] text-slate-500">Résultat final (%)</label>
-          <input
+          <label htmlFor={`${idsChamps}-resultat-final`} className="text-[11px] text-slate-500">Résultat final (%)</label>
+          <input id={`${idsChamps}-resultat-final`}
             type="number"
             step="0.1"
             placeholder="Ex : 18.5 ou -6.2"
@@ -185,8 +191,8 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
           />
         </div>
         <div>
-          <label className="text-[11px] text-slate-500">Décision</label>
-          <select
+          <label htmlFor={`${idsChamps}-decision`} className="text-[11px] text-slate-500">Décision</label>
+          <select id={`${idsChamps}-decision`}
             value={decision}
             onChange={(e) => setDecision(e.target.value)}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-rose-400/60"
@@ -198,8 +204,8 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
         </div>
       </div>
       <div>
-        <label className="text-[11px] text-slate-500">Bilan — qu'as-tu appris ?</label>
-        <textarea
+        <label htmlFor={`${idsChamps}-bilan-qu-as`} className="text-[11px] text-slate-500">Bilan — qu'as-tu appris ?</label>
+        <textarea id={`${idsChamps}-bilan-qu-as`}
           rows={3}
           maxLength={500}
           placeholder="Ex : Vendu avec +18%, mais un peu tôt par peur de perdre mes gains. La thèse fondamentale tenait toujours."

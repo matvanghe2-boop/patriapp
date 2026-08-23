@@ -191,3 +191,31 @@ export async function fetchRates() {
   return body;
 }
 
+
+/**
+ * Interroge l'état de la source de données de marché.
+ *
+ * Renvoie : { ok, source, motif?, verifieLe, latenceMs }
+ *
+ * Ne LÈVE JAMAIS. Un diagnostic qui échoue en levant une exception oblige
+ * chaque appelant à l'envelopper dans un try/catch pour ne rien casser — et
+ * c'est exactement l'inverse du besoin : cette fonction existe pour rendre une
+ * panne lisible, pas pour en ajouter une.
+ *
+ * Un échec de la route elle-même est donc rapporté comme une source
+ * indisponible, ce qu'il est du point de vue de l'application.
+ */
+export async function fetchEtatSource() {
+  try {
+    const res = await fetch(marche("health"));
+    const body = await res.json().catch(() => null);
+    // Même précaution que `fetchRates` : en `npm run dev` sans `vercel dev`,
+    // une route /api/* renvoie le HTML de l'application avec un statut 200.
+    if (!res.ok || !body || typeof body.ok !== "boolean") {
+      return { ok: false, source: "yahoo", motif: "route-indisponible", verifieLe: new Date().toISOString() };
+    }
+    return body;
+  } catch {
+    return { ok: false, source: "yahoo", motif: "reseau", verifieLe: new Date().toISOString() };
+  }
+}

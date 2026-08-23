@@ -534,6 +534,9 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
   // Se relance automatiquement dès que la composition du portefeuille ou de
   // la watchlist change.
   useEffect(() => {
+    // Effet de CHARGEMENT : `load` interroge le réseau et gère lui-même son
+    // témoin de chargement.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

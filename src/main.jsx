@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import Login, { LOCAL_ONLY_FLAG } from "./components/Login.jsx";
 import { isSupabaseConfigured } from "./lib/supabaseClient";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import MiseAJourDisponible from "./components/MiseAJourDisponible.jsx";
 import { AuthProvider, useAuth } from "./lib/AuthContext";
 import { ToastProvider } from "./lib/ToastContext";
 import { ConfirmProvider } from "./lib/ConfirmContext";
@@ -48,6 +49,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <ToastProvider>
           <ConfirmProvider>
             <AuthGate />
+            {/* Hors de l'AuthGate : une mise à jour doit pouvoir être annoncée
+                même sur l'écran de connexion. */}
+            <MiseAJourDisponible />
           </ConfirmProvider>
         </ToastProvider>
       </AuthProvider>

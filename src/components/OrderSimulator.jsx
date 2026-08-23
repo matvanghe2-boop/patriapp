@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useId } from "react";
 import { Sliders, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardLabel, EmptyState } from "./ui";
-import { eur, pctPlain, valeurPosition } from "../lib/finance";
+import { eur, pctPlain, valeurPosition, lireNombre } from "../lib/finance";
 
 function computeSimulation(pos, totalValue, targetWeightPct, mode) {
   if (!pos || totalValue <= 0) return null;
@@ -38,6 +38,9 @@ function computeSimulation(pos, totalValue, targetWeightPct, mode) {
 }
 
 export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [tickerId, setTickerId] = useState(positions[0]?.id || "");
   const [mode, setMode] = useState("vente"); // "vente" | "achat"
   const [targetWeight, setTargetWeight] = useState(10);
@@ -62,8 +65,8 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
         <div>
-          <label className="text-[11px] text-slate-500">Actif</label>
-          <select
+          <label htmlFor={`${idsChamps}-actif`} className="text-[11px] text-slate-500">Actif</label>
+          <select id={`${idsChamps}-actif`}
             value={tickerId}
             onChange={(e) => setTickerId(e.target.value)}
             className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-violet-400/60"
@@ -99,14 +102,14 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
         </div>
 
         <div>
-          <label className="text-[11px] text-slate-500">Poids cible (%)</label>
-          <input
+          <label htmlFor={`${idsChamps}-poids-cible`} className="text-[11px] text-slate-500">Poids cible (%)</label>
+          <input id={`${idsChamps}-poids-cible`}
             type="number"
             step="0.5"
             min="0"
             max="100"
             value={targetWeight}
-            onChange={(e) => setTargetWeight(parseFloat(e.target.value) || 0)}
+            onChange={(e) => setTargetWeight(lireNombre(e.target.value) ?? 0)}
             className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60"
           />
         </div>

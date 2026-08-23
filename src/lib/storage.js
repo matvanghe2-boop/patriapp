@@ -460,7 +460,6 @@ export function usePersistentState(key, initialValue) {
       pushToCloud(key, state, userId, updatedAt);
     }, DEBOUNCE_MS);
     return () => clearTimeout(pushTimer.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, key]);
 
   return [state, setState];

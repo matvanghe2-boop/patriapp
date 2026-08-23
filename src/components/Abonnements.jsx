@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useId } from "react";
 import { FileText, Repeat, AlertTriangle, CalendarClock, Wallet, X } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, uid, todayIso } from "../lib/finance";
+import { eur, uid, todayIso, lireNombre } from "../lib/finance";
+import { useToast } from "../lib/ToastContext";
 
 function addDays(iso, days) {
   const d = new Date(`${iso}T00:00:00`);
@@ -35,6 +36,9 @@ function computeContractStatus(contract) {
 const CONTRACT_CATEGORIES = ["Bail / Logement", "Assurance", "Garantie", "Télécom / Internet", "Énergie", "Autre"];
 
 function ContractForm({ open, onClose, onSubmit, initial }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const blank = { category: "Bail / Logement", label: "", date_fin: "", preavis_jours: 30, notes: "" };
   const [v, setV] = useState(initial || blank);
 
@@ -50,33 +54,33 @@ function ContractForm({ open, onClose, onSubmit, initial }) {
     <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-cyan-400/20 bg-slate-950 space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="col-span-2">
-          <label className="text-[11px] text-slate-500">Nom du contrat</label>
-          <input required type="text" placeholder="Assurance habitation" value={v.label}
+          <label htmlFor={`${idsChamps}-nom-du-contrat`} className="text-[11px] text-slate-500">Nom du contrat</label>
+          <input id={`${idsChamps}-nom-du-contrat`} required type="text" placeholder="Assurance habitation" value={v.label}
             onChange={(e) => setV((s) => ({ ...s, label: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60" />
         </div>
         <div>
-          <label className="text-[11px] text-slate-500">Catégorie</label>
-          <select value={v.category} onChange={(e) => setV((s) => ({ ...s, category: e.target.value }))}
+          <label htmlFor={`${idsChamps}-categorie`} className="text-[11px] text-slate-500">Catégorie</label>
+          <select id={`${idsChamps}-categorie`} value={v.category} onChange={(e) => setV((s) => ({ ...s, category: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60">
             {CONTRACT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-[11px] text-slate-500">Préavis (jours)</label>
-          <input type="number" min="0" value={v.preavis_jours}
+          <label htmlFor={`${idsChamps}-preavis-jours`} className="text-[11px] text-slate-500">Préavis (jours)</label>
+          <input id={`${idsChamps}-preavis-jours`} type="number" min="0" value={v.preavis_jours}
             onChange={(e) => setV((s) => ({ ...s, preavis_jours: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60" />
         </div>
         <div className="col-span-2">
-          <label className="text-[11px] text-slate-500">Date de fin d'engagement / tacite reconduction</label>
-          <input required type="date" value={v.date_fin}
+          <label htmlFor={`${idsChamps}-date-de-fin`} className="text-[11px] text-slate-500">Date de fin d'engagement / tacite reconduction</label>
+          <input id={`${idsChamps}-date-de-fin`} required type="date" value={v.date_fin}
             onChange={(e) => setV((s) => ({ ...s, date_fin: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60" />
         </div>
         <div className="col-span-2">
-          <label className="text-[11px] text-slate-500">Notes (optionnel)</label>
-          <input type="text" placeholder="N° de contrat, organisme..." value={v.notes}
+          <label htmlFor={`${idsChamps}-notes-optionnel`} className="text-[11px] text-slate-500">Notes (optionnel)</label>
+          <input id={`${idsChamps}-notes-optionnel`} type="text" placeholder="N° de contrat, organisme..." value={v.notes}
             onChange={(e) => setV((s) => ({ ...s, notes: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60" />
         </div>
@@ -94,6 +98,7 @@ function ContractForm({ open, onClose, onSubmit, initial }) {
 }
 
 function ContractsModule({ contracts, setContracts }) {
+  const { showToast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -105,7 +110,17 @@ function ContractsModule({ contracts, setContracts }) {
     setContracts((c) => c.map((x) => (x.id === id ? { ...x, ...v } : x)));
     setEditingId(null);
   };
-  const removeContract = (id) => setContracts((c) => c.filter((x) => x.id !== id));
+  // Annulable : un contrat porte une date d'échéance et un préavis de
+  // résiliation qu'on ne retrouve qu'en rouvrant le document d'origine.
+  const removeContract = (id) => {
+    const precedent = contracts;
+    const cible = contracts.find((c) => c.id === id);
+    setContracts((c) => c.filter((x) => x.id !== id));
+    showToast({
+      message: `Contrat « ${cible?.label || "sans nom"} » supprimé.`,
+      onUndo: () => setContracts(precedent),
+    });
+  };
 
   const sorted = useMemo(
     () => [...contracts].sort((a, b) => (a.date_fin || "9999") < (b.date_fin || "9999") ? -1 : 1),
@@ -208,6 +223,9 @@ function nextChargeDate(sub) {
 const SUB_CATEGORIES = ["Streaming", "Logiciel / Cloud", "Sport / Bien-être", "Presse", "Téléphonie", "Assurance", "Autre"];
 
 function SubForm({ open, onClose, onSubmit, initial }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const blank = { category: "Streaming", label: "", montant: "", frequence: "mensuelle", prochaine_date: todayIso() };
   const [v, setV] = useState(initial || blank);
 
@@ -216,42 +234,42 @@ function SubForm({ open, onClose, onSubmit, initial }) {
   const submit = (e) => {
     e.preventDefault();
     if (!v.label.trim() || !v.montant) return;
-    onSubmit({ ...v, montant: parseFloat(v.montant) || 0 });
+    onSubmit({ ...v, montant: lireNombre(v.montant) ?? 0 });
   };
 
   return (
     <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950 space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="col-span-2">
-          <label className="text-[11px] text-slate-500">Nom de l'abonnement</label>
-          <input required type="text" placeholder="Netflix, Salle de sport..." value={v.label}
+          <label htmlFor={`${idsChamps}-nom-de-l`} className="text-[11px] text-slate-500">Nom de l'abonnement</label>
+          <input id={`${idsChamps}-nom-de-l`} required type="text" placeholder="Netflix, Salle de sport..." value={v.label}
             onChange={(e) => setV((s) => ({ ...s, label: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-amber-400/60" />
         </div>
         <div>
-          <label className="text-[11px] text-slate-500">Catégorie</label>
-          <select value={v.category} onChange={(e) => setV((s) => ({ ...s, category: e.target.value }))}
+          <label htmlFor={`${idsChamps}-categorie`} className="text-[11px] text-slate-500">Catégorie</label>
+          <select id={`${idsChamps}-categorie`} value={v.category} onChange={(e) => setV((s) => ({ ...s, category: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-amber-400/60">
             {SUB_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-[11px] text-slate-500">Fréquence</label>
-          <select value={v.frequence} onChange={(e) => setV((s) => ({ ...s, frequence: e.target.value }))}
+          <label htmlFor={`${idsChamps}-frequence`} className="text-[11px] text-slate-500">Fréquence</label>
+          <select id={`${idsChamps}-frequence`} value={v.frequence} onChange={(e) => setV((s) => ({ ...s, frequence: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-amber-400/60">
             <option value="mensuelle">Mensuelle</option>
             <option value="annuelle">Annuelle</option>
           </select>
         </div>
         <div>
-          <label className="text-[11px] text-slate-500">Montant (€)</label>
-          <input required type="number" step="0.01" min="0" value={v.montant}
+          <label htmlFor={`${idsChamps}-montant`} className="text-[11px] text-slate-500">Montant (€)</label>
+          <input id={`${idsChamps}-montant`} required type="number" step="0.01" min="0" value={v.montant}
             onChange={(e) => setV((s) => ({ ...s, montant: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
         </div>
         <div>
-          <label className="text-[11px] text-slate-500">Prochain prélèvement</label>
-          <input type="date" value={v.prochaine_date}
+          <label htmlFor={`${idsChamps}-prochain-prelevement`} className="text-[11px] text-slate-500">Prochain prélèvement</label>
+          <input id={`${idsChamps}-prochain-prelevement`} type="date" value={v.prochaine_date}
             onChange={(e) => setV((s) => ({ ...s, prochaine_date: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
         </div>
@@ -269,12 +287,22 @@ function SubForm({ open, onClose, onSubmit, initial }) {
 }
 
 function SubsModule({ subs, setSubs }) {
+  const { showToast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
   const addSub = (v) => { setSubs((s) => [...s, { id: uid(), ...v }]); setShowForm(false); };
   const updateSub = (id, v) => { setSubs((s) => s.map((x) => (x.id === id ? { ...x, ...v } : x))); setEditingId(null); };
-  const removeSub = (id) => setSubs((s) => s.filter((x) => x.id !== id));
+  // Annulable, au même titre que les contrats.
+  const removeSub = (id) => {
+    const precedent = subs;
+    const cible = subs.find((x) => x.id === id);
+    setSubs((s) => s.filter((x) => x.id !== id));
+    showToast({
+      message: `Abonnement « ${cible?.label || "sans nom"} » supprimé.`,
+      onUndo: () => setSubs(precedent),
+    });
+  };
 
   const totals = useMemo(() => {
     const monthly = subs.reduce((s, x) => s + monthlyEquivalent(x), 0);

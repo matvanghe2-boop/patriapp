@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useId } from "react";
 import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown, Bell, BellRing, Check, X} from "lucide-react";
-import { CarteRepliable, CardLabel, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
+import { CarteRepliable, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
 import AssetLogo from "./AssetLogo";
-import { eur, pct, uid, computeReturnMetrics } from "../lib/finance";
+import { eur, pct, uid, computeReturnMetrics, lireNombre } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import { creerAlerte, SENS, libelleSens } from "../lib/alertes";
+import { useToast } from "../lib/ToastContext";
 
 function fmtPct(v) {
   if (v == null || Number.isNaN(v)) return "—";
@@ -105,7 +106,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
   if (!setAlertes) return null;
 
   const enregistrer = () => {
-    const valeur = parseFloat(seuil);
+    const valeur = lireNombre(seuil);
     if (!Number.isFinite(valeur) || valeur <= 0) return;
     setAlertes((liste) => [
       ...liste.filter((a) => a.ticker !== ligne.ticker),
@@ -184,6 +185,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
 }
 
 export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alertes = [], setAlertes, replie, onBasculer }) {
+  const { showToast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -256,6 +258,9 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
 
   useEffect(() => {
     if (tickers.length > 0) {
+      // Effet de CHARGEMENT : Rafraîchissement des cours suivis quand la liste
+      // change.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       refreshAll();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -263,7 +268,18 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
 
   const addItem = (v) =>
     setWatchlist((w) => [...w, { id: uid(), ticker: v.ticker, name: v.name, type: v.type, target_price: v.target_price }]);
-  const removeItem = (id) => setWatchlist((w) => w.filter((x) => x.id !== id));
+  // Annulable, comme les autres suppressions de l'app : une ligne de watchlist
+  // porte un cours cible et parfois des alertes de seuil qu'il faudrait
+  // reparamétrer entièrement.
+  const removeItem = (id) => {
+    const precedent = watchlist;
+    const cible = watchlist.find((w) => w.id === id);
+    setWatchlist((w) => w.filter((x) => x.id !== id));
+    showToast({
+      message: `${cible?.name || cible?.ticker || "Ligne"} retirée de la watchlist.`,
+      onUndo: () => setWatchlist(precedent),
+    });
+  };
   const updateTarget = (id, value) => setWatchlist((w) => w.map((x) => (x.id === id ? { ...x, target_price: value } : x)));
 
   // ─── Sorted watchlist ──────────────────────────────────────────────────────
@@ -402,7 +418,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                         type="number"
                         step="0.01"
                         value={w.target_price}
-                        onChange={(e) => updateTarget(w.id, parseFloat(e.target.value) || 0)}
+                        onChange={(e) => updateTarget(w.id, lireNombre(e.target.value) ?? 0)}
                         placeholder="—"
                         className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-data tabular-nums focus:outline-none focus:border-amber-400/60"
                       />
@@ -455,6 +471,9 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
 }
 
 function AddWatchlistPanel({ open, onClose, onSubmit }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -464,7 +483,11 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
   const [manual, setManual] = useState(false);
   const debounceRef = useRef(null);
 
-  useEffect(() => {
+  // Remise à zéro décidée pendant le rendu, comme dans AddPositionPanel : un
+  // effet laissait réapparaître la saisie précédente à la réouverture.
+  const [ouvertPrecedent, setOuvertPrecedent] = useState(open);
+  if (open !== ouvertPrecedent) {
+    setOuvertPrecedent(open);
     if (!open) {
       setQuery("");
       setResults([]);
@@ -473,18 +496,17 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
       setManual(false);
       setError("");
     }
-  }, [open]);
+  }
 
+  // Même correction que dans Marché et AddPositionPanel : le témoin de
+  // chargement accompagne la requête réelle plutôt que chaque frappe.
   useEffect(() => {
-    if (manual || selected) return;
-    if (query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    setLoading(true);
-    setError("");
+    if (manual || selected) return undefined;
     clearTimeout(debounceRef.current);
+    if (query.trim().length < 2) return undefined;
     debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      setError("");
       try {
         setResults(await searchSecurity(query.trim()));
       } catch {
@@ -504,9 +526,9 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
     e.preventDefault();
     if (!ready) return;
     if (manual) {
-      onSubmit({ ticker: query.toUpperCase(), name: query, type: "Autre", target_price: parseFloat(targetPrice) || 0 });
+      onSubmit({ ticker: query.toUpperCase(), name: query, type: "Autre", target_price: lireNombre(targetPrice) ?? 0 });
     } else {
-      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", target_price: parseFloat(targetPrice) || 0 });
+      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", target_price: lireNombre(targetPrice) ?? 0 });
     }
     onClose();
   };
@@ -515,8 +537,8 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
     <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950 space-y-3">
       {!manual ? (
         <>
-          <label className="text-[11px] text-slate-500">Ticker, ISIN ou nom du produit</label>
-          <input
+          <label htmlFor={`${idsChamps}-ticker-isin-ou`} className="text-[11px] text-slate-500">Ticker, ISIN ou nom du produit</label>
+          <input id={`${idsChamps}-ticker-isin-ou`}
             autoFocus
             value={query}
             onChange={(e) => {
@@ -529,7 +551,10 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
           {loading && <p className="text-xs text-slate-500">Recherche en cours…</p>}
           {error && <p className="text-xs text-amber-400/90">{error}</p>}
 
-          {!selected && results.length > 0 && (
+          {/* Visibilité DÉRIVÉE de la requête : la liste n'est plus vidée par
+              un effet, donc elle ne peut plus rester affichée alors que la
+              saisie ne lui correspond plus. */}
+          {!selected && query.trim().length >= 2 && results.length > 0 && (
             <div className="border border-slate-800 rounded-lg divide-y divide-slate-800 max-h-44 overflow-y-auto">
               {results.map((r) => (
                 <button
@@ -565,8 +590,8 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
         </>
       ) : (
         <>
-          <label className="text-[11px] text-slate-500">Nom / ticker (saisie libre)</label>
-          <input
+          <label htmlFor={`${idsChamps}-nom-ticker-saisie`} className="text-[11px] text-slate-500">Nom / ticker (saisie libre)</label>
+          <input id={`${idsChamps}-nom-ticker-saisie`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60"
@@ -580,8 +605,8 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
 
       {ready && (
         <div>
-          <label className="text-[11px] text-slate-500">Objectif de prix d'achat (€, optionnel)</label>
-          <input
+          <label htmlFor={`${idsChamps}-objectif-de-prix`} className="text-[11px] text-slate-500">Objectif de prix d'achat (€, optionnel)</label>
+          <input id={`${idsChamps}-objectif-de-prix`}
             type="number"
             step="0.01"
             value={targetPrice}

@@ -51,6 +51,8 @@ L'app est installable (PWA) et pensée pour le téléphone : navigation par **ba
 
 Le service worker met la coquille applicative en cache : l'app **démarre et reste utilisable sans réseau**, puisque toutes les données patrimoniales vivent déjà dans le navigateur. Les endpoints `/api/*` ne sont jamais mis en cache — un cours de bourse périmé servi en silence serait pire qu'une erreur visible.
 
+**Les mises à jour sont proposées, pas imposées.** Le service worker prenait auparavant la main dès son installation (`skipWaiting`) et purgeait les caches de la version précédente — dans un onglet déjà ouvert. Comme les onglets sont chargés à la demande avec des noms de fragment hachés, ouvrir « PEA & Bourse » après un déploiement pouvait échouer sur un `Failed to fetch dynamically imported module` : écran vide, aucune explication, réparable seulement par un rechargement manuel. Le nouveau worker attend désormais, et un bandeau « Une nouvelle version est prête » propose le rechargement au moment choisi.
+
 ### Ce que le screener sait et ne sait pas
 
 Les fondamentaux ne sont **pas** récupérés à la demande. Ils sont générés hors ligne, une fois par semaine, et servis comme actifs statiques depuis `public/univers/` : le navigateur les charge une fois puis filtre en local, sans aucun appel réseau.
@@ -73,6 +75,14 @@ Trois limites, énoncées parce qu'elles se voient à l'usage :
 - **Le consensus s'arrête à l'exercice suivant.** L'application affiche donc un PER estimé sur deux exercices — l'année en cours et la suivante. Pas de troisième année : elle ne pourrait qu'être extrapolée, et s'afficherait à côté de vrais consensus sans que rien ne les distingue.
 - **Une donnée manquante n'est pas un échec.** Un titre dont le taux de distribution n'est pas publié n'est pas éliminé du filtre : le critère ressort « indéterminé » et le nombre de critères réellement évalués est affiché. Sans cette distinction, un titre disparaîtrait d'un écran pour une raison étrangère au filtre.
 
+### Quand la source de cours tombe
+
+Toutes les données de marché — cours, change, fondamentaux, calendrier, fiches — viennent d'une seule source non officielle. Une panne de sa part se manifestait par une série d'échecs isolés dont rien ne donnait la cause commune : un cours qui ne bouge plus, une fiche vide, un screener sans résultat. On en concluait naturellement que son propre portefeuille ou son propre filtre était en cause.
+
+`/api/market?action=health` interroge donc un symbole témoin — le CAC 40, qui ne peut être ni radié ni suspendu durablement — et renvoie un verdict explicite. L'application affiche un bandeau « source de cours indisponible » après **deux** vérifications négatives consécutives, pour ne pas clignoter sur un incident d'une seconde, et le retire dès le retour à la normale.
+
+Le contrôle porte sur la **valeur** renvoyée, pas sur le statut HTTP : le mode d'échec le plus courant de cette source est une réponse 200 au corps vide.
+
 ### Devises
 
 Les positions cotées hors zone euro sont converties au taux du jour, récupéré en même temps que les cours (`/api/market?action=fx`). Le prix de revient est converti à ce même taux : la plus-value affichée inclut donc l'effet de change sans le distinguer de la performance du titre — l'interface le signale. Une position dont le taux n'a pas pu être récupéré est comptée à parité 1:1, et l'avertissement le dit explicitement.
@@ -87,9 +97,9 @@ Le bouton en forme d'œil floute tous les montants, y compris les graduations de
 
 ## Stack technique
 
-- **Frontend** : React 18 + Vite + Tailwind CSS, `recharts` pour les graphiques, `lucide-react` pour les icônes
+- **Frontend** : React 19 + Vite 8 + Tailwind CSS 3, `recharts` pour les graphiques, `lucide-react` pour les icônes
 - **Backend** : fonctions serverless Vercel dans `api/` (aucun framework). **Trois fonctions seulement**, et c'est une contrainte assumée : Vercel compte une fonction par fichier de `api/`, et le plan Hobby en autorise douze.
-  - `api/market.js` — routeur unique des données de marché : `?action=quote|search|history|calendar|profile|fx|screen|fundamentals|rates`. Chaque route garde ses propres quotas et sa propre durée de cache, déclarés dans `api/_lib/routes/`.
+  - `api/market.js` — routeur unique des données de marché : `?action=quote|search|history|calendar|profile|fx|screen|fundamentals|rates|health`. Chaque route garde ses propres quotas et sa propre durée de cache, déclarés dans `api/_lib/routes/`.
   - `api/advisor.js` — assistant Horizon (`maxDuration: 60`, authentification obligatoire).
   - `api/parse-pdf.js` — import de relevés (corps jusqu'à 12 Mo).
 
@@ -98,6 +108,9 @@ Le bouton en forme d'œil floute tous les montants, y compris les graduations de
 - **Auth & synchronisation** : Supabase (Postgres + Auth), optionnel
 - **Stockage** : `localStorage` en cache local systématique, Supabase en miroir si un compte est connecté
 - **Tests** : Vitest — `npm test`
+- **Lint** : ESLint 9 en configuration « à plat » (`eslint.config.js`). Le projet est à **zéro avertissement** : toute nouvelle occurrence se voit donc immédiatement. Les quelques exceptions à `react-hooks/set-state-in-effect` portent chacune, sur place, un `eslint-disable-next-line` accompagné de sa raison — un effet qui LANCE un chargement lève légitimement son témoin avant l'appel réseau.
+
+  ESLint reste en 9 et non en 10 : `eslint-plugin-react` 7.37.5, la dernière version publiée, déclare `eslint@^9.7` en pair et **échoue réellement** sur ESLint 10 (`contextOrFilename.getFilename is not a function`). C'est un plafond de l'écosystème, à relever dès que le greffon suit.
 
 ### Scripts
 
@@ -249,7 +262,7 @@ patrium/
 │   │   ├── webstat.js          # taux Banque de France (optionnel)
 │   │   └── routes/             # une route = un fichier, monté par market.js
 │   │       ├── quote.js  search.js  history.js  calendar.js  profile.js
-│   │       └── fx.js  screen.js  fundamentals.js  rates.js
+│   │       └── fx.js  screen.js  fundamentals.js  rates.js  health.js
 │   ├── market.js               # routeur unique : ?action=quote|search|…
 │   ├── advisor.js              # assistant Horizon (maxDuration 60, auth requise)
 │   └── parse-pdf.js            # import de relevés de courtage
@@ -265,6 +278,8 @@ patrium/
 │   │   ├── Dashboard.jsx  Livrets.jsx  Bourse.jsx  Simulation.jsx
 │   │   ├── Immobilier.jsx  StrategieLogs.jsx  Abonnements.jsx  Screener.jsx
 │   │   ├── Login.jsx  ErrorBoundary.jsx  SyncIndicator.jsx  BackupReminder.jsx
+│   │   ├── EtatSourceMarche.jsx   # bandeau « source de cours indisponible »
+│   │   ├── MiseAJourDisponible.jsx # bandeau « nouvelle version prête »
 │   │   ├── Marche.jsx  Watchlist.jsx  Timeline.jsx  Operations.jsx  …
 │   │   └── ui.jsx              # briques partagées (Card, AddPanel, Skeleton…)
 │   ├── lib/
@@ -278,11 +293,13 @@ patrium/
 │   │   ├── authErrors.js          # messages d'auth en français, robustesse mdp
 │   │   ├── useHashRoute.js        # onglet ↔ URL
 │   │   ├── useDailySnapshot.js    # relevé quotidien du patrimoine
+│   │   ├── useMaintenant.js       # instant stable pour les badges de fraîcheur
 │   │   └── api.js                 # appels vers api/*
 │   ├── App.jsx                 # coquille de navigation
 │   ├── main.jsx                # providers + service worker
 │   └── index.css
 ├── .github/workflows/ci.yml
+├── eslint.config.js            # ESLint 9, configuration « à plat »
 ├── index.html
 ├── package.json
 ├── vite.config.js

@@ -7,7 +7,9 @@ import userEvent from "@testing-library/user-event";
 // suite complète la résolution des chunks peut prendre plusieurs dizaines de
 // secondes — au-delà du délai par défaut de 5 s. Les échecs qui en résultaient
 // étaient purement des contentions de CPU, sans rapport avec le code testé.
-vi.setConfig({ testTimeout: 60_000 });
+// Ce fichier monte l'application entière : il lui faut plus que le délai
+// global de 30 s déclaré dans vite.config.js.
+vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 // Sans Supabase configuré, l'app tourne en stockage local pur : c'est le mode
 // le plus simple à monter en test, et il couvre malgré tout toute la coquille

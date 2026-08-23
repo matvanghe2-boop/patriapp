@@ -27,6 +27,42 @@ export const pct = (n, digits = 1) => {
 export const pctPlain = (n, digits = 1) => `${(Number.isFinite(n) ? n : 0).toFixed(digits)} %`;
 
 /**
+ * Lecture d'un nombre saisi par l'utilisateur.
+ *
+ * Remplace les `parseFloat(x) || 0` disséminés dans les composants, qui
+ * avaient deux défauts :
+ *
+ *  1. **La virgule française était tronquée.** `parseFloat("3,5")` vaut 3 :
+ *     `parseFloat` s'arrête au premier caractère non numérique. Sur un champ
+ *     `type="number"` le navigateur protège en partie, mais pas sur les champs
+ *     texte — et une saisie de taux à « 3,5 » devenait « 3 » sans le moindre
+ *     signe.
+ *  2. **Vide valait zéro.** Effacer un champ pour le resaisir écrivait
+ *     immédiatement `0` dans l'état persistant, donc dans le localStorage et
+ *     dans le cloud. Sur le taux d'un livret, cela suffisait à fausser le taux
+ *     moyen pondéré du patrimoine le temps de la frappe.
+ *
+ * `null` distingue donc « pas de valeur » de « la valeur zéro ». C'est le même
+ * choix que `matelasMois`, qui vaut `null` — et non 0 — quand les dépenses ne
+ * sont pas renseignées : un matelas inconnu n'est pas un matelas vide.
+ * L'appelant décide de la valeur de repli avec `?? 0`.
+ *
+ * @param {unknown} valeur Saisie brute (chaîne d'un champ, ou nombre déjà lu).
+ * @returns {number|null} Le nombre, ou `null` si la saisie n'en est pas un.
+ */
+export function lireNombre(valeur) {
+  if (typeof valeur === "number") return Number.isFinite(valeur) ? valeur : null;
+  if (typeof valeur !== "string") return null;
+  const nettoye = valeur.trim().replace(",", ".");
+  if (nettoye === "" || nettoye === "-" || nettoye === "." || nettoye === "-.") return null;
+  // `Number` plutôt que `parseFloat` : il REFUSE une chaîne partiellement
+  // numérique (`Number("12abc")` vaut NaN, `parseFloat("12abc")` vaut 12).
+  // Une saisie à moitié valide doit être rejetée, pas devinée.
+  const n = Number(nettoye);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
  * Montant abrégé, avec l'ordre de grandeur adapté à la valeur.
  *
  * L'ancienne version divisait systématiquement par mille et suffixait « k€ » :

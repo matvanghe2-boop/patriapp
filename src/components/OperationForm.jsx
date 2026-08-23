@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useId } from "react";
 import { X, Check, TrendingUp, TrendingDown, Coins, Split } from "lucide-react";
-import { todayIso } from "../lib/finance";
+import { todayIso, lireNombre } from "../lib/finance";
 import Modal from "./Modal";
 
 /**
@@ -11,6 +11,9 @@ import Modal from "./Modal";
  * une thèse).
  */
 export default function OperationForm({ open, onClose, onSubmit, positions = [], preset }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const blank = {
     type: "ACHAT",
     asset: "",
@@ -26,7 +29,23 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
   };
   const [values, setValues] = useState(blank);
 
-  useEffect(() => {
+  /**
+   * Pré-remplissage à l'ouverture, décidé PENDANT LE RENDU.
+   *
+   * C'était un effet, avec un `eslint-disable exhaustive-deps` pour masquer
+   * que `blank` est recréé à chaque rendu. Conséquence visible : le formulaire
+   * s'affichait un instant avec les valeurs de la saisie PRÉCÉDENTE avant que
+   * l'effet ne les remplace — d'autant plus voyant que la modale s'ouvre avec
+   * une animation.
+   *
+   * La signature couvre l'ouverture ET le préréglage : rouvrir le formulaire
+   * sur une autre thèse doit le re-remplir, même si `open` n'a pas changé
+   * entre-temps.
+   */
+  const signature = `${open}|${preset ? JSON.stringify(preset) : ""}`;
+  const [signaturePrecedente, setSignaturePrecedente] = useState(signature);
+  if (signature !== signaturePrecedente) {
+    setSignaturePrecedente(signature);
     if (open) {
       setValues({
         ...blank,
@@ -40,8 +59,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         date: preset?.date || todayIso(),
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, preset]);
+  }
 
   if (!open) return null;
 
@@ -52,7 +70,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
     e.preventDefault();
     if (!values.asset.trim()) return;
     if (isSplit) {
-      const ratio = parseFloat(values.ratio);
+      const ratio = lireNombre(values.ratio);
       if (!Number.isFinite(ratio) || ratio <= 0) return;
       onSubmit({
         ...(preset?.id ? { id: preset.id } : {}),
@@ -71,7 +89,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         ...(preset?.id ? { id: preset.id } : {}),
         type: "DIVIDENDE",
         asset: values.asset.trim(),
-        amount: parseFloat(values.amount),
+        amount: lireNombre(values.amount),
         date: values.date,
         broker: preset?.broker || "Saisie manuelle",
         transactionId: preset?.transactionId ?? null,
@@ -83,9 +101,9 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
       ...(preset?.id ? { id: preset.id } : {}),
       type: values.type,
       asset: values.asset.trim(),
-      quantity: parseFloat(values.quantity),
-      price: parseFloat(values.price),
-      fees: values.fees === "" ? 0 : parseFloat(values.fees),
+      quantity: lireNombre(values.quantity),
+      price: lireNombre(values.price),
+      fees: values.fees === "" ? 0 : lireNombre(values.fees),
       date: values.date,
       broker: preset?.broker || "Saisie manuelle",
       transactionId: preset?.transactionId ?? null,
@@ -164,8 +182,8 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
 
         {/* Actif */}
         <div>
-          <label className="text-[11px] text-slate-500">Actif</label>
-          <input
+          <label htmlFor={`${idsChamps}-actif`} className="text-[11px] text-slate-500">Actif</label>
+          <input id={`${idsChamps}-actif`}
             list="operation-assets"
             required
             type="text"
@@ -183,10 +201,10 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
 
         {isSplit ? (
           <div>
-            <label className="text-[11px] text-slate-500">
+            <label htmlFor={`${idsChamps}-nombre-de-titres`} className="text-[11px] text-slate-500">
               Nombre de titres obtenus pour 1 titre détenu
             </label>
-            <input
+            <input id={`${idsChamps}-nombre-de-titres`}
               required
               type="number"
               step="0.0001"
@@ -205,8 +223,8 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           </div>
         ) : isDividende ? (
           <div>
-            <label className="text-[11px] text-slate-500">Montant du dividende reçu (€)</label>
-            <input
+            <label htmlFor={`${idsChamps}-montant-du-dividende`} className="text-[11px] text-slate-500">Montant du dividende reçu (€)</label>
+            <input id={`${idsChamps}-montant-du-dividende`}
               required
               type="number"
               step="0.01"
@@ -219,8 +237,8 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         ) : (
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="text-[11px] text-slate-500">Quantité</label>
-            <input
+            <label htmlFor={`${idsChamps}-quantite`} className="text-[11px] text-slate-500">Quantité</label>
+            <input id={`${idsChamps}-quantite`}
               required
               type="number"
               step="1"
@@ -231,8 +249,8 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
             />
           </div>
           <div>
-            <label className="text-[11px] text-slate-500">Prix unitaire (€)</label>
-            <input
+            <label htmlFor={`${idsChamps}-prix-unitaire`} className="text-[11px] text-slate-500">Prix unitaire (€)</label>
+            <input id={`${idsChamps}-prix-unitaire`}
               required
               type="number"
               step="0.01"
@@ -243,8 +261,8 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
             />
           </div>
           <div>
-            <label className="text-[11px] text-slate-500">Frais (€)</label>
-            <input
+            <label htmlFor={`${idsChamps}-frais`} className="text-[11px] text-slate-500">Frais (€)</label>
+            <input id={`${idsChamps}-frais`}
               type="number"
               step="0.01"
               min="0"
@@ -258,8 +276,8 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         )}
 
         <div>
-          <label className="text-[11px] text-slate-500">Date</label>
-          <input
+          <label htmlFor={`${idsChamps}-date`} className="text-[11px] text-slate-500">Date</label>
+          <input id={`${idsChamps}-date`}
             required
             type="date"
             value={values.date}

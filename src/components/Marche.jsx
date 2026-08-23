@@ -181,11 +181,16 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Le témoin « recherche en cours » part AVEC la requête, à l'expiration du
+  // délai — et non à chaque caractère tapé, pour une recherche qui allait de
+  // toute façon être annulée par la frappe suivante. La liste de résultats,
+  // elle, n'est plus vidée par cet effet : sa visibilité est dérivée de la
+  // requête courante au rendu (voir plus bas).
   useEffect(() => {
-    if (query.trim().length < 2) { setResults([]); return; }
-    setSearching(true); setSearchError("");
     clearTimeout(debounceRef.current);
+    if (query.trim().length < 2) return undefined;
     debounceRef.current = setTimeout(async () => {
+      setSearching(true); setSearchError("");
       try {
         const r = await searchSecurity(query.trim());
         setResults(r);
@@ -206,35 +211,6 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
     setShowResults(false);
     setHoverPoint(null);
   };
-
-  const lastHandledRequestTs = useRef(null);
-  const loadedSymbolRef = useRef(null);
-  useEffect(() => {
-    let effectiveSymbol = symbol;
-    let forceReload = false;
-
-    if (openRequest && openRequest.ts !== lastHandledRequestTs.current) {
-      lastHandledRequestTs.current = openRequest.ts;
-      effectiveSymbol = openRequest.symbol.toUpperCase();
-      forceReload = true;
-      if (effectiveSymbol !== symbol) {
-        setSymbol(effectiveSymbol);
-        setQuery("");
-        setResults([]);
-        setShowResults(false);
-      }
-    }
-
-    if (!effectiveSymbol) return;
-    if (!forceReload && loadedSymbolRef.current === effectiveSymbol) return;
-    loadedSymbolRef.current = effectiveSymbol;
-
-    setHoverPoint(null);
-    loadProfile(effectiveSymbol);
-    loadHistory(effectiveSymbol, range);
-    setLastUpdated(Date.now());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, openRequest]);
 
   const loadProfile = useCallback(async (sym) => {
     setProfileLoading(true); setProfileError("");
@@ -279,11 +255,57 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
     }
   }, []);
 
+  /**
+   * Demande d'ouverture venue du parent (clic sur une ligne du portefeuille ou
+   * de la watchlist), prise en compte PENDANT LE RENDU.
+   *
+   * C'était auparavant un effet qui appelait `setSymbol` puis relançait les
+   * chargements, avec un `eslint-disable react-hooks/exhaustive-deps` pour
+   * masquer le fait qu'il utilisait `loadProfile` et `loadHistory` déclarés
+   * plus bas dans le fichier. Deux conséquences : le compilateur React
+   * refusait de traiter tout ce fichier (« Existing memoization could not be
+   * preserved »), et un rendu intermédiaire s'affichait avec l'ancien titre
+   * avant que l'effet ne corrige l'état.
+   *
+   * L'ajustement d'état pendant le rendu est le motif documenté par React pour
+   * « réagir au changement d'une prop » : React relance le rendu immédiatement,
+   * sans rien peindre entre les deux.
+   *
+   * `rechargements` compte les demandes plutôt que de comparer les symboles :
+   * c'est ce qui permet de recharger quand on reclique DEUX FOIS sur la même
+   * valeur, cas où `symbol` ne change pas et où aucun effet ne se
+   * redéclencherait.
+   */
+  const [tsDemandeTraitee, setTsDemandeTraitee] = useState(null);
+  const [rechargements, setRechargements] = useState(0);
+  if (openRequest && openRequest.ts !== tsDemandeTraitee) {
+    setTsDemandeTraitee(openRequest.ts);
+    setSymbol(openRequest.symbol.toUpperCase());
+    setQuery("");
+    setResults([]);
+    setShowResults(false);
+    setRechargements((n) => n + 1);
+  }
+
+  // Fiche entreprise : rechargée quand le titre change, ou sur une nouvelle
+  // demande d'ouverture portant sur le même titre.
   useEffect(() => {
     if (!symbol) return;
+    // Effet de CHARGEMENT : Chargement de la fiche entreprise : voir
+    // FicheFinanciere, même motif.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadProfile(symbol);
+  }, [symbol, rechargements, loadProfile]);
+
+  // Historique : même déclencheurs, plus la période. Il était chargé par deux
+  // effets distincts — un pour le titre, un pour la période — qui pouvaient
+  // tirer la même série deux fois lors d'une ouverture depuis le portefeuille.
+  useEffect(() => {
+    if (!symbol) return;
+    // Effet de CHARGEMENT : Chargement de l'historique : idem.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadHistory(symbol, range);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range]);
+  }, [symbol, range, rechargements, loadHistory]);
 
   useEffect(() => {
     if (!symbol) return;
@@ -360,7 +382,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => results.length > 0 && setShowResults(true)}
+                onFocus={() => query.trim().length >= 2 && results.length > 0 && setShowResults(true)}
                 placeholder="Rechercher une action, un ETF, une obligation... (ticker, ISIN ou nom)"
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-violet-400/60 focus-visible:ring-2 focus-visible:ring-violet-400/30"
               />
@@ -369,7 +391,8 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
           {searching && <p className="text-xs text-slate-500 mt-2">Recherche en cours…</p>}
           {searchError && <p className="text-xs text-amber-400/90 mt-2">{searchError}</p>}
 
-          {showResults && results.length > 0 && (
+          {/* Voir Watchlist : visibilité dérivée de la requête courante. */}
+          {showResults && query.trim().length >= 2 && results.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl divide-y divide-slate-800 max-h-72 overflow-y-auto">
               {results.map((r) => (
                 <button

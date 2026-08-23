@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useId } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
@@ -7,12 +7,12 @@ import {
   TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight,
   Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap, ListChecks, ArrowRight, Scale, Sparkles,
 } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, CARD_THEMES } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, ChampNumerique, CARD_THEMES } from "./ui";
 import {
   eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore,
-  computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition
-} from "../lib/finance";
+  computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition, lireNombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
+import { useMaintenant, joursDepuis } from "../lib/useMaintenant";
 import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import Objectifs from "./Objectifs";
@@ -149,6 +149,9 @@ const PROFILE_STALE_DAYS = 120;
 
 function ProfileFreshness({ updatedAt, history = [] }) {
   const [showHistory, setShowHistory] = useState(false);
+  // Instant figé pour ce rendu (voir useMaintenant) : `Date.now()` appelé ici
+  // rendait le composant impur et laissait le badge périmé indéfiniment.
+  const maintenant = useMaintenant();
 
   if (!updatedAt) {
     return (
@@ -159,7 +162,7 @@ function ProfileFreshness({ updatedAt, history = [] }) {
     );
   }
 
-  const days = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86400000);
+  const days = joursDepuis(updatedAt, maintenant);
   const stale = days >= PROFILE_STALE_DAYS;
   const previous = history.slice(0, -1).slice(-6).reverse();
 
@@ -209,6 +212,9 @@ function ProfileFreshness({ updatedAt, history = [] }) {
 // invariablement « Actualisé aujourd'hui » et ses autres états étaient
 // inatteignables.
 function StagnationBadge({ pricesUpdatedAt, hasPositions }) {
+  // Même raison que dans ProfileFreshness : ce badge annonce la fraîcheur des
+  // cours, il ne peut pas se contenter d'un instant lu pendant le rendu.
+  const maintenant = useMaintenant();
   if (!hasPositions) return null;
   if (!pricesUpdatedAt) {
     return (
@@ -218,7 +224,7 @@ function StagnationBadge({ pricesUpdatedAt, hasPositions }) {
       </span>
     );
   }
-  const diffDays = Math.floor((Date.now() - new Date(pricesUpdatedAt).getTime()) / 86400000);
+  const diffDays = joursDepuis(pricesUpdatedAt, maintenant);
   const color =
     diffDays === 0 ? "text-emerald-400 border-emerald-400/30 bg-emerald-400/5"
     : diffDays <= 3 ? "text-amber-300 border-amber-400/30 bg-amber-400/5"
@@ -258,6 +264,9 @@ function TimeFilterBar({ active, onChange }) {
 
 // ─── Allocation target panel ──────────────────────────────────────────────────
 function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
+  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
+  // des identifiants uniques même si ce formulaire est monté deux fois.
+  const idsChamps = useId();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(target);
   const total = livretsTotal + bourseTotal;
@@ -366,10 +375,10 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
       {/* Edit slider */}
       {editing && (
         <div className="mt-4 p-3 rounded-xl border border-slate-700 bg-slate-950">
-          <label className="text-[11px] text-slate-500 block mb-2">
+          <label htmlFor={`${idsChamps}-part-bourse-cible`} className="text-[11px] text-slate-500 block mb-2">
             Part Bourse cible : <span className="text-amber-300 font-data">{draft.bourse}%</span>
           </label>
-          <input
+          <input id={`${idsChamps}-part-bourse-cible`}
             type="range"
             min={0}
             max={100}
@@ -461,7 +470,7 @@ export default function Dashboard({
     // `manual: true` protège ce point du compactage automatique de
     // l'historique : c'est un jalon voulu, pas un relevé quotidien.
     setHistoryPast((h) =>
-      [...h, { id: uid(), label: v.label, value: parseFloat(v.value), date: v.date || today, manual: true }].sort(
+      [...h, { id: uid(), label: v.label, value: lireNombre(v.value), date: v.date || today, manual: true }].sort(
         (a, b) => ((a.date || "") < (b.date || "") ? -1 : 1)
       )
     );
@@ -644,22 +653,25 @@ export default function Dashboard({
           <CardLabel icon={Wallet}>Profil mensuel</CardLabel>
           <div className="flex items-center gap-2">
             <label htmlFor="profil-revenu" className="text-xs text-slate-500">Revenu net</label>
-            <input
+            {/* Validé à la sortie du champ, pas à chaque caractère : voir
+                ChampNumerique. Chaque frappe écrivait sinon une entrée datée
+                dans l'historique du profil et re-rendait tout l'onglet. */}
+            <ChampNumerique
               id="profil-revenu"
               type="number"
               value={profile.monthly_income}
-              onChange={(e) => setProfile((p) => ({ ...p, monthly_income: parseFloat(e.target.value) || 0 }))}
+              onCommit={(v) => setProfile((p) => ({ ...p, monthly_income: v }))}
               className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
             />
             <span className="text-xs text-slate-600">€/mois</span>
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor="profil-depenses" className="text-xs text-slate-500">Dépenses</label>
-            <input
+            <ChampNumerique
               id="profil-depenses"
               type="number"
               value={profile.monthly_expenses}
-              onChange={(e) => setProfile((p) => ({ ...p, monthly_expenses: parseFloat(e.target.value) || 0 }))}
+              onCommit={(v) => setProfile((p) => ({ ...p, monthly_expenses: v }))}
               className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
             />
             <span className="text-xs text-slate-600">€/mois</span>

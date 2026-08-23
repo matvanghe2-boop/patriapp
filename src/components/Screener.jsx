@@ -4,7 +4,7 @@ import {
   ChevronDown, ChevronUp, Info, Plus, GitCompare,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, EmptyState, SkeletonTable, CARD_THEMES } from "./ui";
-import { eur, pctPlain, uid, compact } from "../lib/finance";
+import { eur, pctPlain, uid, compact, lireNombre } from "../lib/finance";
 import { fetchScreen } from "../lib/api";
 import {
   UNIVERS, universParCle, chargerUnivers, appliquerPrefiltres,
@@ -79,7 +79,7 @@ function ReglageCriteres({ criteres, onChange, onReinitialiser }) {
                 value={c.seuil}
                 onChange={(e) => {
                   const suivant = [...criteres];
-                  suivant[i] = { ...c, seuil: parseFloat(e.target.value) || 0 };
+                  suivant[i] = { ...c, seuil: lireNombre(e.target.value) ?? 0 };
                   onChange(suivant);
                 }}
                 className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-data tabular-nums focus:outline-none focus:border-violet-400/60"
@@ -337,6 +337,10 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
     if (mode === "portefeuille") return undefined;
     const univers = universParCle(universActif);
     if (!univers?.disponible) {
+      // Effet de CHARGEMENT : Chargement d'un univers : témoin levé avant la
+      // requête, pour ne pas laisser les titres de l'univers précédent à l'écran
+      // pendant l'attente.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDonnees([]);
       setGenereLe(null);
       setErreur(`${univers?.libelle ?? "Cet univers"} n'est pas encore disponible : sa composition n'a pas été fournie.`);
@@ -369,7 +373,16 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
 
   // Revenir en haut de liste dès qu'un filtre change : garder 300 lignes
   // dépliées après avoir restreint la sélection n'a aucun sens.
-  useEffect(() => setLimite(50), [universActif, recetteId, tranche, secteurFiltre, peaSeul, mode]);
+  //
+  // Ajustement pendant le rendu plutôt qu'effet : la liste était sinon peinte
+  // une fois avec l'ancienne limite — jusqu'à 300 lignes rendues pour rien —
+  // avant d'être immédiatement retaillée à 50.
+  const filtres = `${universActif}|${recetteId}|${tranche}|${secteurFiltre}|${peaSeul}|${mode}`;
+  const [filtresPrecedents, setFiltresPrecedents] = useState(filtres);
+  if (filtres !== filtresPrecedents) {
+    setFiltresPrecedents(filtres);
+    setLimite(50);
+  }
 
   const rafraichir = () => {
     if (mode === "portefeuille") chargerPortefeuille(symbolesCibles);

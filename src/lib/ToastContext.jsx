@@ -48,7 +48,7 @@ function ToastItem({ toast, onDismiss }) {
   const Icon = toast.type === "error" ? AlertTriangle : Check;
   const tone = toast.type === "error" ? "border-rose-500/40 text-rose-300" : "border-emerald-500/40 text-emerald-300";
   return (
-    <div className={`btn-press flex items-center gap-3 rounded-xl border bg-slate-900 shadow-2xl px-4 py-2.5 text-sm animate-[fadeIn_0.2s_ease-out] ${tone}`}>
+    <div className={`btn-flash flex items-center gap-3 rounded-xl border bg-slate-900 shadow-2xl px-4 py-2.5 text-sm animate-[fadeIn_0.2s_ease-out] ${tone}`}>
       <Icon size={15} className="shrink-0" aria-hidden="true" />
       <span className="text-slate-200">{toast.message}</span>
       {toast.onUndo && (

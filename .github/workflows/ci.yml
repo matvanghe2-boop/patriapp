@@ -9,20 +9,43 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          # Vite 8 exige ^20.19 || >=22.12. Node 22 est la version LTS courante
+          # et évite l'avertissement de dépréciation que GitHub émet désormais
+          # pour les actions restées sur Node 20.
+          node-version: "22"
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # PAS de `npm run format:check` ici, volontairement. Prettier est
+      # configuré mais n'a jamais été passé sur l'ensemble du projet : 131
+      # fichiers en dévient aujourd'hui. Brancher le contrôle imposerait un
+      # reformatage massif qui réécrirait notamment les blocs de commentaires
+      # alignés à la main — la principale documentation de ce code. C'est une
+      # décision à prendre en connaissance de cause, pas un effet de bord.
       - run: npm test
       - run: npm run build
+
+      # Le bundle expédié au navigateur ne doit porter aucune faille connue.
+      # `--omit=dev` cible exactement cela : l'outillage (vite, vitest…) suit un
+      # rythme de mise à jour différent et ne doit pas bloquer une livraison.
+      - name: Vérifier les dépendances de production
+        run: npm audit --omit=dev --audit-level=moderate
 
       # structure.txt se veut la référence d'arborescence du README, mais il
       # dépendait d'un `npm run structure` lancé à la main — il s'est donc
       # retrouvé périmé deux fois de suite. La CI le régénère et échoue s'il
       # diffère : impossible de fusionner une arborescence obsolète.
+      #
+      # Le générateur lit désormais `git ls-files` et non le disque : c'est ce
+      # qui rend ce contrôle FIABLE. Dans sa version précédente il listait les
+      # fichiers présents localement, dont ceux exclus par le .gitignore global
+      # de la machine de développement — le résultat différait donc
+      # structurellement entre un poste et le runner, et cette étape échouait
+      # en permanence, sur trois push consécutifs, pour une raison sans rapport
+      # avec le fichier réellement oublié.
       - name: Vérifier que structure.txt est à jour
         run: |
           npm run structure

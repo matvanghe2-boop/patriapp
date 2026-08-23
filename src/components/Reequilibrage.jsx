@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Scale, RotateCcw, Wallet, AlertTriangle, Info, ArrowUp, ArrowDown } from "lucide-react";
 import { CarteRepliable, EmptyState, ProgressBar, CARD_THEMES } from "./ui";
-import { eur, pctPlain } from "../lib/finance";
+import { eur, pctPlain, lireNombre } from "../lib/finance";
 import { fiscaliteEnveloppe } from "../../shared/horizon";
 import {
   construirePlan, ciblesEquiponderees, ciblesActuelles,
@@ -46,7 +46,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
   const plan = useMemo(
     () =>
       construirePlan(positions, ciblesPct, {
-        apport: parseFloat(apport) || 0,
+        apport: lireNombre(apport) ?? 0,
         sansVente,
         seuilTolerancePct: tolerance,
       }),
@@ -159,7 +159,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
             step="0.5"
             min="0"
             value={tolerance}
-            onChange={(e) => setTolerance(parseFloat(e.target.value) || 0)}
+            onChange={(e) => setTolerance(lireNombre(e.target.value) ?? 0)}
             className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-violet-400/60"
           />
         </div>
@@ -279,7 +279,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
                       min="0"
                       max="100"
                       value={cibleSaisie}
-                      onChange={(e) => modifierCible(o.id, e.target.value === "" ? null : parseFloat(e.target.value))}
+                      onChange={(e) => modifierCible(o.id, e.target.value === "" ? null : lireNombre(e.target.value))}
                       placeholder={o.poidsActuelPct.toFixed(1)}
                       aria-label={`Poids cible de ${o.ticker} en pourcentage`}
                       className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums text-right focus:outline-none focus:border-violet-400/60"
