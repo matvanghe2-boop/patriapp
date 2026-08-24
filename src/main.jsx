@@ -83,6 +83,30 @@ ReactDOM.createRoot(document.getElementById("root")).render(
  * En production le problème n'existe pas : les fragments produits par Vite
  * portent une empreinte dans leur nom, et changent donc d'URL à chaque build.
  */
+/*
+ * NETTOYAGE EN DÉVELOPPEMENT.
+ *
+ * Ne plus enregistrer le service worker ne suffit pas : celui qui a été
+ * enregistré lors d'une session précédente continue de contrôler la page, et
+ * de servir depuis son cache les modules `/src/*.js` et la feuille de style.
+ * On voit alors du code d'hier avec un message qui ne colle à rien — « le
+ * module ne fournit pas l'export X » alors que le fichier le fournit, ou des
+ * règles CSS pourtant présentes dans la source et absentes à l'exécution.
+ * Le symptôme survit au rechargement forcé, ce qui le rend particulièrement
+ * difficile à relier à sa cause.
+ *
+ * On désenregistre donc activement, et on vide les caches qu'il avait posés.
+ */
+if ("serviceWorker" in navigator && import.meta.env.DEV) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    if (regs.length === 0) return;
+    Promise.all(regs.map((r) => r.unregister()))
+      .then(() => caches.keys())
+      .then((noms) => Promise.all(noms.filter((n) => n.startsWith("patrium")).map((n) => caches.delete(n))))
+      .then(() => window.location.reload());
+  });
+}
+
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {

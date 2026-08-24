@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 
 /**
  * Primitives graphiques écrites à la main, sans recharts.
@@ -297,15 +297,117 @@ export function AnneauRepartition({
  * les regardait autrement qu'en courbe. Cette grille répond à une question que
  * la courbe ne sait pas poser — à quoi ressemble une année ? — et surtout elle
  * rend visibles les JOURS SANS RELEVÉ, ceux où l'application n'a pas été
- * ouverte. Une courbe les relie en silence, et laisse croire à une continuité
+ * ouverte. Une courbe les relie en silence et laisse croire à une continuité
  * qui n'existe pas.
  *
- * @param {{date: string, variation: number|null}[]} jours
+ * ── CE QUI MANQUAIT À LA PREMIÈRE VERSION ─────────────────────────────────
+ *
+ * Elle empilait les jours dans une grille de sept lignes sans se soucier du
+ * jour de la semaine réel : la première case tombait sur la première ligne
+ * quelle que soit la date, et tout le reste était décalé d'autant. Il n'y
+ * avait donc aucun sens de lecture — ni semaine, ni mois, ni même la certitude
+ * qu'une colonne représentait sept jours consécutifs. On voyait une texture,
+ * pas une période.
+ *
+ * Quatre corrections, toutes nécessaires à la lisibilité :
+ *
+ *  1. **Alignement réel sur les jours de la semaine.** Des cases vides comblent
+ *     le début du premier mois, si bien qu'une LIGNE est toujours un jour de la
+ *     semaine et une COLONNE toujours une semaine.
+ *  2. **Semaine commençant le lundi**, convention française — et non le
+ *     dimanche des grilles anglo-saxonnes.
+ *  3. **Repères de mois et de jours**, avec un filet qui sépare les mois.
+ *  4. **La date et la variation de chaque case**, au survol et en info-bulle.
+ *     Une couleur seule dit « ça a monté » ; elle ne dira jamais « le 12 mars,
+ *     de 240 € ».
  */
-export function CalendrierAnnuel({ jours = [], className = "" }) {
-  // Les variations sont réparties en quatre crans par rapport à l'écart type,
-  // et non par seuils absolus : un patrimoine de 5 000 € et un de 500 000 € ne
-  // bougent pas des mêmes montants, mais la FORME de l'année est la même.
+const JOURS_SEMAINE = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
+const MOIS_COURTS = [
+  "janv.", "févr.", "mars", "avr.", "mai", "juin",
+  "juil.", "août", "sept.", "oct.", "nov.", "déc.",
+];
+
+/**
+ * Indice du jour dans une semaine commençant le LUNDI (0 = lundi, 6 = dimanche).
+ *
+ * `getDay()` compte à partir du dimanche : le décalage `+6 % 7` le ramène à la
+ * convention française. La date est reconstruite composant par composant, et
+ * non parsée depuis la chaîne ISO, parce que `new Date("2026-03-12")` est
+ * interprétée en UTC et bascule d'un jour à l'ouest de Greenwich.
+ */
+export function indexJourSemaine(iso) {
+  const [a, m, j] = String(iso).split("-").map(Number);
+  return (new Date(a, m - 1, j).getDay() + 6) % 7;
+}
+
+/**
+ * Découpe la série de jours en colonnes de semaine alignées sur le vrai jour
+ * de la semaine, et repère les colonnes qui ouvrent un mois.
+ */
+export function decouperEnSemaines(jours = []) {
+  if (jours.length === 0) return [];
+
+  const semaines = [];
+  // Cases vides avant le premier jour : c'est ce décalage qui garantit qu'une
+  // ligne corresponde toujours au même jour de la semaine.
+  let courante = new Array(indexJourSemaine(jours[0].date)).fill(null);
+
+  for (const jour of jours) {
+    courante.push(jour);
+    if (courante.length === 7) {
+      semaines.push(courante);
+      courante = [];
+    }
+  }
+  if (courante.length > 0) {
+    semaines.push([...courante, ...new Array(7 - courante.length).fill(null)]);
+  }
+
+  return semaines.map((jours7, i) => {
+    const premier = jours7.find(Boolean);
+    const mois = premier ? Number(premier.date.slice(5, 7)) : null;
+    const precedent = i > 0 ? semaines[i - 1].find(Boolean) : null;
+    const moisPrecedent = precedent ? Number(precedent.date.slice(5, 7)) : null;
+    return {
+      jours: jours7,
+      mois,
+      // Une colonne « ouvre » un mois quand son premier jour réel appartient à
+      // un mois différent de celui de la colonne précédente. C'est ce drapeau
+      // qui porte à la fois le filet de séparation et l'étiquette.
+      ouvreMois: mois != null && mois !== moisPrecedent,
+    };
+  });
+}
+
+/** « 2026-03-12 » → « jeudi 12 mars 2026 ». */
+export function libelleDate(iso) {
+  const [a, m, j] = String(iso).split("-").map(Number);
+  return new Date(a, m - 1, j).toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+const formatDefaut = (n) => `${n > 0 ? "+" : ""}${Math.round(n).toLocaleString("fr-FR")} €`;
+
+/**
+ * @param {{date: string, variation: number|null}[]} jours
+ * @param {(n: number) => string} formatVariation
+ */
+export function CalendrierAnnuel({ jours = [], formatVariation = formatDefaut, className = "" }) {
+  const [survole, setSurvole] = useState(null);
+
+  const semaines = useMemo(() => decouperEnSemaines(jours), [jours]);
+
+  /*
+   * Les variations sont réparties en trois crans par rapport à la DISTRIBUTION
+   * observée, et non par seuils absolus : un patrimoine de 5 000 € et un de
+   * 500 000 € ne bougent pas des mêmes montants, mais la forme de leur année
+   * est la même. Des seuils fixes ne coloreraient rien chez l'un et tout chez
+   * l'autre.
+   */
   const crans = useMemo(() => {
     const v = jours.map((j) => j.variation).filter((x) => Number.isFinite(x) && x !== 0);
     if (v.length === 0) return { p1: 1, p2: 1, p3: 1 };
@@ -323,15 +425,88 @@ export function CalendrierAnnuel({ jours = [], className = "" }) {
     return signe * 1;
   };
 
+  const releves = jours.filter((j) => j.variation != null).length;
+
+  if (semaines.length === 0) return null;
+
   return (
-    <div className={`calendrier-annuel ${className}`} role="img" aria-label="Variation quotidienne du patrimoine sur l'année">
-      {jours.map((j) => (
-        <i
-          key={j.date}
-          data-n={j.variation == null ? undefined : niveau(j.variation)}
-          title={j.date}
-        />
-      ))}
+    <div className={`calendrier ${className}`}>
+      <div className="calendrier-grille">
+        {/* Repères de jours : un sur deux. Sept étiquettes sur une colonne de
+            sept cases de 11 px seraient illisibles et se chevaucheraient. */}
+        <div className="calendrier-jours" aria-hidden="true">
+          {JOURS_SEMAINE.map((j, i) => (
+            <span key={j}>{i % 2 === 0 ? j : ""}</span>
+          ))}
+        </div>
+
+        <div className="calendrier-defilement">
+          {/* Étiquettes de mois, alignées sur la colonne qui ouvre le mois.
+              Elles débordent volontairement sur les colonnes suivantes : une
+              semaine fait 11 px de large, « sept. » n'y tiendrait jamais. */}
+          <div className="calendrier-mois" aria-hidden="true">
+            {semaines.map((s, i) => (
+              <span key={i}>{s.ouvreMois ? MOIS_COURTS[s.mois - 1] : ""}</span>
+            ))}
+          </div>
+
+          <div
+            className="calendrier-semaines"
+            role="img"
+            aria-label={`Variation quotidienne du patrimoine, ${releves} jours relevés sur ${jours.length}.`}
+            onMouseLeave={() => setSurvole(null)}
+          >
+            {semaines.map((s, i) => (
+              <div key={i} className="calendrier-semaine" data-ouvre-mois={s.ouvreMois || undefined}>
+                {s.jours.map((jour, k) =>
+                  jour ? (
+                    <i
+                      key={jour.date}
+                      data-n={jour.variation == null ? undefined : niveau(jour.variation)}
+                      title={`${libelleDate(jour.date)}${
+                        jour.variation == null ? " — pas de relevé" : ` — ${formatVariation(jour.variation)}`
+                      }`}
+                      onMouseEnter={() => setSurvole(jour)}
+                    />
+                  ) : (
+                    <i key={`vide-${i}-${k}`} className="calendrier-hors-annee" />
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/*
+        Détail du jour survolé.
+
+        La zone conserve sa hauteur même vide : sans cela, le calendrier
+        sauterait de quelques pixels au premier survol, ce qui déplacerait la
+        case visée juste sous le curseur.
+      */}
+      <p className="calendrier-detail" aria-live="polite">
+        {survole ? (
+          <>
+            <span className="calendrier-detail-date">{libelleDate(survole.date)}</span>
+            {survole.variation == null ? (
+              <span className="calendrier-detail-vide">pas de relevé ce jour-là</span>
+            ) : (
+              <span
+                className={`calendrier-detail-valeur ghost-blur ${
+                  survole.variation > 0 ? "est-hausse" : survole.variation < 0 ? "est-baisse" : ""
+                }`}
+              >
+                {formatVariation(survole.variation)}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="calendrier-detail-invite">
+            Survole une case pour voir la date et la variation du jour.
+          </span>
+        )}
+      </p>
     </div>
   );
 }

@@ -726,6 +726,423 @@
   --c-pink-950: 80 7 36;
 }
 
+/* ═══════════════════ COULEUR D'ACCENT ═════════════════════════════════════
+ * L'accent choisi par l'utilisateur REDÉFINIT LA RAMPE AMBRE.
+ *
+ * C'est le seul moyen d'avoir un effet réel. L'ambre n'est pas une couleur
+ * parmi d'autres dans cette application : c'est SA couleur d'accent, écrite en
+ * toutes lettres dans près de trois cents classes utilitaires — boutons
+ * pleins, anneaux de focus, curseurs de champ, bordures de formulaire, cases à
+ * cocher. Une préférence qui n'aurait teinté que quelques éléments dédiés
+ * n'aurait rien changé de visible, ce qui était exactement le cas de la
+ * première version.
+ *
+ * Réécrire la rampe à la source fait suivre les trois cents classes d'un coup,
+ * sans toucher un seul composant. Les six teintes de DOMAINE (une par onglet)
+ * restent indépendantes : elles disent où l'on se trouve, pas ce qu'on aime.
+ *
+ * PLACEMENT ET SPÉCIFICITÉ. Ces blocs viennent nécessairement APRÈS ceux du
+ * thème. `:root[data-accent="x"]` et `:root[data-theme="clair"]` ont la même
+ * spécificité : à égalité, c'est l'ordre du fichier qui tranche, et un bloc
+ * d'accent placé avant se ferait écraser au changement de thème. D'où aussi
+ * les variantes combinées `[data-accent][data-theme]`, qui reprennent la main
+ * dans les deux sens.
+ *
+ * L'ambre n'a pas de bloc : c'est la rampe de base, et l'absence d'attribut
+ * suffit à la laisser s'appliquer.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── emerald ─────────────────────────────────────────────────────────────── */
+:root[data-accent="emerald"] {
+    --c-amber-50: 236 253 245;
+    --c-amber-100: 209 250 229;
+    --c-amber-200: 167 243 208;
+    --c-amber-300: 110 231 183;
+    --c-amber-400: 52 211 153;
+    --c-amber-500: 16 185 129;
+    --c-amber-600: 5 150 105;
+    --c-amber-700: 4 120 87;
+    --c-amber-800: 6 95 70;
+    --c-amber-900: 6 78 59;
+    --c-amber-950: 2 44 34;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-accent="emerald"]:not([data-theme="sombre"]) {
+      --c-amber-50: 2 44 34;
+      --c-amber-100: 6 78 59;
+      --c-amber-200: 6 95 70;
+      --c-amber-300: 6 95 70;
+      --c-amber-400: 4 120 87;
+      --c-amber-500: 16 185 129;
+      --c-amber-600: 52 211 153;
+      --c-amber-700: 110 231 183;
+      --c-amber-800: 167 243 208;
+      --c-amber-900: 209 250 229;
+      --c-amber-950: 236 253 245;
+  }
+}
+:root[data-accent="emerald"][data-theme="clair"] {
+    --c-amber-50: 2 44 34;
+    --c-amber-100: 6 78 59;
+    --c-amber-200: 6 95 70;
+    --c-amber-300: 6 95 70;
+    --c-amber-400: 4 120 87;
+    --c-amber-500: 16 185 129;
+    --c-amber-600: 52 211 153;
+    --c-amber-700: 110 231 183;
+    --c-amber-800: 167 243 208;
+    --c-amber-900: 209 250 229;
+    --c-amber-950: 236 253 245;
+}
+:root[data-accent="emerald"][data-theme="sombre"] {
+    --c-amber-50: 236 253 245;
+    --c-amber-100: 209 250 229;
+    --c-amber-200: 167 243 208;
+    --c-amber-300: 110 231 183;
+    --c-amber-400: 52 211 153;
+    --c-amber-500: 16 185 129;
+    --c-amber-600: 5 150 105;
+    --c-amber-700: 4 120 87;
+    --c-amber-800: 6 95 70;
+    --c-amber-900: 6 78 59;
+    --c-amber-950: 2 44 34;
+}
+
+/* ── indigo ─────────────────────────────────────────────────────────────── */
+:root[data-accent="indigo"] {
+    --c-amber-50: 238 242 255;
+    --c-amber-100: 224 231 255;
+    --c-amber-200: 199 210 254;
+    --c-amber-300: 165 180 252;
+    --c-amber-400: 129 140 248;
+    --c-amber-500: 99 102 241;
+    --c-amber-600: 79 70 229;
+    --c-amber-700: 67 56 202;
+    --c-amber-800: 55 48 163;
+    --c-amber-900: 49 46 129;
+    --c-amber-950: 30 27 75;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-accent="indigo"]:not([data-theme="sombre"]) {
+      --c-amber-50: 30 27 75;
+      --c-amber-100: 49 46 129;
+      --c-amber-200: 55 48 163;
+      --c-amber-300: 67 56 202;
+      --c-amber-400: 79 70 229;
+      --c-amber-500: 99 102 241;
+      --c-amber-600: 129 140 248;
+      --c-amber-700: 165 180 252;
+      --c-amber-800: 199 210 254;
+      --c-amber-900: 224 231 255;
+      --c-amber-950: 238 242 255;
+  }
+}
+:root[data-accent="indigo"][data-theme="clair"] {
+    --c-amber-50: 30 27 75;
+    --c-amber-100: 49 46 129;
+    --c-amber-200: 55 48 163;
+    --c-amber-300: 67 56 202;
+    --c-amber-400: 79 70 229;
+    --c-amber-500: 99 102 241;
+    --c-amber-600: 129 140 248;
+    --c-amber-700: 165 180 252;
+    --c-amber-800: 199 210 254;
+    --c-amber-900: 224 231 255;
+    --c-amber-950: 238 242 255;
+}
+:root[data-accent="indigo"][data-theme="sombre"] {
+    --c-amber-50: 238 242 255;
+    --c-amber-100: 224 231 255;
+    --c-amber-200: 199 210 254;
+    --c-amber-300: 165 180 252;
+    --c-amber-400: 129 140 248;
+    --c-amber-500: 99 102 241;
+    --c-amber-600: 79 70 229;
+    --c-amber-700: 67 56 202;
+    --c-amber-800: 55 48 163;
+    --c-amber-900: 49 46 129;
+    --c-amber-950: 30 27 75;
+}
+
+/* ── violet ─────────────────────────────────────────────────────────────── */
+:root[data-accent="violet"] {
+    --c-amber-50: 245 243 255;
+    --c-amber-100: 237 233 254;
+    --c-amber-200: 221 214 254;
+    --c-amber-300: 196 181 253;
+    --c-amber-400: 167 139 250;
+    --c-amber-500: 139 92 246;
+    --c-amber-600: 124 58 237;
+    --c-amber-700: 109 40 217;
+    --c-amber-800: 91 33 182;
+    --c-amber-900: 76 29 149;
+    --c-amber-950: 46 16 101;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-accent="violet"]:not([data-theme="sombre"]) {
+      --c-amber-50: 46 16 101;
+      --c-amber-100: 76 29 149;
+      --c-amber-200: 91 33 182;
+      --c-amber-300: 109 40 217;
+      --c-amber-400: 124 58 237;
+      --c-amber-500: 139 92 246;
+      --c-amber-600: 167 139 250;
+      --c-amber-700: 196 181 253;
+      --c-amber-800: 221 214 254;
+      --c-amber-900: 237 233 254;
+      --c-amber-950: 245 243 255;
+  }
+}
+:root[data-accent="violet"][data-theme="clair"] {
+    --c-amber-50: 46 16 101;
+    --c-amber-100: 76 29 149;
+    --c-amber-200: 91 33 182;
+    --c-amber-300: 109 40 217;
+    --c-amber-400: 124 58 237;
+    --c-amber-500: 139 92 246;
+    --c-amber-600: 167 139 250;
+    --c-amber-700: 196 181 253;
+    --c-amber-800: 221 214 254;
+    --c-amber-900: 237 233 254;
+    --c-amber-950: 245 243 255;
+}
+:root[data-accent="violet"][data-theme="sombre"] {
+    --c-amber-50: 245 243 255;
+    --c-amber-100: 237 233 254;
+    --c-amber-200: 221 214 254;
+    --c-amber-300: 196 181 253;
+    --c-amber-400: 167 139 250;
+    --c-amber-500: 139 92 246;
+    --c-amber-600: 124 58 237;
+    --c-amber-700: 109 40 217;
+    --c-amber-800: 91 33 182;
+    --c-amber-900: 76 29 149;
+    --c-amber-950: 46 16 101;
+}
+
+/* ── rose ─────────────────────────────────────────────────────────────── */
+:root[data-accent="rose"] {
+    --c-amber-50: 255 241 242;
+    --c-amber-100: 255 228 230;
+    --c-amber-200: 254 205 211;
+    --c-amber-300: 253 164 175;
+    --c-amber-400: 251 113 133;
+    --c-amber-500: 244 63 94;
+    --c-amber-600: 225 29 72;
+    --c-amber-700: 190 18 60;
+    --c-amber-800: 159 18 57;
+    --c-amber-900: 136 19 55;
+    --c-amber-950: 76 5 25;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-accent="rose"]:not([data-theme="sombre"]) {
+      --c-amber-50: 76 5 25;
+      --c-amber-100: 136 19 55;
+      --c-amber-200: 159 18 57;
+      --c-amber-300: 159 18 57;
+      --c-amber-400: 190 18 60;
+      --c-amber-500: 244 63 94;
+      --c-amber-600: 251 113 133;
+      --c-amber-700: 253 164 175;
+      --c-amber-800: 254 205 211;
+      --c-amber-900: 255 228 230;
+      --c-amber-950: 255 241 242;
+  }
+}
+:root[data-accent="rose"][data-theme="clair"] {
+    --c-amber-50: 76 5 25;
+    --c-amber-100: 136 19 55;
+    --c-amber-200: 159 18 57;
+    --c-amber-300: 159 18 57;
+    --c-amber-400: 190 18 60;
+    --c-amber-500: 244 63 94;
+    --c-amber-600: 251 113 133;
+    --c-amber-700: 253 164 175;
+    --c-amber-800: 254 205 211;
+    --c-amber-900: 255 228 230;
+    --c-amber-950: 255 241 242;
+}
+:root[data-accent="rose"][data-theme="sombre"] {
+    --c-amber-50: 255 241 242;
+    --c-amber-100: 255 228 230;
+    --c-amber-200: 254 205 211;
+    --c-amber-300: 253 164 175;
+    --c-amber-400: 251 113 133;
+    --c-amber-500: 244 63 94;
+    --c-amber-600: 225 29 72;
+    --c-amber-700: 190 18 60;
+    --c-amber-800: 159 18 57;
+    --c-amber-900: 136 19 55;
+    --c-amber-950: 76 5 25;
+}
+
+/* ── cyan ─────────────────────────────────────────────────────────────── */
+:root[data-accent="cyan"] {
+    --c-amber-50: 236 254 255;
+    --c-amber-100: 207 250 254;
+    --c-amber-200: 165 243 252;
+    --c-amber-300: 103 232 249;
+    --c-amber-400: 34 211 238;
+    --c-amber-500: 6 182 212;
+    --c-amber-600: 8 145 178;
+    --c-amber-700: 14 116 144;
+    --c-amber-800: 21 94 117;
+    --c-amber-900: 22 78 99;
+    --c-amber-950: 8 51 68;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-accent="cyan"]:not([data-theme="sombre"]) {
+      --c-amber-50: 8 51 68;
+      --c-amber-100: 22 78 99;
+      --c-amber-200: 21 94 117;
+      --c-amber-300: 21 94 117;
+      --c-amber-400: 14 116 144;
+      --c-amber-500: 6 182 212;
+      --c-amber-600: 34 211 238;
+      --c-amber-700: 103 232 249;
+      --c-amber-800: 165 243 252;
+      --c-amber-900: 207 250 254;
+      --c-amber-950: 236 254 255;
+  }
+}
+:root[data-accent="cyan"][data-theme="clair"] {
+    --c-amber-50: 8 51 68;
+    --c-amber-100: 22 78 99;
+    --c-amber-200: 21 94 117;
+    --c-amber-300: 21 94 117;
+    --c-amber-400: 14 116 144;
+    --c-amber-500: 6 182 212;
+    --c-amber-600: 34 211 238;
+    --c-amber-700: 103 232 249;
+    --c-amber-800: 165 243 252;
+    --c-amber-900: 207 250 254;
+    --c-amber-950: 236 254 255;
+}
+:root[data-accent="cyan"][data-theme="sombre"] {
+    --c-amber-50: 236 254 255;
+    --c-amber-100: 207 250 254;
+    --c-amber-200: 165 243 252;
+    --c-amber-300: 103 232 249;
+    --c-amber-400: 34 211 238;
+    --c-amber-500: 6 182 212;
+    --c-amber-600: 8 145 178;
+    --c-amber-700: 14 116 144;
+    --c-amber-800: 21 94 117;
+    --c-amber-900: 22 78 99;
+    --c-amber-950: 8 51 68;
+}
+
+/* ── teal ─────────────────────────────────────────────────────────────── */
+:root[data-accent="teal"] {
+    --c-amber-50: 240 253 250;
+    --c-amber-100: 204 251 241;
+    --c-amber-200: 153 246 228;
+    --c-amber-300: 94 234 212;
+    --c-amber-400: 45 212 191;
+    --c-amber-500: 20 184 166;
+    --c-amber-600: 13 148 136;
+    --c-amber-700: 15 118 110;
+    --c-amber-800: 17 94 89;
+    --c-amber-900: 19 78 74;
+    --c-amber-950: 4 47 46;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-accent="teal"]:not([data-theme="sombre"]) {
+      --c-amber-50: 4 47 46;
+      --c-amber-100: 19 78 74;
+      --c-amber-200: 17 94 89;
+      --c-amber-300: 17 94 89;
+      --c-amber-400: 15 118 110;
+      --c-amber-500: 20 184 166;
+      --c-amber-600: 45 212 191;
+      --c-amber-700: 94 234 212;
+      --c-amber-800: 153 246 228;
+      --c-amber-900: 204 251 241;
+      --c-amber-950: 240 253 250;
+  }
+}
+:root[data-accent="teal"][data-theme="clair"] {
+    --c-amber-50: 4 47 46;
+    --c-amber-100: 19 78 74;
+    --c-amber-200: 17 94 89;
+    --c-amber-300: 17 94 89;
+    --c-amber-400: 15 118 110;
+    --c-amber-500: 20 184 166;
+    --c-amber-600: 45 212 191;
+    --c-amber-700: 94 234 212;
+    --c-amber-800: 153 246 228;
+    --c-amber-900: 204 251 241;
+    --c-amber-950: 240 253 250;
+}
+:root[data-accent="teal"][data-theme="sombre"] {
+    --c-amber-50: 240 253 250;
+    --c-amber-100: 204 251 241;
+    --c-amber-200: 153 246 228;
+    --c-amber-300: 94 234 212;
+    --c-amber-400: 45 212 191;
+    --c-amber-500: 20 184 166;
+    --c-amber-600: 13 148 136;
+    --c-amber-700: 15 118 110;
+    --c-amber-800: 17 94 89;
+    --c-amber-900: 19 78 74;
+    --c-amber-950: 4 47 46;
+}
+
+/* ── orange ─────────────────────────────────────────────────────────────── */
+:root[data-accent="orange"] {
+    --c-amber-50: 255 247 237;
+    --c-amber-100: 255 237 213;
+    --c-amber-200: 254 215 170;
+    --c-amber-300: 253 186 116;
+    --c-amber-400: 251 146 60;
+    --c-amber-500: 249 115 22;
+    --c-amber-600: 234 88 12;
+    --c-amber-700: 194 65 12;
+    --c-amber-800: 154 52 18;
+    --c-amber-900: 124 45 18;
+    --c-amber-950: 67 20 7;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-accent="orange"]:not([data-theme="sombre"]) {
+      --c-amber-50: 67 20 7;
+      --c-amber-100: 124 45 18;
+      --c-amber-200: 154 52 18;
+      --c-amber-300: 194 65 12;
+      --c-amber-400: 234 88 12;
+      --c-amber-500: 249 115 22;
+      --c-amber-600: 251 146 60;
+      --c-amber-700: 253 186 116;
+      --c-amber-800: 254 215 170;
+      --c-amber-900: 255 237 213;
+      --c-amber-950: 255 247 237;
+  }
+}
+:root[data-accent="orange"][data-theme="clair"] {
+    --c-amber-50: 67 20 7;
+    --c-amber-100: 124 45 18;
+    --c-amber-200: 154 52 18;
+    --c-amber-300: 194 65 12;
+    --c-amber-400: 234 88 12;
+    --c-amber-500: 249 115 22;
+    --c-amber-600: 251 146 60;
+    --c-amber-700: 253 186 116;
+    --c-amber-800: 254 215 170;
+    --c-amber-900: 255 237 213;
+    --c-amber-950: 255 247 237;
+}
+:root[data-accent="orange"][data-theme="sombre"] {
+    --c-amber-50: 255 247 237;
+    --c-amber-100: 255 237 213;
+    --c-amber-200: 254 215 170;
+    --c-amber-300: 253 186 116;
+    --c-amber-400: 251 146 60;
+    --c-amber-500: 249 115 22;
+    --c-amber-600: 234 88 12;
+    --c-amber-700: 194 65 12;
+    --c-amber-800: 154 52 18;
+    --c-amber-900: 124 45 18;
+    --c-amber-950: 67 20 7;
+}
+
 /* ═══════════════════ TEINTES DE DOMAINE ═══════════════════════════════════
  * Six teintes, une par onglet, chacune déclarée UNE FOIS. Elles étaient
  * auparavant écrites en toutes lettres huit fois par thème dans `themes.js`,
@@ -894,33 +1311,159 @@
 
 
 /* ═══════════════════ CALENDRIER ANNUEL ════════════════════════════════════
- * Une case par jour, teintée selon la variation du patrimoine. Les cases sans
- * relevé gardent le fond neutre : ce sont les jours où l'application n'a pas
- * été ouverte, et les distinguer d'un jour à variation nulle est tout l'intérêt
- * de cette vue par rapport à une courbe, qui les relie en silence.
+ * Une case par jour, une COLONNE par semaine, une LIGNE par jour de la
+ * semaine. Les cases sans relevé gardent le fond neutre : distinguer « pas de
+ * relevé » de « variation nulle » est tout l'intérêt de cette vue par rapport
+ * à une courbe, qui les relie en silence.
+ *
+ * La grille défile horizontalement plutôt que de se comprimer : une année fait
+ * 53 semaines, et sur un téléphone une case ne peut pas descendre sous 8 px
+ * sans devenir impossible à viser au doigt.
  * ═══════════════════════════════════════════════════════════════════════════ */
-.calendrier-annuel {
-  display: grid;
-  grid-template-rows: repeat(7, 1fr);
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 2px;
+.calendrier {
+  --case: 11px;
+  --ecart: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
-.calendrier-annuel i {
+
+.calendrier-grille {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+
+/* Colonne des jours de la semaine. `padding-top` compense la hauteur de la
+   rangée d'étiquettes de mois, pour que « lun. » soit bien en face de la
+   première ligne de cases. */
+.calendrier-jours {
+  display: grid;
+  grid-template-rows: repeat(7, var(--case));
+  gap: var(--ecart);
+  padding-top: calc(0.875rem + var(--ecart));
+  flex-shrink: 0;
+}
+.calendrier-jours span {
+  font-size: 9px;
+  line-height: var(--case);
+  color: rgb(var(--c-slate-500));
+  text-align: right;
+  white-space: nowrap;
+}
+
+.calendrier-defilement {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+/* Étiquettes de mois : une cellule par semaine, du texte seulement sur celles
+   qui ouvrent un mois. `overflow: visible` est indispensable — « sept. » fait
+   quatre fois la largeur d'une colonne de semaine. */
+.calendrier-mois {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--case);
+  gap: var(--ecart);
+  height: 0.875rem;
+  margin-bottom: var(--ecart);
+}
+.calendrier-mois span {
+  font-size: 9px;
+  line-height: 0.875rem;
+  color: rgb(var(--c-slate-400));
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.calendrier-semaines {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--case);
+  gap: var(--ecart);
+}
+
+.calendrier-semaine {
+  display: grid;
+  grid-template-rows: repeat(7, var(--case));
+  gap: var(--ecart);
+  position: relative;
+}
+
+/* Filet de séparation des mois. En `::before` positionné dans l'écart plutôt
+   qu'en `border-left`, qui décalerait la colonne d'un pixel et désalignerait
+   les étiquettes de mois posées au-dessus. */
+.calendrier-semaine[data-ouvre-mois]::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--ecart) / -2 - 0.5px);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgb(var(--c-slate-700));
+}
+
+.calendrier-semaine i {
   display: block;
-  aspect-ratio: 1;
+  width: var(--case);
+  height: var(--case);
   border-radius: 2px;
   background: rgb(var(--c-slate-800));
+  transition: outline-color 120ms ease;
+  outline: 1px solid transparent;
+  outline-offset: 1px;
 }
-.calendrier-annuel i[data-n="1"] { background: rgb(var(--c-emerald-400) / 0.28); }
-.calendrier-annuel i[data-n="2"] { background: rgb(var(--c-emerald-400) / 0.55); }
-.calendrier-annuel i[data-n="3"] { background: rgb(var(--c-emerald-400) / 0.9); }
-.calendrier-annuel i[data-n="-1"] { background: rgb(var(--c-rose-400) / 0.28); }
-.calendrier-annuel i[data-n="-2"] { background: rgb(var(--c-rose-400) / 0.55); }
-.calendrier-annuel i[data-n="-3"] { background: rgb(var(--c-rose-400) / 0.9); }
-/* Variation nulle mais relevé présent : un cran plus clair que « pas de
+.calendrier-semaine i:hover {
+  outline-color: rgb(var(--c-slate-300));
+}
+
+/* Cases de remplissage avant le 1er janvier ou après le dernier jour : elles
+   existent pour tenir l'alignement, elles ne représentent aucun jour. */
+.calendrier-hors-annee {
+  background: transparent !important;
+  pointer-events: none;
+}
+
+.calendrier-semaine i[data-n="1"] { background: rgb(var(--c-emerald-400) / 0.3); }
+.calendrier-semaine i[data-n="2"] { background: rgb(var(--c-emerald-400) / 0.6); }
+.calendrier-semaine i[data-n="3"] { background: rgb(var(--c-emerald-400) / 0.95); }
+.calendrier-semaine i[data-n="-1"] { background: rgb(var(--c-rose-400) / 0.3); }
+.calendrier-semaine i[data-n="-2"] { background: rgb(var(--c-rose-400) / 0.6); }
+.calendrier-semaine i[data-n="-3"] { background: rgb(var(--c-rose-400) / 0.95); }
+/* Relevé présent mais variation nulle : un cran plus clair que « pas de
    relevé », sinon les deux cas seraient indiscernables. */
-.calendrier-annuel i[data-n="0"] { background: rgb(var(--c-slate-700)); }
+.calendrier-semaine i[data-n="0"] { background: rgb(var(--c-slate-600)); }
+
+/* Détail du jour survolé. La hauteur est réservée en permanence : sans elle,
+   le calendrier sauterait au premier survol et déplacerait la case visée. */
+.calendrier-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-height: 1.25rem;
+  margin: 0;
+  font-size: 0.75rem;
+}
+.calendrier-detail-date { color: rgb(var(--c-slate-300)); }
+.calendrier-detail-valeur {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-weight: 500;
+  color: rgb(var(--c-slate-300));
+}
+.calendrier-detail-valeur.est-hausse { color: rgb(var(--c-emerald-400)); }
+.calendrier-detail-valeur.est-baisse { color: rgb(var(--c-rose-400)); }
+.calendrier-detail-vide,
+.calendrier-detail-invite { color: rgb(var(--c-slate-500)); }
+
+/* Sur téléphone, une case de 11 px est difficile à viser : on l'agrandit et on
+   laisse la grille défiler d'autant. */
+@media (max-width: 767px) {
+  .calendrier { --case: 13px; }
+}
 
 /* ═══════════════════ ANNEAUX ══════════════════════════════════════════════ */
 .anneau-arc {
@@ -1440,6 +1983,10 @@ input[type="checkbox"] {
 }
 .modal-panel {
   animation: modalPanelIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Plafond commun à toutes les modales : voir Modal.jsx. Le `p-4` de la
+     superposition explique le retrait de 2 rem. */
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
 }
 
 /* Liste déroulante de la recherche globale et menus similaires. */

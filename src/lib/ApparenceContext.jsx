@@ -84,6 +84,22 @@ export function ApparenceProvider({ children }) {
   useEffect(() => {
     const a = trouverAccent(reglages.accent);
     const racine = document.documentElement;
+
+    /*
+     * L'attribut fait tout le travail : `index.css` s'en sert pour redéfinir
+     * la rampe AMBRE, qui est la couleur d'accent réelle de l'application —
+     * écrite en toutes lettres dans près de trois cents classes utilitaires.
+     *
+     * Passer par un attribut plutôt que par des variables en style en ligne
+     * est indispensable : les valeurs dépendent du thème clair ou sombre, et
+     * un style en ligne, qui l'emporte sur toute feuille, figerait une seule
+     * des deux versions.
+     */
+    racine.setAttribute("data-accent", a.id);
+
+    // Les variables restent posées pour `.teinte-accent`, employée là où un
+    // élément doit prendre l'accent sans passer par une classe Tailwind (fil
+    // de progression, panneau de la rétrospective).
     const [h, s] = a.teinte.split(" ");
     racine.style.setProperty("--accent-h", h);
     racine.style.setProperty("--accent-s", s);

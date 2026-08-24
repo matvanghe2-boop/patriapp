@@ -125,7 +125,7 @@ export default function Modal({
         aria-labelledby={labelledBy}
         tabIndex={-1}
         style={style}
-        className={`modal-panel relative outline-none ${panelClassName} ${className}`}
+        className={`modal-panel relative outline-none flex flex-col ${panelClassName} ${className}`}
       >
         {showClose && (
           <button
@@ -136,7 +136,30 @@ export default function Modal({
             <X size={18} aria-hidden="true" />
           </button>
         )}
-        {children}
+        {/*
+          LE CONTENU DÉFILE, PAS LA FENÊTRE.
+
+          Le panneau était centré sans hauteur maximale : dès qu'il dépassait
+          l'écran — un téléphone en paysage, un portable à 768 px de haut, ou
+          simplement la rétrospective annuelle qui est longue par nature — le
+          débordement partait hors cadre EN HAUT ET EN BAS, et rien ne pouvait
+          le ramener : le défilement de la page est verrouillé pendant qu'une
+          modale est ouverte, précisément pour éviter que le fond ne bouge.
+
+          Le panneau est donc plafonné à la hauteur visible et c'est cette zone
+          qui défile. Le bouton de fermeture reste ainsi à sa place, puisque le
+          panneau lui-même ne bouge pas.
+
+          `min-h-0` n'est pas décoratif : sans lui, un enfant de conteneur flex
+          refuse de rétrécir sous sa taille de contenu, la hauteur maximale
+          n'aurait aucun effet et le débordement reviendrait à l'identique.
+
+          `100dvh` et non `100vh` : sur mobile, `vh` ignore la barre d'adresse
+          rétractable et surestime la hauteur réellement disponible.
+        */}
+        <div className="overflow-y-auto overscroll-contain min-h-0 rounded-[inherit]">
+          {children}
+        </div>
       </div>
     </div>,
     document.body

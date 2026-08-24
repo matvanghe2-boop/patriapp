@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { Sparkline, CourbeEvolution, AnneauProgression, AnneauRepartition, CalendrierAnnuel } from "./graphiques";
+import {
+  Sparkline, CourbeEvolution, AnneauProgression, AnneauRepartition, CalendrierAnnuel,
+  decouperEnSemaines, indexJourSemaine, libelleDate,
+} from "./graphiques";
 import Montant, { decouperMontant } from "./Montant";
 
 describe("Sparkline", () => {
@@ -121,7 +124,10 @@ describe("CalendrierAnnuel", () => {
         ]}
       />
     );
-    const cases = container.querySelectorAll("i");
+    // `[title]` écarte les cases de remplissage qui alignent la première
+    // semaine sur le bon jour : elles n'ont pas de date et ne représentent
+    // aucun jour.
+    const cases = container.querySelectorAll(".calendrier-semaine i[title]");
     expect(cases[0].dataset.n).toBeTruthy();
     expect(cases[1].dataset.n).toBeUndefined();
     expect(cases[2].dataset.n).toBe("0");
@@ -136,7 +142,8 @@ describe("CalendrierAnnuel", () => {
     const gros = render(
       <CalendrierAnnuel jours={[100, 200, 300, 4000].map((v, i) => ({ date: `2026-02-0${i + 1}`, variation: v }))} />
     );
-    const niveaux = (r) => [...r.container.querySelectorAll("i")].map((e) => e.dataset.n);
+    const niveaux = (r) =>
+      [...r.container.querySelectorAll(".calendrier-semaine i[title]")].map((e) => e.dataset.n);
     expect(niveaux(petits)).toEqual(niveaux(gros));
   });
 });
@@ -171,5 +178,85 @@ describe("Montant", () => {
     // Une valeur qui APPARAÎT n'a pas varié : la colorer induirait en erreur.
     const { container } = render(<Montant valeur={100} pulse />);
     expect(container.firstChild.dataset.sens).toBeUndefined();
+  });
+});
+
+describe("CalendrierAnnuel — lisibilité des périodes", () => {
+  const jours = (debut, n) =>
+    Array.from({ length: n }, (_, i) => {
+      const d = new Date(`${debut}T00:00:00`);
+      d.setDate(d.getDate() + i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return { date: iso, variation: i % 3 === 0 ? null : (i % 7) - 3 };
+    });
+
+  it("aligne la première case sur son vrai jour de la semaine", () => {
+    // Le 1er janvier 2026 est un JEUDI : trois cases vides doivent le précéder
+    // pour que la ligne « jeudi » reste la ligne « jeudi ». Sans ce décalage,
+    // une colonne ne représentait pas une semaine et toute lecture par période
+    // était impossible.
+    expect(indexJourSemaine("2026-01-01")).toBe(3);
+    const semaines = decouperEnSemaines(jours("2026-01-01", 10));
+    expect(semaines[0].jours.slice(0, 3)).toEqual([null, null, null]);
+    expect(semaines[0].jours[3].date).toBe("2026-01-01");
+  });
+
+  it("découpe en colonnes de sept jours pleines", () => {
+    const semaines = decouperEnSemaines(jours("2026-01-01", 30));
+    for (const s of semaines) expect(s.jours).toHaveLength(7);
+  });
+
+  it("repère la colonne qui ouvre chaque mois", () => {
+    const semaines = decouperEnSemaines(jours("2026-01-01", 70));
+    const ouvertures = semaines.filter((s) => s.ouvreMois);
+    // Janvier, février et mars sont couverts par 70 jours.
+    expect(ouvertures.length).toBeGreaterThanOrEqual(3);
+    expect(ouvertures[0].mois).toBe(1);
+    expect(ouvertures[1].mois).toBe(2);
+  });
+
+  it("commence la semaine le lundi, pas le dimanche", () => {
+    // Convention française. `getDay()` compte à partir du dimanche.
+    expect(indexJourSemaine("2026-01-05")).toBe(0); // un lundi
+    expect(indexJourSemaine("2026-01-11")).toBe(6); // un dimanche
+  });
+
+  it("nomme la date en toutes lettres", () => {
+    expect(libelleDate("2026-03-12")).toBe("jeudi 12 mars 2026");
+  });
+
+  it("porte la date et la variation sur chaque case", () => {
+    // Une couleur seule dit « ça a monté » ; elle ne dira jamais « le 2 janvier,
+    // de 240 € ».
+    const { container } = render(
+      <CalendrierAnnuel
+        jours={[
+          { date: "2026-01-01", variation: 240 },
+          { date: "2026-01-02", variation: null },
+        ]}
+      />
+    );
+    const cases = [...container.querySelectorAll(".calendrier-semaine i")].filter((e) => e.title);
+    expect(cases[0].title).toContain("jeudi 1 janvier 2026");
+    expect(cases[0].title).toContain("+240");
+    expect(cases[1].title).toContain("pas de relevé");
+  });
+
+  it("affiche les repères de jours et de mois", () => {
+    const { container } = render(<CalendrierAnnuel jours={jours("2026-01-01", 60)} />);
+    expect(container.querySelector(".calendrier-jours").textContent).toContain("lun.");
+    expect(container.querySelector(".calendrier-mois").textContent).toContain("janv.");
+  });
+
+  it("réserve la place du détail avant tout survol", () => {
+    // Sans hauteur réservée, le calendrier sauterait au premier survol et
+    // déplacerait la case visée juste sous le curseur.
+    const { container } = render(<CalendrierAnnuel jours={jours("2026-01-01", 20)} />);
+    expect(container.querySelector(".calendrier-detail")).not.toBeNull();
+  });
+
+  it("ne rend rien sans aucun jour", () => {
+    const { container } = render(<CalendrierAnnuel jours={[]} />);
+    expect(container.querySelector(".calendrier")).toBeNull();
   });
 });

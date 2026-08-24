@@ -146,3 +146,30 @@ describe("retour tactile", () => {
     expect(() => vibrer("validation", true)).not.toThrow();
   });
 });
+
+describe("couleur d'accent", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute("data-accent");
+  });
+
+  it("pose l'attribut qui redéfinit la rampe d'accent", async () => {
+    // C'est l'attribut qui fait tout le travail : `index.css` s'en sert pour
+    // réécrire la rampe AMBRE, couleur d'accent réelle de l'application,
+    // employée en toutes lettres dans près de trois cents classes. Une
+    // préférence qui n'aurait teinté que quelques éléments dédiés n'aurait
+    // rien changé de visible — c'était le défaut de la première version.
+    const u = userEvent.setup();
+    render(<ApparenceProvider><Sonde /></ApparenceProvider>);
+    expect(document.documentElement.getAttribute("data-accent")).toBe("amber");
+    await u.click(screen.getByText("violet"));
+    expect(document.documentElement.getAttribute("data-accent")).toBe("violet");
+  });
+
+  it("passe par un attribut et non par un style en ligne pour la rampe", () => {
+    // Les valeurs dépendent du thème clair ou sombre ; un style en ligne, qui
+    // l'emporte sur toute feuille, figerait une seule des deux versions.
+    render(<ApparenceProvider><Sonde /></ApparenceProvider>);
+    expect(document.documentElement.style.getPropertyValue("--c-amber-400")).toBe("");
+  });
+});
