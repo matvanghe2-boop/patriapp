@@ -728,22 +728,12 @@ export default function Dashboard({
       {isEmpty && <OnboardingCard onLoadDemo={loadDemoData} />}
 
       {/* Actions prioritaires cross-onglets */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 grille-cartes">
-        <PriorityActions
-          livrets={livrets}
-          bourse={bourse}
-          matelasMois={matelasMois}
-          tauxReference={bourseGainPct}
-        />
-        {/* Les deux répondent à « qu'est-ce que je dois faire » : l'un sans
-            date, l'autre daté. Les séparer obligerait à parcourir deux fois. */}
-        <ProchainesEcheances
-          evenements={evenementsMarche}
-          contracts={contracts}
-          objectifs={objectifs}
-          patrimoineNet={patrimoineNet}
-        />
-      </div>
+      <PriorityActions
+        livrets={livrets}
+        bourse={bourse}
+        matelasMois={matelasMois}
+        tauxReference={bourseGainPct}
+      />
 
       {/* Profil mensuel */}
       <Card accent={CARD_THEMES.emerald}>
@@ -1194,6 +1184,20 @@ export default function Dashboard({
           ]}
         />
       </Card>
+
+      {/*
+        Les échéances ferment la page au lieu de l'ouvrir.
+        Le haut du Dashboard répond à « où j'en suis » : patrimoine, répartition,
+        actions prioritaires. Une liste de dates à venir n'appartient pas à cette
+        question et cassait la progression du regard ; en pied de page, elle
+        répond à « et ensuite », qui vient bien après.
+      */}
+      <ProchainesEcheances
+        evenements={evenementsMarche}
+        contracts={contracts}
+        objectifs={objectifs}
+        patrimoineNet={patrimoineNet}
+      />
     </div>
   );
 }
