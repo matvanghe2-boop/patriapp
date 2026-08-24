@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useId } from "react";
 import { Plus, Trash2, X, Lock, ChevronDown } from "lucide-react";
 import { eur, lireNombre } from "../lib/finance";
 import { theme as themeDe, CARD_THEMES, GHOST_THEMES } from "../lib/themes";
+import EtatVide from "./EtatVide";
 
 // Les palettes vivent désormais dans `lib/themes.js`, où elles ne sont écrites
 // qu'une fois. Elles restent réexportées ici : une vingtaine de composants
@@ -29,12 +30,21 @@ export function NavButton({ active, onClick, icon: Icon, label, disabled, theme 
   );
 }
 
-export function EmptyState({ children }) {
-  return (
-    <p className="text-sm text-slate-600 py-6 text-center border border-dashed border-slate-800 rounded-xl">
-      {children}
-    </p>
-  );
+/**
+ * État vide générique.
+ *
+ * Délègue désormais à `EtatVide`, qui ajoute un pictogramme et une hiérarchie.
+ * La façade est conservée parce que trente-quatre appels l'emploient avec la
+ * seule phrase pour tout contenu : les faire tous passer à la nouvelle API
+ * demanderait d'inventer trente-quatre titres, dont la plupart ne diraient
+ * rien de plus que la phrase elle-même.
+ *
+ * Les écrans où l'état vide est le PREMIER que voit un nouvel arrivant —
+ * portefeuille, livrets, objectifs — utilisent directement `EtatVide` avec un
+ * titre et une action.
+ */
+export function EmptyState({ children, picto = "recherche" }) {
+  return <EtatVide picto={picto}>{children}</EtatVide>;
 }
 
 export function Card({ children, className = "", accent = "" }) {

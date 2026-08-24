@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { triPosition, tauxRendementInterne } from "./finance";
+import { triPosition, tauxRendementInterne, createLedgerBaseline, todayIso } from "./finance";
 
 const POSITION = { ticker: "CW8.PA", quantity: 30, pru: 420, current_price: 465 };
 
@@ -119,5 +119,98 @@ describe("triPosition — ligne de base du journal", () => {
     const position = { ticker: "X", quantity: 10.004, pru: 100, current_price: 120 };
     const ops = [{ date: "2023-01-15", asset: "X", type: "ACHAT", quantity: 10, price: 100, fees: 0 }];
     expect(triPosition(position, ops, { aujourdhui: "2026-08-10" }).complet).toBe(true);
+  });
+});
+
+describe("triPosition — régressions du calcul par ligne", () => {
+  it("ne compte pas deux fois les opérations déjà figées dans la ligne de base", () => {
+    // C'est LE bug qui masquait le TRI de presque toutes les lignes.
+    //
+    // `createLedgerBaseline` fige les opérations déjà absorbées en mémorisant
+    // leurs identifiants dans `operationIds` ; tout le reste de l'application
+    // les écarte ensuite via `operationsAfterBaseline`. `triPosition` était le
+    // seul endroit à rejouer le journal ENTIER par-dessus la ligne de base :
+    // la quantité ressortait doublée, la réconciliation échouait, et la ligne
+    // était rangée parmi les « journaux incomplets » alors qu'elle était
+    // parfaitement complète.
+    const ops = [{ id: "o1", date: "2023-01-15", asset: "CW8.PA", type: "ACHAT", quantity: 30, price: 420, fees: 5 }];
+    const baseline = {
+      at: "2023-01-15",
+      operationIds: ["o1"],
+      lots: { "CW8.PA": { quantity: 30, pru: 420, totalBuyFees: 5, at: "2023-01-15" } },
+    };
+    const r = triPosition(POSITION, ops, { baseline, aujourdhui: "2026-08-10" });
+    expect(r.quantiteJournal).toBe(30);
+    expect(r.complet).toBe(true);
+    expect(r.tri).toBeGreaterThan(0);
+  });
+
+  it("date l'ouverture à l'ancre de la ligne, pas au jour de sa création", () => {
+    // Second bug : `createLedgerBaseline` posait `at: todayIso()`, et le solde
+    // fictif de clôture est daté d'aujourd'hui lui aussi. La série couvrait
+    // donc ZÉRO jour, et `tauxRendementInterne` refusait — à juste titre —
+    // d'annualiser. Résultat : aucune ligne n'affichait de TRI.
+    const baseline = {
+      at: "2026-08-10",
+      operationIds: [],
+      lots: { "CW8.PA": { quantity: 30, pru: 420, totalBuyFees: 0, at: "2023-01-15" } },
+    };
+    const r = triPosition(POSITION, [], { baseline, aujourdhui: "2026-08-10" });
+    expect(r.complet).toBe(true);
+    expect(r.tri).not.toBeNull();
+    expect(r.tri).toBeGreaterThan(0);
+  });
+
+  it("signale que le taux repose sur une ancre et non sur un achat daté", () => {
+    // Une position saisie à la main n'a pas de date d'acquisition connue :
+    // l'ancre est une approximation, et l'interface doit pouvoir le dire au
+    // lieu de présenter un chiffre qui a l'air exact.
+    const baseline = {
+      at: "2023-01-15",
+      operationIds: [],
+      lots: { "CW8.PA": { quantity: 30, pru: 420, totalBuyFees: 0, at: "2023-01-15" } },
+    };
+    const ancre = triPosition(POSITION, [], { baseline, aujourdhui: "2026-08-10" });
+    expect(ancre.approxime).toBe(true);
+
+    const journal = [{ date: "2023-01-15", asset: "CW8.PA", type: "ACHAT", quantity: 30, price: 420, fees: 5 }];
+    const exact = triPosition(POSITION, journal, { aujourdhui: "2026-08-10" });
+    expect(exact.approxime).toBe(false);
+  });
+});
+
+describe("createLedgerBaseline — ancrage des lots", () => {
+  it("préserve la date d'ancrage d'un lot déjà connu", () => {
+    // `rebaselineLedger` est appelé à CHAQUE retouche manuelle d'une position.
+    // Si l'ancre repartait à aujourd'hui, corriger un cours suffisait à
+    // effacer l'ancienneté de la ligne et donc son TRI.
+    const precedente = {
+      at: "2023-01-15",
+      lots: { "CW8.PA": { quantity: 29, pru: 419, totalBuyFees: 5, at: "2023-01-15" } },
+    };
+    const bourse = {
+      positions: [{ ticker: "CW8.PA", quantity: 30, pru: 420 }],
+      operations: [],
+      ledgerBaseline: precedente,
+    };
+    const suivante = createLedgerBaseline(bourse);
+    expect(suivante.lots["CW8.PA"].at).toBe("2023-01-15");
+    expect(suivante.lots["CW8.PA"].quantity).toBe(30);
+  });
+
+  it("ancre un lot inconnu sur sa plus ancienne opération", () => {
+    const bourse = {
+      positions: [{ ticker: "AI.PA", quantity: 10, pru: 150 }],
+      operations: [
+        { id: "a", date: "2024-05-02", asset: "AI.PA", type: "ACHAT", quantity: 4, price: 150 },
+        { id: "b", date: "2022-09-30", asset: "AI.PA", type: "ACHAT", quantity: 6, price: 140 },
+      ],
+    };
+    expect(createLedgerBaseline(bourse).lots["AI.PA"].at).toBe("2022-09-30");
+  });
+
+  it("retombe sur aujourd'hui pour une ligne sans passé connu", () => {
+    const bourse = { positions: [{ ticker: "NEW.PA", quantity: 1, pru: 10 }], operations: [] };
+    expect(createLedgerBaseline(bourse).lots["NEW.PA"].at).toBe(todayIso());
   });
 });

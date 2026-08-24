@@ -146,7 +146,7 @@ function ContractsModule({ contracts, setContracts }) {
         <EmptyState>Aucun contrat suivi — ajoute un bail, une assurance ou une garantie pour ne plus rater une échéance de résiliation.</EmptyState>
       ) : (
         <div className="overflow-x-auto mt-2 -mx-1">
-          <table className="w-full text-sm min-w-[680px] table-cards">
+          <table className="w-full text-sm min-w-[680px] table-cards table-dense">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 px-1">Contrat</th>
@@ -339,7 +339,7 @@ function SubsModule({ subs, setSubs }) {
         <EmptyState>Aucun abonnement suivi — ajoute tes charges fixes pour voir le coût mensuel/annuel cumulé.</EmptyState>
       ) : (
         <div className="overflow-x-auto mt-2 -mx-1">
-          <table className="w-full text-sm min-w-[640px] table-cards">
+          <table className="w-full text-sm min-w-[640px] table-cards table-dense">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 px-1">Abonnement</th>

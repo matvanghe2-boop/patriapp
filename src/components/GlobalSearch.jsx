@@ -74,7 +74,7 @@ export default function GlobalSearch({
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Rechercher un actif, une opération..."
+          placeholder="Rechercher…  Ctrl K"
           className="bg-transparent text-xs text-slate-200 placeholder-slate-600 focus:outline-none w-full"
         />
         {query && (

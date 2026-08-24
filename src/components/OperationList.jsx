@@ -27,7 +27,7 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
 
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-sm min-w-[760px] table-cards">
+      <table className="w-full text-sm min-w-[760px] table-cards table-dense">
         <thead>
           <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
             <th className="py-2 px-1">Date</th>

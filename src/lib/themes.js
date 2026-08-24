@@ -1,99 +1,69 @@
 /**
  * Palettes de domaine — source unique de vérité.
  *
- * Les six thèmes (un par onglet) étaient redéfinis SEPT fois dans le projet :
- * `NAV_THEMES` dans `ui.jsx`, `NAV_THEMES` à nouveau dans `BottomNav.jsx`,
- * `ACTIVE_BARS`, `CARD_THEMES`, `GHOST_THEMES`, `PageGlow.COLORS` et `TAB_BG`
- * dans `App.jsx`. Changer la couleur d'un onglet demandait de retrouver et de
- * modifier sept endroits, et rien ne signalait l'oubli du septième — c'est
- * exactement ainsi que Stratégie et Abonnements avaient fini par partager la
- * même teinte.
+ * Les six thèmes (un par onglet) étaient redéfinis SEPT fois dans le projet.
+ * Ils l'ont d'abord été regroupés ici, en chaînes Tailwind complètes : chaque
+ * variante écrite en toutes lettres, six fois, parce que Tailwind analyse le
+ * source en texte brut et ne génère rien pour un `bg-${couleur}-500`.
  *
- * POURQUOI DES CHAÎNES COMPLÈTES plutôt que des classes composées à la volée :
- * Tailwind analyse le code source en texte brut et ne génère que les classes
- * qu'il y voit littéralement. Un `bg-${couleur}-500` ne produirait aucune règle
- * CSS. Chaque variante est donc écrite en toutes lettres — c'est verbeux, mais
- * c'est la contrainte de l'outil, et tout est ici.
+ * ── CE QUI A CHANGÉ ───────────────────────────────────────────────────────
+ *
+ * La teinte est désormais portée par une VARIABLE CSS, et la recette qui
+ * l'emploie vit dans `index.css`. Chaque thème n'est plus qu'une paire de
+ * classes : celle qui pose la teinte (`teinte-violet`) et celle qui décrit
+ * l'usage (`carte-domaine`, `btn-fantome`…).
+ *
+ * Les six palettes se réduisent donc à six déclarations d'une ligne, contre
+ * huit chaînes chacune auparavant. Trois conséquences directes :
+ *
+ *  · **Le mode clair devient possible.** Les recettes s'appuient sur les
+ *    variables de surface, qui s'inversent avec le thème.
+ *  · **L'accent devient réglable.** Une septième teinte, `teinte-perso`, est
+ *    alimentée à l'exécution par la préférence de l'utilisateur.
+ *  · **La teinte devient interpolable**, ce qui permet au fond de page de
+ *    GLISSER d'un onglet à l'autre au lieu de sauter (voir `--teinte-h` dans
+ *    index.css).
+ *
+ * L'API exportée n'a pas bougé d'un caractère : `CARD_THEMES.emerald` reste
+ * une chaîne de classes qu'on pose sur un élément, et la vingtaine de
+ * composants qui l'importent n'ont rien à changer.
  */
 
 /** Identifiants de thème valides, dans l'ordre des onglets. */
 export const THEME_IDS = ["emerald", "indigo", "violet", "amber", "rose", "cyan"];
 
-export const THEMES = {
-  emerald: {
-    /** Bouton de navigation actif (barre latérale bureau). */
-    nav: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-    /** Texte de l'onglet actif (barre basse mobile). */
-    navText: "text-emerald-300",
-    /** Repère d'onglet actif (trait). */
-    bar: "bg-emerald-400",
-    /** Carte thématique : bordure + fond dégradé. */
-    card: "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 hover:border-emerald-400/60",
-    /** Bouton fantôme (bordure + fond léger). */
-    ghost:
-      "text-emerald-300 hover:text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 hover:border-emerald-400/70 focus-visible:ring-emerald-400/40",
-    /** Fond de page teinté. */
-    pageBg: "bg-gradient-to-br from-emerald-950/70 via-slate-950 to-slate-950",
-    /** Lueurs ambiantes (deux halos). */
-    glowA: "bg-emerald-400/10",
-    glowB: "bg-cyan-400/8",
-  },
-  indigo: {
-    nav: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30",
-    navText: "text-indigo-300",
-    bar: "bg-indigo-400",
-    card: "border-indigo-500/40 bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 hover:border-indigo-400/60",
-    ghost:
-      "text-indigo-300 hover:text-indigo-100 bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 hover:border-indigo-400/70 focus-visible:ring-indigo-400/40",
-    pageBg: "bg-gradient-to-br from-indigo-950/70 via-slate-950 to-slate-950",
-    glowA: "bg-indigo-400/10",
-    glowB: "bg-blue-400/8",
-  },
-  violet: {
-    nav: "bg-violet-500/15 text-violet-300 border border-violet-500/30",
-    navText: "text-violet-300",
-    bar: "bg-violet-400",
-    card: "border-violet-500/40 bg-gradient-to-br from-violet-950/40 via-slate-900 to-slate-900 hover:border-violet-400/60",
-    ghost:
-      "text-violet-300 hover:text-violet-100 bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 hover:border-violet-400/70 focus-visible:ring-violet-400/40",
-    pageBg: "bg-gradient-to-br from-violet-950/70 via-slate-950 to-slate-950",
-    glowA: "bg-violet-400/10",
-    glowB: "bg-fuchsia-400/8",
-  },
-  amber: {
-    nav: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-    navText: "text-amber-300",
-    bar: "bg-amber-400",
-    card: "border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 hover:border-amber-400/60",
-    ghost:
-      "text-amber-300 hover:text-amber-100 bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/40 hover:border-amber-400/70 focus-visible:ring-amber-400/40",
-    pageBg: "bg-gradient-to-br from-amber-950/70 via-slate-950 to-slate-950",
-    glowA: "bg-amber-400/10",
-    glowB: "bg-orange-400/8",
-  },
-  rose: {
-    nav: "bg-rose-500/15 text-rose-300 border border-rose-500/30",
-    navText: "text-rose-300",
-    bar: "bg-rose-400",
-    card: "border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-slate-900 to-slate-900 hover:border-rose-400/60",
-    ghost:
-      "text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 hover:border-rose-400/70 focus-visible:ring-rose-400/40",
-    pageBg: "bg-gradient-to-br from-rose-950/70 via-slate-950 to-slate-950",
-    glowA: "bg-rose-400/10",
-    glowB: "bg-orange-500/8",
-  },
-  cyan: {
-    nav: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30",
-    navText: "text-cyan-300",
-    bar: "bg-cyan-400",
-    card: "border-cyan-500/40 bg-gradient-to-br from-cyan-950/40 via-slate-900 to-slate-900 hover:border-cyan-400/60",
-    ghost:
-      "text-cyan-300 hover:text-cyan-100 bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/40 hover:border-cyan-400/70 focus-visible:ring-cyan-400/40",
-    pageBg: "bg-gradient-to-br from-cyan-950/70 via-slate-950 to-slate-950",
-    glowA: "bg-cyan-400/10",
-    glowB: "bg-teal-400/8",
-  },
+/**
+ * Recettes d'usage. Elles sont identiques pour les six thèmes : c'est
+ * précisément ce que la variable CSS permet, et ce que la duplication
+ * précédente empêchait de voir.
+ */
+const RECETTES = {
+  /** Bouton de navigation actif (barre latérale bureau). */
+  nav: "nav-actif",
+  /** Texte de l'onglet actif (barre basse mobile). */
+  navText: "texte-domaine",
+  /** Repère d'onglet actif (trait). */
+  bar: "barre-domaine",
+  /** Carte thématique : bordure + fond dégradé. */
+  card: "carte-domaine",
+  /** Bouton fantôme (bordure + fond léger). */
+  ghost: "btn-fantome",
+  /** Fond de page teinté. */
+  pageBg: "fond-domaine",
+  /** Lueurs ambiantes (deux halos). */
+  glowA: "halo-a",
+  glowB: "halo-b",
 };
+
+/** Construit les huit entrées d'un thème à partir de sa classe de teinte. */
+function palette(id) {
+  const teinte = `teinte-${id}`;
+  return Object.fromEntries(
+    Object.entries(RECETTES).map(([usage, classe]) => [usage, `${teinte} ${classe}`])
+  );
+}
+
+export const THEMES = Object.fromEntries(THEME_IDS.map((id) => [id, palette(id)]));
 
 /** Thème par défaut, appliqué quand l'identifiant demandé est inconnu. */
 export const THEME_DEFAUT = "amber";
@@ -105,9 +75,8 @@ export function theme(id) {
 
 /**
  * Vues par variante, pour les composants qui indexent directement par
- * identifiant de thème (`CARD_THEMES[t]`). Elles évitent de réécrire
- * `theme(x).card` à chaque appel sans réintroduire de duplication : ce sont
- * des projections du même objet.
+ * identifiant de thème (`CARD_THEMES[t]`). Ce sont des projections du même
+ * objet, pas des copies à tenir synchrones.
  */
 const parVariante = (cle) => Object.fromEntries(THEME_IDS.map((id) => [id, THEMES[id][cle]]));
 
@@ -115,3 +84,30 @@ export const CARD_THEMES = parVariante("card");
 export const GHOST_THEMES = parVariante("ghost");
 export const NAV_THEMES = parVariante("nav");
 export const PAGE_BG = parVariante("pageBg");
+
+/**
+ * Teintes disponibles comme ACCENT global, avec leur libellé et leur valeur
+ * HSL. La valeur est reprise telle quelle dans `index.css` ; elle est répétée
+ * ici parce que le sélecteur de réglages doit afficher une pastille de la
+ * bonne couleur, et qu'il ne peut pas lire une classe.
+ *
+ * `teinte` est au format « H S% L% » attendu par `hsl()`, sans virgules :
+ * c'est ce qui permet d'écrire `hsl(var(--teinte) / .4)`.
+ */
+export const ACCENTS = [
+  { id: "amber", libelle: "Ambre", teinte: "38 92% 50%" },
+  { id: "emerald", libelle: "Émeraude", teinte: "160 84% 39%" },
+  { id: "indigo", libelle: "Indigo", teinte: "239 84% 67%" },
+  { id: "violet", libelle: "Violet", teinte: "258 90% 66%" },
+  { id: "rose", libelle: "Rose", teinte: "350 89% 60%" },
+  { id: "cyan", libelle: "Cyan", teinte: "188 86% 53%" },
+  { id: "teal", libelle: "Sarcelle", teinte: "173 80% 40%" },
+  { id: "orange", libelle: "Orange", teinte: "25 95% 53%" },
+];
+
+/** Accent par défaut : celui que l'application employait déjà partout. */
+export const ACCENT_DEFAUT = "amber";
+
+export function accent(id) {
+  return ACCENTS.find((a) => a.id === id) || ACCENTS.find((a) => a.id === ACCENT_DEFAUT);
+}

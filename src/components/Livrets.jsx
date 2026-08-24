@@ -5,6 +5,7 @@ import { eur, uid, guessEnvelope, todayIso, lireNombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
 import RatesHub from "./RatesHub";
+import EtatVide from "./EtatVide";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
 const MARKET_ALTERNATIVES = [
@@ -729,10 +730,17 @@ export default function Livrets({
         </div>
 
         {livrets.length === 0 ? (
-          <EmptyState>Aucun livret pour le moment — ajoute ton premier support d'épargne.</EmptyState>
+          <EtatVide
+                picto="epargne"
+                titre="Aucun support d'épargne"
+                action={<GhostButton onClick={() => setShowAdd(true)} theme="indigo">Ajouter un livret</GhostButton>}
+              >
+                Livret A, LDDS, assurance-vie… Patrium suit les plafonds, calcule le taux moyen
+                pondéré de ton épargne et te dit où placer ton prochain versement.
+              </EtatVide>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-cards">
+            <table className="w-full text-sm table-cards table-dense">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Support</th>

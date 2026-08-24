@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, Suspense, lazy } from "react";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
-  Repeat, Download, Upload, RotateCcw, Eye, EyeOff, LogOut,
+  Repeat, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles,
 } from "lucide-react";
 import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
@@ -24,6 +24,11 @@ import EtatSourceMarche from "./components/EtatSourceMarche";
 import BottomNav from "./components/BottomNav";
 import StickySummaryHeader from "./components/StickySummaryHeader";
 import { useAuth } from "./lib/AuthContext";
+import { useApparence } from "./lib/ApparenceContext";
+import { vibrer } from "./lib/haptique";
+import PaletteCommandes, { construireIndex, useRaccourciPalette } from "./components/PaletteCommandes";
+import ReglagesApparence from "./components/ReglagesApparence";
+import Retrospective from "./components/Retrospective";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -81,6 +86,10 @@ const TAB_BG = Object.fromEntries(TABS.map((t) => [t.id, theme(t.theme).pageBg])
 export default function App() {
   const [tab, setTab] = useHashRoute(TAB_IDS, "dashboard", TAB_ALIASES);
   const [ghostMode, setGhostMode] = React.useState(false);
+  const [paletteOuverte, setPaletteOuverte] = React.useState(false);
+  const [reglagesOuverts, setReglagesOuverts] = React.useState(false);
+  const [retroOuverte, setRetroOuverte] = React.useState(false);
+  const { haptique } = useApparence();
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -115,6 +124,49 @@ export default function App() {
     [patrimoine.historyPast, patrimoine.patrimoineNet]
   );
 
+  /**
+   * Changement d'onglet : mémorise le SENS du déplacement.
+   *
+   * Les onglets sont ordonnés ; faire entrer la page par le côté d'où elle
+   * vient transforme une apparition en déplacement, et donne une carte mentale
+   * de l'application au lieu d'une succession d'écrans sans rapport.
+   */
+  const [direction, setDirection] = React.useState("droite");
+  const allerA = React.useCallback(
+    (cible) => {
+      setDirection(TAB_IDS.indexOf(cible) >= TAB_IDS.indexOf(tab) ? "droite" : "gauche");
+      vibrer("navigation", haptique);
+      setTab(cible);
+    },
+    [tab, setTab, haptique]
+  );
+
+  /**
+   * Index et actions de la palette de commandes.
+   *
+   * Les actions viennent EN PREMIER dans les résultats : taper « export » doit
+   * proposer la sauvegarde avant de proposer une ligne dont le nom contient
+   * ces lettres.
+   */
+  const indexPalette = useMemo(
+    () =>
+      construireIndex({
+        livrets: patrimoine.livrets,
+        bourse: patrimoine.bourse,
+        dettes: patrimoine.dettes,
+        watchlist: patrimoine.watchlist,
+        strategyNotes: patrimoine.strategyNotes,
+        enveloppes: patrimoine.enveloppes,
+        objectifs: patrimoine.objectifs,
+      }),
+    [
+      patrimoine.livrets, patrimoine.bourse, patrimoine.dettes, patrimoine.watchlist,
+      patrimoine.strategyNotes, patrimoine.enveloppes, patrimoine.objectifs,
+    ]
+  );
+
+  useRaccourciPalette(React.useCallback(() => setPaletteOuverte(true), []));
+
   useEffect(() => {
     document.title = `${activeTab.label} · Patrium`;
   }, [activeTab.label]);
@@ -127,7 +179,10 @@ export default function App() {
     setLastSnapshotDate: patrimoine.setLastSnapshotDate,
   });
 
-  const handleExport = () => {
+  // `useCallback` : `handleExport` alimente la liste d'actions de la palette,
+  // qui est mémoïsée. Recréé à chaque rendu, il invalidait cette mémoïsation
+  // en permanence — c'est-à-dire qu'il la supprimait.
+  const handleExport = React.useCallback(() => {
     const dump = exportAllData(STORAGE_KEYS);
     const blob = new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -138,7 +193,7 @@ export default function App() {
     URL.revokeObjectURL(url);
     markBackupDone();
     showToast({ message: "Sauvegarde exportée." });
-  };
+  }, [showToast]);
 
   const handleImport = async (e) => {
     const file = e.target.files?.[0];
@@ -198,6 +253,23 @@ export default function App() {
     window.location.reload();
   };
 
+  const actionsPalette = useMemo(
+    () => [
+      { id: "act-reglages", libelle: "Apparence : thème, accent, densité", motsCles: "theme clair sombre couleur densite reglages", icone: Palette, executer: () => setReglagesOuverts(true) },
+      { id: "act-retro", libelle: "Rétrospective annuelle", motsCles: "bilan annee resume retrospective", icone: Sparkles, executer: () => setRetroOuverte(true) },
+      { id: "act-ghost", libelle: ghostMode ? "Afficher les montants" : "Masquer les montants (mode Ghost)", motsCles: "ghost masquer flouter confidentialite", icone: ghostMode ? Eye : EyeOff, executer: () => setGhostMode((g) => !g) },
+      { id: "act-export", libelle: "Exporter une sauvegarde", motsCles: "export sauvegarde json backup", icone: Download, executer: handleExport },
+      ...TABS.map((t) => ({
+        id: `act-onglet-${t.id}`,
+        libelle: `Aller à « ${t.label} »`,
+        motsCles: `${t.label} ${t.shortLabel}`,
+        icone: t.icon,
+        executer: () => allerA(t.id),
+      })),
+    ],
+    [ghostMode, handleExport, allerA]
+  );
+
   return (
     <div className={`flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100 ${ghostMode ? "ghost-mode" : ""}`}>
       <a
@@ -229,7 +301,7 @@ export default function App() {
             <NavButton
               key={t.id}
               active={tab === t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => allerA(t.id)}
               icon={t.icon}
               label={t.label}
               theme={t.theme}
@@ -258,6 +330,24 @@ export default function App() {
             <input type="file" accept="application/json" onChange={handleImport} className="sr-only" />
           </label>
           <button
+            onClick={() => setReglagesOuverts(true)}
+            aria-label="Apparence"
+            title="Apparence : thème, accent, densité"
+            className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
+          >
+            <Palette size={15} aria-hidden="true" />
+            <span className="hidden md:inline">Apparence</span>
+          </button>
+          <button
+            onClick={() => setRetroOuverte(true)}
+            aria-label="Rétrospective annuelle"
+            title="Rétrospective annuelle"
+            className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
+          >
+            <Sparkles size={15} aria-hidden="true" />
+            <span className="hidden md:inline">Rétrospective</span>
+          </button>
+          <button
             onClick={handleReset}
             aria-label="Réinitialiser toutes les données"
             title="Réinitialiser"
@@ -283,6 +373,10 @@ export default function App() {
         {/* L'en-tête se condense au défilement pour garder le patrimoine net et
             sa variation visibles en permanence, sans immobiliser de la hauteur
             d'écran au repos. */}
+        {/* Fil de progression : neutralisé d'office là où
+            `animation-timeline` n'existe pas (voir index.css). */}
+        <span className="fil-progression teinte-accent" aria-hidden="true" />
+
         <StickySummaryHeader
           patrimoineNet={patrimoine.patrimoineNet}
           deltaPct={delta30j.hasReference ? delta30j.pct : null}
@@ -328,7 +422,7 @@ export default function App() {
         {/* La clé force le remontage — et donc l'animation d'entrée — à chaque
             changement d'onglet. aria-live annonce le changement de section aux
             lecteurs d'écran, qui n'ont sinon aucun repère de navigation. */}
-        <div key={tab} className="animate-[fadeIn_0.3s_ease-out]">
+        <div key={tab} className={direction === "droite" ? "page-entre-droite" : "page-entre-gauche"}>
           <h1 className="sr-only">{activeTab.label}</h1>
           <Suspense fallback={<TabSkeleton />}>
             <activeTab.Page {...patrimoine} />
@@ -336,7 +430,24 @@ export default function App() {
         </div>
       </main>
 
-      <BottomNav tabs={BOTTOM_NAV_TABS} active={tab} onChange={setTab} />
+      <BottomNav tabs={BOTTOM_NAV_TABS} active={tab} onChange={allerA} />
+
+      <PaletteCommandes
+        ouvert={paletteOuverte}
+        onFermer={() => setPaletteOuverte(false)}
+        index={indexPalette}
+        actions={actionsPalette}
+        onNaviguer={allerA}
+      />
+      <ReglagesApparence ouvert={reglagesOuverts} onFermer={() => setReglagesOuverts(false)} />
+      <Retrospective
+        ouvert={retroOuverte}
+        onFermer={() => setRetroOuverte(false)}
+        historyPast={patrimoine.historyPast}
+        operations={patrimoine.bourse?.operations}
+        positions={patrimoine.bourse?.positions}
+        profileHistory={patrimoine.profileHistory}
+      />
     </div>
   );
 }

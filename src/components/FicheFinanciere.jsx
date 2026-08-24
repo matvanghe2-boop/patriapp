@@ -179,7 +179,7 @@ function TableauExercices({ historique }) {
 
   return (
     <div className="overflow-x-auto mt-3">
-      <table className="w-full text-xs table-cards">
+      <table className="w-full text-xs table-cards table-dense">
         <thead>
           <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
             <th className="py-2 pr-3">Poste</th>

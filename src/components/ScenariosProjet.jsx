@@ -148,7 +148,7 @@ export default function ScenariosProjet({ scenarios = [], onChange, courant }) {
               tout. « Meilleur » = coût global le plus bas, effort mensuel le
               plus faible, retard sur objectif le plus court. */}
           <div className="overflow-x-auto">
-            <table className="w-full text-xs table-cards">
+            <table className="w-full text-xs table-cards table-dense">
               <thead>
                 <tr className="text-slate-500">
                   <th className="text-left font-medium py-1.5 pr-3">Scénario</th>

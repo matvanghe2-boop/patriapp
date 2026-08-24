@@ -363,7 +363,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
         <SkeletonTable rows={Math.min(watchlist.length, 5)} columns={7} />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm table-cards">
+          <table className="w-full text-sm table-cards table-dense">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 pr-3">Actif</th>
