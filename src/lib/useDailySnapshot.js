@@ -17,27 +17,50 @@ import { uid, todayIso, compactHistory } from "./finance";
 export function useDailySnapshot({ patrimoineNet, setHistoryPast, lastSnapshotDate, setLastSnapshotDate }) {
   useEffect(() => {
     const today = todayIso();
-    if (lastSnapshotDate === today) return;
     // Un patrimoine à 0 signifie presque toujours « données pas encore
     // chargées » plutôt qu'un patrimoine réellement nul : on ne fige pas ça
     // dans l'historique.
     if (!Number.isFinite(patrimoineNet) || patrimoineNet <= 0) return;
 
+    const valeur = Math.round(patrimoineNet);
     const label = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+
     setHistoryPast((h) => {
-      const dejaReleve = h.some((p) => p.date === today);
-      const avec = dejaReleve
-        ? h
-        : [...h, { id: uid(), label, value: Math.round(patrimoineNet), date: today }];
-      const compacte = compactHistory(avec);
+      const existant = h.find((p) => p.date === today);
+
+      /*
+       * LE POINT DU JOUR SUIT LA VALEUR, IL N'EST PAS FIGÉ À LA PREMIÈRE
+       * OUVERTURE.
+       *
+       * L'ancienne version sortait dès que la journée avait son relevé. Le
+       * point gardait donc la valeur qu'avait le patrimoine au moment précis
+       * où l'application avait été ouverte — c'est-à-dire avec les cours
+       * ENCORE EN CACHE, parfois vieux de plusieurs jours. Actualiser les
+       * cours dix minutes plus tard ne le corrigeait pas.
+       *
+       * Conséquence visible, et c'est le bug rapporté : ouvrir l'app un samedi
+       * enregistrait les cours de jeudi ; le dimanche, après une actualisation
+       * faite entre-temps, enregistrait la clôture de vendredi. Le calendrier
+       * affichait donc une variation le DIMANCHE, jour où les marchés sont
+       * fermés et où rien n'avait bougé — l'écart était en réalité celui de
+       * vendredi, arrivé avec un jour de retard.
+       *
+       * Un point daté du jour J doit porter la meilleure valeur connue pour
+       * J, pas la première.
+       */
+      if (existant) {
+        if (existant.value === valeur) return h;
+        return h.map((p) => (p.date === today ? { ...p, value: valeur } : p));
+      }
+
       // Le compactage s'applique une fois par jour à TOUT l'historique, et non
       // seulement au point qu'on vient d'ajouter : un historique déjà long
       // (restauré depuis une sauvegarde, ou accumulé avant l'introduction du
       // compactage) n'aurait jamais été réduit autrement.
-      if (dejaReleve && compacte.length === h.length) return h;
-      return compacte;
+      return compactHistory([...h, { id: uid(), label, value: valeur, date: today }]);
     });
-    setLastSnapshotDate(today);
+
+    if (lastSnapshotDate !== today) setLastSnapshotDate(today);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patrimoineNet, lastSnapshotDate]);
 }

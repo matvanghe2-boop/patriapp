@@ -1334,9 +1334,8 @@
   align-items: flex-start;
 }
 
-/* Colonne des jours de la semaine. `padding-top` compense la hauteur de la
-   rangée d'étiquettes de mois, pour que « lun. » soit bien en face de la
-   première ligne de cases. */
+/* Colonne des jours. `padding-top` compense la rangée d'étiquettes de mois,
+   pour que « lun. » tombe bien en face de la première ligne de cases. */
 .calendrier-jours {
   display: grid;
   grid-template-rows: repeat(7, var(--case));
@@ -1359,24 +1358,36 @@
   scrollbar-width: thin;
 }
 
-/* Étiquettes de mois : une cellule par semaine, du texte seulement sur celles
-   qui ouvrent un mois. `overflow: visible` est indispensable — « sept. » fait
-   quatre fois la largeur d'une colonne de semaine. */
-.calendrier-mois {
+/* Étiquettes de mois et sous-totaux : une cellule par semaine, du texte
+   seulement sur celles qui ouvrent un mois. `overflow: visible` est
+   indispensable — « sept. » fait quatre fois la largeur d'une colonne. */
+.calendrier-mois,
+.calendrier-totaux {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: var(--case);
   gap: var(--ecart);
   height: 0.875rem;
-  margin-bottom: var(--ecart);
 }
-.calendrier-mois span {
+.calendrier-mois { margin-bottom: var(--ecart); }
+.calendrier-totaux { margin-top: var(--ecart); }
+.calendrier-mois span,
+.calendrier-totaux span {
   font-size: 9px;
   line-height: 0.875rem;
-  color: rgb(var(--c-slate-400));
   white-space: nowrap;
   overflow: visible;
+  transition: opacity 140ms ease;
 }
+.calendrier-mois span { color: rgb(var(--c-slate-400)); }
+.calendrier-totaux em {
+  font-family: "IBM Plex Mono", monospace;
+  font-style: normal;
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: rgb(var(--c-slate-500));
+}
+.calendrier-totaux em.est-hausse { color: rgb(var(--c-emerald-400) / 0.85); }
+.calendrier-totaux em.est-baisse { color: rgb(var(--c-rose-400) / 0.85); }
 
 .calendrier-semaines {
   display: grid;
@@ -1394,7 +1405,7 @@
 
 /* Filet de séparation des mois. En `::before` positionné dans l'écart plutôt
    qu'en `border-left`, qui décalerait la colonne d'un pixel et désalignerait
-   les étiquettes de mois posées au-dessus. */
+   les étiquettes posées au-dessus. */
 .calendrier-semaine[data-ouvre-mois]::before {
   content: "";
   position: absolute;
@@ -1405,39 +1416,85 @@
   background: rgb(var(--c-slate-700));
 }
 
-.calendrier-semaine i {
+/* Semaine agitée sur les marchés : un fond discret derrière toute la colonne.
+   Il distingue « mon portefeuille a baissé » de « tout a baissé cette
+   semaine-là », que le calendrier seul ne peut pas dire. */
+.calendrier-semaine[data-agitee] {
+  background: rgb(var(--c-amber-400) / 0.07);
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px rgb(var(--c-amber-400) / 0.07);
+}
+
+.calendrier-semaine button,
+.calendrier-hors-annee {
   display: block;
   width: var(--case);
   height: var(--case);
+  border: 0;
+  padding: 0;
   border-radius: 2px;
   background: rgb(var(--c-slate-800));
-  transition: outline-color 120ms ease;
+}
+.calendrier-semaine button {
+  cursor: pointer;
   outline: 1px solid transparent;
   outline-offset: 1px;
+  transition: outline-color 120ms ease, opacity 140ms ease;
 }
-.calendrier-semaine i:hover {
-  outline-color: rgb(var(--c-slate-300));
+.calendrier-semaine button:hover { outline-color: rgb(var(--c-slate-300)); }
+.calendrier-semaine button:focus-visible {
+  outline: 2px solid hsl(var(--teinte, 38 92% 60%));
+  outline-offset: 1px;
 }
 
+/* Week-end : légèrement en retrait, pour que le rythme des semaines se lise
+   sans avoir à compter les lignes. */
+.calendrier-semaine button[data-weekend] { opacity: 0.72; }
+
 /* Cases de remplissage avant le 1er janvier ou après le dernier jour : elles
-   existent pour tenir l'alignement, elles ne représentent aucun jour. */
+   tiennent l'alignement, elles ne représentent aucun jour. */
 .calendrier-hors-annee {
-  background: transparent !important;
+  background: transparent;
   pointer-events: none;
 }
 
-.calendrier-semaine i[data-n="1"] { background: rgb(var(--c-emerald-400) / 0.3); }
-.calendrier-semaine i[data-n="2"] { background: rgb(var(--c-emerald-400) / 0.6); }
-.calendrier-semaine i[data-n="3"] { background: rgb(var(--c-emerald-400) / 0.95); }
-.calendrier-semaine i[data-n="-1"] { background: rgb(var(--c-rose-400) / 0.3); }
-.calendrier-semaine i[data-n="-2"] { background: rgb(var(--c-rose-400) / 0.6); }
-.calendrier-semaine i[data-n="-3"] { background: rgb(var(--c-rose-400) / 0.95); }
+.calendrier-semaine button[data-n="1"] { background: rgb(var(--c-emerald-400) / 0.3); }
+.calendrier-semaine button[data-n="2"] { background: rgb(var(--c-emerald-400) / 0.6); }
+.calendrier-semaine button[data-n="3"] { background: rgb(var(--c-emerald-400) / 0.95); }
+.calendrier-semaine button[data-n="-1"] { background: rgb(var(--c-rose-400) / 0.3); }
+.calendrier-semaine button[data-n="-2"] { background: rgb(var(--c-rose-400) / 0.6); }
+.calendrier-semaine button[data-n="-3"] { background: rgb(var(--c-rose-400) / 0.95); }
 /* Relevé présent mais variation nulle : un cran plus clair que « pas de
    relevé », sinon les deux cas seraient indiscernables. */
-.calendrier-semaine i[data-n="0"] { background: rgb(var(--c-slate-600)); }
+.calendrier-semaine button[data-n="0"] { background: rgb(var(--c-slate-600)); }
 
-/* Détail du jour survolé. La hauteur est réservée en permanence : sans elle,
-   le calendrier sauterait au premier survol et déplacerait la case visée. */
+/* ── Mise en avant du mois visé ──────────────────────────────────────────────
+ * Viser une case atténue les autres mois. La période se détache alors d'un
+ * coup, là où une grille uniforme oblige à suivre les filets du regard.
+ *
+ * Les douze règles sont écrites en toutes lettres parce qu'un sélecteur ne
+ * peut pas comparer deux attributs entre eux : il n'existe pas de
+ * « data-mois égal à data-mois-actif ». */
+.calendrier[data-mois-actif] .calendrier-semaine button,
+.calendrier[data-mois-actif] .calendrier-mois span,
+.calendrier[data-mois-actif] .calendrier-totaux span { opacity: 0.28; }
+
+.calendrier[data-mois-actif="1"] [data-mois="1"],
+.calendrier[data-mois-actif="2"] [data-mois="2"],
+.calendrier[data-mois-actif="3"] [data-mois="3"],
+.calendrier[data-mois-actif="4"] [data-mois="4"],
+.calendrier[data-mois-actif="5"] [data-mois="5"],
+.calendrier[data-mois-actif="6"] [data-mois="6"],
+.calendrier[data-mois-actif="7"] [data-mois="7"],
+.calendrier[data-mois-actif="8"] [data-mois="8"],
+.calendrier[data-mois-actif="9"] [data-mois="9"],
+.calendrier[data-mois-actif="10"] [data-mois="10"],
+.calendrier[data-mois-actif="11"] [data-mois="11"],
+.calendrier[data-mois-actif="12"] [data-mois="12"] { opacity: 1; }
+
+/* ── Détail et légende ─────────────────────────────────────────────────────
+ * La hauteur du détail est réservée en permanence : sans elle, le calendrier
+ * sauterait au premier survol et déplacerait la case visée. */
 .calendrier-detail {
   display: flex;
   align-items: baseline;
@@ -1457,7 +1514,50 @@
 .calendrier-detail-valeur.est-hausse { color: rgb(var(--c-emerald-400)); }
 .calendrier-detail-valeur.est-baisse { color: rgb(var(--c-rose-400)); }
 .calendrier-detail-vide,
-.calendrier-detail-invite { color: rgb(var(--c-slate-500)); }
+.calendrier-detail-invite,
+.calendrier-detail-note { color: rgb(var(--c-slate-500)); }
+.calendrier-detail-alerte { color: rgb(var(--c-amber-300) / 0.9); }
+
+.calendrier-legende {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  color: rgb(var(--c-slate-500));
+  flex-wrap: wrap;
+}
+.calendrier-legende i {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: rgb(var(--c-slate-800));
+}
+.calendrier-legende i[data-n="1"] { background: rgb(var(--c-emerald-400) / 0.3); }
+.calendrier-legende i[data-n="2"] { background: rgb(var(--c-emerald-400) / 0.6); }
+.calendrier-legende i[data-n="3"] { background: rgb(var(--c-emerald-400) / 0.95); }
+.calendrier-legende i[data-n="-1"] { background: rgb(var(--c-rose-400) / 0.3); }
+.calendrier-legende i[data-n="-2"] { background: rgb(var(--c-rose-400) / 0.6); }
+.calendrier-legende i[data-n="-3"] { background: rgb(var(--c-rose-400) / 0.95); }
+.calendrier-legende i[data-n="0"] { background: rgb(var(--c-slate-600)); }
+.calendrier-legende-sep {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid rgb(var(--c-slate-800));
+}
+.calendrier-legende-vide { background: rgb(var(--c-slate-800)); }
+
+/* ── Comparaison d'années ───────────────────────────────────────────────── */
+.calendrier-compare { display: flex; flex-direction: column; gap: 1rem; }
+.calendrier-compare-annee { display: flex; flex-direction: column; gap: 0.3rem; }
+.calendrier-compare-etiquette {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: rgb(var(--c-slate-500));
+}
 
 /* Sur téléphone, une case de 11 px est difficile à viser : on l'agrandit et on
    laisse la grille défiler d'autant. */
@@ -1794,6 +1894,93 @@
 }
 
 
+/* ═══════════════════ BASCULE DE THÈME ET D'ACCENT ═════════════════════════
+ * Un fondu court sur les seules propriétés de couleur, pour que le passage du
+ * clair au sombre — ou d'un accent à l'autre — se lise comme une transition
+ * plutôt que comme un clignotement.
+ *
+ * TROIS PRÉCAUTIONS, sans lesquelles l'effet coûte plus qu'il ne rapporte :
+ *
+ *  · La transition ne porte QUE sur `background-color`, `border-color`,
+ *    `color` et `fill`. L'étendre à `all` ferait ramper toutes les
+ *    transformations et toutes les tailles de l'interface à chaque rendu.
+ *  · Elle est réservée au moment de la bascule, via une classe posée le temps
+ *    du changement. En permanence, elle retarderait aussi les survols, qui
+ *    doivent rester immédiats.
+ *  · Les éléments qui ont déjà leur propre transition de couleur ne sont pas
+ *    doublés : `transition-property` est réécrit, pas ajouté.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root.bascule-theme *,
+:root.bascule-theme *::before,
+:root.bascule-theme *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 220ms;
+  transition-timing-function: ease-out;
+}
+
+/* ═══════════════════ BARRE DE DÉFILEMENT TEINTÉE ══════════════════════════
+ * Le curseur reprend la teinte du domaine courant. Sur les écrans longs —
+ * Bourse en empile huit blocs, le sous-onglet Projet une douzaine de cartes —
+ * c'est un repère de plus sur l'endroit où l'on se trouve, gratuit et
+ * périphérique.
+ *
+ * `scrollbar-color` couvre Firefox, les pseudo-éléments WebKit le reste.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  scrollbar-color: hsl(var(--teinte-page, 38 92% 60%) / 0.45) transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--teinte-page, 38 92% 60%) / 0.4);
+  border-radius: 4px;
+  transition: background 200ms ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--teinte-page, 38 92% 60%) / 0.65);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ═══════════════════ SQUELETTES DE CHARGEMENT ═════════════════════════════
+ * Le squelette générique — un rectangle — annonce « quelque chose arrive »
+ * sans dire quoi. Quand la forme est connue à l'avance, la reproduire évite le
+ * saut de mise en page à l'arrivée du contenu et donne au chargement l'air
+ * d'un remplissage plutôt que d'un remplacement.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.squelette-calendrier {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 11px;
+  grid-template-rows: repeat(7, 11px);
+  gap: 3px;
+}
+.squelette-calendrier i {
+  display: block;
+  border-radius: 2px;
+}
+
+.squelette-anneaux {
+  display: flex;
+  gap: 1.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.squelette-anneau {
+  border-radius: 999px;
+  /* Un disque plein deviendrait une pastille de couleur ; l'évidement dit
+     « anneau » avant même que la donnée n'arrive. */
+  mask: radial-gradient(circle, transparent 58%, #000 60%);
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%);
+}
+
+.squelette-sparkline {
+  height: 1.25rem;
+  border-radius: 3px;
+  /* Silhouette de courbe plutôt que barre pleine : deux crans suffisent à
+     évoquer un tracé. */
+  clip-path: polygon(0 70%, 20% 55%, 40% 65%, 60% 35%, 80% 45%, 100% 20%, 100% 100%, 0 100%);
+}
+
 body {
   /* `Inter Variable` est le nom de famille exposé par le paquet variable ;
      `Inter` reste en repli pour une éventuelle version installée sur le
@@ -1852,10 +2039,6 @@ input[type="range"]::-moz-range-thumb {
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
-}
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
 }
 
 input[type="checkbox"] {

@@ -171,6 +171,25 @@ export default function App() {
     document.title = `${activeTab.label} · Patrium`;
   }, [activeTab.label]);
 
+  /*
+   * Teinte de la barre de défilement, accordée à l'onglet courant.
+   *
+   * Sur les écrans longs — Bourse en empile huit blocs — c'est un repère de
+   * plus sur l'endroit où l'on se trouve, gratuit et périphérique.
+   *
+   * La variable est posée sur `<html>` parce qu'une barre de défilement de
+   * document ne peut pas être stylée depuis un élément de la page : elle
+   * appartient à la racine, quel que soit le conteneur qui déborde.
+   */
+  useEffect(() => {
+    const teintes = {
+      dashboard: "156 72%", livrets: "230 94%", bourse: "252 95%",
+      simulation: "46 97%", strategie: "353 96%", abonnements: "187 92%",
+    };
+    const [h, s] = (teintes[tab] || teintes.simulation).split(" ");
+    document.documentElement.style.setProperty("--teinte-page", `${h} ${s} 60%`);
+  }, [tab]);
+
   // Relevé quotidien du patrimoine net, quel que soit l'onglet ouvert.
   useDailySnapshot({
     patrimoineNet: patrimoine.patrimoineNet,
@@ -447,6 +466,7 @@ export default function App() {
         operations={patrimoine.bourse?.operations}
         positions={patrimoine.bourse?.positions}
         profileHistory={patrimoine.profileHistory}
+        bourseHistory={patrimoine.bourseHistory}
       />
     </div>
   );

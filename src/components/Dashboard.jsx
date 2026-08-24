@@ -13,7 +13,7 @@ import {
   computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition, lireNombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { useMaintenant, joursDepuis } from "../lib/useMaintenant";
-import { joursDeLAnnee } from "../lib/retrospective";
+import { joursDeLAnnee, semainesAgitees } from "../lib/retrospective";
 import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import Objectifs from "./Objectifs";
@@ -456,7 +456,7 @@ export default function Dashboard({
   historyPast, setHistoryPast, livretsTotal, bourseTotal,
   livrets, bourse, matelasMois, setLastSnapshotDate,
   cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
-  objectifs, setObjectifs,
+  objectifs, setObjectifs, bourseHistory = [],
 }) {
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -633,8 +633,14 @@ export default function Dashboard({
   // qui donnerait l'impression que la fonctionnalité est cassée.
   const joursAnnee = useMemo(() => {
     const jours = joursDeLAnnee(historyPast, new Date().getFullYear());
-    return { jours, releves: jours.filter((j) => j.variation != null).length };
-  }, [historyPast]);
+    return {
+      jours,
+      releves: jours.filter((j) => j.variation != null).length,
+      // Repère de contexte : une semaine où le marché entier s'est agité
+      // n'appelle pas la même conclusion qu'une baisse propre au portefeuille.
+      agitees: semainesAgitees(bourseHistory),
+    };
+  }, [historyPast, bourseHistory]);
 
   // Score de diversification globale — concentration par classe d'actif
   // (types de positions bourse + épargne sécurisée regroupée).
@@ -890,7 +896,11 @@ export default function Dashboard({
                   {joursAnnee.releves} relevés
                 </span>
               </div>
-              <CalendrierAnnuel jours={joursAnnee.jours} className="ghost-blur" />
+              <CalendrierAnnuel
+                jours={joursAnnee.jours}
+                semainesAgitees={joursAnnee.agitees}
+                formatVariation={(n) => `${n > 0 ? "+" : ""}${eur(n, 0)}`}
+              />
             </div>
           )}
 

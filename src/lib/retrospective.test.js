@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { construireRetrospective, joursDeLAnnee, anneesDisponibles, nomMois } from "./retrospective";
+import {
+  construireRetrospective, joursDeLAnnee, anneesDisponibles, nomMois,
+  estWeekend, semainesAgitees,
+} from "./retrospective";
 
 const releve = (date, value) => ({ date, value });
 
@@ -153,5 +156,91 @@ describe("utilitaires", () => {
     expect(nomMois("2026-01")).toBe("janvier");
     expect(nomMois("2026-08")).toBe("août");
     expect(nomMois("2026-12")).toBe("décembre");
+  });
+});
+
+describe("variations et jours fermés", () => {
+  it("dit sur quelle période porte l'écart", () => {
+    // Le bug rapporté : une variation affichée un DIMANCHE, marchés fermés,
+    // sans qu'aucun argent n'ait bougé. L'écart était réel mais appartenait au
+    // dernier jour ouvré — l'application ne le disait pas.
+    const jours = joursDeLAnnee(
+      [releve("2026-03-05", 50000), releve("2026-03-08", 50420)],
+      2026,
+      new Date("2026-03-09T12:00:00")
+    );
+    const dimanche = jours.find((j) => j.date === "2026-03-08");
+    expect(dimanche.variation).toBe(420);
+    expect(dimanche.depuis).toBe("2026-03-05");
+    expect(dimanche.joursCouverts).toBe(3);
+    expect(dimanche.weekend).toBe(true);
+  });
+
+  it("ramène l'intensité à la journée", () => {
+    // Sans cela, un relevé qui suit trois jours de silence peindrait une case
+    // trois fois plus vive que ses voisines pour un rythme identique.
+    const jours = joursDeLAnnee(
+      [releve("2026-03-05", 50000), releve("2026-03-08", 50300)],
+      2026,
+      new Date("2026-03-09T12:00:00")
+    );
+    const dimanche = jours.find((j) => j.date === "2026-03-08");
+    expect(dimanche.variationParJour).toBe(100);
+  });
+
+  it("reconnaît samedi et dimanche", () => {
+    expect(estWeekend("2026-03-07")).toBe(true); // samedi
+    expect(estWeekend("2026-03-08")).toBe(true); // dimanche
+    expect(estWeekend("2026-03-06")).toBe(false); // vendredi
+  });
+
+  it("ne signale ni période ni week-end sur un relevé quotidien régulier", () => {
+    const jours = joursDeLAnnee(
+      [releve("2026-03-04", 100), releve("2026-03-05", 110)],
+      2026,
+      new Date("2026-03-05T12:00:00")
+    );
+    const jeudi = jours.find((j) => j.date === "2026-03-05");
+    expect(jeudi.joursCouverts).toBe(1);
+    expect(jeudi.variation).toBe(10);
+    expect(jeudi.variationParJour).toBe(10);
+    expect(jeudi.weekend).toBe(false);
+  });
+});
+
+describe("semaines agitées", () => {
+  const semaine = (debut, valeurs) =>
+    valeurs.map((v, i) => {
+      const d = new Date(`${debut}T00:00:00`);
+      d.setDate(d.getDate() + i);
+      return {
+        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+        cac40: v,
+      };
+    });
+
+  it("repère les semaines de forte amplitude", () => {
+    const historique = [
+      ...semaine("2026-01-05", [100, 100.2, 100.1, 100.3, 100.2]),
+      ...semaine("2026-01-12", [100, 100.1, 100.2, 100.1, 100.3]),
+      ...semaine("2026-01-19", [100, 100.2, 100.1, 100.2, 100.1]),
+      ...semaine("2026-01-26", [100, 94, 97, 92, 96]), // secousse
+      ...semaine("2026-02-02", [100, 100.1, 100.2, 100.1, 100.2]),
+    ];
+    const agitees = semainesAgitees(historique);
+    expect(agitees.has("2026-01-26")).toBe(true);
+    expect(agitees.has("2026-01-05")).toBe(false);
+  });
+
+  it("reste vide sans historique exploitable", () => {
+    expect(semainesAgitees([]).size).toBe(0);
+    expect(semainesAgitees([{ date: "2026-01-01", cac40: 100 }]).size).toBe(0);
+  });
+
+  it("ignore les points sans valeur de référence", () => {
+    const historique = semaine("2026-01-05", [100, 101, 102, 103, 104]).map((p, i) =>
+      i % 2 === 0 ? { date: p.date } : p
+    );
+    expect(() => semainesAgitees(historique)).not.toThrow();
   });
 });

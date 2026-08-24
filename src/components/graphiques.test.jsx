@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import {
   Sparkline, CourbeEvolution, AnneauProgression, AnneauRepartition, CalendrierAnnuel,
-  decouperEnSemaines, indexJourSemaine, libelleDate,
+  decouperEnSemaines, indexJourSemaine, libelleDate, decrireJour, totauxParMois,
 } from "./graphiques";
 import Montant, { decouperMontant } from "./Montant";
 
@@ -127,7 +127,7 @@ describe("CalendrierAnnuel", () => {
     // `[title]` écarte les cases de remplissage qui alignent la première
     // semaine sur le bon jour : elles n'ont pas de date et ne représentent
     // aucun jour.
-    const cases = container.querySelectorAll(".calendrier-semaine i[title]");
+    const cases = container.querySelectorAll(".calendrier-semaine button");
     expect(cases[0].dataset.n).toBeTruthy();
     expect(cases[1].dataset.n).toBeUndefined();
     expect(cases[2].dataset.n).toBe("0");
@@ -143,7 +143,7 @@ describe("CalendrierAnnuel", () => {
       <CalendrierAnnuel jours={[100, 200, 300, 4000].map((v, i) => ({ date: `2026-02-0${i + 1}`, variation: v }))} />
     );
     const niveaux = (r) =>
-      [...r.container.querySelectorAll(".calendrier-semaine i[title]")].map((e) => e.dataset.n);
+      [...r.container.querySelectorAll(".calendrier-semaine button")].map((e) => e.dataset.n);
     expect(niveaux(petits)).toEqual(niveaux(gros));
   });
 });
@@ -236,7 +236,7 @@ describe("CalendrierAnnuel — lisibilité des périodes", () => {
         ]}
       />
     );
-    const cases = [...container.querySelectorAll(".calendrier-semaine i")].filter((e) => e.title);
+    const cases = [...container.querySelectorAll(".calendrier-semaine button")];
     expect(cases[0].title).toContain("jeudi 1 janvier 2026");
     expect(cases[0].title).toContain("+240");
     expect(cases[1].title).toContain("pas de relevé");
@@ -258,5 +258,86 @@ describe("CalendrierAnnuel — lisibilité des périodes", () => {
   it("ne rend rien sans aucun jour", () => {
     const { container } = render(<CalendrierAnnuel jours={[]} />);
     expect(container.querySelector(".calendrier")).toBeNull();
+  });
+});
+
+describe("CalendrierAnnuel — contexte des variations", () => {
+  const j = (date, o = {}) => ({ date, variation: 0, variationParJour: 0, depuis: null, joursCouverts: 1, weekend: false, ...o });
+
+  it("dit la période couverte et l'ouverture des marchés", () => {
+    // Le bug rapporté : une variation affichée un dimanche, marchés fermés,
+    // sans qu'aucun argent n'ait bougé.
+    const texte = decrireJour(
+      j("2026-03-08", { variation: 420, variationParJour: 140, depuis: "2026-03-05", joursCouverts: 3, weekend: true })
+    );
+    expect(texte).toContain("dimanche 8 mars 2026");
+    expect(texte).toContain("+420");
+    expect(texte).toContain("3 jours");
+    expect(texte).toContain("marché fermé");
+  });
+
+  it("reste sobre sur un relevé quotidien ordinaire", () => {
+    const texte = decrireJour(j("2026-03-05", { variation: 42, variationParJour: 42 }));
+    expect(texte).not.toContain("jours");
+    expect(texte).not.toContain("marché fermé");
+  });
+
+  it("colore selon la variation PAR JOUR, pas selon le total", () => {
+    // Deux relevés de même total, l'un couvrant un jour, l'autre trois : la
+    // case du second ne doit pas être trois fois plus vive pour un rythme
+    // identique.
+    const { container } = render(
+      <CalendrierAnnuel
+        jours={[
+          j("2026-01-01", { variation: 300, variationParJour: 100, joursCouverts: 3 }),
+          j("2026-01-02", { variation: 100, variationParJour: 100 }),
+        ]}
+      />
+    );
+    const cases = [...container.querySelectorAll(".calendrier-semaine button")];
+    expect(cases[0].dataset.n).toBe(cases[1].dataset.n);
+  });
+
+  it("totalise les variations par mois", () => {
+    const totaux = totauxParMois([
+      j("2026-01-05", { variation: 100 }),
+      j("2026-01-20", { variation: 50 }),
+      j("2026-02-03", { variation: -30 }),
+    ]);
+    expect(totaux.get(1)).toBe(150);
+    expect(totaux.get(2)).toBe(-30);
+  });
+
+  it("marque les cases de week-end", () => {
+    const { container } = render(
+      <CalendrierAnnuel jours={[j("2026-03-07", { weekend: true }), j("2026-03-09")]} />
+    );
+    const cases = [...container.querySelectorAll(".calendrier-semaine button")];
+    expect(cases[0].dataset.weekend).toBe("true");
+    expect(cases[1].dataset.weekend).toBeUndefined();
+  });
+
+  it("n'expose qu'une seule case dans l'ordre de tabulation", () => {
+    // Sans quoi traverser le calendrier au clavier demanderait 365 tabulations.
+    const { container } = render(
+      <CalendrierAnnuel jours={["2026-01-01", "2026-01-02", "2026-01-03"].map((d) => j(d))} />
+    );
+    const focusables = [...container.querySelectorAll('.calendrier-semaine button[tabindex="0"]')];
+    expect(focusables).toHaveLength(1);
+  });
+
+  it("affiche une légende et les sous-totaux mensuels", () => {
+    const { container } = render(
+      <CalendrierAnnuel jours={[j("2026-01-05", { variation: 120 })]} />
+    );
+    expect(container.querySelector(".calendrier-legende")).not.toBeNull();
+    expect(container.querySelector(".calendrier-totaux").textContent).toContain("120");
+  });
+
+  it("teinte le fond des semaines agitées", () => {
+    const { container } = render(
+      <CalendrierAnnuel jours={[j("2026-01-05")]} semainesAgitees={new Set(["2026-01-05"])} />
+    );
+    expect(container.querySelector(".calendrier-semaine").dataset.agitee).toBe("true");
   });
 });

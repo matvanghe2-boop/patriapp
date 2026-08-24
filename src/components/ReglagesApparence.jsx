@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Check, Monitor, Moon, Sun, Rows3, Rows4, Vibrate, Sparkles } from "lucide-react";
 import Modal from "./Modal";
 import { useApparence, THEMES_AFFICHAGE, DENSITES } from "../lib/ApparenceContext";
@@ -25,6 +26,25 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
     haptique, setHaptique,
     animations, setAnimations,
   } = useApparence();
+
+  /**
+   * Aperçu de l'accent au survol.
+   *
+   * Choisir une couleur sur une pastille de deux centimètres ne dit pas ce
+   * qu'elle donne sur une interface entière : c'est en la voyant sur les
+   * boutons, les anneaux et les repères qu'on décide. L'aperçu applique donc
+   * l'accent pour de vrai, le temps du survol, SANS enregistrer la préférence.
+   *
+   * L'attribut est reposé à sa valeur choisie au relâchement — et au démontage,
+   * sinon refermer le panneau en survolant une pastille figerait un accent que
+   * personne n'a validé.
+   */
+  const [apercu, setApercu] = useState(null);
+  useEffect(() => {
+    const racine = document.documentElement;
+    racine.setAttribute("data-accent", apercu || accent);
+    return () => racine.setAttribute("data-accent", accent);
+  }, [apercu, accent]);
 
   return (
     <Modal
@@ -72,13 +92,16 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
 
         {/* ── Accent ───────────────────────────────────────────────────── */}
         <Groupe titre="Couleur d'accent">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" onMouseLeave={() => setApercu(null)}>
             {accentsDisponibles.map((a) => {
               const actif = accent === a.id;
               return (
                 <button
                   key={a.id}
                   onClick={() => setAccent(a.id)}
+                  onMouseEnter={() => setApercu(a.id)}
+                  onFocus={() => setApercu(a.id)}
+                  onBlur={() => setApercu(null)}
                   aria-pressed={actif}
                   aria-label={a.libelle}
                   title={a.libelle}
@@ -91,8 +114,8 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
             })}
           </div>
           <p className="text-[11px] text-slate-500 mt-2">
-            Teinte des boutons, des anneaux et des repères. Chaque onglet garde par ailleurs sa
-            propre couleur de domaine.
+            Teinte des boutons, des anneaux et des repères. Survole une pastille pour voir l'effet
+            avant de choisir. Chaque onglet garde par ailleurs sa propre couleur de domaine.
           </p>
         </Groupe>
 

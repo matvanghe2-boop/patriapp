@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 
 /**
  * Primitives graphiques écrites à la main, sans recharts.
@@ -290,37 +290,10 @@ export function AnneauRepartition({
   );
 }
 
-/**
- * Calendrier de l'année : une case par jour, teintée selon la variation.
- *
- * `useDailySnapshot` pose un point de patrimoine net par jour, et personne ne
- * les regardait autrement qu'en courbe. Cette grille répond à une question que
- * la courbe ne sait pas poser — à quoi ressemble une année ? — et surtout elle
- * rend visibles les JOURS SANS RELEVÉ, ceux où l'application n'a pas été
- * ouverte. Une courbe les relie en silence et laisse croire à une continuité
- * qui n'existe pas.
- *
- * ── CE QUI MANQUAIT À LA PREMIÈRE VERSION ─────────────────────────────────
- *
- * Elle empilait les jours dans une grille de sept lignes sans se soucier du
- * jour de la semaine réel : la première case tombait sur la première ligne
- * quelle que soit la date, et tout le reste était décalé d'autant. Il n'y
- * avait donc aucun sens de lecture — ni semaine, ni mois, ni même la certitude
- * qu'une colonne représentait sept jours consécutifs. On voyait une texture,
- * pas une période.
- *
- * Quatre corrections, toutes nécessaires à la lisibilité :
- *
- *  1. **Alignement réel sur les jours de la semaine.** Des cases vides comblent
- *     le début du premier mois, si bien qu'une LIGNE est toujours un jour de la
- *     semaine et une COLONNE toujours une semaine.
- *  2. **Semaine commençant le lundi**, convention française — et non le
- *     dimanche des grilles anglo-saxonnes.
- *  3. **Repères de mois et de jours**, avec un filet qui sépare les mois.
- *  4. **La date et la variation de chaque case**, au survol et en info-bulle.
- *     Une couleur seule dit « ça a monté » ; elle ne dira jamais « le 12 mars,
- *     de 240 € ».
- */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CALENDRIER ANNUEL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 const JOURS_SEMAINE = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
 const MOIS_COURTS = [
   "janv.", "févr.", "mars", "avr.", "mai", "juin",
@@ -390,16 +363,81 @@ export function libelleDate(iso) {
   });
 }
 
+/** Total de variation par mois, pour la rangée de sous-totaux. */
+export function totauxParMois(jours = []) {
+  const totaux = new Map();
+  for (const j of jours) {
+    if (!Number.isFinite(j.variation)) continue;
+    const mois = Number(j.date.slice(5, 7));
+    totaux.set(mois, (totaux.get(mois) || 0) + j.variation);
+  }
+  return totaux;
+}
+
 const formatDefaut = (n) => `${n > 0 ? "+" : ""}${Math.round(n).toLocaleString("fr-FR")} €`;
+const formatCourt = (n) => {
+  const a = Math.abs(n);
+  const signe = n > 0 ? "+" : n < 0 ? "−" : "";
+  if (a >= 1000) return `${signe}${(a / 1000).toFixed(a >= 10000 ? 0 : 1).replace(".", ",")} k€`;
+  return `${signe}${Math.round(a)} €`;
+};
 
 /**
- * @param {{date: string, variation: number|null}[]} jours
- * @param {(n: number) => string} formatVariation
+ * Phrase décrivant une case, employée telle quelle en info-bulle et dans la
+ * ligne de détail.
+ *
+ * Elle dit systématiquement SUR QUELLE PÉRIODE porte l'écart. C'est ce qui
+ * manquait et ce qui produisait un contresens : une variation affichée un
+ * dimanche, alors que les marchés sont fermés et que rien n'avait bougé ce
+ * jour-là. L'écart était réel, mais il appartenait au dernier jour ouvré.
  */
-export function CalendrierAnnuel({ jours = [], formatVariation = formatDefaut, className = "" }) {
+export function decrireJour(jour, format = formatDefaut) {
+  if (!jour) return "";
+  const date = libelleDate(jour.date);
+  if (jour.variation == null) return `${date} — pas de relevé`;
+
+  const morceaux = [`${date} — ${format(jour.variation)}`];
+  if (jour.joursCouverts > 1 && jour.depuis) {
+    morceaux.push(`depuis le ${libelleDate(jour.depuis)} (${jour.joursCouverts} jours)`);
+  }
+  if (jour.weekend && jour.variation !== 0) {
+    morceaux.push("marché fermé ce jour-là : l'écart vient des séances précédentes");
+  }
+  return morceaux.join(" · ");
+}
+
+/**
+ * Calendrier de l'année : une case par jour, teintée selon la variation.
+ *
+ * `useDailySnapshot` pose un point de patrimoine net par jour, et personne ne
+ * les regardait autrement qu'en courbe. Cette grille répond à une question que
+ * la courbe ne sait pas poser — à quoi ressemble une année ? — et surtout elle
+ * rend visibles les JOURS SANS RELEVÉ, ceux où l'application n'a pas été
+ * ouverte. Une courbe les relie en silence et laisse croire à une continuité
+ * qui n'existe pas.
+ *
+ * L'INTENSITÉ VIENT DE `variationParJour`, PAS DE `variation`. Un relevé qui
+ * suit trois jours de silence porte l'écart des trois jours ; le peindre à
+ * pleine intensité produirait une case criarde pour un rythme ordinaire. La
+ * couleur montre donc une cadence, l'info-bulle donne le montant exact et la
+ * période qu'il recouvre.
+ *
+ * @param {{date, variation, variationParJour, depuis, joursCouverts, weekend}[]} jours
+ * @param {Set<string>} semainesAgitees  Dates (une par semaine) de forte volatilité de marché.
+ */
+export function CalendrierAnnuel({
+  jours = [],
+  formatVariation = formatDefaut,
+  semainesAgitees = null,
+  className = "",
+}) {
   const [survole, setSurvole] = useState(null);
+  const [focusIso, setFocusIso] = useState(null);
+  const grilleRef = useRef(null);
 
   const semaines = useMemo(() => decouperEnSemaines(jours), [jours]);
+  const totaux = useMemo(() => totauxParMois(jours), [jours]);
+  const reels = useMemo(() => jours.filter((j) => j.variation != null), [jours]);
 
   /*
    * Les variations sont réparties en trois crans par rapport à la DISTRIBUTION
@@ -409,31 +447,66 @@ export function CalendrierAnnuel({ jours = [], formatVariation = formatDefaut, c
    * l'autre.
    */
   const crans = useMemo(() => {
-    const v = jours.map((j) => j.variation).filter((x) => Number.isFinite(x) && x !== 0);
+    const v = jours
+      .map((j) => j.variationParJour ?? j.variation)
+      .filter((x) => Number.isFinite(x) && x !== 0);
     if (v.length === 0) return { p1: 1, p2: 1, p3: 1 };
     const abs = v.map(Math.abs).sort((a, b) => a - b);
     const q = (f) => abs[Math.min(abs.length - 1, Math.floor(abs.length * f))];
     return { p1: q(0.33), p2: q(0.66), p3: q(0.9) };
   }, [jours]);
 
-  const niveau = (variation) => {
-    if (!Number.isFinite(variation) || variation === 0) return 0;
-    const a = Math.abs(variation);
-    const signe = variation > 0 ? 1 : -1;
+  const niveau = (jour) => {
+    const v = jour.variationParJour ?? jour.variation;
+    if (!Number.isFinite(v) || v === 0) return 0;
+    const a = Math.abs(v);
+    const signe = v > 0 ? 1 : -1;
     if (a >= crans.p3) return signe * 3;
     if (a >= crans.p2) return signe * 2;
     return signe * 1;
   };
 
-  const releves = jours.filter((j) => j.variation != null).length;
+  const actif = survole || reels.find((j) => j.date === focusIso) || null;
+  const moisActif = actif ? Number(actif.date.slice(5, 7)) : null;
+
+  /**
+   * Déplacement au clavier.
+   *
+   * Haut/bas suivent la colonne, c'est-à-dire un jour ; gauche/droite sautent
+   * d'une semaine, c'est-à-dire sept jours. C'est la géométrie de la grille,
+   * pas une convention arbitraire : la flèche va là où l'œil regarde.
+   *
+   * Une seule case est dans l'ordre de tabulation (`tabIndex` mobile) — sans
+   * quoi traverser le calendrier au clavier demanderait 365 tabulations.
+   */
+  const auClavier = (e) => {
+    const pas = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 }[e.key];
+    if (pas == null && e.key !== "Home" && e.key !== "End") return;
+    e.preventDefault();
+
+    const index = jours.findIndex((j) => j.date === (focusIso ?? actif?.date));
+    const depart = index >= 0 ? index : 0;
+    const cible =
+      e.key === "Home" ? 0
+      : e.key === "End" ? jours.length - 1
+      : Math.max(0, Math.min(jours.length - 1, depart + pas));
+
+    const jour = jours[cible];
+    if (!jour) return;
+    setFocusIso(jour.date);
+    setSurvole(null);
+    grilleRef.current?.querySelector(`[data-date="${jour.date}"]`)?.focus();
+  };
 
   if (semaines.length === 0) return null;
 
+  const premierFocusable = focusIso ?? jours[jours.length - 1]?.date;
+
   return (
-    <div className={`calendrier ${className}`}>
+    <div className={`calendrier ${className}`} data-mois-actif={moisActif ?? undefined}>
       <div className="calendrier-grille">
         {/* Repères de jours : un sur deux. Sept étiquettes sur une colonne de
-            sept cases de 11 px seraient illisibles et se chevaucheraient. */}
+            sept cases de 11 px se chevaucheraient. */}
         <div className="calendrier-jours" aria-hidden="true">
           {JOURS_SEMAINE.map((j, i) => (
             <span key={j}>{i % 2 === 0 ? j : ""}</span>
@@ -446,67 +519,154 @@ export function CalendrierAnnuel({ jours = [], formatVariation = formatDefaut, c
               semaine fait 11 px de large, « sept. » n'y tiendrait jamais. */}
           <div className="calendrier-mois" aria-hidden="true">
             {semaines.map((s, i) => (
-              <span key={i}>{s.ouvreMois ? MOIS_COURTS[s.mois - 1] : ""}</span>
+              <span key={i} data-mois={s.ouvreMois ? s.mois : undefined}>
+                {s.ouvreMois ? MOIS_COURTS[s.mois - 1] : ""}
+              </span>
             ))}
           </div>
 
           <div
             className="calendrier-semaines"
-            role="img"
-            aria-label={`Variation quotidienne du patrimoine, ${releves} jours relevés sur ${jours.length}.`}
+            ref={grilleRef}
+            role="grid"
+            aria-label={`Variation quotidienne du patrimoine, ${reels.length} jours relevés sur ${jours.length}. Flèches pour parcourir.`}
+            onKeyDown={auClavier}
             onMouseLeave={() => setSurvole(null)}
           >
+            {semaines.map((s, i) => {
+              const premierReel = s.jours.find(Boolean);
+              const agitee = Boolean(semainesAgitees && premierReel && semainesAgitees.has(premierReel.date));
+              return (
+                <div
+                  key={i}
+                  role="row"
+                  className="calendrier-semaine"
+                  data-ouvre-mois={s.ouvreMois || undefined}
+                  data-agitee={agitee || undefined}
+                >
+                  {s.jours.map((jour, k) =>
+                    jour ? (
+                      <button
+                        key={jour.date}
+                        type="button"
+                        role="gridcell"
+                        data-date={jour.date}
+                        data-n={jour.variation == null ? undefined : niveau(jour)}
+                        data-mois={Number(jour.date.slice(5, 7))}
+                        data-weekend={jour.weekend || undefined}
+                        // Une seule case dans l'ordre de tabulation : les
+                        // flèches font le reste.
+                        tabIndex={jour.date === premierFocusable ? 0 : -1}
+                        title={decrireJour(jour, formatVariation)}
+                        aria-label={decrireJour(jour, formatVariation)}
+                        onMouseEnter={() => setSurvole(jour)}
+                        onFocus={() => setFocusIso(jour.date)}
+                      />
+                    ) : (
+                      <span key={`vide-${i}-${k}`} className="calendrier-hors-annee" aria-hidden="true" />
+                    )
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Sous-totaux mensuels : la grille dit la forme, ces chiffres disent
+              l'ampleur. Même alignement que les étiquettes de mois. */}
+          <div className="calendrier-totaux" aria-hidden="true">
             {semaines.map((s, i) => (
-              <div key={i} className="calendrier-semaine" data-ouvre-mois={s.ouvreMois || undefined}>
-                {s.jours.map((jour, k) =>
-                  jour ? (
-                    <i
-                      key={jour.date}
-                      data-n={jour.variation == null ? undefined : niveau(jour.variation)}
-                      title={`${libelleDate(jour.date)}${
-                        jour.variation == null ? " — pas de relevé" : ` — ${formatVariation(jour.variation)}`
-                      }`}
-                      onMouseEnter={() => setSurvole(jour)}
-                    />
-                  ) : (
-                    <i key={`vide-${i}-${k}`} className="calendrier-hors-annee" />
-                  )
+              <span key={i} data-mois={s.ouvreMois ? s.mois : undefined}>
+                {s.ouvreMois && totaux.has(s.mois) ? (
+                  <em className={totaux.get(s.mois) >= 0 ? "est-hausse" : "est-baisse"}>
+                    {formatCourt(totaux.get(s.mois))}
+                  </em>
+                ) : (
+                  ""
                 )}
-              </div>
+              </span>
             ))}
           </div>
         </div>
       </div>
 
       {/*
-        Détail du jour survolé.
+        Détail du jour visé — au survol comme au clavier.
 
         La zone conserve sa hauteur même vide : sans cela, le calendrier
         sauterait de quelques pixels au premier survol, ce qui déplacerait la
         case visée juste sous le curseur.
       */}
       <p className="calendrier-detail" aria-live="polite">
-        {survole ? (
+        {actif ? (
           <>
-            <span className="calendrier-detail-date">{libelleDate(survole.date)}</span>
-            {survole.variation == null ? (
+            <span className="calendrier-detail-date">{libelleDate(actif.date)}</span>
+            {actif.variation == null ? (
               <span className="calendrier-detail-vide">pas de relevé ce jour-là</span>
             ) : (
-              <span
-                className={`calendrier-detail-valeur ghost-blur ${
-                  survole.variation > 0 ? "est-hausse" : survole.variation < 0 ? "est-baisse" : ""
-                }`}
-              >
-                {formatVariation(survole.variation)}
-              </span>
+              <>
+                <span
+                  className={`calendrier-detail-valeur ghost-blur ${
+                    actif.variation > 0 ? "est-hausse" : actif.variation < 0 ? "est-baisse" : ""
+                  }`}
+                >
+                  {formatVariation(actif.variation)}
+                </span>
+                {actif.joursCouverts > 1 && actif.depuis && (
+                  <span className="calendrier-detail-note">
+                    sur {actif.joursCouverts} jours, depuis le {libelleDate(actif.depuis)}
+                  </span>
+                )}
+                {actif.weekend && actif.variation !== 0 && (
+                  <span className="calendrier-detail-alerte">
+                    marché fermé — l'écart vient des séances précédentes
+                  </span>
+                )}
+              </>
             )}
           </>
         ) : (
           <span className="calendrier-detail-invite">
-            Survole une case pour voir la date et la variation du jour.
+            Survole une case, ou parcours au clavier avec les flèches.
           </span>
         )}
       </p>
+
+      {/* Légende : sans elle, on devine ce que veut dire un vert foncé. */}
+      <div className="calendrier-legende" aria-hidden="true">
+        <span>baisse</span>
+        <i data-n="-3" />
+        <i data-n="-2" />
+        <i data-n="-1" />
+        <i data-n="0" />
+        <i data-n="1" />
+        <i data-n="2" />
+        <i data-n="3" />
+        <span>hausse</span>
+        <span className="calendrier-legende-sep">
+          <i className="calendrier-legende-vide" /> pas de relevé
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Deux années empilées, pour comparer les saisons.
+ *
+ * Un patrimoine se lit mal sur douze mois : les creux de janvier et les
+ * versements de fin d'année reviennent tous les ans, et on ne les reconnaît
+ * qu'en les voyant se répéter.
+ */
+export function CalendrierCompare({ annees = [], formatVariation = formatDefaut, semainesAgitees = null, className = "" }) {
+  if (annees.length === 0) return null;
+  return (
+    <div className={`calendrier-compare ${className}`}>
+      {annees.map(({ an, jours }) => (
+        <div key={an} className="calendrier-compare-annee">
+          <span className="calendrier-compare-etiquette font-data">{an}</span>
+          <CalendrierAnnuel jours={jours} formatVariation={formatVariation} semainesAgitees={semainesAgitees} />
+        </div>
+      ))}
     </div>
   );
 }

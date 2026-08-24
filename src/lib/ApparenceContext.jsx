@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { usePersistentState } from "./storage";
 import { ACCENTS, ACCENT_DEFAUT, accent as trouverAccent } from "./themes";
 
@@ -71,10 +71,37 @@ export function ApparenceProvider({ children }) {
   const reglages = useMemo(() => ({ ...DEFAUTS, ...(apparence || {}) }), [apparence]);
 
   // ── Thème ────────────────────────────────────────────────────────────────
+  //
+  // La classe `bascule-theme` n'est posée QUE le temps du changement : elle
+  // active un fondu de 220 ms sur les couleurs, pour que le passage du clair
+  // au sombre se lise comme une transition plutôt que comme un clignotement.
+  // La laisser en permanence retarderait aussi les survols, qui doivent rester
+  // immédiats.
+  //
+  // Le premier rendu en est exempté : il n'y a pas de « depuis » à quitter, et
+  // l'application s'ouvrirait en se colorant progressivement.
+  const premierThemeApplique = useRef(false);
   useEffect(() => {
     const racine = document.documentElement;
-    if (reglages.theme === "auto") racine.removeAttribute("data-theme");
-    else racine.setAttribute("data-theme", reglages.theme);
+
+    const appliquer = () => {
+      if (reglages.theme === "auto") racine.removeAttribute("data-theme");
+      else racine.setAttribute("data-theme", reglages.theme);
+    };
+
+    if (!premierThemeApplique.current) {
+      premierThemeApplique.current = true;
+      appliquer();
+      return undefined;
+    }
+
+    racine.classList.add("bascule-theme");
+    appliquer();
+    const t = setTimeout(() => racine.classList.remove("bascule-theme"), 260);
+    return () => {
+      clearTimeout(t);
+      racine.classList.remove("bascule-theme");
+    };
   }, [reglages.theme]);
 
   // ── Accent ───────────────────────────────────────────────────────────────

@@ -29,6 +29,13 @@ export function nomMois(cle) {
   return NOMS_MOIS[m - 1] || cle;
 }
 
+/** Le jour tombe-t-il un samedi ou un dimanche ? */
+export function estWeekend(iso) {
+  const [a, m, j] = String(iso).split("-").map(Number);
+  const jour = new Date(a, m - 1, j).getDay();
+  return jour === 0 || jour === 6;
+}
+
 /**
  * Une case par jour de l'année, dans l'ordre.
  *
@@ -36,6 +43,23 @@ export function nomMois(cle) {
  * ouverte. C'est toute la valeur de cette vue par rapport à une courbe, qui
  * relie les points en silence et laisse croire à une continuité qui n'existe
  * pas.
+ *
+ * ── CE QUE CHAQUE CASE PORTE, ET POURQUOI ─────────────────────────────────
+ *
+ * Une variation n'est PAS l'écart d'une journée : c'est l'écart depuis le
+ * relevé précédent, qui peut dater de plusieurs jours. Ne pas le dire produit
+ * un contresens que l'usage révèle vite — une variation affichée un dimanche,
+ * alors que les marchés sont fermés et que rien n'a bougé ce jour-là. L'écart
+ * était réel, mais il appartenait au dernier jour ouvré.
+ *
+ * Chaque case porte donc :
+ *   · `variation`        l'écart total depuis le relevé précédent ;
+ *   · `depuis`           la date de ce relevé précédent ;
+ *   · `joursCouverts`    le nombre de jours que l'écart recouvre ;
+ *   · `variationParJour` l'écart ramené à la journée — c'est LUI qui donne
+ *     l'intensité de la couleur, sinon un trou de trois jours produirait une
+ *     case trois fois plus vive que ses voisines pour un rythme identique ;
+ *   · `weekend`          pour signaler qu'aucun marché n'était ouvert.
  *
  * Les jours à venir de l'année en cours sont exclus : une année ne se remplit
  * pas d'avance.
@@ -53,6 +77,8 @@ export function joursDeLAnnee(historique = [], an, aujourdHui = new Date()) {
 
   const jours = [];
   let precedente = null;
+  let datePrecedente = null;
+
   for (let d = new Date(debut); d <= fin; d.setDate(d.getDate() + 1)) {
     // `todayIso` et non `toISOString` : ce dernier convertit en UTC, et à
     // l'est de Greenwich minuit local retombe la VEILLE. Toutes les cases
@@ -60,12 +86,30 @@ export function joursDeLAnnee(historique = [], an, aujourdHui = new Date()) {
     // relevé — le calendrier paraîtrait vide sans qu'aucune erreur ne le dise.
     const iso = todayIso(d);
     const valeur = parDate.get(iso);
+    const weekend = estWeekend(iso);
+
     if (valeur == null) {
-      jours.push({ date: iso, variation: null });
+      jours.push({ date: iso, variation: null, depuis: null, joursCouverts: 0, variationParJour: null, weekend });
       continue;
     }
-    jours.push({ date: iso, variation: precedente == null ? 0 : valeur - precedente });
+
+    const joursCouverts =
+      datePrecedente == null
+        ? 0
+        : Math.max(1, Math.round((new Date(`${iso}T00:00:00`) - new Date(`${datePrecedente}T00:00:00`)) / 86400000));
+    const variation = precedente == null ? 0 : valeur - precedente;
+
+    jours.push({
+      date: iso,
+      variation,
+      depuis: datePrecedente,
+      joursCouverts,
+      variationParJour: joursCouverts > 0 ? variation / joursCouverts : variation,
+      weekend,
+    });
+
     precedente = valeur;
+    datePrecedente = iso;
   }
   return jours;
 }
@@ -179,4 +223,56 @@ export function anneesDisponibles(historyPast = []) {
     .map(Number)
     .filter((n) => Number.isFinite(n))
     .sort((a, b) => b - a);
+}
+
+/**
+ * Semaines de forte agitation des marchés, repérées depuis l'historique de
+ * référence du portefeuille.
+ *
+ * `bourseHistory` porte déjà, à côté de la valeur du portefeuille, la valeur
+ * d'indices de référence (CAC 40, S&P 500, MSCI World) : ce sont eux qui
+ * disent si une baisse est propre au portefeuille ou générale. Sans ce repère,
+ * le calendrier ne permet pas de distinguer « j'ai mal choisi mes lignes » de
+ * « tout le marché a reculé cette semaine-là », qui n'appellent pourtant pas
+ * du tout la même conclusion.
+ *
+ * Le seuil est relatif à la distribution observée — quatre-vingtième centile
+ * des amplitudes hebdomadaires — et non un pourcentage figé : la volatilité
+ * d'une année calme et celle d'une année de krach n'ont pas la même échelle,
+ * et un seuil fixe marquerait tout ou rien.
+ *
+ * @returns {Set<string>} Date du premier jour relevé de chaque semaine agitée.
+ */
+export function semainesAgitees(bourseHistory = [], colonne = "cac40") {
+  const points = bourseHistory
+    .filter((p) => p?.date && Number.isFinite(Number(p[colonne])))
+    .map((p) => ({ date: p.date, valeur: Number(p[colonne]) }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  if (points.length < 8) return new Set();
+
+  // Regroupement par semaine ISO : c'est la maille du calendrier, une colonne
+  // valant une semaine.
+  const parSemaine = new Map();
+  for (const p of points) {
+    const [a, m, j] = p.date.split("-").map(Number);
+    const d = new Date(a, m - 1, j);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // recule au lundi
+    const cle = todayIso(d);
+    const g = parSemaine.get(cle);
+    if (!g) parSemaine.set(cle, { premier: p, min: p.valeur, max: p.valeur });
+    else {
+      g.min = Math.min(g.min, p.valeur);
+      g.max = Math.max(g.max, p.valeur);
+    }
+  }
+
+  const semaines = [...parSemaine.values()].filter((g) => g.min > 0);
+  if (semaines.length < 4) return new Set();
+
+  const amplitudes = semaines.map((g) => (g.max - g.min) / g.min).sort((a, b) => a - b);
+  const seuil = amplitudes[Math.floor(amplitudes.length * 0.8)];
+
+  return new Set(
+    semaines.filter((g) => (g.max - g.min) / g.min >= seuil && seuil > 0).map((g) => g.premier.date)
+  );
 }

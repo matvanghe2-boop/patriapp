@@ -564,3 +564,40 @@ export function SkeletonTable({ rows = 4, columns = 5 }) {
 export function SkeletonChart({ height = 240 }) {
   return <Skeleton style={{ width: "100%", height, borderRadius: 12 }} />;
 }
+
+/*
+ * Squelettes À LA FORME du contenu attendu.
+ *
+ * Le rectangle générique annonce « quelque chose arrive » sans dire quoi, et
+ * l'arrivée du vrai contenu fait sauter la mise en page parce que les
+ * dimensions ne correspondaient pas. Quand la forme est connue d'avance, la
+ * reproduire supprime le saut et donne au chargement l'air d'un remplissage
+ * plutôt que d'un remplacement.
+ */
+
+/** Grille de calendrier fantôme : 7 lignes, N semaines. */
+export function SkeletonCalendrier({ semaines = 26 }) {
+  return (
+    <div className="squelette-calendrier" role="status" aria-label="Chargement du calendrier">
+      {Array.from({ length: semaines * 7 }).map((_, i) => (
+        <i key={i} className="skeleton" />
+      ))}
+    </div>
+  );
+}
+
+/** Rangée d'anneaux fantômes, évidés pour se distinguer de simples pastilles. */
+export function SkeletonAnneaux({ nombre = 3, taille = 56 }) {
+  return (
+    <div className="squelette-anneaux" role="status" aria-label="Chargement des objectifs">
+      {Array.from({ length: nombre }).map((_, i) => (
+        <span key={i} className="skeleton squelette-anneau" style={{ width: taille, height: taille }} />
+      ))}
+    </div>
+  );
+}
+
+/** Micro-courbe fantôme, pour une ligne de tableau. */
+export function SkeletonSparkline({ largeur = "3.5rem" }) {
+  return <span className="skeleton squelette-sparkline" style={{ width: largeur, display: "block" }} />;
+}

@@ -3,9 +3,9 @@ import { Sparkles, TrendingUp, TrendingDown, Coins, Repeat, Target, CalendarRang
 import Modal from "./Modal";
 import Montant from "./Montant";
 import EtatVide from "./EtatVide";
-import { CalendrierAnnuel, CourbeEvolution } from "./graphiques";
-import { pct } from "../lib/finance";
-import { construireRetrospective, anneesDisponibles, nomMois } from "../lib/retrospective";
+import { CalendrierAnnuel, CalendrierCompare, CourbeEvolution } from "./graphiques";
+import { eur, pct } from "../lib/finance";
+import { construireRetrospective, anneesDisponibles, nomMois, joursDeLAnnee, semainesAgitees } from "../lib/retrospective";
 
 /**
  * Rétrospective annuelle.
@@ -30,6 +30,7 @@ export default function Retrospective({
   operations = [],
   positions = [],
   profileHistory = [],
+  bourseHistory = [],
 }) {
   const annees = useMemo(() => anneesDisponibles(historyPast), [historyPast]);
   const [an, setAn] = useState(() => annees[0] ?? new Date().getFullYear());
@@ -38,6 +39,16 @@ export default function Retrospective({
     () => construireRetrospective({ an, historyPast, operations, positions, profileHistory }),
     [an, historyPast, operations, positions, profileHistory]
   );
+
+  const agitees = useMemo(() => semainesAgitees(bourseHistory), [bourseHistory]);
+
+  // L'année précédente n'est proposée que si elle a de quoi être comparée :
+  // une poignée de relevés produirait une bande presque vide, qui suggérerait
+  // à tort une année sans mouvement.
+  const anneePrecedente = useMemo(() => {
+    const jours = joursDeLAnnee(historyPast, an - 1);
+    return jours.filter((j) => j.variation != null).length >= 30 ? jours : null;
+  }, [historyPast, an]);
 
   const serie = useMemo(
     () =>
@@ -119,11 +130,31 @@ export default function Retrospective({
             {/* ── Le calendrier ─────────────────────────────────────────── */}
             <section className="retro-bloc">
               <p className="retro-label">Jour par jour</p>
-              <CalendrierAnnuel jours={bilan.jours} className="ghost-blur" />
+              {/* Comparaison avec l'année précédente quand elle existe : un
+                  patrimoine se lit mal sur douze mois isolés — les creux de
+                  janvier et les versements de fin d'année reviennent tous les
+                  ans, et on ne les reconnaît qu'en les voyant se répéter. */}
+              {anneePrecedente ? (
+                <CalendrierCompare
+                  annees={[
+                    { an, jours: bilan.jours },
+                    { an: an - 1, jours: anneePrecedente },
+                  ]}
+                  semainesAgitees={agitees}
+                  formatVariation={(n) => `${n > 0 ? "+" : ""}${eur(n, 0)}`}
+                />
+              ) : (
+                <CalendrierAnnuel
+                  jours={bilan.jours}
+                  semainesAgitees={agitees}
+                  formatVariation={(n) => `${n > 0 ? "+" : ""}${eur(n, 0)}`}
+                />
+              )}
               <p className="retro-note">
                 {bilan.joursReleves} jours relevés sur {bilan.jours.length}. Les cases sombres sont
                 les jours où l'application n'a pas été ouverte — une courbe les aurait reliés en
-                silence.
+                silence. Une variation portée par un week-end vient des séances précédentes : les
+                marchés étaient fermés.
               </p>
             </section>
 
