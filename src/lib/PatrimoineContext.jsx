@@ -26,6 +26,12 @@ export const STORAGE_KEYS = [
   "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate", "allocationTarget",
   "profileHistory", "horizonScenarios", "horizonReglages", "horizonDernierBilan",
   "matelasHistory", "objectifs", "alertesWatchlist", "widgetsReplies",
+  // Préférences d'affichage (thème, accent, densité, retours) — voir
+  // ApparenceContext. Persistées comme le reste : un réglage d'affichage suit
+  // d'un appareil à l'autre.
+  "apparence",
+  // Séries de cours par ticker, pour les sparklines du tableau de positions.
+  "bourseSeriesCours",
 ];
 
 /**

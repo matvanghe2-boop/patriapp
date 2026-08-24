@@ -4,6 +4,10 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
+import { Sparkline } from "./graphiques";
+import OngletsGlissants from "./OngletsGlissants";
+import EtatVide from "./EtatVide";
+import { useTirerPourRafraichir, IndicateurRafraichissement, useBalayageSuppression } from "./gestes";
 import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux, lireNombre } from "../lib/finance";
 import { searchSecurity, fetchQuotes, fetchTauxChange } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -87,6 +91,35 @@ function SortButton({ sort, setSort }) {
       )}
     </div>
   );
+}
+
+/**
+ * Ligne de position, balayable vers la gauche pour supprimer.
+ *
+ * Un composant plutôt qu'un `<tr>` écrit sur place : le balayage a besoin d'un
+ * hook, et un hook ne peut pas vivre à l'intérieur d'un `.map()`. Le geste est
+ * réservé au tactile, et le bouton de suppression reste le chemin principal —
+ * au clavier comme à la souris, rien ne change.
+ */
+function LignePosition({ onSupprimer, children }) {
+  const { handlers, style } = useBalayageSuppression(onSupprimer);
+  return (
+    <tr className="group hover:bg-slate-800/30 transition-colors" style={style} {...handlers}>
+      {children}
+    </tr>
+  );
+}
+
+/**
+ * Sens général d'une série de cours : dernier point contre premier.
+ *
+ * Volontairement grossier — la sparkline n'a que sa COULEUR pour dire le sens,
+ * et une régression linéaire donnerait la même réponse dans les cas qui
+ * comptent tout en compliquant la lecture du code.
+ */
+function tendance(serie) {
+  if (!serie || serie.length < 2) return 0;
+  return serie[serie.length - 1].p - serie[0].p;
 }
 
 // ─── Daily variation cell ─────────────────────────────────────────────────────
@@ -496,6 +529,9 @@ export default function Bourse({
   // ─── Persistance du tri et des données de variation ──────────────────────
   const [sort, setSort] = usePersistentState("bourseSort", "none");
   const [dailyData, setDailyData] = usePersistentState("bourseDailyData", {});
+  // Séries de cours par ticker, accumulées au fil des actualisations et
+  // consommées par les sparklines du tableau de positions.
+  const [seriesCours, setSeriesCours] = usePersistentState("bourseSeriesCours", {});
 
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({ quantity: "", pru: "", current_price: "", annual_dividend: "" });
@@ -567,6 +603,9 @@ export default function Bourse({
       const symbols = bourse.positions.map((p) => p.ticker);
       const quotes = await fetchQuotes(symbols);
       const newDailyData = {};
+      // Copie de travail des séries existantes : elles sont complétées dans la
+      // boucle ci-dessous, puis persistées en une seule écriture.
+      const serieParTicker = { ...(seriesCours || {}) };
       const refreshedAt = new Date().toISOString();
 
       // Taux de change des devises effectivement rencontrées dans les cours
@@ -607,6 +646,26 @@ export default function Bourse({
                 changePct: ((q.price - q.previousClose) / q.previousClose) * 100,
               };
             }
+            /*
+             * Série de cours, pour la sparkline de la ligne.
+             *
+             * Elle s'ACCUMULE au fil des actualisations, elle n'est pas
+             * reconstituée : c'est le même parti pris que le relevé quotidien
+             * du patrimoine, qui refuse d'inventer un passé qu'il n'a pas
+             * observé. Un point par jour, le dernier de la journée l'emportant,
+             * et soixante au maximum — au-delà, une micro-courbe de 4,5 rem ne
+             * distingue plus rien.
+             *
+             * Conséquence assumée : la sparkline n'apparaît qu'après quelques
+             * jours d'usage. Une courbe tirée d'un historique complet serait
+             * disponible tout de suite, mais coûterait un appel réseau par
+             * ligne à chaque ouverture de l'onglet.
+             */
+            if (q.price) {
+              const jour = todayIso();
+              const ancienne = (serieParTicker[p.ticker] || []).filter((pt) => pt.d !== jour);
+              serieParTicker[p.ticker] = [...ancienne, { d: jour, p: q.price }].slice(-60);
+            }
             // Devise de cotation ET taux de conversion vers l'euro. Sans ce
             // taux, un titre coté en dollars était compté à parité 1:1 dans la
             // valeur du portefeuille, la plus-value et la répartition.
@@ -625,6 +684,7 @@ export default function Bourse({
       }));
       // Mettre à jour les données persistées (fusionner avec les existantes)
       setDailyData((prev) => ({ ...prev, ...newDailyData }));
+      setSeriesCours(serieParTicker);
       const failed = quotes.filter((q) => !q.ok).length;
       setRefreshMsg(failed > 0 ? `${failed} cours sur ${quotes.length} n'ont pas pu être actualisés.` : "Tous les cours ont été actualisés.");
     } catch {
@@ -633,6 +693,19 @@ export default function Bourse({
       setRefreshing(false);
     }
   };
+
+  /**
+   * Tirer vers le bas pour actualiser les cours.
+   *
+   * Le bouton d'actualisation est en haut de l'onglet, hors de portée du pouce
+   * sur un grand téléphone — exactement le problème que la barre de navigation
+   * basse avait résolu pour la navigation. Restreint au sous-onglet
+   * Portefeuille : c'est le seul où « rafraîchir » a un sens évident, et un
+   * geste qui fait autre chose selon l'écran est pire que pas de geste.
+   */
+  const tirage = useTirerPourRafraichir(refreshPrices, {
+    actif: subTab === "portefeuille" && bourse.positions.length > 0,
+  });
 
   const pieData = useMemo(
     () => bourse.positions.map((p, i) => ({ name: p.ticker, value: valeurPosition(p), color: PIE_PALETTE[i % PIE_PALETTE.length] })).filter((d) => d.value > 0),
@@ -753,52 +826,33 @@ export default function Bourse({
         <p className="text-sm text-slate-500 mt-1">Positions actions / ETF — analyse de portefeuille.</p>
       </div>
 
+      <IndicateurRafraichissement {...tirage} />
+
       <ForeignCurrencyWarning positions={bourse.positions} />
       <EligibilitePeaWarning positions={bourse.positions} enveloppe={bourse.envelope} />
 
-      {/* Sous-onglets */}
-      <div className="relative flex items-center gap-2 border-b border-slate-800 pb-1">
-        <button
-          onClick={() => setSubTab("portefeuille")}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "portefeuille" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <Briefcase size={14} /> Portefeuille
-        </button>
-        <button
-          onClick={() => setSubTab("performance")}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "performance" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <Activity size={14} /> Performance
-        </button>
-        <button
-          onClick={() => setSubTab("marche")}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "marche" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <Search size={14} /> Marché
-        </button>
-        <button
-          onClick={() => setSubTab("screener")}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "screener" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <Filter size={14} /> Screener
-        </button>
-        <button
-          onClick={() => setSubTab("calendrier")}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "calendrier" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <CalendarDays size={14} /> Calendrier
-        </button>
-      </div>
+      {/*
+        Sous-onglets à curseur glissant.
+
+        Les cinq boutons changeaient de couleur d'un coup, sans que rien
+        n'indique d'où l'on venait. Le trait qui se DÉPLACE le dit, et le
+        composant apporte au passage ce qui manquait : le motif ARIA
+        « tablist », la navigation aux flèches, et un seul onglet dans l'ordre
+        de tabulation au lieu de cinq.
+      */}
+      <OngletsGlissants
+        className="teinte-violet"
+        ariaLabel="Sections de PEA & Bourse"
+        actif={subTab}
+        onChange={setSubTab}
+        onglets={[
+          { id: "portefeuille", libelle: "Portefeuille", icone: Briefcase },
+          { id: "performance", libelle: "Performance", icone: Activity },
+          { id: "marche", libelle: "Marché", icone: Search },
+          { id: "screener", libelle: "Screener", icone: Filter },
+          { id: "calendrier", libelle: "Calendrier", icone: CalendarDays },
+        ]}
+      />
 
       {subTab === "portefeuille" && (
       <>
@@ -915,10 +969,17 @@ export default function Bourse({
         {refreshMsg && <p className="text-[11px] text-amber-300/80 mb-3">{refreshMsg}</p>}
 
         {bourse.positions.length === 0 ? (
-          <EmptyState>Aucune position pour le moment — ajoute ta première ligne via le bouton ci-dessus.</EmptyState>
+          <EtatVide
+                picto="bourse"
+                titre="Ton portefeuille est vide"
+                action={<GhostButton onClick={() => setShowAdd(true)} theme="violet">Ajouter une position</GhostButton>}
+              >
+                Une ligne suffit pour commencer — ticker, quantité, prix de revient. Patrium suit
+                ensuite sa valeur, sa plus-value nette d'impôt et ses dividendes attendus.
+              </EtatVide>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-cards">
+            <table className="w-full text-sm table-cards table-dense">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Actif</th>
@@ -987,7 +1048,7 @@ export default function Bourse({
                   }
 
                   return (
-                    <tr key={p.id} className="group hover:bg-slate-800/30 transition-colors">
+                    <LignePosition key={p.id} onSupprimer={() => removePosition(p.id)}>
                       <td data-label="Actif" className="py-3 pr-3">
                         <button
                           type="button"
@@ -1006,7 +1067,20 @@ export default function Bourse({
                       <td data-label="PRU" className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.pru, 2)}</td>
                       <td data-label="Cours" className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(p.current_price, 2)}</td>
                       <td data-label="Variation du jour" className="py-3 pr-3">
-                        <DailyVariation position={p} dailyData={dailyData} />
+                        <div className="flex items-center gap-2.5">
+                          <DailyVariation position={p} dailyData={dailyData} />
+                          {/* La variation du jour donne un CHIFFRE ; la
+                              sparkline donne la FORME. Une hausse de 2 % après
+                              trois semaines de baisse n'a rien à voir avec la
+                              même hausse au bout d'une pente régulière, et le
+                              chiffre seul ne permet pas de les distinguer. */}
+                          <Sparkline
+                            valeurs={(seriesCours?.[p.ticker] || []).map((pt) => pt.p)}
+                            className={`w-14 h-5 shrink-0 hidden sm:block ${
+                              tendance(seriesCours?.[p.ticker]) >= 0 ? "text-emerald-400/70" : "text-rose-400/70"
+                            }`}
+                          />
+                        </div>
                         {(dailyData?.[p.ticker]?.changePct ?? 0) <= PANIC_THRESHOLD_PCT && (
                           <button
                             onClick={() => setPanicPosition(p)}
@@ -1044,7 +1118,7 @@ export default function Bourse({
                           <IconTrash onClick={() => removePosition(p.id)} />
                         </div>
                       </td>
-                    </tr>
+                    </LignePosition>
                   );
                 })}
               </tbody>

@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Target, TrendingUp, TrendingDown, CheckCircle2, CalendarClock } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, EmptyState, AddPanel, ProgressBar, CARD_THEMES } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CARD_THEMES } from "./ui";
+import EtatVide from "./EtatVide";
+import Montant from "./Montant";
+import { AnneauProgression } from "./graphiques";
+import { useApparence } from "../lib/ApparenceContext";
+import { vibrer } from "../lib/haptique";
 import { eur, uid, todayIso } from "../lib/finance";
 import {
   creerObjectif, evaluerObjectif, formaterDuree, MODELES_OBJECTIFS, echeanceDansMois,
@@ -14,43 +19,78 @@ function formatEcheance(iso) {
 
 function LigneObjectif({ objectif, etat, onSupprimer }) {
   const { atteint, enAvance, ecart, progressionPct, moisRestants, effortMensuelRequis, retardEstimeMois } = etat;
+  const { haptique } = useApparence();
 
-  const ton = atteint
-    ? { texte: "text-emerald-400", fond: "bg-emerald-400" }
-    : enAvance
-      ? { texte: "text-emerald-400", fond: "bg-emerald-400" }
-      : { texte: "text-amber-300", fond: "bg-amber-400" };
+  /**
+   * Célébration au franchissement, et une seule fois.
+   *
+   * Atteindre un objectif de patrimoine est l'un des rares moments réjouissants
+   * de cette application, et il ne s'y passait rien : la barre touchait 100 %,
+   * point. Pas de confettis pour autant — ce serait faux sur une application
+   * qui tient à l'honnêteté de ses chiffres, et insupportable au troisième
+   * rechargement de la page.
+   *
+   * Le témoin distingue « vient d'être atteint » de « était déjà atteint au
+   * montage » : sans lui, l'animation se rejouerait à chaque visite de l'onglet.
+   */
+  const [celebre, setCelebre] = useState(false);
+  const etaitAtteint = useRef(atteint);
+  useEffect(() => {
+    if (atteint && !etaitAtteint.current) {
+      setCelebre(true);
+      vibrer("validation", haptique);
+      const t = setTimeout(() => setCelebre(false), 700);
+      return () => clearTimeout(t);
+    }
+    etaitAtteint.current = atteint;
+    return undefined;
+  }, [atteint, haptique]);
+
+  const ton = atteint || enAvance ? "text-emerald-400" : "text-amber-300";
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3.5">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <div className="text-slate-100 font-medium truncate">{objectif.libelle || "Objectif"}</div>
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
-            <CalendarClock size={11} aria-hidden="true" />
-            <span className="ghost-blur">{eur(objectif.cible)}</span>
-            <span>pour {formatEcheance(objectif.echeance)}</span>
-            {moisRestants > 0 && <span className="text-slate-600">· dans {formaterDuree(moisRestants)}</span>}
-          </div>
-        </div>
-        <IconTrash onClick={onSupprimer} label={`Supprimer l'objectif ${objectif.libelle}`} />
-      </div>
+      <div className="flex items-start gap-3.5">
+        {/* L'anneau remplace la barre de 6 px : sur le seul écran qui mesure
+            une distance à parcourir, il tient la comparaison entre plusieurs
+            cibles dans un même coup d'œil et libère son centre pour le
+            pourcentage. */}
+        <AnneauProgression
+          valeur={progressionPct}
+          taille={56}
+          epaisseur={5}
+          atteint={atteint}
+          libelle={objectif.libelle || "Objectif"}
+          className={`shrink-0 ${atteint ? "text-emerald-400" : "text-amber-400"} ${celebre ? "anneau-celebre" : ""}`}
+        />
 
-      <div className="mt-3">
-        <ProgressBar value={progressionPct} accent={ton.fond} />
-        <div className="flex items-center justify-between mt-1.5 text-[11px]">
-          <span className="text-slate-500 font-data tabular-nums">{progressionPct.toFixed(0)} %</span>
-          {atteint ? (
-            <span className="flex items-center gap-1 text-emerald-400 font-medium">
-              <CheckCircle2 size={11} aria-hidden="true" /> Objectif atteint
-            </span>
-          ) : (
-            <span className={`flex items-center gap-1 ${ton.texte}`}>
-              {enAvance ? <TrendingUp size={11} aria-hidden="true" /> : <TrendingDown size={11} aria-hidden="true" />}
-              <span className="ghost-blur">{eur(Math.abs(ecart))}</span>
-              {enAvance ? " d'avance" : " de retard"}
-            </span>
-          )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-slate-100 font-medium truncate">{objectif.libelle || "Objectif"}</div>
+              <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <CalendarClock size={11} aria-hidden="true" />
+                <Montant valeur={objectif.cible} decimales={0} />
+                <span>pour {formatEcheance(objectif.echeance)}</span>
+                {moisRestants > 0 && <span className="text-slate-600">· dans {formaterDuree(moisRestants)}</span>}
+              </div>
+            </div>
+            <IconTrash onClick={onSupprimer} label={`Supprimer l'objectif ${objectif.libelle}`} />
+          </div>
+
+          <div className="mt-2 text-[11px]">
+            {atteint ? (
+              <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                <CheckCircle2 size={11} aria-hidden="true" /> Objectif atteint
+              </span>
+            ) : (
+              <span className={`flex items-center gap-1 ${ton}`}>
+                {enAvance ? <TrendingUp size={11} aria-hidden="true" /> : <TrendingDown size={11} aria-hidden="true" />}
+                <Montant valeur={Math.abs(ecart)} decimales={0} className="text-inherit" />
+                {enAvance ? " d'avance" : " de retard"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -187,9 +227,10 @@ export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet,
       />
 
       {tries.length === 0 ? (
-        <EmptyState>
-          Aucun objectif — fixe une cible datée pour savoir si ta trajectoire est en avance ou en retard.
-        </EmptyState>
+        <EtatVide picto="objectifs" titre="Aucun objectif fixé">
+          Une cible datée transforme « j'épargne » en « je serai à 50 000 € en mars 2028 » — et dit,
+          chaque mois, si la trajectoire est en avance ou en retard.
+        </EtatVide>
       ) : (
         <div className="flex flex-col gap-3 mt-2">
           {tries.map((o) => (

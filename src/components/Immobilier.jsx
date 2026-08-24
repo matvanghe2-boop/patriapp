@@ -95,7 +95,7 @@ function TravauxTracker({ items, setItems }) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-cards">
+            <table className="w-full text-sm table-cards table-dense">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Poste</th>
@@ -360,7 +360,7 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           </button>
         </div>
         <div className="overflow-x-auto mt-2">
-          <table className="w-full text-sm table-cards">
+          <table className="w-full text-sm table-cards table-dense">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 pr-3">Durée</th>

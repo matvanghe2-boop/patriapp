@@ -115,7 +115,7 @@ export default function PanneauTransparence({ contexte, montantsReels = false, o
         {/* Traitements appliqués */}
         <h3 className="text-xs uppercase tracking-wider text-slate-500 mb-2">Traitements appliqués</h3>
         <div className="rounded-xl border border-slate-800 overflow-hidden">
-          <table className="w-full text-xs table-cards">
+          <table className="w-full text-xs table-cards table-dense">
             <thead>
               <tr className="bg-slate-950/60 text-slate-500">
                 <th className="text-left font-medium px-3 py-2">Donnée Patrium</th>

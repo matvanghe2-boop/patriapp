@@ -1,21 +1,25 @@
 import { useState, useMemo, useId } from "react";
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  ResponsiveContainer, Tooltip,
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
 } from "recharts";
 import {
   TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight,
   Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap, ListChecks, ArrowRight, Scale, Sparkles,
 } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CustomTooltip, EmptyState, PageGlow, ChampNumerique, CARD_THEMES } from "./ui";
+import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, ChampNumerique, CARD_THEMES } from "./ui";
 import {
   eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore,
   computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition, lireNombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { useMaintenant, joursDepuis } from "../lib/useMaintenant";
+import { joursDeLAnnee } from "../lib/retrospective";
 import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import Objectifs from "./Objectifs";
+import EtatVide from "./EtatVide";
+import Montant from "./Montant";
+import { AnneauRepartition, CalendrierAnnuel } from "./graphiques";
 import { FileDown, FileSpreadsheet, PieChart as PieIcon } from "lucide-react";
 
 function formatDateFr(iso) {
@@ -48,6 +52,25 @@ function guessLegalLimit(name) {
     if (key.includes(k)) return v;
   }
   return null;
+}
+
+/**
+ * Marqueur du dernier point mesuré d'une série recharts.
+ *
+ * recharts appelle ce composant pour CHAQUE point ; on ne rend quelque chose
+ * que sur le dernier qui porte une valeur. Retourner `null` ailleurs est la
+ * façon prévue de ne rien dessiner — un `dot={false}` global empêcherait de
+ * distinguer ce point-là.
+ */
+function PointFinal({ cx, cy, index, serie }) {
+  const dernier = serie ? serie.map((d) => d.value).lastIndexOf(serie.filter((d) => d.value != null).slice(-1)[0]?.value) : -1;
+  if (index !== dernier || cx == null || cy == null) return null;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={8} fill="#10b981" opacity={0.18} />
+      <circle cx={cx} cy={cy} r={4} fill="#10b981" />
+    </g>
+  );
 }
 
 // ─── Panneau d'actions prioritaires ────────────────────────────────────────────
@@ -588,6 +611,31 @@ export default function Dashboard({
   }, [livrets, bourseTotal, bourse]);
   const totalAlloc = allocationData.reduce((s, d) => s + d.value, 0);
 
+  /**
+   * Objectifs à porter en jalons sur la courbe.
+   *
+   * Limités à trois, et aux plus proches de la situation actuelle : au-delà,
+   * les traits se chevauchent et la courbe devient illisible — ce qui est
+   * l'inverse du but.
+   */
+  const jalonsObjectifs = useMemo(
+    () =>
+      (objectifs || [])
+        .filter((o) => Number.isFinite(o?.cible) && o.cible > 0)
+        .map((o) => ({ id: o.id, libelle: o.libelle || "Objectif", cible: o.cible, atteint: patrimoineNet >= o.cible }))
+        .sort((a, b) => Math.abs(a.cible - patrimoineNet) - Math.abs(b.cible - patrimoineNet))
+        .slice(0, 3),
+    [objectifs, patrimoineNet]
+  );
+
+  // Cases du calendrier annuel. Le seuil de 14 relevés évite d'afficher une
+  // grille presque entièrement vide dans les deux premières semaines d'usage,
+  // qui donnerait l'impression que la fonctionnalité est cassée.
+  const joursAnnee = useMemo(() => {
+    const jours = joursDeLAnnee(historyPast, new Date().getFullYear());
+    return { jours, releves: jours.filter((j) => j.variation != null).length };
+  }, [historyPast]);
+
   // Score de diversification globale — concentration par classe d'actif
   // (types de positions bourse + épargne sécurisée regroupée).
   const diversification = useMemo(() => {
@@ -763,20 +811,44 @@ export default function Dashboard({
         <Card accent={CARD_THEMES.emerald}>
           <CardLabel>Allocation d'actifs globale</CardLabel>
           {allocationData.length === 0 ? (
-            <EmptyState>Ajoute un livret ou une position pour voir ta répartition.</EmptyState>
+            <EtatVide picto="liquidites" titre="Rien à répartir pour l'instant">
+              Ajoute un livret ou une position : la répartition se dessine dès la première ligne.
+            </EtatVide>
           ) : (
             <>
-              <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={allocationData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={72} paddingAngle={3} stroke="none">
-                      {allocationData.map((d) => (
-                        <Cell key={d.name} fill={d.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
+              {/*
+                Anneau plutôt que camembert, et total au centre.
+
+                Le camembert obligeait à aller chercher le total ailleurs sur
+                l'écran, alors que le creux de l'anneau est exactement la place
+                où ce chiffre est attendu. Écrit à la main plutôt que tiré de
+                recharts : c'est un arc de cercle, et cette carte est dans le
+                bundle initial.
+              */}
+              <div className="flex justify-center py-2">
+                <AnneauRepartition
+                  parts={allocationData.map((d) => ({ id: d.name, libelle: d.name, valeur: d.value, couleur: d.color }))}
+                  taille={168}
+                  epaisseur={20}
+                  libelle="Répartition du patrimoine par enveloppe"
+                  centre={
+                    <>
+                      <text
+                        x="50%" y="46%" textAnchor="middle" dominantBaseline="central"
+                        className="font-data ghost-blur"
+                        style={{ fill: "rgb(var(--c-slate-50))", fontSize: 21 }}
+                      >
+                        {compact(totalAlloc)}
+                      </text>
+                      <text
+                        x="50%" y="60%" textAnchor="middle" dominantBaseline="central"
+                        style={{ fill: "rgb(var(--c-slate-500))", fontSize: 9.5 }}
+                      >
+                        {allocationData.length} enveloppes
+                      </text>
+                    </>
+                  }
+                />
               </div>
               <div className="flex flex-col gap-1.5 mt-1">
                 {allocationData.map((d) => (
@@ -788,14 +860,40 @@ export default function Dashboard({
                     {/* Le pourcentage était lisible alors que le montant était
                         flouté : combiné à l'échelle du graphique, il suffisait
                         à reconstituer les valeurs masquées. */}
-                    <span className="font-data tabular-nums text-slate-300 ghost-blur">
-                      {eur(d.value)} · {totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(0) : 0} %
+                    <span className="flex items-center gap-1.5 text-slate-300">
+                      <Montant valeur={d.value} decimales={0} />
+                      <span className="text-slate-500 font-data ghost-blur">
+                        · {totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(0) : 0} %
+                      </span>
                     </span>
                   </div>
                 ))}
               </div>
             </>
           )}
+          {/*
+            L'année jour par jour.
+
+            `useDailySnapshot` pose un point de patrimoine net par jour, et
+            personne ne les regardait autrement qu'en courbe. Cette grille
+            répond à une question que la courbe ne sait pas poser — à quoi
+            ressemble une année ? — et surtout elle rend visibles les JOURS
+            SANS RELEVÉ, ceux où l'application n'a pas été ouverte. Une courbe
+            les relie en silence et laisse croire à une continuité qui n'existe
+            pas.
+          */}
+          {joursAnnee.releves >= 14 && (
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-between mb-2 text-xs text-slate-500 uppercase tracking-wider">
+                <span>{new Date().getFullYear()} jour par jour</span>
+                <span className="font-data normal-case tracking-normal text-slate-600">
+                  {joursAnnee.releves} relevés
+                </span>
+              </div>
+              <CalendrierAnnuel jours={joursAnnee.jours} className="ghost-blur" />
+            </div>
+          )}
+
           {/* Score de diversification globale */}
           {diversification.n > 1 && (
             <div className="mt-4 pt-4 border-t border-slate-800">
@@ -886,6 +984,23 @@ export default function Dashboard({
                 <Tooltip content={<ChartTooltip />} />
                 {/* Vertical reference line at "Aujourd'hui" */}
                 <ReferenceLine x="Aujourd'hui" stroke="#475569" strokeDasharray="3 3" label={{ value: "Auj.", fill: "#475569", fontSize: 10 }} />
+                {/*
+                  JALONS. La courbe montrait une trajectoire sans destination :
+                  on voyait monter, sans savoir vers quoi. Chaque objectif daté
+                  pose désormais son trait, et l'écart au trait se lit
+                  directement — c'est la question que l'écran Objectifs répond
+                  en chiffres, ici en un coup d'œil.
+                */}
+                {jalonsObjectifs.map((j) => (
+                  <ReferenceLine
+                    key={j.id}
+                    y={j.cible}
+                    stroke={j.atteint ? "#34d399" : "#fbbf24"}
+                    strokeDasharray="4 4"
+                    strokeOpacity={0.55}
+                    label={{ value: j.libelle, fill: j.atteint ? "#34d399" : "#fbbf24", fontSize: 9, position: "insideTopLeft" }}
+                  />
+                ))}
                 {/* Historical area */}
                 <Area
                   type="monotone"
@@ -895,6 +1010,11 @@ export default function Dashboard({
                   strokeWidth={2}
                   fill="url(#netWorthFill)"
                   connectNulls={false}
+                  // Un seul point dessiné, le dernier : il dit « c'est ici
+                  // qu'on en est ». Sans lui, l'œil doit chercher où la partie
+                  // mesurée s'arrête et où la projection commence.
+                  dot={<PointFinal serie={chartData} />}
+                  activeDot={{ r: 4 }}
                 />
                 {/* Projection dashed line */}
                 <Line

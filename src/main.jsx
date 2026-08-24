@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "./lib/AuthContext";
 import { ToastProvider } from "./lib/ToastContext";
 import { ConfirmProvider } from "./lib/ConfirmContext";
 import { PatrimoineProvider } from "./lib/PatrimoineContext";
+import { ApparenceProvider } from "./lib/ApparenceContext";
 import "./index.css";
 
 function AuthGate() {
@@ -37,7 +38,12 @@ function AuthGate() {
   // partir avant que la session soit établie.
   return (
     <PatrimoineProvider>
-      <App />
+      {/* Les préférences d'affichage passent par `usePersistentState`, donc
+          par Supabase : elles doivent être montées SOUS l'authentification,
+          comme le reste de l'état persisté. */}
+      <ApparenceProvider>
+        <App />
+      </ApparenceProvider>
     </PatrimoineProvider>
   );
 }
@@ -63,7 +69,21 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 // et prépare le terrain pour de vraies notifications push si un backend est
 // ajouté un jour. Sans HTTPS (ex: dev local en http://localhost), certains
 // navigateurs l'autorisent quand même sur localhost.
-if ("serviceWorker" in navigator) {
+/*
+ * ENREGISTREMENT RÉSERVÉ À LA PRODUCTION.
+ *
+ * En développement, Vite sert chaque module sous son propre chemin
+ * (`/src/lib/themes.js`) — des URL stables, sans empreinte. Le service worker
+ * les prend pour des ressources de coquille et les met en cache « cache
+ * d'abord » : après une modification, le navigateur continue de servir
+ * l'ANCIEN module. Le symptôme est déroutant au possible, du genre « le module
+ * ne fournit pas l'export X » alors que le fichier sur le disque le fournit
+ * bel et bien, et il survit à un rechargement forcé.
+ *
+ * En production le problème n'existe pas : les fragments produits par Vite
+ * portent une empreinte dans leur nom, et changent donc d'URL à chaque build.
+ */
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {
       // Échec silencieux : l'app fonctionne normalement sans service worker,

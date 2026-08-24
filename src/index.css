@@ -66,9 +66,1190 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════ PALETTE ══════════════════════════════════════════════
+ * Toutes les couleurs Tailwind du projet passent par ces variables (voir
+ * tailwind.config.cjs). La rampe est MIROIR d'un thème à l'autre : en sombre
+ * `slate-950` vaut slate-950, en clair il vaut slate-50. Les composants ne
+ * changent pas d'une ligne, et `bg-slate-900 text-slate-100` reste contrasté
+ * dans les deux sens.
+ *
+ * Le SOMBRE est sur `:root` nu : c'est le thème historique de l'application,
+ * et le seul qu'elle ait jamais eu. Ses 154 valeurs sont identiques au bit
+ * près à la palette Tailwind d'origine — l'apparence sombre est donc
+ * rigoureusement inchangée par l'arrivée du mode clair.
+ *
+ * SIX FAMILLES DESCENDENT D'UN CRAN SUPPLÉMENTAIRE EN CLAIR (emerald, rose,
+ * teal, cyan, lime, sky) sur leurs nuances 300 et 400. Ce sont celles qui
+ * servent de couleur de TEXTE — un gain, une perte, un taux. Leur miroir
+ * direct (400 → 600) retombait entre 3,4 et 4,3:1 sur un fond clair, sous le
+ * seuil AA ; 400 → 700 les ramène à 5:1 ou mieux.
+ *
+ * Trois états, comme partout ailleurs :
+ *   · `data-theme="clair"`  → l'utilisateur a choisi le clair
+ *   · `data-theme="sombre"` → il a choisi le sombre
+ *   · aucun attribut        → réglage « automatique », on suit le système
+ * ═══════════════════════════════════════════════════════════════════════════ */
 :root {
   color-scheme: dark;
+  --c-slate-50: 248 250 252;
+  --c-slate-100: 241 245 249;
+  --c-slate-200: 226 232 240;
+  --c-slate-300: 203 213 225;
+  --c-slate-400: 148 163 184;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 71 85 105;
+  --c-slate-700: 51 65 85;
+  --c-slate-800: 30 41 59;
+  --c-slate-900: 15 23 42;
+  --c-slate-950: 2 6 23;
+  --c-amber-50: 255 251 235;
+  --c-amber-100: 254 243 199;
+  --c-amber-200: 253 230 138;
+  --c-amber-300: 252 211 77;
+  --c-amber-400: 251 191 36;
+  --c-amber-500: 245 158 11;
+  --c-amber-600: 217 119 6;
+  --c-amber-700: 180 83 9;
+  --c-amber-800: 146 64 14;
+  --c-amber-900: 120 53 15;
+  --c-amber-950: 69 26 3;
+  --c-emerald-50: 236 253 245;
+  --c-emerald-100: 209 250 229;
+  --c-emerald-200: 167 243 208;
+  --c-emerald-300: 110 231 183;
+  --c-emerald-400: 52 211 153;
+  --c-emerald-500: 16 185 129;
+  --c-emerald-600: 5 150 105;
+  --c-emerald-700: 4 120 87;
+  --c-emerald-800: 6 95 70;
+  --c-emerald-900: 6 78 59;
+  --c-emerald-950: 2 44 34;
+  --c-violet-50: 245 243 255;
+  --c-violet-100: 237 233 254;
+  --c-violet-200: 221 214 254;
+  --c-violet-300: 196 181 253;
+  --c-violet-400: 167 139 250;
+  --c-violet-500: 139 92 246;
+  --c-violet-600: 124 58 237;
+  --c-violet-700: 109 40 217;
+  --c-violet-800: 91 33 182;
+  --c-violet-900: 76 29 149;
+  --c-violet-950: 46 16 101;
+  --c-rose-50: 255 241 242;
+  --c-rose-100: 255 228 230;
+  --c-rose-200: 254 205 211;
+  --c-rose-300: 253 164 175;
+  --c-rose-400: 251 113 133;
+  --c-rose-500: 244 63 94;
+  --c-rose-600: 225 29 72;
+  --c-rose-700: 190 18 60;
+  --c-rose-800: 159 18 57;
+  --c-rose-900: 136 19 55;
+  --c-rose-950: 76 5 25;
+  --c-cyan-50: 236 254 255;
+  --c-cyan-100: 207 250 254;
+  --c-cyan-200: 165 243 252;
+  --c-cyan-300: 103 232 249;
+  --c-cyan-400: 34 211 238;
+  --c-cyan-500: 6 182 212;
+  --c-cyan-600: 8 145 178;
+  --c-cyan-700: 14 116 144;
+  --c-cyan-800: 21 94 117;
+  --c-cyan-900: 22 78 99;
+  --c-cyan-950: 8 51 68;
+  --c-indigo-50: 238 242 255;
+  --c-indigo-100: 224 231 255;
+  --c-indigo-200: 199 210 254;
+  --c-indigo-300: 165 180 252;
+  --c-indigo-400: 129 140 248;
+  --c-indigo-500: 99 102 241;
+  --c-indigo-600: 79 70 229;
+  --c-indigo-700: 67 56 202;
+  --c-indigo-800: 55 48 163;
+  --c-indigo-900: 49 46 129;
+  --c-indigo-950: 30 27 75;
+  --c-teal-50: 240 253 250;
+  --c-teal-100: 204 251 241;
+  --c-teal-200: 153 246 228;
+  --c-teal-300: 94 234 212;
+  --c-teal-400: 45 212 191;
+  --c-teal-500: 20 184 166;
+  --c-teal-600: 13 148 136;
+  --c-teal-700: 15 118 110;
+  --c-teal-800: 17 94 89;
+  --c-teal-900: 19 78 74;
+  --c-teal-950: 4 47 46;
+  --c-fuchsia-50: 253 244 255;
+  --c-fuchsia-100: 250 232 255;
+  --c-fuchsia-200: 245 208 254;
+  --c-fuchsia-300: 240 171 252;
+  --c-fuchsia-400: 232 121 249;
+  --c-fuchsia-500: 217 70 239;
+  --c-fuchsia-600: 192 38 211;
+  --c-fuchsia-700: 162 28 175;
+  --c-fuchsia-800: 134 25 143;
+  --c-fuchsia-900: 112 26 117;
+  --c-fuchsia-950: 74 4 78;
+  --c-orange-50: 255 247 237;
+  --c-orange-100: 255 237 213;
+  --c-orange-200: 254 215 170;
+  --c-orange-300: 253 186 116;
+  --c-orange-400: 251 146 60;
+  --c-orange-500: 249 115 22;
+  --c-orange-600: 234 88 12;
+  --c-orange-700: 194 65 12;
+  --c-orange-800: 154 52 18;
+  --c-orange-900: 124 45 18;
+  --c-orange-950: 67 20 7;
+  --c-blue-50: 239 246 255;
+  --c-blue-100: 219 234 254;
+  --c-blue-200: 191 219 254;
+  --c-blue-300: 147 197 253;
+  --c-blue-400: 96 165 250;
+  --c-blue-500: 59 130 246;
+  --c-blue-600: 37 99 235;
+  --c-blue-700: 29 78 216;
+  --c-blue-800: 30 64 175;
+  --c-blue-900: 30 58 138;
+  --c-blue-950: 23 37 84;
+  --c-sky-50: 240 249 255;
+  --c-sky-100: 224 242 254;
+  --c-sky-200: 186 230 253;
+  --c-sky-300: 125 211 252;
+  --c-sky-400: 56 189 248;
+  --c-sky-500: 14 165 233;
+  --c-sky-600: 2 132 199;
+  --c-sky-700: 3 105 161;
+  --c-sky-800: 7 89 133;
+  --c-sky-900: 12 74 110;
+  --c-sky-950: 8 47 73;
+  --c-lime-50: 247 254 231;
+  --c-lime-100: 236 252 203;
+  --c-lime-200: 217 249 157;
+  --c-lime-300: 190 242 100;
+  --c-lime-400: 163 230 53;
+  --c-lime-500: 132 204 22;
+  --c-lime-600: 101 163 13;
+  --c-lime-700: 77 124 15;
+  --c-lime-800: 63 98 18;
+  --c-lime-900: 54 83 20;
+  --c-lime-950: 26 46 5;
+  --c-pink-50: 253 242 248;
+  --c-pink-100: 252 231 243;
+  --c-pink-200: 251 207 232;
+  --c-pink-300: 249 168 212;
+  --c-pink-400: 244 114 182;
+  --c-pink-500: 236 72 153;
+  --c-pink-600: 219 39 119;
+  --c-pink-700: 190 24 93;
+  --c-pink-800: 157 23 77;
+  --c-pink-900: 131 24 67;
+  --c-pink-950: 80 7 36;
 }
+
+/* Automatique : le système demande le clair et rien n'a été choisi à la main. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="sombre"]) {
+    color-scheme: light;
+    --c-slate-50: 2 6 23;
+    --c-slate-100: 15 23 42;
+    --c-slate-200: 30 41 59;
+    --c-slate-300: 51 65 85;
+    --c-slate-400: 71 85 105;
+    --c-slate-500: 100 116 139;
+    --c-slate-600: 148 163 184;
+    --c-slate-700: 203 213 225;
+    --c-slate-800: 226 232 240;
+    --c-slate-900: 241 245 249;
+    --c-slate-950: 248 250 252;
+    --c-amber-50: 69 26 3;
+    --c-amber-100: 120 53 15;
+    --c-amber-200: 146 64 14;
+    --c-amber-300: 180 83 9;
+    --c-amber-400: 217 119 6;
+    --c-amber-500: 245 158 11;
+    --c-amber-600: 251 191 36;
+    --c-amber-700: 252 211 77;
+    --c-amber-800: 253 230 138;
+    --c-amber-900: 254 243 199;
+    --c-amber-950: 255 251 235;
+    --c-emerald-50: 2 44 34;
+    --c-emerald-100: 6 78 59;
+    --c-emerald-200: 6 95 70;
+    --c-emerald-300: 6 95 70;
+    --c-emerald-400: 4 120 87;
+    --c-emerald-500: 16 185 129;
+    --c-emerald-600: 52 211 153;
+    --c-emerald-700: 110 231 183;
+    --c-emerald-800: 167 243 208;
+    --c-emerald-900: 209 250 229;
+    --c-emerald-950: 236 253 245;
+    --c-violet-50: 46 16 101;
+    --c-violet-100: 76 29 149;
+    --c-violet-200: 91 33 182;
+    --c-violet-300: 109 40 217;
+    --c-violet-400: 124 58 237;
+    --c-violet-500: 139 92 246;
+    --c-violet-600: 167 139 250;
+    --c-violet-700: 196 181 253;
+    --c-violet-800: 221 214 254;
+    --c-violet-900: 237 233 254;
+    --c-violet-950: 245 243 255;
+    --c-rose-50: 76 5 25;
+    --c-rose-100: 136 19 55;
+    --c-rose-200: 159 18 57;
+    --c-rose-300: 159 18 57;
+    --c-rose-400: 190 18 60;
+    --c-rose-500: 244 63 94;
+    --c-rose-600: 251 113 133;
+    --c-rose-700: 253 164 175;
+    --c-rose-800: 254 205 211;
+    --c-rose-900: 255 228 230;
+    --c-rose-950: 255 241 242;
+    --c-cyan-50: 8 51 68;
+    --c-cyan-100: 22 78 99;
+    --c-cyan-200: 21 94 117;
+    --c-cyan-300: 21 94 117;
+    --c-cyan-400: 14 116 144;
+    --c-cyan-500: 6 182 212;
+    --c-cyan-600: 34 211 238;
+    --c-cyan-700: 103 232 249;
+    --c-cyan-800: 165 243 252;
+    --c-cyan-900: 207 250 254;
+    --c-cyan-950: 236 254 255;
+    --c-indigo-50: 30 27 75;
+    --c-indigo-100: 49 46 129;
+    --c-indigo-200: 55 48 163;
+    --c-indigo-300: 67 56 202;
+    --c-indigo-400: 79 70 229;
+    --c-indigo-500: 99 102 241;
+    --c-indigo-600: 129 140 248;
+    --c-indigo-700: 165 180 252;
+    --c-indigo-800: 199 210 254;
+    --c-indigo-900: 224 231 255;
+    --c-indigo-950: 238 242 255;
+    --c-teal-50: 4 47 46;
+    --c-teal-100: 19 78 74;
+    --c-teal-200: 17 94 89;
+    --c-teal-300: 17 94 89;
+    --c-teal-400: 15 118 110;
+    --c-teal-500: 20 184 166;
+    --c-teal-600: 45 212 191;
+    --c-teal-700: 94 234 212;
+    --c-teal-800: 153 246 228;
+    --c-teal-900: 204 251 241;
+    --c-teal-950: 240 253 250;
+    --c-fuchsia-50: 74 4 78;
+    --c-fuchsia-100: 112 26 117;
+    --c-fuchsia-200: 134 25 143;
+    --c-fuchsia-300: 162 28 175;
+    --c-fuchsia-400: 192 38 211;
+    --c-fuchsia-500: 217 70 239;
+    --c-fuchsia-600: 232 121 249;
+    --c-fuchsia-700: 240 171 252;
+    --c-fuchsia-800: 245 208 254;
+    --c-fuchsia-900: 250 232 255;
+    --c-fuchsia-950: 253 244 255;
+    --c-orange-50: 67 20 7;
+    --c-orange-100: 124 45 18;
+    --c-orange-200: 154 52 18;
+    --c-orange-300: 194 65 12;
+    --c-orange-400: 234 88 12;
+    --c-orange-500: 249 115 22;
+    --c-orange-600: 251 146 60;
+    --c-orange-700: 253 186 116;
+    --c-orange-800: 254 215 170;
+    --c-orange-900: 255 237 213;
+    --c-orange-950: 255 247 237;
+    --c-blue-50: 23 37 84;
+    --c-blue-100: 30 58 138;
+    --c-blue-200: 30 64 175;
+    --c-blue-300: 29 78 216;
+    --c-blue-400: 37 99 235;
+    --c-blue-500: 59 130 246;
+    --c-blue-600: 96 165 250;
+    --c-blue-700: 147 197 253;
+    --c-blue-800: 191 219 254;
+    --c-blue-900: 219 234 254;
+    --c-blue-950: 239 246 255;
+    --c-sky-50: 8 47 73;
+    --c-sky-100: 12 74 110;
+    --c-sky-200: 7 89 133;
+    --c-sky-300: 7 89 133;
+    --c-sky-400: 3 105 161;
+    --c-sky-500: 14 165 233;
+    --c-sky-600: 56 189 248;
+    --c-sky-700: 125 211 252;
+    --c-sky-800: 186 230 253;
+    --c-sky-900: 224 242 254;
+    --c-sky-950: 240 249 255;
+    --c-lime-50: 26 46 5;
+    --c-lime-100: 54 83 20;
+    --c-lime-200: 63 98 18;
+    --c-lime-300: 63 98 18;
+    --c-lime-400: 77 124 15;
+    --c-lime-500: 132 204 22;
+    --c-lime-600: 163 230 53;
+    --c-lime-700: 190 242 100;
+    --c-lime-800: 217 249 157;
+    --c-lime-900: 236 252 203;
+    --c-lime-950: 247 254 231;
+    --c-pink-50: 80 7 36;
+    --c-pink-100: 131 24 67;
+    --c-pink-200: 157 23 77;
+    --c-pink-300: 190 24 93;
+    --c-pink-400: 219 39 119;
+    --c-pink-500: 236 72 153;
+    --c-pink-600: 244 114 182;
+    --c-pink-700: 249 168 212;
+    --c-pink-800: 251 207 232;
+    --c-pink-900: 252 231 243;
+    --c-pink-950: 253 242 248;
+  }
+}
+
+/* Choix explicite du clair : il l'emporte même si le système est en sombre. */
+:root[data-theme="clair"] {
+  color-scheme: light;
+  --c-slate-50: 2 6 23;
+  --c-slate-100: 15 23 42;
+  --c-slate-200: 30 41 59;
+  --c-slate-300: 51 65 85;
+  --c-slate-400: 71 85 105;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 148 163 184;
+  --c-slate-700: 203 213 225;
+  --c-slate-800: 226 232 240;
+  --c-slate-900: 241 245 249;
+  --c-slate-950: 248 250 252;
+  --c-amber-50: 69 26 3;
+  --c-amber-100: 120 53 15;
+  --c-amber-200: 146 64 14;
+  --c-amber-300: 180 83 9;
+  --c-amber-400: 217 119 6;
+  --c-amber-500: 245 158 11;
+  --c-amber-600: 251 191 36;
+  --c-amber-700: 252 211 77;
+  --c-amber-800: 253 230 138;
+  --c-amber-900: 254 243 199;
+  --c-amber-950: 255 251 235;
+  --c-emerald-50: 2 44 34;
+  --c-emerald-100: 6 78 59;
+  --c-emerald-200: 6 95 70;
+  --c-emerald-300: 6 95 70;
+  --c-emerald-400: 4 120 87;
+  --c-emerald-500: 16 185 129;
+  --c-emerald-600: 52 211 153;
+  --c-emerald-700: 110 231 183;
+  --c-emerald-800: 167 243 208;
+  --c-emerald-900: 209 250 229;
+  --c-emerald-950: 236 253 245;
+  --c-violet-50: 46 16 101;
+  --c-violet-100: 76 29 149;
+  --c-violet-200: 91 33 182;
+  --c-violet-300: 109 40 217;
+  --c-violet-400: 124 58 237;
+  --c-violet-500: 139 92 246;
+  --c-violet-600: 167 139 250;
+  --c-violet-700: 196 181 253;
+  --c-violet-800: 221 214 254;
+  --c-violet-900: 237 233 254;
+  --c-violet-950: 245 243 255;
+  --c-rose-50: 76 5 25;
+  --c-rose-100: 136 19 55;
+  --c-rose-200: 159 18 57;
+  --c-rose-300: 159 18 57;
+  --c-rose-400: 190 18 60;
+  --c-rose-500: 244 63 94;
+  --c-rose-600: 251 113 133;
+  --c-rose-700: 253 164 175;
+  --c-rose-800: 254 205 211;
+  --c-rose-900: 255 228 230;
+  --c-rose-950: 255 241 242;
+  --c-cyan-50: 8 51 68;
+  --c-cyan-100: 22 78 99;
+  --c-cyan-200: 21 94 117;
+  --c-cyan-300: 21 94 117;
+  --c-cyan-400: 14 116 144;
+  --c-cyan-500: 6 182 212;
+  --c-cyan-600: 34 211 238;
+  --c-cyan-700: 103 232 249;
+  --c-cyan-800: 165 243 252;
+  --c-cyan-900: 207 250 254;
+  --c-cyan-950: 236 254 255;
+  --c-indigo-50: 30 27 75;
+  --c-indigo-100: 49 46 129;
+  --c-indigo-200: 55 48 163;
+  --c-indigo-300: 67 56 202;
+  --c-indigo-400: 79 70 229;
+  --c-indigo-500: 99 102 241;
+  --c-indigo-600: 129 140 248;
+  --c-indigo-700: 165 180 252;
+  --c-indigo-800: 199 210 254;
+  --c-indigo-900: 224 231 255;
+  --c-indigo-950: 238 242 255;
+  --c-teal-50: 4 47 46;
+  --c-teal-100: 19 78 74;
+  --c-teal-200: 17 94 89;
+  --c-teal-300: 17 94 89;
+  --c-teal-400: 15 118 110;
+  --c-teal-500: 20 184 166;
+  --c-teal-600: 45 212 191;
+  --c-teal-700: 94 234 212;
+  --c-teal-800: 153 246 228;
+  --c-teal-900: 204 251 241;
+  --c-teal-950: 240 253 250;
+  --c-fuchsia-50: 74 4 78;
+  --c-fuchsia-100: 112 26 117;
+  --c-fuchsia-200: 134 25 143;
+  --c-fuchsia-300: 162 28 175;
+  --c-fuchsia-400: 192 38 211;
+  --c-fuchsia-500: 217 70 239;
+  --c-fuchsia-600: 232 121 249;
+  --c-fuchsia-700: 240 171 252;
+  --c-fuchsia-800: 245 208 254;
+  --c-fuchsia-900: 250 232 255;
+  --c-fuchsia-950: 253 244 255;
+  --c-orange-50: 67 20 7;
+  --c-orange-100: 124 45 18;
+  --c-orange-200: 154 52 18;
+  --c-orange-300: 194 65 12;
+  --c-orange-400: 234 88 12;
+  --c-orange-500: 249 115 22;
+  --c-orange-600: 251 146 60;
+  --c-orange-700: 253 186 116;
+  --c-orange-800: 254 215 170;
+  --c-orange-900: 255 237 213;
+  --c-orange-950: 255 247 237;
+  --c-blue-50: 23 37 84;
+  --c-blue-100: 30 58 138;
+  --c-blue-200: 30 64 175;
+  --c-blue-300: 29 78 216;
+  --c-blue-400: 37 99 235;
+  --c-blue-500: 59 130 246;
+  --c-blue-600: 96 165 250;
+  --c-blue-700: 147 197 253;
+  --c-blue-800: 191 219 254;
+  --c-blue-900: 219 234 254;
+  --c-blue-950: 239 246 255;
+  --c-sky-50: 8 47 73;
+  --c-sky-100: 12 74 110;
+  --c-sky-200: 7 89 133;
+  --c-sky-300: 7 89 133;
+  --c-sky-400: 3 105 161;
+  --c-sky-500: 14 165 233;
+  --c-sky-600: 56 189 248;
+  --c-sky-700: 125 211 252;
+  --c-sky-800: 186 230 253;
+  --c-sky-900: 224 242 254;
+  --c-sky-950: 240 249 255;
+  --c-lime-50: 26 46 5;
+  --c-lime-100: 54 83 20;
+  --c-lime-200: 63 98 18;
+  --c-lime-300: 63 98 18;
+  --c-lime-400: 77 124 15;
+  --c-lime-500: 132 204 22;
+  --c-lime-600: 163 230 53;
+  --c-lime-700: 190 242 100;
+  --c-lime-800: 217 249 157;
+  --c-lime-900: 236 252 203;
+  --c-lime-950: 247 254 231;
+  --c-pink-50: 80 7 36;
+  --c-pink-100: 131 24 67;
+  --c-pink-200: 157 23 77;
+  --c-pink-300: 190 24 93;
+  --c-pink-400: 219 39 119;
+  --c-pink-500: 236 72 153;
+  --c-pink-600: 244 114 182;
+  --c-pink-700: 249 168 212;
+  --c-pink-800: 251 207 232;
+  --c-pink-900: 252 231 243;
+  --c-pink-950: 253 242 248;
+}
+
+/* Choix explicite du sombre : il l'emporte même si le système est en clair. */
+:root[data-theme="sombre"] {
+  color-scheme: dark;
+  --c-slate-50: 248 250 252;
+  --c-slate-100: 241 245 249;
+  --c-slate-200: 226 232 240;
+  --c-slate-300: 203 213 225;
+  --c-slate-400: 148 163 184;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 71 85 105;
+  --c-slate-700: 51 65 85;
+  --c-slate-800: 30 41 59;
+  --c-slate-900: 15 23 42;
+  --c-slate-950: 2 6 23;
+  --c-amber-50: 255 251 235;
+  --c-amber-100: 254 243 199;
+  --c-amber-200: 253 230 138;
+  --c-amber-300: 252 211 77;
+  --c-amber-400: 251 191 36;
+  --c-amber-500: 245 158 11;
+  --c-amber-600: 217 119 6;
+  --c-amber-700: 180 83 9;
+  --c-amber-800: 146 64 14;
+  --c-amber-900: 120 53 15;
+  --c-amber-950: 69 26 3;
+  --c-emerald-50: 236 253 245;
+  --c-emerald-100: 209 250 229;
+  --c-emerald-200: 167 243 208;
+  --c-emerald-300: 110 231 183;
+  --c-emerald-400: 52 211 153;
+  --c-emerald-500: 16 185 129;
+  --c-emerald-600: 5 150 105;
+  --c-emerald-700: 4 120 87;
+  --c-emerald-800: 6 95 70;
+  --c-emerald-900: 6 78 59;
+  --c-emerald-950: 2 44 34;
+  --c-violet-50: 245 243 255;
+  --c-violet-100: 237 233 254;
+  --c-violet-200: 221 214 254;
+  --c-violet-300: 196 181 253;
+  --c-violet-400: 167 139 250;
+  --c-violet-500: 139 92 246;
+  --c-violet-600: 124 58 237;
+  --c-violet-700: 109 40 217;
+  --c-violet-800: 91 33 182;
+  --c-violet-900: 76 29 149;
+  --c-violet-950: 46 16 101;
+  --c-rose-50: 255 241 242;
+  --c-rose-100: 255 228 230;
+  --c-rose-200: 254 205 211;
+  --c-rose-300: 253 164 175;
+  --c-rose-400: 251 113 133;
+  --c-rose-500: 244 63 94;
+  --c-rose-600: 225 29 72;
+  --c-rose-700: 190 18 60;
+  --c-rose-800: 159 18 57;
+  --c-rose-900: 136 19 55;
+  --c-rose-950: 76 5 25;
+  --c-cyan-50: 236 254 255;
+  --c-cyan-100: 207 250 254;
+  --c-cyan-200: 165 243 252;
+  --c-cyan-300: 103 232 249;
+  --c-cyan-400: 34 211 238;
+  --c-cyan-500: 6 182 212;
+  --c-cyan-600: 8 145 178;
+  --c-cyan-700: 14 116 144;
+  --c-cyan-800: 21 94 117;
+  --c-cyan-900: 22 78 99;
+  --c-cyan-950: 8 51 68;
+  --c-indigo-50: 238 242 255;
+  --c-indigo-100: 224 231 255;
+  --c-indigo-200: 199 210 254;
+  --c-indigo-300: 165 180 252;
+  --c-indigo-400: 129 140 248;
+  --c-indigo-500: 99 102 241;
+  --c-indigo-600: 79 70 229;
+  --c-indigo-700: 67 56 202;
+  --c-indigo-800: 55 48 163;
+  --c-indigo-900: 49 46 129;
+  --c-indigo-950: 30 27 75;
+  --c-teal-50: 240 253 250;
+  --c-teal-100: 204 251 241;
+  --c-teal-200: 153 246 228;
+  --c-teal-300: 94 234 212;
+  --c-teal-400: 45 212 191;
+  --c-teal-500: 20 184 166;
+  --c-teal-600: 13 148 136;
+  --c-teal-700: 15 118 110;
+  --c-teal-800: 17 94 89;
+  --c-teal-900: 19 78 74;
+  --c-teal-950: 4 47 46;
+  --c-fuchsia-50: 253 244 255;
+  --c-fuchsia-100: 250 232 255;
+  --c-fuchsia-200: 245 208 254;
+  --c-fuchsia-300: 240 171 252;
+  --c-fuchsia-400: 232 121 249;
+  --c-fuchsia-500: 217 70 239;
+  --c-fuchsia-600: 192 38 211;
+  --c-fuchsia-700: 162 28 175;
+  --c-fuchsia-800: 134 25 143;
+  --c-fuchsia-900: 112 26 117;
+  --c-fuchsia-950: 74 4 78;
+  --c-orange-50: 255 247 237;
+  --c-orange-100: 255 237 213;
+  --c-orange-200: 254 215 170;
+  --c-orange-300: 253 186 116;
+  --c-orange-400: 251 146 60;
+  --c-orange-500: 249 115 22;
+  --c-orange-600: 234 88 12;
+  --c-orange-700: 194 65 12;
+  --c-orange-800: 154 52 18;
+  --c-orange-900: 124 45 18;
+  --c-orange-950: 67 20 7;
+  --c-blue-50: 239 246 255;
+  --c-blue-100: 219 234 254;
+  --c-blue-200: 191 219 254;
+  --c-blue-300: 147 197 253;
+  --c-blue-400: 96 165 250;
+  --c-blue-500: 59 130 246;
+  --c-blue-600: 37 99 235;
+  --c-blue-700: 29 78 216;
+  --c-blue-800: 30 64 175;
+  --c-blue-900: 30 58 138;
+  --c-blue-950: 23 37 84;
+  --c-sky-50: 240 249 255;
+  --c-sky-100: 224 242 254;
+  --c-sky-200: 186 230 253;
+  --c-sky-300: 125 211 252;
+  --c-sky-400: 56 189 248;
+  --c-sky-500: 14 165 233;
+  --c-sky-600: 2 132 199;
+  --c-sky-700: 3 105 161;
+  --c-sky-800: 7 89 133;
+  --c-sky-900: 12 74 110;
+  --c-sky-950: 8 47 73;
+  --c-lime-50: 247 254 231;
+  --c-lime-100: 236 252 203;
+  --c-lime-200: 217 249 157;
+  --c-lime-300: 190 242 100;
+  --c-lime-400: 163 230 53;
+  --c-lime-500: 132 204 22;
+  --c-lime-600: 101 163 13;
+  --c-lime-700: 77 124 15;
+  --c-lime-800: 63 98 18;
+  --c-lime-900: 54 83 20;
+  --c-lime-950: 26 46 5;
+  --c-pink-50: 253 242 248;
+  --c-pink-100: 252 231 243;
+  --c-pink-200: 251 207 232;
+  --c-pink-300: 249 168 212;
+  --c-pink-400: 244 114 182;
+  --c-pink-500: 236 72 153;
+  --c-pink-600: 219 39 119;
+  --c-pink-700: 190 24 93;
+  --c-pink-800: 157 23 77;
+  --c-pink-900: 131 24 67;
+  --c-pink-950: 80 7 36;
+}
+
+/* ═══════════════════ TEINTES DE DOMAINE ═══════════════════════════════════
+ * Six teintes, une par onglet, chacune déclarée UNE FOIS. Elles étaient
+ * auparavant écrites en toutes lettres huit fois par thème dans `themes.js`,
+ * parce que Tailwind ne voit pas un nom de classe composé à l'exécution.
+ *
+ * TEINTE ET SATURATION SONT SÉPARÉES DE LA LUMINOSITÉ, et c'est le point
+ * important. Une couleur d'accent n'a pas la même clarté selon le fond : à
+ * 50 % de luminosité, l'ambre est lisible sur du slate-950 et illisible sur du
+ * blanc. En gardant H et S par thème et L par THÈME D'AFFICHAGE, une seule
+ * déclaration par teinte suffit pour les deux modes.
+ *
+ * `--teinte-h` reste isolée parce qu'un NOMBRE s'interpole : c'est ce qui
+ * permet au fond de page de glisser d'un onglet à l'autre au lieu de sauter.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.teinte-emerald { --teinte-h: 156; --teinte-s: 72%; --l-sombre: 66.9%; --l-clair: 24.5%; --teinte-2-h: 188; --teinte-2-s: 86%; }
+.teinte-indigo  { --teinte-h: 230; --teinte-s: 94%; --l-sombre: 81.8%; --l-clair: 58%; --teinte-2-h: 213; --teinte-2-s: 94%; }
+.teinte-violet  { --teinte-h: 252; --teinte-s: 95%; --l-sombre: 85.1%; --l-clair: 58%; --teinte-2-h: 292; --teinte-2-s: 91%; }
+.teinte-amber   { --teinte-h: 46; --teinte-s: 97%; --l-sombre: 64.5%; --l-clair: 26.5%; --teinte-2-h: 27; --teinte-2-s: 96%; }
+.teinte-rose    { --teinte-h: 353; --teinte-s: 96%; --l-sombre: 81.8%; --l-clair: 43.5%; --teinte-2-h: 27; --teinte-2-s: 96%; }
+.teinte-cyan    { --teinte-h: 187; --teinte-s: 92%; --l-sombre: 69%; --l-clair: 27%; --teinte-2-h: 172; --teinte-2-s: 66%; }
+.teinte-teal    { --teinte-h: 171; --teinte-s: 77%; --l-sombre: 64.3%; --l-clair: 25%; --teinte-2-h: 188; --teinte-2-s: 86%; }
+.teinte-orange  { --teinte-h: 31; --teinte-s: 97%; --l-sombre: 72.4%; --l-clair: 33%; --teinte-2-h: 43; --teinte-2-s: 96%; }
+
+/*
+ * Teinte de l'ACCENT choisi par l'utilisateur : alimentée à l'exécution par
+ * ApparenceContext, qui écrit les variables sur <html>. Le repli couvre le
+ * tout premier rendu, avant que la préférence ne soit lue.
+ */
+.teinte-accent {
+  --teinte-h: var(--accent-h, 38);
+  --teinte-s: var(--accent-s, 92%);
+  --teinte-2-h: var(--accent-2-h, 25);
+  --teinte-2-s: var(--accent-2-s, 95%);
+}
+
+/*
+ * Aiguillage de luminosité. Chaque teinte porte SA valeur pour chaque thème
+ * (`--l-sombre`, `--l-clair`) : HSL n'étant pas perceptuellement uniforme, une
+ * luminosité unique ne peut pas convenir à l'ambre et à l'indigo à la fois.
+ * À 33 %, l'ambre reste à 4,2:1 sur fond clair quand l'indigo est déjà à 12:1.
+ *
+ * Les valeurs sombres reprennent EXACTEMENT la luminosité des nuances -300 de
+ * Tailwind, celles que l'application affichait déjà : le rendu sombre est donc
+ * inchangé. Les valeurs claires sont calculées pour tenir au moins 4,6:1 sur
+ * une carte claire.
+ */
+:root { --l-teinte: var(--l-sombre); --a-carte: 0.12; --a-fond: 0.7; --l-fond: 12%; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="sombre"]) { --l-teinte: var(--l-clair); --a-carte: 0.1; --a-fond: 0.55; --l-fond: 92%; }
+}
+:root[data-theme="clair"] { --l-teinte: var(--l-clair); --a-carte: 0.1; --a-fond: 0.55; --l-fond: 92%; }
+:root[data-theme="sombre"] { --l-teinte: var(--l-sombre); --a-carte: 0.12; --a-fond: 0.7; --l-fond: 12%; }
+
+/* Couleurs composées, communes aux huit teintes. */
+[class*="teinte-"] {
+  --teinte: var(--teinte-h) var(--teinte-s) var(--l-teinte);
+  --teinte-2: var(--teinte-2-h) var(--teinte-2-s) var(--l-teinte);
+}
+
+/* ── Recettes d'usage ────────────────────────────────────────────────────── */
+
+/* Bouton de navigation actif (barre latérale bureau). */
+.nav-actif {
+  background: hsl(var(--teinte) / 0.15);
+  color: hsl(var(--teinte));
+  border: 1px solid hsl(var(--teinte) / 0.35);
+}
+
+/* Texte de l'onglet actif (barre basse mobile). */
+.texte-domaine { color: hsl(var(--teinte)); }
+
+/* Repère d'onglet actif. */
+.barre-domaine { background: hsl(var(--teinte)); }
+
+/* Carte thématique : bordure teintée + dégradé d'ambiance. */
+.carte-domaine {
+  border-color: hsl(var(--teinte) / 0.4);
+  background-image: linear-gradient(
+    to bottom right,
+    hsl(var(--teinte) / var(--a-carte)),
+    transparent 55%
+  );
+  transition: border-color 180ms ease-out;
+}
+.carte-domaine:hover { border-color: hsl(var(--teinte) / 0.62); }
+
+/* Bouton fantôme. */
+.btn-fantome {
+  color: hsl(var(--teinte));
+  background: hsl(var(--teinte) / 0.1);
+  border-color: hsl(var(--teinte) / 0.4);
+}
+.btn-fantome:hover:not(:disabled) {
+  background: hsl(var(--teinte) / 0.2);
+  border-color: hsl(var(--teinte) / 0.7);
+}
+.btn-fantome:focus-visible {
+  outline: 2px solid hsl(var(--teinte) / 0.55);
+  outline-offset: 2px;
+}
+
+/* Fond de page teinté. */
+.fond-domaine {
+  background-image: linear-gradient(
+    to bottom right,
+    hsl(var(--teinte-h) 60% var(--l-fond) / var(--a-fond)),
+    transparent 45%
+  );
+}
+
+/* Halos ambiants. */
+.halo-a { background: hsl(var(--teinte) / 0.1); }
+.halo-b { background: hsl(var(--teinte-2) / 0.08); }
+
+/* ═══════════════════ DENSITÉ ══════════════════════════════════════════════
+ * Deux crans, réglés depuis les préférences. Le tableau de positions, le
+ * screener et le journal d'opérations n'ont pas les mêmes lecteurs qu'un
+ * tableau de bord : `confortable` pour survoler, `compacte` pour travailler.
+ *
+ * Le réglage ne touche QUE le rythme vertical — hauteurs de ligne et
+ * remplissage. Ni la taille du texte, ni les couleurs : une densité qui
+ * rétrécit les caractères devient un réglage d'accessibilité déguisé, et se
+ * retourne contre ceux qui en auraient le plus besoin.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root { --pas-ligne: 0.625rem; --pas-carte: 1.25rem; }
+:root[data-densite="compacte"] { --pas-ligne: 0.3125rem; --pas-carte: 0.875rem; }
+
+/* Appliqué aux tableaux qui portent la classe `table-dense`. */
+.table-dense th,
+.table-dense td {
+  padding-top: var(--pas-ligne);
+  padding-bottom: var(--pas-ligne);
+}
+
+/* ═══════════════════ MOUVEMENT, RÉGLAGE APPLICATIF ════════════════════════
+ * Double la media query système : l'utilisateur peut couper les animations
+ * dans Patrium sans toucher aux réglages de son ordinateur, et inversement les
+ * rallumer s'il les a coupées globalement mais les veut ici.
+ *
+ * Même distinction que pour `prefers-reduced-motion` : on neutralise le
+ * MOUVEMENT, pas le retour d'information. Les changements de couleur et
+ * d'opacité restent, car ce sont eux qui signalent qu'un bouton a répondu.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-mouvement="reduit"] *,
+:root[data-mouvement="reduit"] *::before,
+:root[data-mouvement="reduit"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+:root[data-mouvement="reduit"] .btn-flash:active:not(:disabled),
+:root[data-mouvement="reduit"] .btn-solid:active:not(:disabled),
+:root[data-mouvement="reduit"] .card-interactive:hover,
+:root[data-mouvement="reduit"] .card-interactive:active {
+  transform: none;
+}
+:root[data-mouvement="reduit"] .skeleton {
+  animation: none;
+  background: rgb(var(--c-slate-800));
+}
+:root[data-mouvement="reduit"] .stagger-children > * {
+  opacity: 1;
+  animation: none;
+}
+
+
+/* ═══════════════════ CALENDRIER ANNUEL ════════════════════════════════════
+ * Une case par jour, teintée selon la variation du patrimoine. Les cases sans
+ * relevé gardent le fond neutre : ce sont les jours où l'application n'a pas
+ * été ouverte, et les distinguer d'un jour à variation nulle est tout l'intérêt
+ * de cette vue par rapport à une courbe, qui les relie en silence.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.calendrier-annuel {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+}
+.calendrier-annuel i {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: rgb(var(--c-slate-800));
+}
+.calendrier-annuel i[data-n="1"] { background: rgb(var(--c-emerald-400) / 0.28); }
+.calendrier-annuel i[data-n="2"] { background: rgb(var(--c-emerald-400) / 0.55); }
+.calendrier-annuel i[data-n="3"] { background: rgb(var(--c-emerald-400) / 0.9); }
+.calendrier-annuel i[data-n="-1"] { background: rgb(var(--c-rose-400) / 0.28); }
+.calendrier-annuel i[data-n="-2"] { background: rgb(var(--c-rose-400) / 0.55); }
+.calendrier-annuel i[data-n="-3"] { background: rgb(var(--c-rose-400) / 0.9); }
+/* Variation nulle mais relevé présent : un cran plus clair que « pas de
+   relevé », sinon les deux cas seraient indiscernables. */
+.calendrier-annuel i[data-n="0"] { background: rgb(var(--c-slate-700)); }
+
+/* ═══════════════════ ANNEAUX ══════════════════════════════════════════════ */
+.anneau-arc {
+  /* La progression se remplit au lieu d'apparaître : c'est le seul endroit de
+     l'application qui mesure une distance parcourue, autant la montrer. */
+  transition: stroke-dasharray 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/*
+ * Objectif atteint. Pas de confettis : ce serait faux sur une application qui
+ * tient à l'honnêteté de ses chiffres, et insupportable au troisième
+ * rechargement de la page. Un halo doré permanent suffit à marquer le moment
+ * et à le laisser visible ensuite.
+ */
+.anneau-atteint .anneau-arc {
+  filter: drop-shadow(0 0 4px rgb(var(--c-amber-400) / 0.65));
+}
+@keyframes celebration-anneau {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.anneau-celebre {
+  animation: celebration-anneau 620ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center;
+}
+
+
+/* ═══════════════════ GESTES TACTILES ══════════════════════════════════════ */
+.balayage { position: relative; overflow: hidden; }
+.balayage-fond {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-inline-end: 1.25rem;
+  background: rgb(var(--c-rose-500) / 0.16);
+  color: rgb(var(--c-rose-400));
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.balayage-contenu {
+  position: relative;
+  background: rgb(var(--c-slate-950));
+  /* Sans fond opaque, le rouge du dessous transparaîtrait à travers la ligne
+     pendant tout le glissement. */
+  will-change: transform;
+}
+
+.indicateur-tirage {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  margin-left: -6rem;
+  width: 12rem;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--c-slate-700));
+  background: rgb(var(--c-slate-900) / 0.95);
+  backdrop-filter: blur(6px);
+  color: rgb(var(--c-slate-300));
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ═══════════════════ SOUS-ONGLETS GLISSANTS ═══════════════════════════════ */
+.onglets-glissants {
+  position: relative;
+  display: flex;
+  gap: 0.125rem;
+  border-bottom: 1px solid rgb(var(--c-slate-800));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.onglets-glissants::-webkit-scrollbar { display: none; }
+.onglet-glissant {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.8125rem;
+  color: rgb(var(--c-slate-500));
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+.onglet-glissant:hover { color: rgb(var(--c-slate-300)); }
+.onglet-glissant[aria-selected="true"] { color: hsl(var(--teinte)); }
+.onglet-glissant:focus-visible {
+  outline: 2px solid hsl(var(--teinte) / 0.5);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+.onglet-badge {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.625rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: rgb(var(--c-slate-800));
+  color: rgb(var(--c-slate-400));
+}
+.onglets-curseur {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: hsl(var(--teinte));
+  transition:
+    transform 320ms cubic-bezier(0.4, 0, 0.2, 1),
+    width 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ═══════════════════ ÉTATS VIDES ══════════════════════════════════════════
+ * L'application démarre vide, volontairement. Le premier écran d'un nouvel
+ * arrivant est donc un état vide : c'est le moins soigné qu'il puisse être.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.etat-vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.75rem 1.25rem;
+  border: 1px dashed rgb(var(--c-slate-800));
+  border-radius: 0.75rem;
+  text-align: center;
+}
+.etat-vide-picto {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: hsl(var(--teinte) / 0.1);
+  color: hsl(var(--teinte));
+  margin-bottom: 0.15rem;
+}
+.etat-vide-titre {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--c-slate-200));
+}
+.etat-vide-texte {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: rgb(var(--c-slate-400));
+  max-width: 42ch;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.etat-vide-action { margin-top: 0.35rem; }
+
+/* ═══════════════════ FIL DE PROGRESSION ═══════════════════════════════════
+ * L'onglet Bourse empile huit blocs, le sous-onglet Projet une douzaine de
+ * cartes. Un filet de 2 px dit où l'on en est sans occuper de place.
+ *
+ * Piloté par le DÉFILEMENT lui-même quand le navigateur sait le faire : la
+ * barre se met alors à jour dans le compositeur, sans un seul rendu React.
+ * Le repli — pas de barre du tout — est acceptable : c'est un agrément, pas
+ * une information dont dépend la compréhension de l'écran.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@supports (animation-timeline: scroll()) {
+  .fil-progression {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 70;
+    transform-origin: 0 50%;
+    background: hsl(var(--teinte));
+    animation: avancement linear;
+    animation-timeline: scroll(root block);
+  }
+  @keyframes avancement {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+}
+
+/* ═══════════════════ TRANSITION DIRECTIONNELLE ════════════════════════════
+ * Le changement d'onglet rejouait `fadeIn`, la même animation dans les deux
+ * sens. Les onglets étant ORDONNÉS, faire entrer la page par le côté d'où elle
+ * vient transforme une apparition en déplacement — et donne une carte mentale
+ * de l'application au lieu d'une succession d'écrans sans rapport.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes entree-depuis-droite {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes entree-depuis-gauche {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.page-entre-droite { animation: entree-depuis-droite 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+.page-entre-gauche { animation: entree-depuis-gauche 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+
+/* ═══════════════════ PASTILLES D'ACCENT ═══════════════════════════════════ */
+.pastille-accent {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--pastille);
+  border: 2px solid transparent;
+  display: grid;
+  place-items: center;
+  color: rgb(var(--c-slate-950));
+  cursor: pointer;
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+}
+.pastille-accent:hover { transform: scale(1.08); }
+.pastille-active {
+  border-color: rgb(var(--c-slate-100));
+  box-shadow: 0 0 0 2px rgb(var(--c-slate-900)), 0 0 0 4px var(--pastille);
+}
+.pastille-accent:focus-visible {
+  outline: 2px solid rgb(var(--c-slate-100));
+  outline-offset: 3px;
+}
+
+/* ═══════════════════ RÉTROSPECTIVE ════════════════════════════════════════
+ * Le seul écran de l'application qui a le droit d'être spectaculaire : une
+ * fois par an, sur des chiffres réels. La composition est plus généreuse
+ * qu'ailleurs — un chiffre vedette, puis les faits — sans jamais quitter la
+ * palette du domaine.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.retro { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.retro-tete { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.retro-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--teinte));
+}
+.retro-annee {
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  line-height: 1;
+  color: rgb(var(--c-slate-50));
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.retro-label {
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(var(--c-slate-500));
+  margin: 0 0 0.5rem;
+}
+.retro-vedette {
+  padding: 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--teinte) / 0.3);
+  background-image: linear-gradient(to bottom right, hsl(var(--teinte) / 0.14), transparent 60%);
+}
+.retro-montant {
+  display: block;
+  font-size: clamp(1.75rem, 7vw, 2.5rem);
+  color: rgb(var(--c-slate-50));
+  line-height: 1.1;
+}
+.retro-delta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+}
+.retro-bloc { display: flex; flex-direction: column; }
+.retro-note {
+  font-size: 0.6875rem;
+  color: rgb(var(--c-slate-500));
+  margin: 0.6rem 0 0;
+  line-height: 1.5;
+}
+.retro-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem;
+}
+.retro-fait {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.6rem;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(var(--c-slate-800));
+  background: rgb(var(--c-slate-950) / 0.5);
+}
+.retro-fait-icone { grid-row: span 2; color: rgb(var(--c-slate-500)); }
+.retro-fait-hausse .retro-fait-icone { color: rgb(var(--c-emerald-400)); }
+.retro-fait-baisse .retro-fait-icone { color: rgb(var(--c-rose-400)); }
+.retro-fait-label {
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--c-slate-500));
+}
+.retro-fait-valeur {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  color: rgb(var(--c-slate-100));
+}
+.retro-pied {
+  font-size: 0.6875rem;
+  color: rgb(var(--c-slate-600));
+  text-align: center;
+  margin: 0;
+}
+
 
 body {
   /* `Inter Variable` est le nom de famille exposé par le paquet variable ;
@@ -84,6 +1265,20 @@ body {
 
 .font-data {
   font-family: "IBM Plex Mono", monospace;
+  /*
+   * Chiffres tabulaires et zéro barré, une fois pour toutes.
+   *
+   * `tabular-nums` était posé À LA MAIN 112 fois, et manquait donc partout
+   * ailleurs : dans une colonne de montants, un « 1 » plus étroit qu'un « 8 »
+   * décale les unités d'une ligne à l'autre et ruine la comparaison verticale,
+   * qui est pourtant la seule raison d'aligner des chiffres.
+   *
+   * `slashed-zero` sépare 0 et O. Sur une liste de tickers — OR0.PA, CW8.PA —
+   * la distinction n'est pas cosmétique : c'est ce qu'on recopie dans un
+   * carnet d'ordres.
+   */
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "zero" 1;
 }
 
 input[type="range"] {
@@ -291,14 +1486,89 @@ input[type="checkbox"] {
 .stagger-children > *:nth-child(5) { animation-delay: 240ms; }
 .stagger-children > *:nth-child(n+6) { animation-delay: 300ms; }
 
+/*
+ * CAVIARDAGE, ET NON FLOUTAGE.
+ *
+ * Le mode Ghost appliquait `filter: blur(6px)`. Le flou masque les chiffres
+ * mais conserve la LONGUEUR du nombre et son enveloppe : « 12 480 € » et
+ * « 7 € » restent parfaitement distinguables à un mètre. Pour une
+ * fonctionnalité dont le but est de pouvoir montrer son écran sans exposer ses
+ * montants, c'est une fuite — et d'autant plus trompeuse qu'elle donne
+ * l'impression que le travail est fait.
+ *
+ * Le caviardage occupe une largeur CONSTANTE, indépendante de la valeur
+ * masquée : plus rien ne filtre, ni le montant, ni son ordre de grandeur. Le
+ * survol continue de révéler la valeur, comme avant.
+ *
+ * `min-width` plutôt que `width` : sur une cellule de tableau étroite, forcer
+ * une largeur fixe ferait sauter la mise en page à chaque bascule du mode.
+ */
 .ghost-mode .ghost-blur {
-  filter: blur(6px);
+  position: relative;
+  color: transparent !important;
   user-select: none;
-  transition: filter 0.15s;
+  display: inline-block;
+  min-width: 4.5ch;
+  vertical-align: bottom;
+}
+.ghost-mode .ghost-blur::after {
+  content: "•••••";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  letter-spacing: 0.08em;
+  color: rgb(var(--c-slate-500) / 0.75);
+  transition: opacity 0.15s;
 }
 .ghost-mode .ghost-blur:hover {
-  filter: blur(0);
+  color: inherit !important;
 }
+.ghost-mode .ghost-blur:hover::after {
+  opacity: 0;
+}
+
+/* ═══════════════════ COMPOSITION DES MONTANTS ═════════════════════════════
+ * Les centimes et le symbole passent en retrait : sur un patrimoine à cinq
+ * chiffres, ils sont du bruit — mais les supprimer serait mentir. Les composer
+ * plus petits et plus clairs les garde disponibles sans qu'ils disputent la
+ * lecture à l'ordre de grandeur.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.montant-centimes {
+  font-size: 0.66em;
+  color: rgb(var(--c-slate-500));
+  font-weight: 400;
+}
+.montant-devise {
+  font-size: 0.66em;
+  color: rgb(var(--c-slate-400));
+}
+
+/* ═══════════════════ PULSATION À LA VARIATION ═════════════════════════════
+ * `useValeurAnimee` fait déjà filer un montant vers sa nouvelle valeur, pour
+ * une bonne raison : « un ajout de 150 € et une correction de 15 000 € se
+ * ressemblaient exactement ». Il manquait le SENS. Un halo bref le donne en
+ * 400 ms, là où le chiffre met une seconde à le révéler.
+ *
+ * L'animation est déclenchée par une DONNÉE qui change, donc potentiellement
+ * répétée à chaque rafraîchissement de cours : le respect du mouvement réduit
+ * n'est pas optionnel ici, il est traité par la règle globale plus bas.
+ */
+@keyframes pulse-hausse {
+  from { background-color: rgb(var(--c-emerald-400) / 0.26); }
+  to { background-color: transparent; }
+}
+@keyframes pulse-baisse {
+  from { background-color: rgb(var(--c-rose-400) / 0.26); }
+  to { background-color: transparent; }
+}
+.valeur-pulsante {
+  border-radius: 4px;
+  padding-inline: 0.15em;
+  margin-inline: -0.15em;
+}
+.valeur-pulsante[data-sens="hausse"] { animation: pulse-hausse 700ms ease-out; }
+.valeur-pulsante[data-sens="baisse"] { animation: pulse-baisse 700ms ease-out; }
 
 /*
  * Le mode Ghost s'appliquait montant par montant, via une classe posée à la
@@ -347,7 +1617,11 @@ input[type="checkbox"] {
  * l'ordre de la feuille déciderait du gagnant. */
 .text-slate-500,
 .text-slate-600 {
-  color: #94a3b8 !important;
+  /* `--c-slate-400` et non une valeur figée : la rampe étant miroir, cette
+     variable vaut slate-400 en sombre (6,96:1 sur slate-900) et slate-600 en
+     clair (8,2:1 sur slate-100). Une seule règle couvre donc les deux thèmes,
+     et le rapport de contraste ne peut pas se retourner par inadvertance. */
+  color: rgb(var(--c-slate-400)) !important;
 }
 
 /* ═══════════════════ MOBILE ONLY (≤767px) — desktop inchangé ═══════════════════ */
@@ -450,9 +1724,9 @@ input[type="checkbox"] {
  * indistinctement rendrait l'interface muette plutôt que calme.
  */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :root:not([data-mouvement="complet"]) *,
+  :root:not([data-mouvement="complet"]) *::before,
+  :root:not([data-mouvement="complet"]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

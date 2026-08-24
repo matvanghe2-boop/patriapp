@@ -564,7 +564,7 @@ export default function Simulation({
 
           {comparedScenarios.length > 0 && (
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm table-cards">
+              <table className="w-full text-sm table-cards table-dense">
                 <thead>
                   <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
                     <th className="py-2 pr-4">Scénario</th>
