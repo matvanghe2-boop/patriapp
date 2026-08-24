@@ -76,6 +76,7 @@ export function joursDeLAnnee(historique = [], an, aujourdHui = new Date()) {
   const fin = aujourdHui < finAnnee ? aujourdHui : finAnnee;
 
   const jours = [];
+  // Référence de comparaison : la dernière valeur relevée un JOUR OUVRÉ.
   let precedente = null;
   let datePrecedente = null;
 
@@ -89,7 +90,39 @@ export function joursDeLAnnee(historique = [], an, aujourdHui = new Date()) {
     const weekend = estWeekend(iso);
 
     if (valeur == null) {
-      jours.push({ date: iso, variation: null, depuis: null, joursCouverts: 0, variationParJour: null, weekend });
+      jours.push({
+        date: iso, releve: false, variation: null, depuis: null, joursCouverts: 0,
+        variationParJour: null, weekend, marcheFerme: weekend,
+      });
+      continue;
+    }
+
+    /*
+     * UN JOUR DE FERMETURE NE PORTE JAMAIS DE VARIATION.
+     *
+     * C'est le fond du problème, et le premier correctif ne l'avait
+     * qu'atténué : il annotait la variation du week-end au lieu de la
+     * supprimer. Or elle n'existe pas. Les marchés sont fermés le samedi et le
+     * dimanche ; un écart constaté ces jours-là vient nécessairement de la
+     * dernière séance — soit parce que le relevé du vendredi avait été pris
+     * avant la clôture, soit parce qu'aucun relevé n'a été pris ce jour-là.
+     *
+     * Les relevés de week-end ne servent donc PLUS DE RÉFÉRENCE : `precedente`
+     * n'est pas mis à jour. L'écart est reporté sur la séance suivante, qui
+     * l'affiche avec la période qu'il recouvre — « +420 € depuis le vendredi
+     * 6 mars, 3 jours ». Le samedi et le dimanche restent neutres, marqués
+     * « marché fermé ».
+     *
+     * Effet de bord assumé : un versement réellement effectué un samedi
+     * apparaîtra le lundi. C'est le bon compromis — cette application sert
+     * d'abord à suivre un portefeuille, et présenter un mouvement de marché un
+     * jour de fermeture était un contresens que l'usage révélait aussitôt.
+     */
+    if (weekend) {
+      jours.push({
+        date: iso, releve: true, variation: null, depuis: null, joursCouverts: 0,
+        variationParJour: null, weekend: true, marcheFerme: true,
+      });
       continue;
     }
 
@@ -101,11 +134,16 @@ export function joursDeLAnnee(historique = [], an, aujourdHui = new Date()) {
 
     jours.push({
       date: iso,
+      releve: true,
       variation,
       depuis: datePrecedente,
       joursCouverts,
+      // Ramené à la journée : un lundi qui absorbe le week-end couvre trois
+      // jours, et le peindre à pleine intensité en ferait une case criarde
+      // pour un rythme ordinaire.
       variationParJour: joursCouverts > 0 ? variation / joursCouverts : variation,
-      weekend,
+      weekend: false,
+      marcheFerme: false,
     });
 
     precedente = valeur;
@@ -155,7 +193,7 @@ export function construireRetrospective({
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 
   const jours = joursDeLAnnee(historyPast, an, aujourdHui);
-  const joursReleves = jours.filter((j) => j.variation != null).length;
+  const joursReleves = jours.filter((j) => j.releve).length;
 
   const debut = points.length ? lireNombre(points[0].value) : null;
   const fin = points.length ? lireNombre(points[points.length - 1].value) : null;

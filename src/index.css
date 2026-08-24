@@ -1189,12 +1189,12 @@
  * inchangé. Les valeurs claires sont calculées pour tenir au moins 4,6:1 sur
  * une carte claire.
  */
-:root { --l-teinte: var(--l-sombre); --a-carte: 0.12; --a-fond: 0.7; --l-fond: 12%; }
+:root { --l-teinte: var(--l-sombre); --a-carte: 0.12; --a-fond: 0.85; --l-fond: 20%; }
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="sombre"]) { --l-teinte: var(--l-clair); --a-carte: 0.1; --a-fond: 0.55; --l-fond: 92%; }
+  :root:not([data-theme="sombre"]) { --l-teinte: var(--l-clair); --a-carte: 0.1; --a-fond: 0.6; --l-fond: 93%; }
 }
-:root[data-theme="clair"] { --l-teinte: var(--l-clair); --a-carte: 0.1; --a-fond: 0.55; --l-fond: 92%; }
-:root[data-theme="sombre"] { --l-teinte: var(--l-sombre); --a-carte: 0.12; --a-fond: 0.7; --l-fond: 12%; }
+:root[data-theme="clair"] { --l-teinte: var(--l-clair); --a-carte: 0.1; --a-fond: 0.6; --l-fond: 93%; }
+:root[data-theme="sombre"] { --l-teinte: var(--l-sombre); --a-carte: 0.12; --a-fond: 0.85; --l-fond: 20%; }
 
 /* Couleurs composées, communes aux huit teintes. */
 [class*="teinte-"] {
@@ -1245,12 +1245,35 @@
 }
 
 /* Fond de page teinté. */
+/*
+ * Fond de page teinté par domaine.
+ *
+ * DEUX SOURCES DE LUMIÈRE plutôt qu'un dégradé linéaire unique. Le dégradé
+ * d'origine partait du coin haut-gauche et s'éteignait à 45 % : sur un fond
+ * déjà très sombre, la teinte n'était perceptible que sur les premiers
+ * centimètres, et complètement absente au-delà de la ligne de flottaison.
+ *
+ * Deux halos radiaux — un chaud en haut à gauche, un d'appoint en bas à
+ * droite — teintent toute la hauteur de l'écran sans jamais former de bande
+ * franche, et suivent l'onglet courant puisque la teinte est une variable.
+ *
+ * `background-attachment: fixed` : la teinte appartient à l'ÉCRAN, pas au
+ * document. Sans elle, un onglet long verrait le dégradé défiler et se vider
+ * de sa couleur en bas de page, exactement là où elle manquait déjà.
+ */
 .fond-domaine {
-  background-image: linear-gradient(
-    to bottom right,
-    hsl(var(--teinte-h) 60% var(--l-fond) / var(--a-fond)),
-    transparent 45%
-  );
+  background-image:
+    radial-gradient(
+      120% 85% at 12% -8%,
+      hsl(var(--teinte-h) 62% var(--l-fond) / var(--a-fond)),
+      transparent 62%
+    ),
+    radial-gradient(
+      90% 70% at 92% 104%,
+      hsl(var(--teinte-2-h, var(--teinte-h)) 58% var(--l-fond) / calc(var(--a-fond) * 0.66)),
+      transparent 60%
+    );
+  background-attachment: fixed;
 }
 
 /* Halos ambiants. */
@@ -1440,9 +1463,21 @@
   outline-offset: 1px;
 }
 
-/* Week-end : légèrement en retrait, pour que le rythme des semaines se lise
-   sans avoir à compter les lignes. */
-.calendrier-semaine button[data-weekend] { opacity: 0.72; }
+/* Marché fermé : une case rayée, ni colorée ni vide.
+ *
+ * Elle ne peut pas ressembler à « pas de relevé » — on SAIT ce qui s'est passé
+ * ce jour-là, à savoir rien — ni à une variation nulle, qui est un résultat de
+ * séance. La rayure dit « hors séance » sans mobiliser de couleur, donc sans
+ * entrer en concurrence avec l'échelle hausse/baisse.
+ */
+.calendrier-semaine button[data-ferme] {
+  background: repeating-linear-gradient(
+    45deg,
+    rgb(var(--c-slate-800)) 0 2px,
+    transparent 2px 4px
+  );
+  opacity: 0.8;
+}
 
 /* Cases de remplissage avant le 1er janvier ou après le dernier jour : elles
    tiennent l'alignement, elles ne représentent aucun jour. */
@@ -1542,6 +1577,13 @@
   border-left: 1px solid rgb(var(--c-slate-800));
 }
 .calendrier-legende-vide { background: rgb(var(--c-slate-800)); }
+.calendrier-legende-ferme {
+  background: repeating-linear-gradient(
+    45deg,
+    rgb(var(--c-slate-800)) 0 2px,
+    transparent 2px 4px
+  );
+}
 
 /* ── Comparaison d'années ───────────────────────────────────────────────── */
 .calendrier-compare { display: flex; flex-direction: column; gap: 1rem; }
@@ -2105,7 +2147,16 @@
   .coquille-zone {
     border: 1px solid rgb(var(--c-slate-800));
     border-radius: 1rem;
-    background: rgb(var(--c-slate-950));
+    /*
+     * `background-color` et NON le raccourci `background`.
+     *
+     * Le raccourci réinitialise toutes les sous-propriétés qu'il ne mentionne
+     * pas, `background-image` comprise. Or c'est le même élément qui porte
+     * `.fond-domaine` : le dégradé teinté de chaque onglet était donc effacé,
+     * et l'application se retrouvait uniformément grise, sans plus aucune
+     * couleur de domaine derrière les widgets.
+     */
+    background-color: rgb(var(--c-slate-950));
     box-shadow: 0 24px 60px -40px rgb(0 0 0 / 0.9);
     overflow: clip;
   }

@@ -160,32 +160,58 @@ describe("utilitaires", () => {
 });
 
 describe("variations et jours fermés", () => {
-  it("dit sur quelle période porte l'écart", () => {
-    // Le bug rapporté : une variation affichée un DIMANCHE, marchés fermés,
-    // sans qu'aucun argent n'ait bougé. L'écart était réel mais appartenait au
-    // dernier jour ouvré — l'application ne le disait pas.
+  it("ne porte AUCUNE variation un jour de fermeture", () => {
+    // Le bug rapporté, dans sa forme définitive : les marchés sont fermés le
+    // samedi et le dimanche. Un écart constaté ces jours-là vient
+    // nécessairement de la dernière séance — l'annoter ne suffisait pas, il
+    // fallait cesser de l'y afficher.
     const jours = joursDeLAnnee(
-      [releve("2026-03-05", 50000), releve("2026-03-08", 50420)],
+      [releve("2026-03-05", 50000), releve("2026-03-07", 50420), releve("2026-03-08", 50420)],
       2026,
       new Date("2026-03-09T12:00:00")
     );
-    const dimanche = jours.find((j) => j.date === "2026-03-08");
-    expect(dimanche.variation).toBe(420);
-    expect(dimanche.depuis).toBe("2026-03-05");
-    expect(dimanche.joursCouverts).toBe(3);
-    expect(dimanche.weekend).toBe(true);
+    for (const iso of ["2026-03-07", "2026-03-08"]) {
+      const j = jours.find((x) => x.date === iso);
+      expect(j.variation).toBeNull();
+      expect(j.marcheFerme).toBe(true);
+    }
+  });
+
+  it("reporte l'écart du week-end sur la séance suivante", () => {
+    const jours = joursDeLAnnee(
+      [releve("2026-03-05", 50000), releve("2026-03-08", 50420), releve("2026-03-09", 50420)],
+      2026,
+      new Date("2026-03-10T12:00:00")
+    );
+    const lundi = jours.find((j) => j.date === "2026-03-09");
+    expect(lundi.variation).toBe(420);
+    expect(lundi.depuis).toBe("2026-03-05");
+    expect(lundi.joursCouverts).toBe(4);
+    expect(lundi.marcheFerme).toBe(false);
+  });
+
+  it("n'utilise pas un relevé de week-end comme référence", () => {
+    // Sans cela, un relevé du samedi deviendrait le point de comparaison du
+    // lundi, et l'écart du vendredi disparaîtrait purement et simplement.
+    const jours = joursDeLAnnee(
+      [releve("2026-03-06", 100), releve("2026-03-07", 180), releve("2026-03-09", 200)],
+      2026,
+      new Date("2026-03-10T12:00:00")
+    );
+    expect(jours.find((j) => j.date === "2026-03-09").variation).toBe(100);
   });
 
   it("ramène l'intensité à la journée", () => {
-    // Sans cela, un relevé qui suit trois jours de silence peindrait une case
-    // trois fois plus vive que ses voisines pour un rythme identique.
+    // Sans cela, un lundi qui absorbe le week-end peindrait une case trois
+    // fois plus vive que ses voisines pour un rythme identique.
     const jours = joursDeLAnnee(
-      [releve("2026-03-05", 50000), releve("2026-03-08", 50300)],
+      [releve("2026-03-05", 50000), releve("2026-03-09", 50400)],
       2026,
-      new Date("2026-03-09T12:00:00")
+      new Date("2026-03-10T12:00:00")
     );
-    const dimanche = jours.find((j) => j.date === "2026-03-08");
-    expect(dimanche.variationParJour).toBe(100);
+    const lundi = jours.find((j) => j.date === "2026-03-09");
+    expect(lundi.joursCouverts).toBe(4);
+    expect(lundi.variationParJour).toBe(100);
   });
 
   it("reconnaît samedi et dimanche", () => {

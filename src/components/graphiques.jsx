@@ -394,14 +394,14 @@ const formatCourt = (n) => {
 export function decrireJour(jour, format = formatDefaut) {
   if (!jour) return "";
   const date = libelleDate(jour.date);
+  // Trois états distincts, et les confondre serait mensonger : « marché
+  // fermé » n'est pas « pas de relevé », qui n'est pas « variation nulle ».
+  if (jour.marcheFerme) return `${date} — marché fermé`;
   if (jour.variation == null) return `${date} — pas de relevé`;
 
   const morceaux = [`${date} — ${format(jour.variation)}`];
   if (jour.joursCouverts > 1 && jour.depuis) {
     morceaux.push(`depuis le ${libelleDate(jour.depuis)} (${jour.joursCouverts} jours)`);
-  }
-  if (jour.weekend && jour.variation !== 0) {
-    morceaux.push("marché fermé ce jour-là : l'écart vient des séances précédentes");
   }
   return morceaux.join(" · ");
 }
@@ -437,7 +437,9 @@ export function CalendrierAnnuel({
 
   const semaines = useMemo(() => decouperEnSemaines(jours), [jours]);
   const totaux = useMemo(() => totauxParMois(jours), [jours]);
-  const reels = useMemo(() => jours.filter((j) => j.variation != null), [jours]);
+  // « Relevé » = l'application est passée ce jour-là. C'est distinct de « porte
+  // une variation », qu'un jour de fermeture n'a jamais.
+  const reels = useMemo(() => jours.filter((j) => j.releve ?? j.variation != null), [jours]);
 
   /*
    * Les variations sont réparties en trois crans par rapport à la DISTRIBUTION
@@ -554,6 +556,7 @@ export function CalendrierAnnuel({
                         data-n={jour.variation == null ? undefined : niveau(jour)}
                         data-mois={Number(jour.date.slice(5, 7))}
                         data-weekend={jour.weekend || undefined}
+                        data-ferme={jour.marcheFerme || undefined}
                         // Une seule case dans l'ordre de tabulation : les
                         // flèches font le reste.
                         tabIndex={jour.date === premierFocusable ? 0 : -1}
@@ -600,7 +603,9 @@ export function CalendrierAnnuel({
         {actif ? (
           <>
             <span className="calendrier-detail-date">{libelleDate(actif.date)}</span>
-            {actif.variation == null ? (
+            {actif.marcheFerme ? (
+              <span className="calendrier-detail-vide">marché fermé — aucune séance ce jour-là</span>
+            ) : actif.variation == null ? (
               <span className="calendrier-detail-vide">pas de relevé ce jour-là</span>
             ) : (
               <>
@@ -614,11 +619,6 @@ export function CalendrierAnnuel({
                 {actif.joursCouverts > 1 && actif.depuis && (
                   <span className="calendrier-detail-note">
                     sur {actif.joursCouverts} jours, depuis le {libelleDate(actif.depuis)}
-                  </span>
-                )}
-                {actif.weekend && actif.variation !== 0 && (
-                  <span className="calendrier-detail-alerte">
-                    marché fermé — l'écart vient des séances précédentes
                   </span>
                 )}
               </>
@@ -644,6 +644,9 @@ export function CalendrierAnnuel({
         <span>hausse</span>
         <span className="calendrier-legende-sep">
           <i className="calendrier-legende-vide" /> pas de relevé
+        </span>
+        <span className="calendrier-legende-sep">
+          <i className="calendrier-legende-ferme" /> marché fermé
         </span>
       </div>
     </div>

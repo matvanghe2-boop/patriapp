@@ -262,18 +262,24 @@ describe("CalendrierAnnuel — lisibilité des périodes", () => {
 });
 
 describe("CalendrierAnnuel — contexte des variations", () => {
-  const j = (date, o = {}) => ({ date, variation: 0, variationParJour: 0, depuis: null, joursCouverts: 1, weekend: false, ...o });
+  const j = (date, o = {}) => ({ date, releve: true, variation: 0, variationParJour: 0, depuis: null, joursCouverts: 1, weekend: false, marcheFerme: false, ...o });
 
-  it("dit la période couverte et l'ouverture des marchés", () => {
-    // Le bug rapporté : une variation affichée un dimanche, marchés fermés,
-    // sans qu'aucun argent n'ait bougé.
-    const texte = decrireJour(
-      j("2026-03-08", { variation: 420, variationParJour: 140, depuis: "2026-03-05", joursCouverts: 3, weekend: true })
-    );
+  it("dit « marché fermé » et rien d'autre un jour de fermeture", () => {
+    // Le bug rapporté, dans sa forme définitive : plus aucune variation n'est
+    // portée par un samedi ou un dimanche.
+    const texte = decrireJour(j("2026-03-08", { variation: null, marcheFerme: true, weekend: true }));
     expect(texte).toContain("dimanche 8 mars 2026");
-    expect(texte).toContain("+420");
-    expect(texte).toContain("3 jours");
     expect(texte).toContain("marché fermé");
+    expect(texte).not.toContain("€");
+  });
+
+  it("dit la période couverte quand un jour ouvré absorbe le week-end", () => {
+    const texte = decrireJour(
+      j("2026-03-09", { variation: 420, variationParJour: 105, depuis: "2026-03-05", joursCouverts: 4 })
+    );
+    expect(texte).toContain("lundi 9 mars 2026");
+    expect(texte).toContain("+420");
+    expect(texte).toContain("4 jours");
   });
 
   it("reste sobre sur un relevé quotidien ordinaire", () => {
