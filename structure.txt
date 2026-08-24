@@ -212,6 +212,8 @@ src/lib/objectifs.js
 src/lib/objectifs.test.js
 src/lib/portefeuilleSante.js
 src/lib/portefeuilleSante.test.js
+src/lib/rattrapage.js
+src/lib/rattrapage.test.js
 src/lib/retrospective.js
 src/lib/retrospective.test.js
 src/lib/sectors.js

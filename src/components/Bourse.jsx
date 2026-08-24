@@ -9,7 +9,15 @@ import OngletsGlissants from "./OngletsGlissants";
 import EtatVide from "./EtatVide";
 import { useTirerPourRafraichir, IndicateurRafraichissement, useBalayageSuppression } from "./gestes";
 import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux, lireNombre } from "../lib/finance";
-import { searchSecurity, fetchQuotes, fetchTauxChange } from "../lib/api";
+import { searchSecurity, fetchQuotes, fetchTauxChange, fetchHistory } from "../lib/api";
+import {
+  plagePour,
+  joursManquants,
+  reconstituer,
+  indexerClotures,
+  datesCotees,
+  ABSENCE_MAX_JOURS,
+} from "../lib/rattrapage";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
 
@@ -38,11 +46,16 @@ function formatDateFrShort(iso) {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+// `cle` est le nom sous lequel l'indice est rangé dans `bourseHistory`. Il
+// vivait jusqu'ici en dur dans `captureSnapshot` ; le rattrapage en a besoin
+// aussi, et deux listes qui doivent rester d'accord sans que rien ne le
+// vérifie finissent toujours par diverger.
 const BENCHMARKS = [
-  { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8" },
-  { symbol: "^FCHI", name: "CAC 40", color: "#a78bfa" },
-  { symbol: "URTH", name: "MSCI World", color: "#34d399" },
+  { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8", cle: "sp500" },
+  { symbol: "^FCHI", name: "CAC 40", color: "#a78bfa", cle: "cac40" },
+  { symbol: "URTH", name: "MSCI World", color: "#34d399", cle: "msciWorld" },
 ];
+const CLES_INDICE = Object.fromEntries(BENCHMARKS.map((b) => [b.symbol, b.cle]));
 const PIE_PALETTE = ["#a78bfa", "#d946ef", "#818cf8", "#c084fc", "#22d3ee", "#f472b6", "#8b5cf6", "#e879f9"];
 
 const today = () => todayIso();
@@ -773,14 +786,78 @@ export default function Bourse({
     }
   };
 
+  /**
+   * Rattrapage des jours d'absence.
+   *
+   * Le relevé ci-dessus ne sait prendre que le jour même. Une semaine sans
+   * ouvrir l'application laisse donc sept trous que rien ne comblera jamais :
+   * ni le calendrier de la rétrospective, ni les courbes, ni le TWR n'ont de
+   * quoi les remplir.
+   *
+   * On les reconstitue à partir des CLÔTURES RÉELLES et du journal d'opérations,
+   * qui est daté. C'est plus juste qu'un relevé pris en séance, et cela ne
+   * demande aucune infrastructure : pas de travail planifié côté serveur, donc
+   * pas de clé de service capable de lire les données de tous les utilisateurs.
+   */
+  const rattraperHistorique = async () => {
+    // Sans relevé antérieur, il n'y a pas d'absence à combler : il y a un
+    // début. Reconstituer une année à partir d'un portefeuille qui n'existait
+    // pas encore tracerait une ligne plate à zéro — du bruit présenté comme de
+    // l'histoire.
+    if (bourseHistory.length === 0) return;
+
+    const dernier = bourseHistory.map((e) => e.date).filter(Boolean).sort().at(-1);
+    const absence = Math.round(
+      (new Date(`${today()}T00:00:00`) - new Date(`${dernier}T00:00:00`)) / 86400000
+    );
+    // Un seul jour d'écart, c'est le rythme normal : hier relevé, aujourd'hui
+    // ouvert. Au-delà d'un an, ce n'est plus une absence.
+    if (absence < 2 || absence > ABSENCE_MAX_JOURS) return;
+
+    const tickers = [...new Set(bourse.positions.map((p) => p.ticker))];
+    const symboles = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
+
+    try {
+      // `interval=1d` explicitement : sur une plage courte la route descendrait
+      // d'elle-même en intraday, ce qui multiplierait le volume par cinquante
+      // pour une information — la clôture — qu'on peut demander directement.
+      const reponses = await fetchHistory(symboles, plagePour(absence), "1d");
+      const clotures = indexerClotures(reponses);
+      const dates = joursManquants(bourseHistory, datesCotees(clotures), today());
+      const releves = reconstituer({ bourse, dates, clotures, indices: CLES_INDICE });
+      if (releves.length === 0) return;
+
+      const avant = bourseHistory;
+      setBourseHistory((h) => releves.reduce(upsertByDate, h));
+      showToast({
+        message: `${releves.length} jour${releves.length > 1 ? "s" : ""} d'absence reconstitué${
+          releves.length > 1 ? "s" : ""
+        } à partir des clôtures.`,
+        onUndo: () => setBourseHistory(avant),
+      });
+    } catch {
+      // Un rattrapage qui échoue laisse l'historique tel quel. C'est un
+      // confort : rien dans l'onglet n'en dépend, et une erreur affichée ici
+      // ferait passer pour une panne ce qui n'est qu'une donnée absente.
+    }
+  };
+
   useEffect(() => {
     const hasToday = bourseHistory.some((e) => e.date === today());
     // Effet de CHARGEMENT : Relevé de performance du jour au montage :
     // `captureSnapshot` lève son propre témoin de chargement avant d'interroger
     // le réseau. C'est la définition même d'un effet — synchroniser avec un
     // système externe.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!hasToday) captureSnapshot(true);
+    //
+    // Le rattrapage passe D'ABORD : il remonte le temps, le relevé écrit le
+    // présent. Dans l'ordre inverse, le message de rattrapage arriverait après
+    // le point du jour, sans qu'on sache à quoi il se rapporte.
+    //
+    // Plus de `set-state-in-effect` à museler ici : les deux écritures d'état
+    // partent désormais d'une continuation asynchrone, pas du corps de l'effet.
+    rattraperHistorique().finally(() => {
+      if (!hasToday) captureSnapshot(true);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
