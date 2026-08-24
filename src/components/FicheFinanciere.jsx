@@ -106,9 +106,9 @@ function HistoriqueRatios({ historique, valeursCourantes }) {
               <span className="text-xs text-slate-400 truncate">{r.libelle}</span>
               <span className="flex items-baseline gap-2 shrink-0">
                 <span className={`text-xs font-data tabular-nums font-semibold ${ton.classe}`}>{fmt(r.courant)}</span>
-                <span className="text-[10px] text-slate-600 font-data tabular-nums">moy. {fmt(r.moyenne)}</span>
+                <span className="text-micro text-slate-600 font-data tabular-nums">moy. {fmt(r.moyenne)}</span>
                 {r.ecartPct != null && Math.abs(r.ecartPct) >= 5 && (
-                  <span className={`text-[10px] font-data ${ton.classe}`}>
+                  <span className={`text-micro font-data ${ton.classe}`}>
                     {r.ecartPct > 0 ? "+" : ""}{r.ecartPct.toFixed(0)} %
                   </span>
                 )}
@@ -118,7 +118,7 @@ function HistoriqueRatios({ historique, valeursCourantes }) {
         })}
       </div>
 
-      <p className="text-[11px] text-slate-600 mt-3">
+      <p className="text-micro text-slate-600 mt-3">
         Le PER historique est calculé exercice par exercice, à partir du cours de clôture de l'époque
         et du bénéfice par action dilué publié — pas du nombre d'actions d'aujourd'hui, qui fausserait
         toute société ayant racheté ses titres.
@@ -144,10 +144,10 @@ function GraphiqueHistorique({ historique }) {
     <div className="h-56 mt-2">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={donnees} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-          <XAxis dataKey="exercice" stroke="#64748b" fontSize={11} axisLine={false} tickLine={false} />
-          <YAxis yAxisId="gauche" stroke="#64748b" fontSize={10} tickFormatter={compact} width={52} axisLine={false} tickLine={false} />
-          <YAxis yAxisId="droite" orientation="right" stroke="#64748b" fontSize={10} tickFormatter={(v) => `${v.toFixed(0)}%`} width={38} axisLine={false} tickLine={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-slate-800))" vertical={false} />
+          <XAxis dataKey="exercice" stroke="rgb(var(--c-slate-500))" fontSize={11} axisLine={false} tickLine={false} />
+          <YAxis yAxisId="gauche" stroke="rgb(var(--c-slate-500))" fontSize={10} tickFormatter={compact} width={52} axisLine={false} tickLine={false} />
+          <YAxis yAxisId="droite" orientation="right" stroke="rgb(var(--c-slate-500))" fontSize={10} tickFormatter={(v) => `${v.toFixed(0)}%`} width={38} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
             formatter={(v, nom) => (nom === "Marge nette" ? `${v?.toFixed(1)} %` : compact(v))}
@@ -179,9 +179,9 @@ function TableauExercices({ historique }) {
 
   return (
     <div className="overflow-x-auto mt-3">
-      <table className="w-full text-xs table-cards table-dense">
+      <table className="w-full text-xs table-cards table-donnees">
         <thead>
-          <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+          <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
             <th className="py-2 pr-3">Poste</th>
             {recents.map((e) => (
               <th key={e.exercice} className="py-2 pr-3 text-right">{anneeDe(e.exercice)}</th>
@@ -238,28 +238,28 @@ function BlocConsensus({ consensus, cours, devise }) {
           const perEstime = cours != null && e.bpaEstime > 0 ? cours / e.bpaEstime : null;
           return (
             <div key={e.exercice} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-              <div className="text-[11px] text-slate-500 uppercase tracking-wide">
+              <div className="text-micro text-slate-500 uppercase tracking-wide">
                 Exercice {anneeDe(e.exercice)}
               </div>
               <div className="font-display text-lg text-amber-300 mt-0.5">
                 PER {perEstime != null ? perEstime.toFixed(1) : NON_RENSEIGNE} ×
               </div>
-              <div className="text-[11px] text-slate-400 mt-1">
+              <div className="text-micro text-slate-400 mt-1">
                 BPA attendu {e.bpaEstime?.toFixed(2)} {devise || ""}
               </div>
               {e.croissanceEstimeePct != null && (
-                <div className="text-[11px] text-slate-500">
+                <div className="text-micro text-slate-500">
                   Croissance attendue {fmtPct(e.croissanceEstimeePct)}
                 </div>
               )}
-              <div className="text-[10px] text-slate-600 mt-1.5">
+              <div className="text-micro text-slate-600 mt-1.5">
                 {e.numAnalystes ? `${e.numAnalystes} analyste(s)` : "nombre d'analystes non publié"}
               </div>
             </div>
           );
         })}
       </div>
-      <p className="text-[11px] text-slate-600 mt-3">
+      <p className="text-micro text-slate-600 mt-3">
         Le consensus s'arrête à l'exercice suivant : la source ne publie pas au-delà. Une troisième
         année ne pourrait qu'être extrapolée, ce qui reviendrait à afficher une invention à côté de
         données réelles.

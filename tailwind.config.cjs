@@ -26,6 +26,28 @@ module.exports = {
   darkMode: ["class", "[data-theme=\"sombre\"]"],
   theme: {
     extend: {
+      /*
+       * ÉCHELLE TYPOGRAPHIQUE.
+       *
+       * Le projet comptait 298 `text-[11px]` et 85 `text-[10px]` — trois cent
+       * quatre-vingt-trois tailles arbitraires, sans échelle. Une taille
+       * arbitraire n'exprime aucune hiérarchie : elle dit seulement que
+       * quelqu'un a trouvé que ça allait bien à cet endroit-là, et la question
+       * « quelle taille ici ? » reste une préférence au lieu d'être décidable.
+       *
+       * Cinq crans NOMMÉS PAR LEUR RÔLE, chacun avec son interlignage et son
+       * interlettrage. Le plancher est à 11 px : le 10 px employé jusque-là
+       * pour les pastilles descendait sous le seuil de lecture confortable, et
+       * l'écart avec 11 px n'apportait rien qu'on puisse défendre.
+       */
+      fontSize: {
+        micro: ["0.6875rem", { lineHeight: "1.45", letterSpacing: "0.04em" }],
+        mini: ["0.75rem", { lineHeight: "1.5" }],
+        corps: ["0.875rem", { lineHeight: "1.55" }],
+        lead: ["1.0625rem", { lineHeight: "1.4", letterSpacing: "-0.005em" }],
+        chiffre: ["1.75rem", { lineHeight: "1.1", letterSpacing: "-0.02em" }],
+        vedette: ["2.5rem", { lineHeight: "1.05", letterSpacing: "-0.03em" }],
+      },
       colors: {
             "slate": {
                   "50": "rgb(var(--c-slate-50) / <alpha-value>)",

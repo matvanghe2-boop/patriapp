@@ -27,9 +27,9 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
 
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-sm min-w-[760px] table-cards table-dense">
+      <table className="w-full text-sm min-w-[760px] table-cards table-donnees">
         <thead>
-          <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+          <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
             <th className="py-2 px-1">Date</th>
             <th className="py-2 px-1">Actif</th>
             <th className="py-2 px-1">Type</th>
@@ -63,7 +63,7 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
               </td>
               <td data-label="Type" className="py-2.5 px-1">
                 <span
-                  className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${
+                  className={`text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${
                     op.type === "ACHAT"
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                       : op.type === "DIVIDENDE"

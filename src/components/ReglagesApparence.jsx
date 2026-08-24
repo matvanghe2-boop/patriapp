@@ -85,7 +85,7 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
               );
             })}
           </div>
-          <p className="text-[11px] text-slate-500 mt-2">
+          <p className="text-micro text-slate-500 mt-2">
             {THEMES_AFFICHAGE.find((t) => t.id === theme)?.detail}
           </p>
         </Groupe>
@@ -113,7 +113,7 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
               );
             })}
           </div>
-          <p className="text-[11px] text-slate-500 mt-2">
+          <p className="text-micro text-slate-500 mt-2">
             Teinte des boutons, des anneaux et des repères. Survole une pastille pour voir l'effet
             avant de choisir. Chaque onglet garde par ailleurs sa propre couleur de domaine.
           </p>
@@ -139,7 +139,7 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
                   <Icone size={16} aria-hidden="true" className="shrink-0" />
                   <span>
                     <span className="block font-medium">{d.libelle}</span>
-                    <span className="block text-[10px] opacity-70">{d.detail}</span>
+                    <span className="block text-micro opacity-70">{d.detail}</span>
                   </span>
                 </button>
               );
@@ -211,7 +211,7 @@ function Bascule({ icone: Icone, titre, detail, valeur, onChange, surTrois = fal
       <Icone size={15} className="text-slate-500 shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="text-sm text-slate-200">{titre}</p>
-        <p className="text-[11px] text-slate-500 leading-snug">{detail}</p>
+        <p className="text-micro text-slate-500 leading-snug">{detail}</p>
       </div>
       <div role="group" aria-label={titre} className="flex rounded-lg border border-slate-700 overflow-hidden shrink-0">
         {etats.map((e) => (
@@ -219,7 +219,7 @@ function Bascule({ icone: Icone, titre, detail, valeur, onChange, surTrois = fal
             key={String(e.v)}
             onClick={() => onChange(e.v)}
             aria-pressed={valeur === e.v}
-            className={`px-2.5 py-1 text-[11px] transition-colors ${
+            className={`px-2.5 py-1 text-micro transition-colors ${
               valeur === e.v ? "bg-amber-400/15 text-amber-200" : "text-slate-500 hover:text-slate-300"
             }`}
           >

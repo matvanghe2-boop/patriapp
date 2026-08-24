@@ -182,7 +182,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
 
         {/* Actif */}
         <div>
-          <label htmlFor={`${idsChamps}-actif`} className="text-[11px] text-slate-500">Actif</label>
+          <label htmlFor={`${idsChamps}-actif`} className="text-micro text-slate-500">Actif</label>
           <input id={`${idsChamps}-actif`}
             list="operation-assets"
             required
@@ -201,7 +201,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
 
         {isSplit ? (
           <div>
-            <label htmlFor={`${idsChamps}-nombre-de-titres`} className="text-[11px] text-slate-500">
+            <label htmlFor={`${idsChamps}-nombre-de-titres`} className="text-micro text-slate-500">
               Nombre de titres obtenus pour 1 titre détenu
             </label>
             <input id={`${idsChamps}-nombre-de-titres`}
@@ -214,7 +214,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
               onChange={(e) => setValues((v) => ({ ...v, ratio: e.target.value }))}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60"
             />
-            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+            <p className="text-micro text-slate-500 mt-1.5 leading-relaxed">
               Ta quantité est multipliée par ce ratio et ton prix de revient divisé par lui : la
               valeur totale de la ligne ne change pas d&apos;un centime, et aucun argent ne bouge.
               Sans cette écriture, la position resterait comptée à l&apos;ancienne quantité face à
@@ -223,7 +223,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           </div>
         ) : isDividende ? (
           <div>
-            <label htmlFor={`${idsChamps}-montant-du-dividende`} className="text-[11px] text-slate-500">Montant du dividende reçu (€)</label>
+            <label htmlFor={`${idsChamps}-montant-du-dividende`} className="text-micro text-slate-500">Montant du dividende reçu (€)</label>
             <input id={`${idsChamps}-montant-du-dividende`}
               required
               type="number"
@@ -237,7 +237,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         ) : (
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label htmlFor={`${idsChamps}-quantite`} className="text-[11px] text-slate-500">Quantité</label>
+            <label htmlFor={`${idsChamps}-quantite`} className="text-micro text-slate-500">Quantité</label>
             <input id={`${idsChamps}-quantite`}
               required
               type="number"
@@ -249,7 +249,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
             />
           </div>
           <div>
-            <label htmlFor={`${idsChamps}-prix-unitaire`} className="text-[11px] text-slate-500">Prix unitaire (€)</label>
+            <label htmlFor={`${idsChamps}-prix-unitaire`} className="text-micro text-slate-500">Prix unitaire (€)</label>
             <input id={`${idsChamps}-prix-unitaire`}
               required
               type="number"
@@ -261,7 +261,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
             />
           </div>
           <div>
-            <label htmlFor={`${idsChamps}-frais`} className="text-[11px] text-slate-500">Frais (€)</label>
+            <label htmlFor={`${idsChamps}-frais`} className="text-micro text-slate-500">Frais (€)</label>
             <input id={`${idsChamps}-frais`}
               type="number"
               step="0.01"
@@ -276,7 +276,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
         )}
 
         <div>
-          <label htmlFor={`${idsChamps}-date`} className="text-[11px] text-slate-500">Date</label>
+          <label htmlFor={`${idsChamps}-date`} className="text-micro text-slate-500">Date</label>
           <input id={`${idsChamps}-date`}
             required
             type="date"

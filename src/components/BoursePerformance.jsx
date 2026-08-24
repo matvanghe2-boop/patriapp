@@ -46,7 +46,7 @@ function BenchmarkGauge({ label, value, target, unit = "", higherIsBetter = true
   if (value == null || !Number.isFinite(value)) return null;
   const good = higherIsBetter ? value >= target : value <= target;
   return (
-    <div className="flex items-center justify-between gap-2 text-[11px] py-1 border-b border-slate-800/60 last:border-0">
+    <div className="flex items-center justify-between gap-2 text-micro py-1 border-b border-slate-800/60 last:border-0">
       <span className="text-slate-500">{label}</span>
       <span className="flex items-center gap-1.5">
         <span className={`font-data tabular-nums ${good ? "text-emerald-400" : "text-amber-300"}`}>
@@ -65,11 +65,11 @@ function MetricCard({ icon: Icon, label, value, sub, tone = "slate", valueSensit
   }[tone];
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+      <div className="flex items-center gap-1.5 text-micro uppercase tracking-wide text-slate-500 mb-1">
         {Icon && <Icon size={11} />} {label}
       </div>
       <div className={`font-display text-lg ${toneClass} ${valueSensitive ? "ghost-blur" : ""}`}>{value}</div>
-      {sub && <div className={`text-[11px] text-slate-500 mt-0.5 ${subSensitive ? "ghost-blur" : ""}`}>{sub}</div>}
+      {sub && <div className={`text-micro text-slate-500 mt-0.5 ${subSensitive ? "ghost-blur" : ""}`}>{sub}</div>}
     </div>
   );
 }
@@ -81,7 +81,7 @@ function RangeSelector({ range, setRange }) {
         <button
           key={r}
           onClick={() => setRange(r)}
-          className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${
+          className={`text-micro font-medium px-2.5 py-1 rounded-md transition-colors ${
             range === r ? "bg-violet-500/20 text-violet-300 border border-violet-500/40" : "text-slate-500 hover:text-slate-300"
           }`}
         >
@@ -208,7 +208,7 @@ function BenchmarkCompareTooltip({ active, payload, label }) {
           </span>
         </div>
       ))}
-      <div className="text-[10px] text-slate-600 pt-1">Base 100 au premier jour de la période affichée.</div>
+      <div className="text-micro text-slate-600 pt-1">Base 100 au premier jour de la période affichée.</div>
     </div>
   );
 }
@@ -216,7 +216,7 @@ function BenchmarkCompareTooltip({ active, payload, label }) {
 /** Petite pastille de légende réutilisée sous les graphiques. */
 function ChartLegendItem({ color, label, shape = "dot" }) {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+    <span className="flex items-center gap-1.5 text-micro text-slate-400">
       {shape === "dot" ? (
         <span className="w-2.5 h-2.5 rounded-full border border-slate-950" style={{ background: color }} />
       ) : (
@@ -352,7 +352,7 @@ export default function PerformanceTab({
           {trackLoading ? "Mise à jour..." : "Actualiser le suivi"}
         </button>
       </div>
-      {trackError && <p className="text-[11px] text-amber-300/80">{trackError}</p>}
+      {trackError && <p className="text-micro text-amber-300/80">{trackError}</p>}
        
        {/* Gestion des points d'historique (suppression d'un jour aberrant) */}
       {bourseHistory.length > 0 && (
@@ -386,7 +386,7 @@ export default function PerformanceTab({
           <Card accent={CARD_THEMES.violet}>
             <CardLabel icon={Target}>Indicateurs de performance</CardLabel>
             {bourseHistory.length < MIN_POINTS_FOR_STATS && (
-              <p className="text-[11px] text-amber-300/80 -mt-1 mb-2 flex items-center gap-1.5">
+              <p className="text-micro text-amber-300/80 -mt-1 mb-2 flex items-center gap-1.5">
                 <Info size={12} className="shrink-0" />
                 Certains indicateurs (volatilité, Sharpe, alpha/bêta, rendement annualisé) ne s'affichent qu'à partir d'un historique
                 suffisant ({bourseHistory.length} j sur {MIN_POINTS_FOR_STATS}-{MIN_DAYS_FOR_ANNUALIZATION} j requis) — sur trop peu de
@@ -463,7 +463,7 @@ export default function PerformanceTab({
 
             {/* Repères marché */}
             <div className="mt-4 pt-3 border-t border-slate-800">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+              <div className="flex items-center gap-1.5 text-micro uppercase tracking-wide text-slate-500 mb-1">
                 <Info size={11} /> Repères de marché (indicatif)
               </div>
               <div className="grid sm:grid-cols-2 gap-x-6">
@@ -516,7 +516,7 @@ export default function PerformanceTab({
                   ["1A", rolling.y1], ["YTD", rolling.ytd], ["Origine", rolling.sinceOrigin],
                 ].map(([label, val]) => (
                   <div key={label} className="text-center">
-                    <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+                    <div className="text-micro uppercase tracking-wide text-slate-500">{label}</div>
                     <div className={`font-data tabular-nums text-sm mt-0.5 ${val == null ? "text-slate-600" : val >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                       {val != null ? pct(val) : "—"}
                     </div>
@@ -575,14 +575,14 @@ export default function PerformanceTab({
                       <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 5" vertical={false} />
+                  <CartesianGrid stroke="rgb(var(--c-slate-800))" strokeDasharray="0" vertical={false} />
                   <XAxis
                     dataKey="date" tickFormatter={formatDateShort}
-                    tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false}
+                    tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }} axisLine={false} tickLine={false}
                     minTickGap={60} tickMargin={10}
                   />
                   <YAxis
-                    tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 11 }}
+                    tickFormatter={compact} tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }}
                     axisLine={false} tickLine={false} width={56} tickMargin={6} tickCount={6}
                     domain={[(min) => min * 0.97, (max) => max * 1.03]}
                   />
@@ -596,7 +596,7 @@ export default function PerformanceTab({
                     const next = drawdownSeries[i + 1];
                     if (!next) return null;
                     return (
-                      <ReferenceArea key={d.date} x1={d.date} x2={next.date} fill="#64748b" fillOpacity={0.1} strokeOpacity={0} />
+                      <ReferenceArea key={d.date} x1={d.date} x2={next.date} fill="rgb(var(--c-slate-500))" fillOpacity={0.1} strokeOpacity={0} />
                     );
                   })}
                   <Area
@@ -608,7 +608,7 @@ export default function PerformanceTab({
                   <Line
                     type="monotone" dataKey="capital" name="Capital investi"
                     stroke="#94a3b8" strokeWidth={1.75} strokeDasharray="5 4" dot={false}
-                    activeDot={{ r: 3.5, fill: "#94a3b8", stroke: "#020617", strokeWidth: 2 }}
+                    activeDot={{ r: 3.5, fill: "rgb(var(--c-slate-400))", stroke: "#020617", strokeWidth: 2 }}
                     animationDuration={450}
                   />
                   {/* Achats (vert), ventes (rouge) et dividendes (bleu) posés sur la courbe */}
@@ -633,7 +633,7 @@ export default function PerformanceTab({
               <ChartLegendItem color="rgba(100,116,139,0.3)" label="Zone de drawdown" shape="bar" />
             </div>
             {operations.length === 0 && (
-              <p className="text-[11px] text-slate-600 mt-2">
+              <p className="text-micro text-slate-600 mt-2">
                 Les repères d'achat, de vente et de dividende apparaissent dès que des opérations sont
                 enregistrées dans l'onglet Opérations.
               </p>
@@ -647,7 +647,7 @@ export default function PerformanceTab({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowDividendsReinvested((v) => !v)}
-                  className={`text-[11px] font-medium px-2.5 py-1 rounded-md border transition-colors ${
+                  className={`text-micro font-medium px-2.5 py-1 rounded-md border transition-colors ${
                     showDividendsReinvested ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40" : "text-slate-500 border-slate-800 hover:text-slate-300"
                   }`}
                   title="Inclure les dividendes réinvestis dans la courbe du portefeuille"
@@ -663,7 +663,7 @@ export default function PerformanceTab({
                 <button
                   key={b.symbol}
                   onClick={() => toggleBenchmark(b.symbol)}
-                  className={`text-[11px] font-medium px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1.5 ${
+                  className={`text-micro font-medium px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1.5 ${
                     selectedBenchmarks.includes(b.symbol) ? "text-slate-100" : "text-slate-500 border-slate-800 hover:text-slate-300"
                   }`}
                   style={selectedBenchmarks.includes(b.symbol) ? { borderColor: b.color, background: `${b.color}22` } : {}}
@@ -680,14 +680,14 @@ export default function PerformanceTab({
               <div className="h-96 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={base100Data} margin={{ left: 0, right: 12, top: 14, bottom: 4 }}>
-                    <CartesianGrid stroke="#1e293b" strokeDasharray="3 5" vertical={false} />
+                    <CartesianGrid stroke="rgb(var(--c-slate-800))" strokeDasharray="0" vertical={false} />
                     <XAxis
                       dataKey="date" tickFormatter={formatDateShort}
-                      tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false}
+                      tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }} axisLine={false} tickLine={false}
                       minTickGap={60} tickMargin={10}
                     />
                     <YAxis
-                      tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false}
+                      tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }} axisLine={false} tickLine={false}
                       width={44} tickMargin={6} tickCount={6}
                       domain={[(min) => Math.min(100, min) - 2, (max) => Math.max(100, max) + 2]}
                     />
@@ -743,14 +743,14 @@ export default function PerformanceTab({
                         <stop offset={1} stopColor="#fb7185" />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="#1e293b" strokeDasharray="3 5" vertical={false} />
+                    <CartesianGrid stroke="rgb(var(--c-slate-800))" strokeDasharray="0" vertical={false} />
                     <XAxis
                       dataKey="date" tickFormatter={formatDateShort}
-                      tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false}
+                      tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }} axisLine={false} tickLine={false}
                       minTickGap={60} tickMargin={10}
                     />
                     <YAxis
-                      tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false}
+                      tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }} axisLine={false} tickLine={false}
                       width={44} tickMargin={6} tickCount={5} tickFormatter={(v) => `${v > 0 ? "+" : ""}${v.toFixed(0)}`}
                     />
                     <Tooltip
@@ -769,7 +769,7 @@ export default function PerformanceTab({
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
-              <p className="text-[11px] text-slate-500 mt-2">
+              <p className="text-micro text-slate-500 mt-2">
                 Zone au-dessus de zéro = surperformance de ton portefeuille vs l'indice ; en-dessous = sous-performance.
               </p>
             </Card>
@@ -787,7 +787,7 @@ export default function PerformanceTab({
 
 function Legend2({ color, label }) {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+    <span className="flex items-center gap-1.5 text-micro text-slate-400">
       <span className="w-2 h-2 rounded-full" style={{ background: color }} />
       {label}
     </span>

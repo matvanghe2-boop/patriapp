@@ -84,15 +84,15 @@ export default function SuiviDividendes({ bourse }) {
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-1">
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <div className="text-[11px] text-slate-500 uppercase tracking-wide">Attendu / an</div>
+                <div className="text-micro text-slate-500 uppercase tracking-wide">Attendu / an</div>
                 <div className="font-data font-bold text-slate-100 ghost-blur">{eur(attendu)}</div>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <div className="text-[11px] text-slate-500 uppercase tracking-wide">Perçu cette année</div>
+                <div className="text-micro text-slate-500 uppercase tracking-wide">Perçu cette année</div>
                 <div className="font-data font-bold text-emerald-400 ghost-blur">{eur(bilan.percu)}</div>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <div className="text-[11px] text-slate-500 uppercase tracking-wide">Avancement</div>
+                <div className="text-micro text-slate-500 uppercase tracking-wide">Avancement</div>
                 {/* Comparer la réalisation à l'avancement de l'année : à mi-année,
                     avoir encaissé la moitié de l'attendu est conforme. */}
                 <div
@@ -107,17 +107,17 @@ export default function SuiviDividendes({ bourse }) {
                 >
                   {bilan.realisationPct == null ? "—" : pctPlain(bilan.realisationPct, 0)}
                 </div>
-                <div className="text-[10px] text-slate-600">année à {pctPlain(bilan.avancementAnneePct, 0)}</div>
+                <div className="text-micro text-slate-600">année à {pctPlain(bilan.avancementAnneePct, 0)}</div>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <div className="text-[11px] text-slate-500 uppercase tracking-wide">Sur prix de revient</div>
+                <div className="text-micro text-slate-500 uppercase tracking-wide">Sur prix de revient</div>
                 <div className="font-data font-bold text-amber-300">{yoc == null ? "—" : pctPlain(yoc, 2)}</div>
-                <div className="text-[10px] text-slate-600">ne bouge pas avec le cours</div>
+                <div className="text-micro text-slate-600">ne bouge pas avec le cours</div>
               </div>
             </div>
 
             {retenue > 0 && (
-              <p className="flex items-start gap-1.5 text-[11px] text-amber-300/90 mt-2">
+              <p className="flex items-start gap-1.5 text-micro text-amber-300/90 mt-2">
                 <Info size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
                 <span>
                   <span className="ghost-blur font-data">{eur(retenue, 2)}</span> par an partent en
@@ -130,7 +130,7 @@ export default function SuiviDividendes({ bourse }) {
             )}
 
             {bilan.realisationPct != null && bilan.realisationPct + 15 < bilan.avancementAnneePct && (
-              <p className="flex items-start gap-1.5 text-[11px] text-amber-300/90 mt-2">
+              <p className="flex items-start gap-1.5 text-micro text-amber-300/90 mt-2">
                 <Info size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
                 Tu as encaissé nettement moins que prévu au regard de l'avancement de l'année : soit un
                 dividende a été réduit, soit un encaissement n'a pas été saisi dans le journal.
@@ -140,14 +140,14 @@ export default function SuiviDividendes({ bourse }) {
             {/* Réglages de la projection */}
             <div className="flex flex-wrap items-end gap-4 mt-4 pt-3 border-t border-slate-800">
               <div>
-                <span className="text-[11px] text-slate-500 block mb-1">Horizon de projection</span>
+                <span className="text-micro text-slate-500 block mb-1">Horizon de projection</span>
                 <div className="flex gap-1">
                   {[5, 10].map((n) => (
                     <button
                       key={n}
                       onClick={() => setHorizon(n)}
                       aria-pressed={horizon === n}
-                      className={`text-[11px] rounded-lg border px-2.5 py-1 ${
+                      className={`text-micro rounded-lg border px-2.5 py-1 ${
                         horizon === n
                           ? "text-emerald-300 border-emerald-500/50 bg-emerald-500/10"
                           : "text-slate-500 border-slate-700 hover:text-slate-300"
@@ -159,7 +159,7 @@ export default function SuiviDividendes({ bourse }) {
                 </div>
               </div>
               <div>
-                <label htmlFor="div-taux" className="text-[11px] text-slate-500 block mb-1">
+                <label htmlFor="div-taux" className="text-micro text-slate-500 block mb-1">
                   Croissance annuelle (%)
                 </label>
                 <input
@@ -172,7 +172,7 @@ export default function SuiviDividendes({ bourse }) {
                   className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-emerald-400/60"
                 />
               </div>
-              <p className="text-[11px] text-slate-500 pb-1 flex-1 min-w-[14rem]">
+              <p className="text-micro text-slate-500 pb-1 flex-1 min-w-[14rem]">
                 {projection.croissance.tauxPct != null ? (
                   <>
                     Croissance mesurée sur tes dividendes :{" "}
@@ -193,9 +193,9 @@ export default function SuiviDividendes({ bourse }) {
               <div className="h-64 mt-3">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={serie} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                    <XAxis dataKey="annee" stroke="#64748b" fontSize={11} axisLine={false} tickLine={false} />
-                    <YAxis stroke="#64748b" fontSize={10} tickFormatter={compact} width={58} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-slate-800))" vertical={false} />
+                    <XAxis dataKey="annee" stroke="rgb(var(--c-slate-500))" fontSize={11} axisLine={false} tickLine={false} />
+                    <YAxis stroke="rgb(var(--c-slate-500))" fontSize={10} tickFormatter={compact} width={58} axisLine={false} tickLine={false} />
                     <Tooltip
                       contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
                       formatter={(v) => eur(v, 2)}
@@ -218,7 +218,7 @@ export default function SuiviDividendes({ bourse }) {
             {projection.dernierProjete != null && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-3">
-                  <div className="text-[11px] text-violet-300/80 uppercase tracking-wide">
+                  <div className="text-micro text-violet-300/80 uppercase tracking-wide">
                     Dividende annuel en {Number(new Date().getFullYear()) + horizon}
                   </div>
                   <div className="font-data font-bold text-violet-300 ghost-blur">
@@ -226,7 +226,7 @@ export default function SuiviDividendes({ bourse }) {
                   </div>
                 </div>
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                  <div className="text-[11px] text-slate-500 uppercase tracking-wide">
+                  <div className="text-micro text-slate-500 uppercase tracking-wide">
                     Cumul sur {horizon} ans
                   </div>
                   <div className="font-data font-bold text-slate-100 ghost-blur">{eur(projection.cumulProjete)}</div>
@@ -235,7 +235,7 @@ export default function SuiviDividendes({ bourse }) {
             )}
 
             {projection.dernierProjete != null && (
-              <p className="text-[11px] text-slate-600 mt-2">
+              <p className="text-micro text-slate-600 mt-2">
                 Projection à croissance constante, à partir du dividende attendu sur douze mois. Elle
                 suppose que tu conserves tes lignes et que les entreprises maintiennent ce rythme —
                 ni l'un ni l'autre n'est garanti.
@@ -249,7 +249,7 @@ export default function SuiviDividendes({ bourse }) {
                   .map((s) => (
                     <span
                       key={s.annee}
-                      className={`inline-flex items-center gap-1 text-[11px] rounded-full border px-2 py-0.5 ${
+                      className={`inline-flex items-center gap-1 text-micro rounded-full border px-2 py-0.5 ${
                         s.croissancePct >= 0
                           ? "text-emerald-300 border-emerald-500/30 bg-emerald-500/10"
                           : "text-rose-300 border-rose-500/30 bg-rose-500/10"
@@ -263,7 +263,7 @@ export default function SuiviDividendes({ bourse }) {
             )}
 
             {serie.some((s) => s.partielle) && (
-              <p className="text-[11px] text-slate-600 mt-2">
+              <p className="text-micro text-slate-600 mt-2">
                 L'année en cours apparaît en gris : elle est incomplète, et sa croissance n'est pas
                 calculée tant qu'elle n'est pas terminée.
               </p>
@@ -271,12 +271,12 @@ export default function SuiviDividendes({ bourse }) {
 
             {parActif.length > 0 && (
               <div className="mt-4 pt-3 border-t border-slate-800">
-                <div className="text-[11px] text-slate-500 uppercase tracking-wide mb-2">
+                <div className="text-micro text-slate-500 uppercase tracking-wide mb-2">
                   Encaissé par actif, depuis l'origine
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {parActif.map((a) => (
-                    <span key={a.actif} className="text-[11px] font-data text-slate-300 border border-slate-800 bg-slate-950/60 rounded-lg px-2 py-1">
+                    <span key={a.actif} className="text-micro font-data text-slate-300 border border-slate-800 bg-slate-950/60 rounded-lg px-2 py-1">
                       {a.actif} <span className="text-emerald-400 ghost-blur">{eur(a.montant)}</span>
                     </span>
                   ))}
@@ -308,7 +308,7 @@ export default function SuiviDividendes({ bourse }) {
               >
                 <div className="min-w-0 flex items-center gap-2">
                   <span className="font-data font-semibold text-slate-100">{position.ticker}</span>
-                  <span className="text-[11px] text-slate-500 truncate">{position.name}</span>
+                  <span className="text-micro text-slate-500 truncate">{position.name}</span>
                   {/* Un taux ancré n'est pas un taux mesuré : la date d'achat
                       est inconnue, l'application a pris la plus ancienne trace
                       qu'elle possède. L'écart va toujours dans le même sens —
@@ -317,7 +317,7 @@ export default function SuiviDividendes({ bourse }) {
                       un chiffre qui ne l'est pas. */}
                   {approxime && (
                     <span
-                      className="text-[10px] font-data text-amber-300/80 border border-amber-400/30 rounded px-1.5 py-0.5 shrink-0"
+                      className="text-micro font-data text-amber-300/80 border border-amber-400/30 rounded px-1.5 py-0.5 shrink-0"
                       title="Aucun ordre d'achat n'est saisi pour cette ligne : la date d'acquisition est estimée à partir de la plus ancienne trace connue. Le taux réel est probablement plus bas."
                     >
                       estimé
@@ -338,7 +338,7 @@ export default function SuiviDividendes({ bourse }) {
             dire pourquoi le chiffre manque que d'en afficher un flatteur. */}
         {trisIncomplets.length > 0 && (
           <div className="mt-3 pt-3 border-t border-slate-800">
-            <p className="flex items-start gap-1.5 text-[11px] text-amber-300/90">
+            <p className="flex items-start gap-1.5 text-micro text-amber-300/90">
               <Info size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
               <span>
                 {trisIncomplets.length} ligne(s) sans TRI : le journal d'opérations ne couvre pas la
@@ -350,7 +350,7 @@ export default function SuiviDividendes({ bourse }) {
               {trisIncomplets.map(({ position, quantiteJournal, quantitePosition }) => (
                 <span
                   key={position.id}
-                  className="text-[10px] font-data text-slate-500 border border-slate-800 bg-slate-950/60 rounded-lg px-2 py-0.5"
+                  className="text-micro font-data text-slate-500 border border-slate-800 bg-slate-950/60 rounded-lg px-2 py-0.5"
                   title={`${quantiteJournal} titre(s) retracé(s) dans le journal sur ${quantitePosition} détenu(s)`}
                 >
                   {position.ticker} {quantiteJournal}/{quantitePosition}
@@ -361,7 +361,7 @@ export default function SuiviDividendes({ bourse }) {
         )}
 
         {trisCalculables.length > 0 && (
-          <p className="text-[11px] text-slate-600 mt-3">
+          <p className="text-micro text-slate-600 mt-3">
             Le TRI tient compte des dates : deux lignes affichant « +30 % » n'ont rien à voir si
             l'une a mis six ans et l'autre six mois. Dividendes encaissés inclus.
           </p>

@@ -111,6 +111,7 @@ src/components/Dashboard.jsx
 src/components/ErrorBoundary.jsx
 src/components/EtatSourceMarche.jsx
 src/components/EtatVide.jsx
+src/components/FeuillePlus.jsx
 src/components/FicheFinanciere.jsx
 src/components/FinancialCalendar.jsx
 src/components/FinancialCalendar.test.jsx
@@ -123,6 +124,7 @@ src/components/Login.jsx
 src/components/Marche.jsx
 src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
+src/components/ModePresentation.jsx
 src/components/Montant.jsx
 src/components/Notifications.jsx
 src/components/Objectifs.jsx
@@ -137,6 +139,7 @@ src/components/PanneauTransparence.jsx
 src/components/PanneauTransparence.test.jsx
 src/components/PortefeuilleRepli.test.jsx
 src/components/ProChart.jsx
+src/components/ProChart.test.jsx
 src/components/Projet.jsx
 src/components/Projet.test.jsx
 src/components/RatesHub.jsx
@@ -160,6 +163,7 @@ src/components/Watchlist.jsx
 src/components/gestes.jsx
 src/components/graphiques.jsx
 src/components/graphiques.test.jsx
+src/components/refonte.test.jsx
 src/components/ui.jsx
 src/index.css
 src/lib/ApparenceContext.jsx
@@ -195,6 +199,7 @@ src/lib/sectors.js
 src/lib/splits.test.js
 src/lib/storage.js
 src/lib/storage.test.jsx
+src/lib/styleGraphique.js
 src/lib/supabaseClient.js
 src/lib/syncStatus.js
 src/lib/themes.js

@@ -120,7 +120,7 @@ function initials(ticker, name) {
   return base.slice(0, 2).toUpperCase();
 }
 
-const SIZES = { xs: "w-5 h-5 text-[9px]", sm: "w-7 h-7 text-[10px]", md: "w-9 h-9 text-xs" };
+const SIZES = { xs: "w-5 h-5 text-[9px]", sm: "w-7 h-7 text-micro", md: "w-9 h-9 text-xs" };
 
 /**
  * Logo d'entreprise déduit du ticker (service public, sans clé API), avec

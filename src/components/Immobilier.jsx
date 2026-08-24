@@ -79,15 +79,15 @@ function TravauxTracker({ items, setItems }) {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 mb-3">
             <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
-              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Budget prévisionnel</div>
+              <div className="text-micro text-slate-500 uppercase tracking-wide">Budget prévisionnel</div>
               <div className="font-data text-base text-slate-200 ghost-blur">{eur(totalBudget)}</div>
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
-              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Dépensé réellement</div>
+              <div className="text-micro text-slate-500 uppercase tracking-wide">Dépensé réellement</div>
               <div className="font-data text-base text-slate-200 ghost-blur">{eur(totalReel)}</div>
             </div>
             <div className={`rounded-lg border px-3 py-2 ${ecart > 0 ? "border-rose-400/30 bg-rose-400/5" : "border-emerald-400/30 bg-emerald-400/5"}`}>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Écart</div>
+              <div className="text-micro text-slate-500 uppercase tracking-wide">Écart</div>
               <div className={`font-data text-base ghost-blur ${ecart > 0 ? "text-rose-400" : "text-emerald-400"}`}>
                 {ecart > 0 ? "+" : ""}{eur(ecart)}
               </div>
@@ -95,9 +95,9 @@ function TravauxTracker({ items, setItems }) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-cards table-dense">
+            <table className="w-full text-sm table-cards table-donnees">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Poste</th>
                   <th className="py-2 pr-3">Catégorie</th>
                   <th className="py-2 pr-3">Budget</th>
@@ -266,7 +266,7 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           <CardLabel icon={Shield}>Apport &amp; Assurance</CardLabel>
           <div className="flex flex-col gap-3 mt-2">
             <div>
-              <label htmlFor={`${idsChamps}-taux-d-assurance`} className="text-[11px] text-slate-500">Taux d'assurance emprunteur (annuel)</label>
+              <label htmlFor={`${idsChamps}-taux-d-assurance`} className="text-micro text-slate-500">Taux d'assurance emprunteur (annuel)</label>
               <input id={`${idsChamps}-taux-d-assurance`}
                 type="number"
                 step="0.01"
@@ -274,7 +274,7 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
                 onChange={(e) => set("assurance_rate")(lireNombre(e.target.value) ?? 0)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data tabular-nums mt-1 focus:outline-none focus:border-amber-400/60"
               />
-              <p className="text-[10px] text-slate-500 mt-0.5">Taux moyen : 0.20 % du capital emprunté par an</p>
+              <p className="text-micro text-slate-500 mt-0.5">Taux moyen : 0.20 % du capital emprunté par an</p>
             </div>
             
             <label className="flex items-center gap-2 text-sm text-slate-300">
@@ -286,7 +286,7 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
               Inclure le portefeuille Bourse (<span className="ghost-blur">{eur(bourseTotal)}</span>)
             </label>
             <div>
-              <label htmlFor={`${idsChamps}-apport-retenu-ajustable`} className="text-[11px] text-slate-500">Apport retenu (€) — ajustable</label>
+              <label htmlFor={`${idsChamps}-apport-retenu-ajustable`} className="text-micro text-slate-500">Apport retenu (€) — ajustable</label>
               <input id={`${idsChamps}-apport-retenu-ajustable`}
                 type="number"
                 value={Math.round(apport)}
@@ -294,7 +294,7 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data tabular-nums mt-1 ghost-blur focus:outline-none focus:border-amber-400/60"
               />
               {immo.apport_manuel != null && (
-                <button onClick={() => set("apport_manuel")(null)} className="text-[11px] text-amber-300/80 hover:text-amber-200 mt-1 underline">
+                <button onClick={() => set("apport_manuel")(null)} className="text-micro text-amber-300/80 hover:text-amber-200 mt-1 underline">
                   Revenir au montant auto (<span className="ghost-blur">{eur(apportDisponible)}</span>)
                 </button>
               )}
@@ -360,9 +360,9 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           </button>
         </div>
         <div className="overflow-x-auto mt-2">
-          <table className="w-full text-sm table-cards table-dense">
+          <table className="w-full text-sm table-cards table-donnees">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+              <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 pr-3">Durée</th>
                 <th className="py-2 pr-3">Mensualité (hors ass.)</th>
                 <th className="py-2 pr-3">Assurance</th>
@@ -413,25 +413,25 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
         )}
         
         <div className="flex flex-wrap gap-4 mt-3">
-          <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1.5 text-micro text-slate-500">
             <span className="w-3 h-3 rounded-full bg-emerald-400/30 border border-emerald-400/50" />
             Taux ≤ 35 %
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1.5 text-micro text-slate-500">
             <span className="w-3 h-3 rounded-full bg-amber-400/30 border border-amber-400/50" />
             Taux 35-40 %
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1.5 text-micro text-slate-500">
             <span className="w-3 h-3 rounded-full bg-rose-400/30 border border-rose-400/50" />
             Taux &gt; 40 %
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1.5 text-micro text-slate-500">
             <span className="w-3 h-3 rounded-full bg-slate-700 border border-slate-600" />
             Reste à vivre &lt; 700 €
           </span>
         </div>
         
-        <p className="text-[11px] text-slate-600 mt-3">
+        <p className="text-micro text-slate-600 mt-3">
           Norme HCSF : taux d'endettement plafonné à 35 % maximum. Les lignes en rouge dépassent ce seuil.
           L'assurance emprunteur est incluse dans la mensualité totale.
         </p>

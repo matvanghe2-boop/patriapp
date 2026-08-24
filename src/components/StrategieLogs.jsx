@@ -59,7 +59,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
     <form onSubmit={submit} className="rounded-xl border border-rose-400/20 bg-slate-950 p-4 flex flex-col gap-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="col-span-1">
-          <label htmlFor={`${idsChamps}-ticker-optionnel`} className="text-[11px] text-slate-500">Ticker (optionnel)</label>
+          <label htmlFor={`${idsChamps}-ticker-optionnel`} className="text-micro text-slate-500">Ticker (optionnel)</label>
           <input id={`${idsChamps}-ticker-optionnel`}
             type="text"
             placeholder="AI.PA"
@@ -69,7 +69,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
           />
         </div>
         <div className="col-span-2 sm:col-span-2">
-          <label htmlFor={`${idsChamps}-titre-de-la`} className="text-[11px] text-slate-500">Titre de la note</label>
+          <label htmlFor={`${idsChamps}-titre-de-la`} className="text-micro text-slate-500">Titre de la note</label>
           <input id={`${idsChamps}-titre-de-la`}
             required
             type="text"
@@ -80,7 +80,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
           />
         </div>
         <div className="col-span-1">
-          <label htmlFor={`${idsChamps}-objectif-de-cours`} className="text-[11px] text-slate-500">Objectif de cours (€)</label>
+          <label htmlFor={`${idsChamps}-objectif-de-cours`} className="text-micro text-slate-500">Objectif de cours (€)</label>
           <input id={`${idsChamps}-objectif-de-cours`}
             type="number"
             step="0.01"
@@ -93,7 +93,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
       </div>
 
       <div>
-        <label htmlFor={`${idsChamps}-pitch-d-achat`} className="text-[11px] text-slate-500">Pitch d'achat — pourquoi cette thèse tient (2-3 phrases)</label>
+        <label htmlFor={`${idsChamps}-pitch-d-achat`} className="text-micro text-slate-500">Pitch d'achat — pourquoi cette thèse tient (2-3 phrases)</label>
         <textarea id={`${idsChamps}-pitch-d-achat`}
           rows={3}
           maxLength={500}
@@ -105,7 +105,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
       </div>
 
       <div>
-        <label htmlFor={`${idsChamps}-conditions-de-vente`} className="text-[11px] text-slate-500">
+        <label htmlFor={`${idsChamps}-conditions-de-vente`} className="text-micro text-slate-500">
           Conditions de vente — ce qui invaliderait la thèse (pas "si ça baisse de X%")
         </label>
         <textarea id={`${idsChamps}-conditions-de-vente`}
@@ -120,7 +120,7 @@ function NoteForm({ initial, onCancel, onSubmit }) {
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          <label htmlFor={`${idsChamps}-statut-de-la`} className="text-[11px] text-slate-500">Statut de la thèse</label>
+          <label htmlFor={`${idsChamps}-statut-de-la`} className="text-micro text-slate-500">Statut de la thèse</label>
           <select id={`${idsChamps}-statut-de-la`}
             value={values.statut}
             onChange={(e) => setValues((v) => ({ ...v, statut: e.target.value }))}
@@ -180,7 +180,7 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor={`${idsChamps}-resultat-final`} className="text-[11px] text-slate-500">Résultat final (%)</label>
+          <label htmlFor={`${idsChamps}-resultat-final`} className="text-micro text-slate-500">Résultat final (%)</label>
           <input id={`${idsChamps}-resultat-final`}
             type="number"
             step="0.1"
@@ -191,7 +191,7 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
           />
         </div>
         <div>
-          <label htmlFor={`${idsChamps}-decision`} className="text-[11px] text-slate-500">Décision</label>
+          <label htmlFor={`${idsChamps}-decision`} className="text-micro text-slate-500">Décision</label>
           <select id={`${idsChamps}-decision`}
             value={decision}
             onChange={(e) => setDecision(e.target.value)}
@@ -204,7 +204,7 @@ function PostMortemForm({ note, onCancel, onSubmit }) {
         </div>
       </div>
       <div>
-        <label htmlFor={`${idsChamps}-bilan-qu-as`} className="text-[11px] text-slate-500">Bilan — qu'as-tu appris ?</label>
+        <label htmlFor={`${idsChamps}-bilan-qu-as`} className="text-micro text-slate-500">Bilan — qu'as-tu appris ?</label>
         <textarea id={`${idsChamps}-bilan-qu-as`}
           rows={3}
           maxLength={500}
@@ -247,18 +247,18 @@ function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen, onDeclare
               </span>
             )}
             {note.archivee ? (
-              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border bg-slate-500/10 border-slate-500/30 text-slate-400">
+              <span className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border bg-slate-500/10 border-slate-500/30 text-slate-400">
                 <Archive size={10} /> Clôturée
               </span>
             ) : (
-              <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
+              <span className={`flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                 {st.label}
               </span>
             )}
           </div>
           <h3 className={`font-semibold truncate ${note.archivee ? "text-slate-400" : "text-slate-100"}`}>{note.titre}</h3>
-          <p className="text-[11px] text-slate-500">{formatDateFr(note.date)}</p>
+          <p className="text-micro text-slate-500">{formatDateFr(note.date)}</p>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           {note.ticker && (
@@ -276,14 +276,14 @@ function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen, onDeclare
 
       {note.these && (
         <div className="mb-2">
-          <div className="text-[11px] text-slate-500 mb-0.5">Thèse d'investissement</div>
+          <div className="text-micro text-slate-500 mb-0.5">Thèse d'investissement</div>
           <p className="text-sm text-slate-300 whitespace-pre-wrap">{note.these}</p>
         </div>
       )}
 
       {note.conditions_vente && (
         <div className="mb-2">
-          <div className="text-[11px] text-slate-500 mb-0.5">Conditions de vente</div>
+          <div className="text-micro text-slate-500 mb-0.5">Conditions de vente</div>
           <p className="text-sm text-slate-400 whitespace-pre-wrap">{note.conditions_vente}</p>
         </div>
       )}
@@ -298,14 +298,14 @@ function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen, onDeclare
       {pm && (
         <div className="mt-3 rounded-lg border border-slate-700/60 bg-slate-950/60 p-3">
           <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
-            <span className="text-[11px] text-slate-500">Bilan post-mortem · {formatDateShortFr(pm.date)}</span>
+            <span className="text-micro text-slate-500">Bilan post-mortem · {formatDateShortFr(pm.date)}</span>
             <div className="flex items-center gap-2">
               {pm.resultat_pct != null && (
                 <span className={`font-data text-xs font-bold ${pm.resultat_pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                   {pct(pm.resultat_pct)}
                 </span>
               )}
-              <span className={`text-[10px] font-bold uppercase tracking-wide ${dec?.text}`}>{dec?.label}</span>
+              <span className={`text-micro font-bold uppercase tracking-wide ${dec?.text}`}>{dec?.label}</span>
             </div>
           </div>
           {pm.bilan && <p className="text-sm text-slate-400 whitespace-pre-wrap">{pm.bilan}</p>}
@@ -344,9 +344,9 @@ function PerformanceTable({ notes, positions }) {
 
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-sm min-w-[640px] table-cards table-dense">
+      <table className="w-full text-sm min-w-[640px] table-cards table-donnees">
         <thead>
-          <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+          <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
             <th className="py-2 px-1">Actif</th>
             <th className="py-2 px-1">Statut de la thèse</th>
             <th className="py-2 px-1">Cours actuel</th>
@@ -362,10 +362,10 @@ function PerformanceTable({ notes, positions }) {
               <tr key={note.id}>
                 <td data-label="Actif" className="py-2.5 px-1">
                   <div className="font-data font-semibold text-slate-100">{note.ticker}</div>
-                  <div className="text-[11px] text-slate-500 truncate max-w-[160px]">{note.titre}</div>
+                  <div className="text-micro text-slate-500 truncate max-w-[160px]">{note.titre}</div>
                 </td>
                 <td data-label="Statut" className="py-2.5 px-1">
-                  <span className={`flex items-center gap-1.5 w-fit text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
+                  <span className={`flex items-center gap-1.5 w-fit text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                     {st.label}
                   </span>
@@ -385,9 +385,9 @@ function PerformanceTable({ notes, positions }) {
                 </td>
                 <td data-label="En portefeuille" className="py-2.5 px-1">
                   {pos ? (
-                    <span className="text-[11px] text-emerald-400 font-medium">Oui · {pos.quantity} titres</span>
+                    <span className="text-micro text-emerald-400 font-medium">Oui · {pos.quantity} titres</span>
                   ) : (
-                    <span className="text-[11px] text-slate-600">Non détenu</span>
+                    <span className="text-micro text-slate-600">Non détenu</span>
                   )}
                 </td>
               </tr>

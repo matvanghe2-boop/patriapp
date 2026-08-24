@@ -180,7 +180,7 @@ export default function PaletteCommandes({ ouvert, onFermer, index = [], actions
             aria-expanded="true"
             className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-600 focus:outline-none"
           />
-          <kbd className="text-[10px] font-data text-slate-600 border border-slate-700 rounded px-1.5 py-0.5">Échap</kbd>
+          <kbd className="text-micro font-data text-slate-600 border border-slate-700 rounded px-1.5 py-0.5">Échap</kbd>
         </div>
 
         <div id="palette-resultats" role="listbox" ref={listeRef} className="max-h-[46vh] overflow-y-auto py-1">
@@ -201,7 +201,7 @@ export default function PaletteCommandes({ ouvert, onFermer, index = [], actions
             >
               {r.icone && <r.icone size={14} className="shrink-0 opacity-70" aria-hidden="true" />}
               <span className="truncate flex-1">{r.libelle}</span>
-              <span className="text-[11px] text-slate-500 shrink-0">{r.detail || r.categorie}</span>
+              <span className="text-micro text-slate-500 shrink-0">{r.detail || r.categorie}</span>
               {i === selection && <CornerDownLeft size={12} className="text-slate-600 shrink-0" aria-hidden="true" />}
             </button>
           ))}

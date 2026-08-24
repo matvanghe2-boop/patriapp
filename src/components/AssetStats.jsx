@@ -148,23 +148,23 @@ export default function AssetStats({ bourse }) {
       {/* Bandeau de synthèse globale */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 text-center">
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-          <p className="text-[11px] text-slate-500">Capital investi</p>
+          <p className="text-micro text-slate-500">Capital investi</p>
           <p className="font-data font-bold text-slate-100 ghost-blur">{eur(totals.invested, 0)}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-          <p className="text-[11px] text-slate-500">Frais cumulés</p>
+          <p className="text-micro text-slate-500">Frais cumulés</p>
           <p className="font-data font-bold text-slate-300 ghost-blur">{eur(totals.fees, 2)}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-          <p className="text-[11px] text-slate-500">PV réalisées</p>
+          <p className="text-micro text-slate-500">PV réalisées</p>
           <p className={`font-data font-bold ghost-blur ${totals.realized >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(totals.realized, 0)}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-          <p className="text-[11px] text-slate-500">PV latentes</p>
+          <p className="text-micro text-slate-500">PV latentes</p>
           <p className={`font-data font-bold ghost-blur ${totals.latent >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{eur(totals.latent, 0)}</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-          <p className="text-[11px] text-slate-500">Dividendes</p>
+          <p className="text-micro text-slate-500">Dividendes</p>
           <p className="font-data font-bold text-cyan-300 ghost-blur">{eur(totals.dividends, 0)}</p>
         </div>
       </div>
@@ -179,15 +179,15 @@ export default function AssetStats({ bourse }) {
             <div style={{ width: "100%", height: 240 }}>
               <ResponsiveContainer>
                 <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                  <CartesianGrid stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={false} />
+                  <CartesianGrid stroke="rgb(var(--c-slate-800))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }} axisLine={{ stroke: "#334155" }} tickLine={false} />
                   <YAxis
-                    tick={{ fill: "#64748b", fontSize: 11 }}
+                    tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(v) => `${v}%`}
                   />
-                  <ReferenceLine y={0} stroke="#334155" />
+                  <ReferenceLine y={0} stroke="rgb(var(--c-slate-700))" />
                   <Tooltip content={<PerformanceTooltip />} cursor={{ fill: "rgba(148,163,184,0.08)" }} />
                   <Bar dataKey="rendementPct" radius={[4, 4, 4, 4]} maxBarSize={38}>
                     {chartData.map((r) => (
@@ -220,11 +220,11 @@ export default function AssetStats({ bourse }) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-data font-semibold text-slate-100 truncate">{r.label}</span>
-                      <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${badge.cls}`}>
+                      <span className={`shrink-0 text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${badge.cls}`}>
                         {badge.label}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-micro text-slate-500 mt-0.5">
                       {r.currentQty > 0 ? `${r.currentQty} titres en portefeuille` : `${r.nbOperations} ordre(s) historisé(s)`}
                     </p>
                   </div>
@@ -272,8 +272,8 @@ function StatBlock({ label, value, tone = "default", muted, cyan, bold, small, s
   const colorCls = cyan ? "text-cyan-300" : muted ? "text-slate-400" : toneCls;
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`font-data ${small ? "text-[11px]" : "text-sm"} ${bold ? "font-semibold" : ""} ${colorCls} ${sensitive ? "ghost-blur" : ""}`}>{value}</p>
+      <p className="text-micro uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`font-data ${small ? "text-micro" : "text-sm"} ${bold ? "font-semibold" : ""} ${colorCls} ${sensitive ? "ghost-blur" : ""}`}>{value}</p>
     </div>
   );
 }

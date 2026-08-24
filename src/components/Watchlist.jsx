@@ -121,7 +121,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
     return (
       <span className="flex items-center gap-1.5">
         <span
-          className={`inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 border ${
+          className={`inline-flex items-center gap-1 text-micro rounded-full px-2 py-0.5 border ${
             alerte.acquittee
               ? "text-slate-500 border-slate-700 bg-slate-900/50"
               : "text-amber-300 border-amber-400/30 bg-amber-400/10"
@@ -146,7 +146,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
     return (
       <button
         onClick={() => { setSeuil(String(ligne.target_price || "")); setEdition(true); }}
-        className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-amber-300"
+        className="flex items-center gap-1 text-micro text-slate-500 hover:text-amber-300"
       >
         <Bell size={11} aria-hidden="true" /> Alerter
       </button>
@@ -159,7 +159,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
         value={sens}
         onChange={(e) => setSens(e.target.value)}
         aria-label="Sens de l'alerte"
-        className="bg-slate-950 border border-slate-700 rounded-lg px-1 py-1 text-[11px] focus:outline-none focus:border-amber-400/60"
+        className="bg-slate-950 border border-slate-700 rounded-lg px-1 py-1 text-micro focus:outline-none focus:border-amber-400/60"
       >
         <option value={SENS.SOUS}>≤</option>
         <option value={SENS.AU_DESSUS}>≥</option>
@@ -171,7 +171,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
         onChange={(e) => setSeuil(e.target.value)}
         aria-label="Seuil d'alerte"
         onKeyDown={(e) => { if (e.key === "Enter") enregistrer(); if (e.key === "Escape") setEdition(false); }}
-        className="w-16 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-1 text-[11px] font-data tabular-nums focus:outline-none focus:border-amber-400/60"
+        className="w-16 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-1 text-micro font-data tabular-nums focus:outline-none focus:border-amber-400/60"
         autoFocus
       />
       <button onClick={enregistrer} className="text-emerald-400 hover:text-emerald-300" aria-label="Enregistrer l'alerte">
@@ -355,7 +355,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
         </div>
       )}
 
-      {error && <p className="text-[11px] text-amber-300/80 mb-3">{error}</p>}
+      {error && <p className="text-micro text-amber-300/80 mb-3">{error}</p>}
 
       {watchlist.length === 0 ? (
         <EmptyState>Aucun produit suivi — ajoute une valeur que tu envisages d'acheter.</EmptyState>
@@ -363,9 +363,9 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
         <SkeletonTable rows={Math.min(watchlist.length, 5)} columns={7} />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm table-cards table-dense">
+          <table className="w-full text-sm table-cards table-donnees">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+              <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 pr-3">Actif</th>
                 <th className="py-2 pr-3">Cours actuel</th>
                 <th className="py-2 pr-3">
@@ -405,7 +405,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                         <AssetLogo ticker={w.ticker} size="xs" />
                         <div>
                           <div className={`text-slate-200 font-medium ${onOpenMarket ? "group-hover/ticker:text-violet-300 transition-colors" : ""}`}>{w.ticker}</div>
-                          <div className="text-[11px] text-slate-500">{w.name}</div>
+                          <div className="text-micro text-slate-500">{w.name}</div>
                         </div>
                       </button>
                     </td>
@@ -461,7 +461,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
 
       <AddWatchlistPanel open={showAdd} onClose={() => setShowAdd(false)} onSubmit={addItem} />
 
-      <p className="text-[11px] text-slate-600 mt-4">
+      <p className="text-micro text-slate-600 mt-4">
         YTD / 1 mois / 6 mois / 1 an / 5 ans sont calculés à partir des cours réels déjà constatés de chaque titre —
         aucune projection, uniquement de l'historique factuel. La variation journalière est calculée par rapport au
         cours de clôture de la veille.
@@ -537,7 +537,7 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
     <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950 space-y-3">
       {!manual ? (
         <>
-          <label htmlFor={`${idsChamps}-ticker-isin-ou`} className="text-[11px] text-slate-500">Ticker, ISIN ou nom du produit</label>
+          <label htmlFor={`${idsChamps}-ticker-isin-ou`} className="text-micro text-slate-500">Ticker, ISIN ou nom du produit</label>
           <input id={`${idsChamps}-ticker-isin-ou`}
             autoFocus
             value={query}
@@ -584,20 +584,20 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
             </div>
           )}
 
-          <button type="button" onClick={() => setManual(true)} className="text-[11px] text-slate-500 hover:text-slate-300 underline">
+          <button type="button" onClick={() => setManual(true)} className="text-micro text-slate-500 hover:text-slate-300 underline">
             Le produit n'est pas trouvé ? Saisie manuelle
           </button>
         </>
       ) : (
         <>
-          <label htmlFor={`${idsChamps}-nom-ticker-saisie`} className="text-[11px] text-slate-500">Nom / ticker (saisie libre)</label>
+          <label htmlFor={`${idsChamps}-nom-ticker-saisie`} className="text-micro text-slate-500">Nom / ticker (saisie libre)</label>
           <input id={`${idsChamps}-nom-ticker-saisie`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60"
             placeholder="Ex : LVMH"
           />
-          <button type="button" onClick={() => setManual(false)} className="text-[11px] text-slate-500 hover:text-slate-300 underline">
+          <button type="button" onClick={() => setManual(false)} className="text-micro text-slate-500 hover:text-slate-300 underline">
             Revenir à la recherche
           </button>
         </>
@@ -605,7 +605,7 @@ function AddWatchlistPanel({ open, onClose, onSubmit }) {
 
       {ready && (
         <div>
-          <label htmlFor={`${idsChamps}-objectif-de-prix`} className="text-[11px] text-slate-500">Objectif de prix d'achat (€, optionnel)</label>
+          <label htmlFor={`${idsChamps}-objectif-de-prix`} className="text-micro text-slate-500">Objectif de prix d'achat (€, optionnel)</label>
           <input id={`${idsChamps}-objectif-de-prix`}
             type="number"
             step="0.01"

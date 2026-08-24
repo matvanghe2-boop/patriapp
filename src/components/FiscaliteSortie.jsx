@@ -77,7 +77,7 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal, re
         <button
           onClick={() => setOuvert((o) => !o)}
           aria-expanded={ouvert}
-          className="btn-flash flex items-center gap-1 text-[11px] text-violet-300/80 hover:text-violet-200"
+          className="btn-flash flex items-center gap-1 text-micro text-violet-300/80 hover:text-violet-200"
         >
           {ouvert ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
           Détail
@@ -87,24 +87,24 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal, re
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">Plus-value brute</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">Plus-value brute</div>
           <div className="font-data font-bold text-slate-100 ghost-blur">{eur(bourseGainAbs)}</div>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">Impôt</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">Impôt</div>
           <div className="font-data font-bold text-slate-300 ghost-blur">−{eur(fisc.impotDu)}</div>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">Prélèvements sociaux</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">Prélèvements sociaux</div>
           <div className="font-data font-bold text-slate-300 ghost-blur">−{eur(fisc.prelevementsSociaux)}</div>
         </div>
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
-          <div className="text-[11px] text-emerald-300/80 uppercase tracking-wide">Net encaissé</div>
+          <div className="text-micro text-emerald-300/80 uppercase tracking-wide">Net encaissé</div>
           <div className="font-data font-bold text-emerald-400 ghost-blur">{eur(net)}</div>
         </div>
       </div>
 
-      <p className="text-[11px] text-slate-500 mt-2.5">
+      <p className="text-micro text-slate-500 mt-2.5">
         {fisc.regimeApplique} — taux effectif de {pctPlain(fisc.tauxEffectifPct, 1)} sur la plus-value.
       </p>
 
@@ -134,13 +134,13 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal, re
         </div>
       )}
       {enveloppe === "PEA" && !bourse?.peaOuverture && (
-        <p className="text-[11px] text-slate-600 mt-1.5">
+        <p className="text-micro text-slate-600 mt-1.5">
           Date d'ouverture du PEA non renseignée : le calcul retient le régime le moins favorable.
         </p>
       )}
 
       {ouvert && (
-        <div className="mt-3 pt-3 border-t border-slate-800 space-y-1.5 text-[11px] text-slate-500">
+        <div className="mt-3 pt-3 border-t border-slate-800 space-y-1.5 text-micro text-slate-500">
           <p>
             Simulation d'une <strong className="text-slate-400">sortie totale et immédiate</strong> de
             l'enveloppe {enveloppe}. C'est la borne haute : un retrait partiel n'est imposé qu'au

@@ -19,7 +19,7 @@ import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import Objectifs from "./Objectifs";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
-import { AnneauRepartition, CalendrierAnnuel } from "./graphiques";
+import { AnneauRepartition, CalendrierAnnuel, CourbeEvolution } from "./graphiques";
 import { FileDown, FileSpreadsheet, PieChart as PieIcon } from "lucide-react";
 
 function formatDateFr(iso) {
@@ -159,7 +159,7 @@ function OnboardingCard({ onLoadDemo }) {
       >
         <ArrowRight size={14} aria-hidden="true" /> Charger un jeu d'exemple
       </button>
-      <p className="text-[11px] text-slate-600 mt-3">
+      <p className="text-micro text-slate-600 mt-3">
         Le jeu d'exemple contient des chiffres inventés, à des fins de démonstration uniquement.
         Tu pourras tout effacer depuis « Réinitialiser », dans le menu.
       </p>
@@ -178,7 +178,7 @@ function ProfileFreshness({ updatedAt, history = [] }) {
 
   if (!updatedAt) {
     return (
-      <p className="text-[11px] text-slate-600 mt-3">
+      <p className="text-micro text-slate-600 mt-3">
         Renseigne ton revenu et tes dépenses : le taux d'épargne et le matelas de sécurité en
         dépendent.
       </p>
@@ -192,7 +192,7 @@ function ProfileFreshness({ updatedAt, history = [] }) {
   return (
     <div className="mt-3 pt-3 border-t border-slate-800">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className={`flex items-center gap-1.5 text-[11px] ${stale ? "text-amber-300" : "text-slate-600"}`}>
+        <span className={`flex items-center gap-1.5 text-micro ${stale ? "text-amber-300" : "text-slate-600"}`}>
           {stale ? <AlertCircle size={11} aria-hidden="true" /> : <Clock size={11} aria-hidden="true" />}
           {days === 0
             ? "Mis à jour aujourd'hui"
@@ -203,7 +203,7 @@ function ProfileFreshness({ updatedAt, history = [] }) {
         {previous.length > 0 && (
           <button
             onClick={() => setShowHistory((s) => !s)}
-            className="flex items-center gap-1 text-[11px] text-emerald-300/70 hover:text-emerald-300"
+            className="flex items-center gap-1 text-micro text-emerald-300/70 hover:text-emerald-300"
           >
             {showHistory ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
             Historique
@@ -214,7 +214,7 @@ function ProfileFreshness({ updatedAt, history = [] }) {
       {showHistory && previous.length > 0 && (
         <ul className="mt-2 space-y-1">
           {previous.map((h) => (
-            <li key={h.date} className="flex items-center justify-between text-[11px] text-slate-500">
+            <li key={h.date} className="flex items-center justify-between text-micro text-slate-500">
               <span className="font-data tabular-nums">{formatDateFr(h.date)}</span>
               <span className="font-data tabular-nums ghost-blur">
                 {eur(h.monthly_income)} − {eur(h.monthly_expenses)} ={" "}
@@ -241,7 +241,7 @@ function StagnationBadge({ pricesUpdatedAt, hasPositions }) {
   if (!hasPositions) return null;
   if (!pricesUpdatedAt) {
     return (
-      <span className="flex items-center gap-1.5 text-[11px] border rounded-full px-2.5 py-1 text-slate-500 border-slate-700 bg-slate-900/50">
+      <span className="flex items-center gap-1.5 text-micro border rounded-full px-2.5 py-1 text-slate-500 border-slate-700 bg-slate-900/50">
         <Clock size={10} aria-hidden="true" />
         Cours jamais actualisés
       </span>
@@ -257,7 +257,7 @@ function StagnationBadge({ pricesUpdatedAt, hasPositions }) {
     : diffDays === 1 ? "Cours actualisés hier"
     : `Cours vieux de ${diffDays} jours`;
   return (
-    <span className={`flex items-center gap-1.5 text-[11px] border rounded-full px-2.5 py-1 ${color}`}>
+    <span className={`flex items-center gap-1.5 text-micro border rounded-full px-2.5 py-1 ${color}`}>
       <Clock size={10} aria-hidden="true" />
       {label}
     </span>
@@ -272,7 +272,7 @@ function TimeFilterBar({ active, onChange }) {
         <button
           key={f.key}
           onClick={() => onChange(f.key)}
-          className={`text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors ${
+          className={`text-micro font-medium px-2.5 py-1 rounded-lg transition-colors ${
             active === f.key
               ? "bg-amber-400/20 text-amber-300 border border-amber-400/40"
               : "text-slate-500 hover:text-slate-300 border border-transparent"
@@ -328,7 +328,7 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
         </div>
         <button
           onClick={() => setEditing((e) => !e)}
-          className="flex items-center gap-1 text-[11px] text-amber-300/70 hover:text-amber-300"
+          className="flex items-center gap-1 text-micro text-amber-300/70 hover:text-amber-300"
         >
           {editing ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           {editing ? "Fermer" : "Définir ma cible"}
@@ -339,7 +339,7 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
       <div className="space-y-2.5">
         {/* Épargne sécurisée */}
         <div>
-          <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+          <div className="flex justify-between text-micro text-slate-500 mb-1">
             <span>Épargne sécurisée</span>
             <span>
               <span className="text-slate-300 font-data">{currentLivretsPct.toFixed(0)}%</span>
@@ -360,7 +360,7 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
         </div>
         {/* Bourse */}
         <div>
-          <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+          <div className="flex justify-between text-micro text-slate-500 mb-1">
             <span>Bourse (PEA)</span>
             <span>
               <span className="text-slate-300 font-data">{currentBoursePct.toFixed(0)}%</span>
@@ -383,13 +383,13 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
 
       {/* Ecart */}
       {absGap > 2 && (
-        <div className="flex items-start gap-2 mt-3 text-[11px] text-amber-300/80 bg-amber-400/5 border border-amber-400/15 rounded-lg px-3 py-2">
+        <div className="flex items-start gap-2 mt-3 text-micro text-amber-300/80 bg-amber-400/5 border border-amber-400/15 rounded-lg px-3 py-2">
           <Zap size={11} className="mt-0.5 shrink-0" />
           <span>{suggestion}</span>
         </div>
       )}
       {absGap <= 2 && absGap >= 0 && (
-        <div className="flex items-center gap-2 mt-3 text-[11px] text-emerald-400/80 bg-emerald-400/5 border border-emerald-400/15 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 mt-3 text-micro text-emerald-400/80 bg-emerald-400/5 border border-emerald-400/15 rounded-lg px-3 py-2">
           <Target size={11} />
           Ton allocation est conforme à ta cible. ✓
         </div>
@@ -398,7 +398,7 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
       {/* Edit slider */}
       {editing && (
         <div className="mt-4 p-3 rounded-xl border border-slate-700 bg-slate-950">
-          <label htmlFor={`${idsChamps}-part-bourse-cible`} className="text-[11px] text-slate-500 block mb-2">
+          <label htmlFor={`${idsChamps}-part-bourse-cible`} className="text-micro text-slate-500 block mb-2">
             Part Bourse cible : <span className="text-amber-300 font-data">{draft.bourse}%</span>
           </label>
           <input id={`${idsChamps}-part-bourse-cible`}
@@ -410,7 +410,7 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
             onChange={(e) => setDraft({ bourse: parseInt(e.target.value) })}
             className="w-full"
           />
-          <div className="flex justify-between text-[10px] text-slate-600 mt-1">
+          <div className="flex justify-between text-micro text-slate-600 mt-1">
             <span>100% Livrets</span>
             <span>100% Bourse</span>
           </div>
@@ -631,6 +631,22 @@ export default function Dashboard({
   // Cases du calendrier annuel. Le seuil de 14 relevés évite d'afficher une
   // grille presque entièrement vide dans les deux premières semaines d'usage,
   // qui donnerait l'impression que la fonctionnalité est cassée.
+  /**
+   * Série de l'année, pour la courbe de fond du bandeau d'ouverture.
+   *
+   * Volontairement brute — une valeur par relevé, sans lissage ni comblement
+   * des trous. Elle donne la DIRECTION d'un coup d'œil ; la lecture précise
+   * revient au graphique complet, plus bas sur la page.
+   */
+  const serieAnnee = useMemo(
+    () =>
+      (historyPast || [])
+        .filter((p) => String(p.date || "").startsWith(String(new Date().getFullYear())))
+        .sort((a, b) => (a.date < b.date ? -1 : 1))
+        .map((p) => Number(p.value) || 0),
+    [historyPast]
+  );
+
   const joursAnnee = useMemo(() => {
     const jours = joursDeLAnnee(historyPast, new Date().getFullYear());
     return {
@@ -674,7 +690,7 @@ export default function Dashboard({
                 livrets, bourse, envelopeBreakdown: allocationData,
               })
             }
-            className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-emerald-300 border border-slate-800 hover:border-emerald-400/40 rounded-lg px-2.5 py-1.5 transition-colors"
+            className="flex items-center gap-1.5 text-micro font-medium text-slate-400 hover:text-emerald-300 border border-slate-800 hover:border-emerald-400/40 rounded-lg px-2.5 py-1.5 transition-colors"
           >
             <FileSpreadsheet size={13} /> Excel
           </button>
@@ -685,7 +701,7 @@ export default function Dashboard({
                 livrets, bourse, cash, diversification,
               })
             }
-            className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-emerald-300 border border-slate-800 hover:border-emerald-400/40 rounded-lg px-2.5 py-1.5 transition-colors"
+            className="flex items-center gap-1.5 text-micro font-medium text-slate-400 hover:text-emerald-300 border border-slate-800 hover:border-emerald-400/40 rounded-lg px-2.5 py-1.5 transition-colors"
           >
             <FileDown size={13} /> PDF
           </button>
@@ -738,30 +754,71 @@ export default function Dashboard({
         <ProfileFreshness updatedAt={profile.updatedAt} history={profileHistory} />
       </Card>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-4">
-        <div
-          className="flex flex-col items-center justify-center text-center rounded-full mx-auto p-6 aspect-square w-[190px]"
-          style={{
-            background: "radial-gradient(circle at 32% 30%, rgba(16,185,129,0.12), transparent 65%)",
-            border: "1.5px solid rgba(16,185,129,0.35)",
-          }}
-        >
-          <span className="text-[11px] uppercase tracking-widest text-emerald-300/80 font-medium">Patrimoine net</span>
-          <span className="font-display text-[26px] text-slate-50 mt-1.5 leading-tight ghost-blur">{eur(patrimoineNet)}</span>
-          {delta30j.hasReference ? (
-            <span
-              title={`Référence : relevé du ${formatDateFr(delta30j.refDate)}`}
-              className={`text-xs mt-1.5 flex items-center gap-1 ghost-blur ${delta30j.abs >= 0 ? "text-emerald-400" : "text-rose-400"}`}
-            >
-              {delta30j.abs >= 0 ? <ArrowUpRight size={12} aria-hidden="true" /> : <ArrowDownRight size={12} aria-hidden="true" />}
-              {eur(Math.abs(delta30j.abs))} sur 30 jours
-            </span>
-          ) : (
-            <span className="text-xs mt-1.5 text-slate-600">Pas encore d'historique</span>
-          )}
-        </div>
+      {/*
+        BANDEAU D'OUVERTURE.
+        ═══════════════════
 
+        Le Dashboard était une pile verticale de cartes de même poids : on le
+        parcourait, on ne le CONSULTAIT pas. Un tableau de bord a besoin d'un
+        point d'entrée — le chiffre qui compte, sa trajectoire, et deux ou trois
+        repères — avant de dérouler le détail.
+
+        Le contenu ne change pas ; sa hiérarchie, si. La pastille ronde qui
+        tenait le patrimoine net était contrainte à 190 px de côté : le montant
+        y était plus petit que les titres de section qui l'entouraient, alors
+        que c'est le seul chiffre pour lequel on ouvre l'application.
+
+        La courbe passe EN FOND et non à côté : elle est là pour donner la
+        direction d'un coup d'œil, pas pour être lue point par point — c'est le
+        rôle du graphique complet, plus bas sur la page.
+      */}
+      <Card role="vedette" accent="teinte-emerald" className="relative overflow-hidden">
+        {serieAnnee.length >= 2 && (
+          <div className="absolute inset-x-0 bottom-0 h-3/5 opacity-60 pointer-events-none" aria-hidden="true">
+            <CourbeEvolution
+              valeurs={serieAnnee}
+              largeur={640}
+              hauteur={80}
+              className="w-full h-full text-emerald-400 ghost-blur"
+            />
+          </div>
+        )}
+        <div className="relative flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+          <div>
+            <CardLabel icon={Landmark}>Patrimoine net</CardLabel>
+            <Montant valeur={patrimoineNet} decimales={2} anime pulse className="block text-vedette text-slate-50" />
+            {delta30j.hasReference ? (
+              <span
+                title={`Référence : relevé du ${formatDateFr(delta30j.refDate)}`}
+                className={`text-corps mt-1.5 flex items-center gap-1.5 ghost-blur ${delta30j.abs >= 0 ? "etat-ok" : "etat-critique"}`}
+              >
+                {delta30j.abs >= 0 ? <ArrowUpRight size={15} aria-hidden="true" /> : <ArrowDownRight size={15} aria-hidden="true" />}
+                {eur(Math.abs(delta30j.abs))} sur 30 jours
+              </span>
+            ) : (
+              <span className="text-corps mt-1.5 text-slate-600 block">Pas encore d'historique</span>
+            )}
+          </div>
+
+          <dl className="flex gap-6 sm:gap-9">
+            <div>
+              <dt className="text-micro uppercase tracking-wider text-slate-500">Taux d'épargne</dt>
+              <dd className="font-data tabular-nums text-chiffre text-slate-100 ghost-blur">
+                {Number.isFinite(tauxEpargne) ? `${tauxEpargne.toFixed(0)} %` : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-micro uppercase tracking-wider text-slate-500">Matelas</dt>
+              <dd className="font-data tabular-nums text-chiffre text-slate-100 ghost-blur">
+                {matelasMois != null ? `${matelasMois.toFixed(1)} mois` : "—"}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </Card>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card accent={CARD_THEMES.emerald}>
             <CardLabel icon={Landmark}>Patrimoine brut</CardLabel>
@@ -779,14 +836,14 @@ export default function Dashboard({
               {pct(bourseGainPct)}
             </div>
             <div className="mt-3 pt-3 border-t border-slate-800 space-y-1.5">
-              <div className="flex justify-between items-center text-[11px]">
+              <div className="flex justify-between items-center text-micro">
                 <span className="text-slate-500 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
                   Versements cumulés
                 </span>
                 <span className="font-data tabular-nums text-slate-300 ghost-blur">{eur(versementsCumules)}</span>
               </div>
-              <div className="flex justify-between items-center text-[11px]">
+              <div className="flex justify-between items-center text-micro">
                 <span className={`flex items-center gap-1 ${gainsMarcheReels >= 0 ? "text-emerald-400/80" : "text-rose-400/80"}`}>
                   <span className={`w-1.5 h-1.5 rounded-full inline-block ${gainsMarcheReels >= 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
                   Gains marché réels
@@ -803,7 +860,7 @@ export default function Dashboard({
             <div className="font-display text-xl text-slate-100 ghost-blur">{eur(epargneMensuelle)}</div>
             <div className="text-xs text-emerald-300/80 mt-1">{pct(tauxEpargne)} du revenu</div>
             {epargneMensuelle > 0 && (
-              <div className="text-[11px] text-slate-600 mt-1 ghost-blur">
+              <div className="text-micro text-slate-600 mt-1 ghost-blur">
                 Projection +{eur(epargneMensuelle * 6)} / 6 mois
               </div>
             )}
@@ -928,7 +985,7 @@ export default function Dashboard({
                   style={{ width: `${diversification.score}%` }}
                 />
               </div>
-              <p className="text-[11px] text-slate-600 mt-1.5">
+              <p className="text-micro text-slate-600 mt-1.5">
                 {diversification.score >= 66
                   ? "Bonne répartition entre tes classes d'actifs."
                   : diversification.score >= 33
@@ -944,7 +1001,7 @@ export default function Dashboard({
             livretsTotal={livretsTotal}
             bourseTotal={bourseTotal}
           />
-          <p className="text-[11px] text-slate-600 mt-3">
+          <p className="text-micro text-slate-600 mt-3">
             Le sous-onglet « Immobilier &amp; Crédit » de Simulation te permet de planifier un futur
             achat sans modifier cette répartition.
           </p>
@@ -962,11 +1019,11 @@ export default function Dashboard({
 
           {/* Legend for projection */}
           <div className="flex items-center gap-4 mb-2">
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <div className="flex items-center gap-1.5 text-micro text-slate-500">
               <div className="w-6 h-0.5 bg-emerald-400 rounded" />
               Historique
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <div className="flex items-center gap-1.5 text-micro text-slate-500">
               <div className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400/50" />
               <span>
                 Projection (<span className="ghost-blur">{eur(epargneMensuelle)}</span>/mois à{" "}
@@ -988,9 +1045,9 @@ export default function Dashboard({
                     <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} width={46} />
+                <CartesianGrid stroke="rgb(var(--c-slate-800))" vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tickFormatter={compact} tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }} axisLine={false} tickLine={false} width={46} />
                 <Tooltip content={<ChartTooltip />} />
                 {/* Vertical reference line at "Aujourd'hui" */}
                 <ReferenceLine x="Aujourd'hui" stroke="#475569" strokeDasharray="3 3" label={{ value: "Auj.", fill: "#475569", fontSize: 10 }} />

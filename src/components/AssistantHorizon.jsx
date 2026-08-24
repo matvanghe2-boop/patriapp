@@ -213,7 +213,7 @@ export default function AssistantHorizon({ contexte, facteurBase100 = 0, montant
               {dernier.journal.map((appel, i) => (
                 <details key={i} className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
                   <summary className="text-xs text-slate-400 cursor-pointer">{appel.outil}</summary>
-                  <pre className="mt-2 text-[11px] text-slate-500 overflow-x-auto">
+                  <pre className="mt-2 text-micro text-slate-500 overflow-x-auto">
                     {JSON.stringify({ entrees: appel.entrees, sorties: appel.sorties }, null, 2)}
                   </pre>
                 </details>

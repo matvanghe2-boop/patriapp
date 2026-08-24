@@ -181,7 +181,7 @@ function AntiPanicModal({ position, note, onClose }) {
         {note ? (
           <>
             <div className="flex items-center gap-2 mb-3">
-              <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
+              <span className={`flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                 Thèse {st.label}
               </span>
@@ -196,7 +196,7 @@ function AntiPanicModal({ position, note, onClose }) {
 
             {note.conditions_vente && (
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 mb-3">
-                <div className="text-[11px] text-amber-300/80 font-semibold uppercase tracking-wide mb-1">
+                <div className="text-micro text-amber-300/80 font-semibold uppercase tracking-wide mb-1">
                   Tu ne vends que si...
                 </div>
                 <p className="text-sm text-slate-200 whitespace-pre-wrap">{note.conditions_vente}</p>
@@ -254,7 +254,7 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
       actions={
         <button
           onClick={() => { setDraft({ peaOuverture: bourse.peaOuverture || "", peaVersements: versements }); setEditing((e) => !e); }}
-          className="btn-flash text-[11px] text-violet-300/80 hover:text-violet-200"
+          className="btn-flash text-micro text-violet-300/80 hover:text-violet-200"
         >
           {editing ? "Fermer" : "Modifier"}
         </button>
@@ -264,13 +264,13 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
       {editing ? (
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <div>
-            <label htmlFor={`${idsChamps}-date-d-ouverture`} className="text-[11px] text-slate-500 block mb-1">Date d'ouverture du PEA</label>
+            <label htmlFor={`${idsChamps}-date-d-ouverture`} className="text-micro text-slate-500 block mb-1">Date d'ouverture du PEA</label>
             <input id={`${idsChamps}-date-d-ouverture`} type="date" value={draft.peaOuverture} onChange={(e) => setDraft((d) => ({ ...d, peaOuverture: e.target.value }))} className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
           </div>
           <div>
-            <label htmlFor={`${idsChamps}-total-verse`} className="text-[11px] text-slate-500 block mb-1">Total versé (€)</label>
+            <label htmlFor={`${idsChamps}-total-verse`} className="text-micro text-slate-500 block mb-1">Total versé (€)</label>
             <input id={`${idsChamps}-total-verse`} type="number" step="100" value={draft.peaVersements} onChange={(e) => setDraft((d) => ({ ...d, peaVersements: e.target.value }))} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
-            <p className="text-[10px] text-slate-600 mt-1 max-w-[13rem]">
+            <p className="text-micro text-slate-600 mt-1 max-w-[13rem]">
               Point de départ de la courbe « Capital investi ». Il évoluera ensuite tout seul à chaque versement ou retrait de cash.
             </p>
           </div>
@@ -278,7 +278,7 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
               25 ans, tant que le titulaire est rattaché au foyer fiscal de ses
               parents, il est de 20 000 € — sept fois moins. */}
           <div>
-            <label htmlFor={`${idsChamps}-type-de-pea`} className="text-[11px] text-slate-500 block mb-1">Type de PEA</label>
+            <label htmlFor={`${idsChamps}-type-de-pea`} className="text-micro text-slate-500 block mb-1">Type de PEA</label>
             <select id={`${idsChamps}-type-de-pea`}
               value={typeCourant}
               onChange={(e) => setBourse((b) => ({ ...b, peaType: e.target.value }))}
@@ -300,9 +300,9 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
           <div className="h-2.5 rounded-full bg-slate-800 overflow-hidden">
             <div className={`h-full rounded-full transition-all ${pctPlafond >= 90 ? "bg-rose-400" : pctPlafond >= 70 ? "bg-amber-400" : "bg-violet-400"}`} style={{ width: `${pctPlafond}%` }} />
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">{pctPlafond.toFixed(1)} % du plafond — reste <span className="ghost-blur">{eur(plafond - versements, 0)}</span> de marge de versement</div>
+          <div className="text-micro text-slate-500 mt-1">{pctPlafond.toFixed(1)} % du plafond — reste <span className="ghost-blur">{eur(plafond - versements, 0)}</span> de marge de versement</div>
           {typeCourant === "jeune" && (
-            <p className="text-[11px] text-violet-300/80 mt-1.5 leading-relaxed">
+            <p className="text-micro text-violet-300/80 mt-1.5 leading-relaxed">
               {PEA_PLAFONDS.jeune.detail}
             </p>
           )}
@@ -317,16 +317,16 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
               <div className="text-sm text-slate-200 font-medium">
                 {age.eligible ? "PEA de plus de 5 ans" : "PEA de moins de 5 ans"}
               </div>
-              <div className="text-[11px] text-slate-500">
+              <div className="text-micro text-slate-500">
                 {age.eligible
                   ? "Exonération d'impôt sur les plus-values — seuls 17,2 % de prélèvements sociaux restent dus."
                   : `Clôture entraînerait imposition spécifique — encore ${age.monthsRemaining} mois avant l'exonération.`}
               </div>
-              <div className="text-[10px] text-slate-600 font-data mt-0.5">Ouvert depuis {age.years} an(s) {age.months} mois</div>
+              <div className="text-micro text-slate-600 font-data mt-0.5">Ouvert depuis {age.years} an(s) {age.months} mois</div>
             </div>
           </>
         ) : (
-          <span className="text-[11px] text-slate-600">Renseigne la date d'ouverture pour voir le décompte fiscal.</span>
+          <span className="text-micro text-slate-600">Renseigne la date d'ouverture pour voir le décompte fiscal.</span>
         )}
       </div>
     </CarteRepliable>
@@ -472,7 +472,7 @@ function CashPocketCard({ bourse, setBourse }) {
         />
         <span className="text-xs text-slate-600">€</span>
       </div>
-      <p className="text-[11px] text-slate-600 mt-1">Versement ou retrait enregistré dans le journal</p>
+      <p className="text-micro text-slate-600 mt-1">Versement ou retrait enregistré dans le journal</p>
     </Card>
   );
 }
@@ -503,12 +503,31 @@ export default function Bourse({
   // second était alors pris pour une demande déjà traitée et ne rechargeait
   // rien. Un compteur ne peut pas collisionner.
   const [marcheRequest, setMarcheRequest] = useState(null);
+  /**
+   * Ouvre la fiche d'un titre dans le sous-onglet Marché.
+   *
+   * Passe par `startViewTransition` quand le navigateur l'expose : le ticker
+   * VOYAGE alors de la ligne du tableau vers l'en-tête de la fiche, au lieu
+   * d'être remplacé d'un écran à l'autre. Sans ça, il faut retrouver des yeux
+   * le titre qu'on venait pourtant de désigner du doigt.
+   *
+   * `document.startViewTransition` n'existe pas partout, et la fonction rendue
+   * doit rester synchrone dans tous les cas : le repli exécute simplement la
+   * mise à jour, et le changement d'écran redevient ce qu'il était.
+   */
   const openInMarche = (ticker) => {
-    setMarcheRequest((precedent) => ({
-      symbol: ticker.toUpperCase(),
-      ts: (precedent?.ts ?? 0) + 1,
-    }));
-    setSubTab("marche");
+    const appliquer = () => {
+      setMarcheRequest((precedent) => ({
+        symbol: ticker.toUpperCase(),
+        ts: (precedent?.ts ?? 0) + 1,
+      }));
+      setSubTab("marche");
+    };
+    if (typeof document !== "undefined" && document.startViewTransition) {
+      document.startViewTransition(appliquer);
+    } else {
+      appliquer();
+    }
   };
 
   // ─── État de l'onglet Performance ────────────────────────────────────────
@@ -875,7 +894,9 @@ export default function Bourse({
         </Card>
         <CashPocketCard bourse={bourse} setBourse={setBourse} />
       </div>
-      <div className="mt-6 flex flex-col gap-4">
+      {/* Deux colonnes au-delà de 1 280 px : les blocs de contexte tiennent à
+          côté du flux principal au lieu de rallonger le défilement. */}
+      <div className="mt-6 flex flex-col gap-4 colonnes-larges">
         <PeaFiscalWidget
           bourse={bourse}
           setBourse={setBourse}
@@ -913,29 +934,29 @@ export default function Bourse({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-1">
             <div>
-              <div className="text-[11px] text-slate-500 mb-0.5">
+              <div className="text-micro text-slate-500 mb-0.5">
                 {dividendSummary.totalRetenueSource > 0 ? "Dividendes nets encaissés" : "Dividendes annuels"}
               </div>
               <div className="font-display text-lg text-emerald-400 ghost-blur">
                 {eur(dividendSummary.totalAnnualDividendNet, 2)}
               </div>
               {dividendSummary.totalRetenueSource > 0 && (
-                <div className="text-[11px] text-amber-300/90 mt-0.5 ghost-blur">
+                <div className="text-micro text-amber-300/90 mt-0.5 ghost-blur">
                   {eur(dividendSummary.totalAnnualDividend, 2)} bruts − {eur(dividendSummary.totalRetenueSource, 2)} de
                   retenue étrangère
                 </div>
               )}
             </div>
             <div>
-              <div className="text-[11px] text-slate-500 mb-0.5">Moyenne mensuelle</div>
+              <div className="text-micro text-slate-500 mb-0.5">Moyenne mensuelle</div>
               <div className="font-display text-lg text-slate-100 ghost-blur">{eur(dividendSummary.monthlyAverage, 2)}</div>
             </div>
             <div>
-              <div className="text-[11px] text-slate-500 mb-0.5">Rendement / valeur actuelle</div>
+              <div className="text-micro text-slate-500 mb-0.5">Rendement / valeur actuelle</div>
               <div className="font-display text-lg text-violet-300">{pctPlain(dividendSummary.portfolioYieldOnValue, 2)}</div>
             </div>
             <div>
-              <div className="text-[11px] text-slate-500 mb-0.5">Rendement / capital investi</div>
+              <div className="text-micro text-slate-500 mb-0.5">Rendement / capital investi</div>
               <div className="font-display text-lg text-violet-300">{pctPlain(dividendSummary.portfolioYieldOnCost, 2)}</div>
             </div>
           </div>
@@ -966,7 +987,7 @@ export default function Bourse({
           </div>
         </div>
 
-        {refreshMsg && <p className="text-[11px] text-amber-300/80 mb-3">{refreshMsg}</p>}
+        {refreshMsg && <p className="text-micro text-amber-300/80 mb-3">{refreshMsg}</p>}
 
         {bourse.positions.length === 0 ? (
           <EtatVide
@@ -979,9 +1000,9 @@ export default function Bourse({
               </EtatVide>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-cards table-dense">
+            <table className="w-full text-sm table-cards table-donnees">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Actif</th>
                   <th className="py-2 pr-3">Qté</th>
                   <th className="py-2 pr-3">PRU</th>
@@ -1020,7 +1041,7 @@ export default function Bourse({
                             <AssetLogo ticker={p.ticker} size="xs" />
                             <div>
                               <div className="text-slate-200 font-medium">{p.ticker}</div>
-                              <div className="text-[11px] text-slate-500">{p.name} · {p.type}</div>
+                              <div className="text-micro text-slate-500">{p.name} · {p.type}</div>
                             </div>
                           </div>
                         </td>
@@ -1053,13 +1074,14 @@ export default function Bourse({
                         <button
                           type="button"
                           onClick={() => openInMarche(p.ticker)}
+                          data-voyageur={marcheRequest?.symbol === p.ticker.toUpperCase() ? "" : undefined}
                           title="Voir la fiche complète dans l'onglet Marché"
                           className="flex items-center gap-2 text-left group/ticker"
                         >
                           <AssetLogo ticker={p.ticker} size="xs" />
                           <div>
                             <div className="text-slate-200 font-medium group-hover/ticker:text-violet-300 transition-colors">{p.ticker}</div>
-                            <div className="text-[11px] text-slate-500">{p.name} · {p.type}</div>
+                            <div className="text-micro text-slate-500">{p.name} · {p.type}</div>
                           </div>
                         </button>
                       </td>
@@ -1084,7 +1106,7 @@ export default function Bourse({
                         {(dailyData?.[p.ticker]?.changePct ?? 0) <= PANIC_THRESHOLD_PCT && (
                           <button
                             onClick={() => setPanicPosition(p)}
-                            className="flex items-center gap-1 text-[10px] font-semibold text-rose-300 hover:text-rose-200 mt-1 animate-pulse"
+                            className="flex items-center gap-1 text-micro font-semibold text-rose-300 hover:text-rose-200 mt-1 animate-pulse"
                           >
                             <BookOpen size={11} /> Lire ma thèse
                           </button>
@@ -1092,14 +1114,14 @@ export default function Bourse({
                       </td>
                       <td data-label="Valeur" className="py-3 pr-3 font-data tabular-nums ghost-blur">{eur(value)}</td>
                       <td data-label="+/− value" className={`py-3 pr-3 font-data tabular-nums ghost-blur ${gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {eur(gainAbs)} <span className="text-[11px] opacity-80">({pct(gainPct)})</span>
+                        {eur(gainAbs)} <span className="text-micro opacity-80">({pct(gainPct)})</span>
                       </td>
                       <td data-label="Poids" className="py-3 pr-3 font-data tabular-nums text-slate-400">{pctPlain(weight)}</td>
                       <td data-label="Dividendes" className="py-3 pr-3">
                         {p.annual_dividend > 0 ? (
                           <div className="font-data tabular-nums">
                             <div className="text-emerald-400 ghost-blur">{eur(p.annual_dividend * p.quantity, 2)}</div>
-                            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                            <div className="text-micro text-slate-500 flex items-center gap-1">
                               <span>{pctPlain(p.current_price > 0 ? (p.annual_dividend / p.current_price) * 100 : 0, 2)} rdt</span>
                               {p.pru > 0 && (
                                 <span className="text-amber-300/90" title="Rendement sur ton PRU (Yield on Cost)">
@@ -1128,7 +1150,7 @@ export default function Bourse({
 
         <AddPositionPanel open={showAdd} onClose={() => setShowAdd(false)} onSubmit={addPosition} />
 
-        <p className="text-[11px] text-slate-600 mt-4">
+        <p className="text-micro text-slate-600 mt-4">
           La variation journalière est calculée par rapport au cours de clôture de la veille, récupéré lors du dernier « Actualiser les cours ».
         </p>
       </CarteRepliable>
@@ -1331,7 +1353,7 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
     <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950 space-y-3">
       {!manual ? (
         <>
-          <label htmlFor={`${idsChamps}-ticker-isin-ou`} className="text-[11px] text-slate-500">Ticker, ISIN ou nom du produit</label>
+          <label htmlFor={`${idsChamps}-ticker-isin-ou`} className="text-micro text-slate-500">Ticker, ISIN ou nom du produit</label>
           <input id={`${idsChamps}-ticker-isin-ou`} autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Ex : CW8, FR0011550185, Air Liquide..." className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60" />
           {loading && <p className="text-xs text-slate-500">Recherche en cours…</p>}
           {error && <p className="text-xs text-amber-400/90">{error}</p>}
@@ -1359,27 +1381,27 @@ function AddPositionPanel({ open, onClose, onSubmit }) {
               <button type="button" onClick={() => setSelected(null)} className="text-xs text-slate-500 hover:text-rose-400">Changer</button>
             </div>
           )}
-          <button type="button" onClick={() => setManual(true)} className="text-[11px] text-slate-500 hover:text-slate-300 underline">Le produit n'est pas trouvé ? Saisie manuelle</button>
+          <button type="button" onClick={() => setManual(true)} className="text-micro text-slate-500 hover:text-slate-300 underline">Le produit n'est pas trouvé ? Saisie manuelle</button>
         </>
       ) : (
         <>
-          <label htmlFor={`${idsChamps}-nom-ticker-saisie`} className="text-[11px] text-slate-500">Nom / ticker (saisie libre)</label>
+          <label htmlFor={`${idsChamps}-nom-ticker-saisie`} className="text-micro text-slate-500">Nom / ticker (saisie libre)</label>
           <input id={`${idsChamps}-nom-ticker-saisie`} value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60" placeholder="Ex : Plan Épargne Entreprise" />
-          <button type="button" onClick={() => setManual(false)} className="text-[11px] text-slate-500 hover:text-slate-300 underline">Revenir à la recherche</button>
+          <button type="button" onClick={() => setManual(false)} className="text-micro text-slate-500 hover:text-slate-300 underline">Revenir à la recherche</button>
         </>
       )}
       {ready && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor={`${idsChamps}-quantite`} className="text-[11px] text-slate-500">Quantité</label>
+            <label htmlFor={`${idsChamps}-quantite`} className="text-micro text-slate-500">Quantité</label>
             <input id={`${idsChamps}-quantite`} required type="number" step="0.0001" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
           </div>
           <div>
-            <label htmlFor={`${idsChamps}-prix-de-revient`} className="text-[11px] text-slate-500">Prix de revient unitaire (€)</label>
+            <label htmlFor={`${idsChamps}-prix-de-revient`} className="text-micro text-slate-500">Prix de revient unitaire (€)</label>
             <input id={`${idsChamps}-prix-de-revient`} required type="number" step="0.01" value={pru} onChange={(e) => setPru(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
           </div>
           <div className="col-span-2">
-            <label htmlFor={`${idsChamps}-dividende-annuel-par`} className="text-[11px] text-slate-500">Dividende annuel par action (€) — optionnel</label>
+            <label htmlFor={`${idsChamps}-dividende-annuel-par`} className="text-micro text-slate-500">Dividende annuel par action (€) — optionnel</label>
             <input id={`${idsChamps}-dividende-annuel-par`} type="number" step="0.01" placeholder="Ex : 1.20" value={annualDividend} onChange={(e) => setAnnualDividend(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
           </div>
         </div>

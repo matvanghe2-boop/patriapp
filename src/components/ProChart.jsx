@@ -17,12 +17,23 @@ import {
  * nœuds SVG à repeindre à chaque frame.
  */
 
-const C_UP = "#22c55e";
-const C_DOWN = "#f43f5e";
-const C_LINE = "#a78bfa";
-const C_GRID = "#1b2434";
-const C_AXIS = "#64748b";
-const C_CROSS = "#94a3b8";
+/*
+ * Couleurs du graphique, adossées aux jetons de thème.
+ *
+ * Elles étaient figées en hexadécimal : le graphique restait donc sombre au
+ * milieu d'une application passée en clair, et la hausse comme la baisse
+ * ignoraient les couleurs d'état partagées par le reste de l'interface.
+ *
+ * `--etat-ok` et `--etat-critique` plutôt que les rampes vertes et roses :
+ * ce sont des JUGEMENTS, et ils doivent rester identiques partout — y compris
+ * lorsque l'utilisateur change la couleur d'accent de l'application.
+ */
+const C_UP = "rgb(var(--etat-ok))";
+const C_DOWN = "rgb(var(--etat-critique))";
+const C_LINE = "hsl(var(--teinte, 258 95% 85%))";
+const C_GRID = "rgb(var(--c-slate-800))";
+const C_AXIS = "rgb(var(--c-slate-500))";
+const C_CROSS = "rgb(var(--c-slate-400))";
 
 const MA_CONFIG = [
   { period: 20, color: "#facc15", label: "MM20" },
@@ -117,7 +128,7 @@ function ToolButton({ active, onClick, title, children, disabled }) {
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className={`flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border transition-colors disabled:opacity-40 ${
+      className={`flex items-center gap-1.5 text-micro font-medium px-2 py-1 rounded-md border transition-colors disabled:opacity-40 ${
         active
           ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
           : "border-slate-800 text-slate-500 hover:text-slate-200 hover:border-slate-600"
@@ -204,15 +215,33 @@ export default function ProChart({
     [bars, n]
   );
 
-  const [view, setView] = useState({ start: 0, end: 0 });
+  /*
+   * Fenêtre visible, initialisée SUR LA SÉRIE et non à zéro.
+   *
+   * L'initialiseur paresseux n'est pas un détail de style : il corrige un bug
+   * de premier affichage. La vue partait de `{ start: 0, end: 0 }`, et n'était
+   * recalée que par l'ajustement ci-dessous — lequel ne se déclenche que si
+   * `bars` CHANGE d'identité. Or au premier rendu, `barresPrecedentes` vaut
+   * déjà `bars` : la condition est fausse, et la fenêtre restait vide.
+   *
+   * Conséquence à l'écran : `span` retombait sur son plancher de 1e-6, la
+   * largeur d'une bougie devenait astronomique, et le graphique s'ouvrait
+   * démesurément zoomé sur la toute première barre — on ne voyait jamais la
+   * période demandée au premier coup d'œil. Le symptôme n'apparaissait que
+   * lorsque la série était DÉJÀ disponible au montage, ce qui est le cas
+   * nominal : `<Marche>` ne monte le graphique qu'une fois l'historique reçu.
+   *
+   * L'effet qui existait avant se déclenchait au montage, lui, et masquait le
+   * problème au prix d'un premier rendu jetable.
+   */
+  const [view, setView] = useState(() => ({ start: 0, end: bars.length }));
   const [crosshair, setCrosshair] = useState(null); // { x, y, i }
 
-  // Nouvelle série (changement de valeur ou de période) → on repart sur la vue complète.
-  //
-  // Ajustement pendant le rendu et non effet : le graphique était sinon dessiné
-  // une première fois avec la fenêtre de l'ANCIENNE série appliquée aux
-  // nouvelles bougies — donc une vue tronquée, ou vide quand la nouvelle série
-  // est plus courte — avant d'être redessiné au rendu suivant.
+  // Nouvelle série (changement de valeur ou de période) → on repart sur la vue
+  // complète. Ajustement pendant le rendu et non effet : le graphique était
+  // sinon dessiné une première fois avec la fenêtre de l'ANCIENNE série
+  // appliquée aux nouvelles bougies — donc une vue tronquée, ou vide quand la
+  // nouvelle série est plus courte — avant d'être redessiné au rendu suivant.
   const [barresPrecedentes, setBarresPrecedentes] = useState(bars);
   if (bars !== barresPrecedentes) {
     setBarresPrecedentes(bars);
@@ -608,7 +637,7 @@ export default function ProChart({
                   type="button"
                   onClick={() => setStyle(s.key)}
                   title={`Affichage en ${s.label.toLowerCase()}`}
-                  className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${
+                  className={`flex items-center gap-1.5 text-micro font-medium px-2.5 py-1 rounded-md transition-colors ${
                     style === s.key ? "bg-violet-500/20 text-violet-200 border border-violet-500/40" : "text-slate-500 hover:text-slate-200"
                   }`}
                 >
@@ -655,7 +684,7 @@ export default function ProChart({
       <div ref={wrapRef} className="relative" style={{ height }}>
         {/* Bandeau O/H/L/C façon TradingView */}
         {readout && (
-          <div className="absolute left-2 top-1 z-10 pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] sm:text-[11px] font-data tabular-nums">
+          <div className="absolute left-2 top-1 z-10 pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-0.5 text-micro sm:text-micro font-data tabular-nums">
             <span className="text-slate-500">{fmtXFull(readout.date)}</span>
             <span className="text-slate-500">O <span className="text-slate-300">{fmtPrice(readout.open)}</span></span>
             <span className="text-slate-500">H <span className="text-emerald-300">{fmtPrice(readout.high)}</span></span>
@@ -809,7 +838,7 @@ export default function ProChart({
 
             {/* Séparateur du panneau volume */}
             {showVolume && (
-              <line x1={geom.plotLeft} y1={geom.volTop - 5} x2={geom.plotRight} y2={geom.volTop - 5} stroke="#1e293b" strokeWidth={1} />
+              <line x1={geom.plotLeft} y1={geom.volTop - 5} x2={geom.plotRight} y2={geom.volTop - 5} stroke="rgb(var(--c-slate-800))" strokeWidth={1} />
             )}
           </svg>
         )}

@@ -1270,13 +1270,6 @@
 :root { --pas-ligne: 0.625rem; --pas-carte: 1.25rem; }
 :root[data-densite="compacte"] { --pas-ligne: 0.3125rem; --pas-carte: 0.875rem; }
 
-/* Appliqué aux tableaux qui portent la classe `table-dense`. */
-.table-dense th,
-.table-dense td {
-  padding-top: var(--pas-ligne);
-  padding-bottom: var(--pas-ligne);
-}
-
 /* ═══════════════════ MOUVEMENT, RÉGLAGE APPLICATIF ════════════════════════
  * Double la media query système : l'utilisateur peut couper les animations
  * dans Patrium sans toucher aux réglages de son ordinateur, et inversement les
@@ -1979,6 +1972,437 @@
   /* Silhouette de courbe plutôt que barre pleine : deux crans suffisent à
      évoquer un tracé. */
   clip-path: polygon(0 70%, 20% 55%, 40% 65%, 60% 35%, 80% 45%, 100% 20%, 100% 100%, 0 100%);
+}
+
+/* ═══════════════════ COULEURS D'ÉTAT ══════════════════════════════════════
+ * Quatre couleurs de JUGEMENT, indépendantes de l'accent.
+ *
+ * L'ambre servait à la fois d'accent de l'application et d'alerte
+ * « attention ». Depuis que l'accent est réglable, c'est devenu un vrai
+ * défaut : choisir le vert donnait des avertissements verts, et un bouton
+ * principal de la même couleur qu'un état « tout va bien ».
+ *
+ * Ces quatre teintes ne passent donc PAS par la rampe ambre — que l'accent
+ * réécrit — mais par leurs propres variables. L'accent redevient ce qu'il
+ * doit être : la couleur de l'application, jamais celle d'un jugement.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --etat-ok: 52 211 153;
+  --etat-attention: 251 191 36;
+  --etat-critique: 251 113 133;
+  --etat-neutre: 148 163 184;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="sombre"]) {
+    --etat-ok: 4 120 87;
+    --etat-attention: 180 83 9;
+    --etat-critique: 190 18 60;
+    --etat-neutre: 71 85 105;
+  }
+}
+:root[data-theme="clair"] {
+  --etat-ok: 4 120 87;
+  --etat-attention: 180 83 9;
+  --etat-critique: 190 18 60;
+  --etat-neutre: 71 85 105;
+}
+:root[data-theme="sombre"] {
+  --etat-ok: 52 211 153;
+  --etat-attention: 251 191 36;
+  --etat-critique: 251 113 133;
+  --etat-neutre: 148 163 184;
+}
+
+.etat-ok { color: rgb(var(--etat-ok)); }
+.etat-attention { color: rgb(var(--etat-attention)); }
+.etat-critique { color: rgb(var(--etat-critique)); }
+.etat-neutre { color: rgb(var(--etat-neutre)); }
+
+/* Pastille d'état : la forme porte l'information autant que la couleur, pour
+   que le sens survive au daltonisme comme à une capture en noir et blanc. */
+.pastille-etat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.pastille-etat::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.pastille-etat[data-etat="ok"] { color: rgb(var(--etat-ok)); background: rgb(var(--etat-ok) / 0.1); border-color: rgb(var(--etat-ok) / 0.35); }
+.pastille-etat[data-etat="attention"] { color: rgb(var(--etat-attention)); background: rgb(var(--etat-attention) / 0.1); border-color: rgb(var(--etat-attention) / 0.35); }
+.pastille-etat[data-etat="critique"] { color: rgb(var(--etat-critique)); background: rgb(var(--etat-critique) / 0.1); border-color: rgb(var(--etat-critique) / 0.35); }
+.pastille-etat[data-etat="neutre"] { color: rgb(var(--etat-neutre)); background: rgb(var(--etat-neutre) / 0.08); border-color: rgb(var(--etat-neutre) / 0.3); }
+
+/* ═══════════════════ TROIS RÔLES DE CARTE ═════════════════════════════════
+ * Cent quarante cartes portaient exactement la même bordure : le patrimoine
+ * net, le rappel de sauvegarde et la liste des abonnements avaient la même
+ * enveloppe. L'œil n'avait donc aucun moyen de ranger l'important devant
+ * l'accessoire — et c'est précisément ce qui a rendu nécessaire le repli
+ * manuel de chaque bloc.
+ *
+ * Trois rôles, et pas un de plus. Au-delà, la hiérarchie cesse d'être lisible
+ * d'un coup d'œil et redevient une nuance qu'il faut apprendre.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* VEDETTE — le chiffre qui porte l'écran. Un par écran, jamais deux. */
+.carte-vedette {
+  border-color: hsl(var(--teinte) / 0.42);
+  background-image: linear-gradient(135deg, hsl(var(--teinte) / 0.14), transparent 62%);
+  box-shadow:
+    0 14px 36px -26px hsl(var(--teinte) / 0.75),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+:root[data-theme="clair"] .carte-vedette,
+:root:not([data-theme="sombre"]) .carte-vedette {
+  /* En clair, l'ombre colorée tourne au sale : on la remplace par un liseré. */
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 10px 28px -22px hsl(var(--teinte) / 0.5);
+}
+:root[data-theme="sombre"] .carte-vedette {
+  box-shadow:
+    0 14px 36px -26px hsl(var(--teinte) / 0.75),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* STANDARD — le corps de l'écran. C'est l'ancienne carte, inchangée. */
+.carte-standard {
+  border-color: rgb(var(--c-slate-800));
+}
+
+/* AMBIANT — ce qui n'est là qu'en appui : rappels, notes de bas de bloc.
+   Sans fond ni bordure pleine, il ne dispute rien au reste. */
+.carte-ambiant {
+  background: transparent;
+  border-color: rgb(var(--c-slate-800) / 0.7);
+  border-style: dashed;
+}
+
+/* ═══════════════════ COQUILLE FLOTTANTE ═══════════════════════════════════
+ * La barre latérale et la page se touchaient, séparées par un filet d'un
+ * pixel : la disposition la plus neutre qui soit, et celle qui donne à
+ * l'application l'allure d'un document plutôt que d'un outil.
+ *
+ * Détacher la zone de contenu — coins arrondis, ombre, fond de page plus
+ * sombre derrière — change l'impression générale pour une poignée de règles.
+ *
+ * Bureau seulement : sur téléphone, l'écran est déjà la fenêtre, et rogner
+ * quelques pixels de chaque côté n'y gagnerait rien.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  .coquille-fond {
+    background: rgb(var(--c-slate-950));
+    padding: 0.75rem 0.75rem 0.75rem 0;
+  }
+  .coquille-zone {
+    border: 1px solid rgb(var(--c-slate-800));
+    border-radius: 1rem;
+    background: rgb(var(--c-slate-950));
+    box-shadow: 0 24px 60px -40px rgb(0 0 0 / 0.9);
+    overflow: clip;
+  }
+  :root[data-theme="clair"] .coquille-zone,
+  :root:not([data-theme="sombre"]) .coquille-zone {
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.06), 0 20px 50px -40px rgb(15 23 42 / 0.35);
+  }
+}
+
+/* ═══════════════════ BANDEAU DE DOMAINE ═══════════════════════════════════
+ * Aucune page n'affichait son propre nom : le `<h1>` était `sr-only`. On
+ * déduisait l'onglet courant de la couleur du fond et d'un bouton surligné
+ * dans une barre latérale qui, sur mobile, n'est même pas à l'écran. C'est le
+ * repère le plus élémentaire d'une application à six sections.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.bandeau-domaine {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem 0.9rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.55rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid hsl(var(--teinte) / 0.5);
+}
+.bandeau-domaine h1 {
+  font-family: "Fraunces", serif;
+  font-optical-sizing: auto;
+  font-size: 1.375rem;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: rgb(var(--c-slate-50));
+  margin: 0;
+}
+.bandeau-domaine p {
+  font-size: 0.75rem;
+  color: rgb(var(--c-slate-500));
+  margin: 0;
+}
+
+/* ═══════════════════ TEXTURE DE FOND ══════════════════════════════════════
+ * Les halos de domaine existent mais restent très diffus, et un grand dégradé
+ * sur un écran 8 bits produit des bandes visibles. Un grain très fin les casse
+ * et donne de la matière à un fond parfaitement plat.
+ *
+ * Le motif est un SVG en ligne : quelques centaines d'octets, aucun fichier à
+ * charger, et il s'adapte au thème par son opacité seule.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.texture-grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23g)' opacity='0.35'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+:root[data-theme="clair"] .texture-grain::before,
+:root:not([data-theme="sombre"]) .texture-grain::before {
+  opacity: 0.28;
+  mix-blend-mode: multiply;
+}
+
+/* ═══════════════════ SYSTÈME DE TABLEAU ═══════════════════════════════════
+ * Treize tableaux de données, et aucun traitement commun au-delà du passage
+ * en cartes sous 768 px. Pas d'en-tête qui reste visible, pas de survol de
+ * ligne, pas de total, et un tri dont l'état ne se lit que dans un bouton
+ * séparé.
+ *
+ * `.table-donnees` applique le même jeu de règles aux treize.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.table-donnees {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* En-tête collant. `position: sticky` sur `th` et non sur `thead` : Chrome ne
+   colle un `thead` que depuis peu, et le comportement diffère encore selon les
+   moteurs. */
+.table-donnees thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgb(var(--c-slate-950));
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--c-slate-500));
+  font-weight: 500;
+  padding: var(--pas-ligne) 0.75rem;
+  border-bottom: 1px solid rgb(var(--c-slate-800));
+  white-space: nowrap;
+}
+
+.table-donnees tbody td {
+  padding: var(--pas-ligne) 0.75rem;
+  border-bottom: 1px solid rgb(var(--c-slate-800) / 0.6);
+  vertical-align: middle;
+}
+
+/* Alternance très légère : elle guide l'œil sur une ligne longue sans
+   transformer le tableau en zébrure. */
+.table-donnees tbody tr:nth-child(even) {
+  background: rgb(var(--c-slate-400) / 0.03);
+}
+.table-donnees tbody tr:hover {
+  background: hsl(var(--teinte) / 0.09);
+}
+
+/* Nombres : alignés à droite, en chiffres tabulaires. C'est la seule façon de
+   comparer deux montants d'un coup d'œil vertical. */
+.table-donnees .col-nombre {
+  text-align: right;
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums slashed-zero;
+  white-space: nowrap;
+}
+
+/* Colonne triée : signalée dans son propre en-tête, là où on la cherche. */
+.table-donnees th[aria-sort] { color: hsl(var(--teinte)); }
+.table-donnees th[aria-sort="ascending"]::after { content: " ↑"; }
+.table-donnees th[aria-sort="descending"]::after { content: " ↓"; }
+
+/* Pied de total : séparé par un filet franc, et sans alternance. */
+.table-donnees tfoot td {
+  padding: var(--pas-ligne) 0.75rem;
+  border-top: 1px solid rgb(var(--c-slate-700));
+  color: rgb(var(--c-slate-100));
+  font-weight: 600;
+  background: rgb(var(--c-slate-950) / 0.6);
+}
+
+/* Sous 768 px, chaque ligne redevient une carte : le collant et l'alternance
+   n'ont plus de sens, et l'en-tête est déjà repris par `data-label`. */
+@media (max-width: 767px) {
+  .table-donnees thead th { position: static; }
+  .table-donnees tbody tr:nth-child(even) { background: transparent; }
+}
+
+/* ═══════════════════ FEUILLE PAR LE BAS (MOBILE) ══════════════════════════
+ * Les modales sont centrées, y compris sur téléphone — le haut de l'écran,
+ * hors de portée du pouce. Une feuille qui monte depuis le bas est la
+ * convention mobile, et la seule atteignable d'une main.
+ *
+ * Le basculement est purement CSS : le même composant `Modal` sert des deux
+ * côtés, ce qui évite deux arbres de rendu à tenir synchrones.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  .modal-overlay:has(.feuille-bas) {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .feuille-bas {
+    width: 100%;
+    max-width: none;
+    max-height: 88dvh;
+    border-radius: 1.25rem 1.25rem 0 0;
+    border-bottom: 0;
+    animation: feuille-monte 260ms cubic-bezier(0.16, 1, 0.3, 1);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .feuille-bas::before {
+    content: "";
+    display: block;
+    width: 2.25rem;
+    height: 3px;
+    border-radius: 999px;
+    background: rgb(var(--c-slate-600));
+    margin: 0.55rem auto 0;
+    flex-shrink: 0;
+  }
+}
+@keyframes feuille-monte {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* ═══════════════════ TRANSITIONS D'ÉLÉMENT PARTAGÉ ════════════════════════
+ * Cliquer sur une ligne de position ouvre la fiche dans l'onglet Marché :
+ * l'écran est remplacé, et il faut retrouver des yeux le titre qu'on venait
+ * de désigner. Faire VOYAGER l'élément rend le lien visible au lieu de le
+ * laisser déduire.
+ *
+ * Derrière `@supports` : là où l'API n'existe pas, le changement d'écran reste
+ * ce qu'il était. Et neutralisé sous mouvement réduit, puisque c'est
+ * précisément un déplacement.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@supports (view-transition-name: none) {
+  .titre-voyageur,
+  [data-voyageur] {
+    view-transition-name: titre-actif;
+  }
+  ::view-transition-old(titre-actif),
+  ::view-transition-new(titre-actif) {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+:root[data-mouvement="reduit"] .titre-voyageur,
+:root[data-mouvement="reduit"] [data-voyageur] {
+  view-transition-name: none;
+}
+
+/* Deux éléments ne peuvent pas porter le MÊME nom de transition au même
+   instant : le navigateur abandonne alors l'animation en silence. Le départ
+   n'est donc marqué que sur la ligne effectivement demandée — d'où l'attribut
+   conditionnel posé dans Bourse.jsx plutôt qu'une classe fixe. */
+
+/* ═══════════════════ MODE PRÉSENTATION ════════════════════════════════════
+ * Le mode Ghost sert à montrer son écran SANS les chiffres. Le besoin inverse
+ * existe : les montrer, en grand, à quelqu'un assis à côté ou sur un écran
+ * externe. C'est aussi ce qui rend l'application lisible posée sur un bureau,
+ * à un mètre.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.presentation {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgb(var(--c-slate-950));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 2rem;
+  text-align: center;
+}
+.presentation-valeur {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-size: clamp(3rem, 13vw, 8rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: rgb(var(--c-slate-50));
+}
+.presentation-label {
+  font-size: 0.875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(var(--c-slate-500));
+}
+.presentation-reperes {
+  display: flex;
+  gap: clamp(1.5rem, 6vw, 4rem);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.presentation-repere {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.presentation-repere b {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-size: clamp(1.25rem, 4vw, 2rem);
+  font-weight: 500;
+  color: rgb(var(--c-slate-100));
+}
+.presentation-repere span {
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(var(--c-slate-500));
+}
+.presentation-sortie {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+
+/* ═══════════════════ DEUX COLONNES SUR GRAND ÉCRAN ════════════════════════
+ * L'onglet Bourse empile huit blocs sur une seule colonne bornée à
+ * `max-w-6xl`. Sur un écran de 1 440 px, la moitié droite reste vide et le
+ * défilement fait deux fois la hauteur nécessaire.
+ *
+ * `.colonnes-larges` bascule en deux colonnes au-delà de 1 280 px. Les blocs
+ * marqués `.pleine-largeur` — un graphique, un tableau de positions — gardent
+ * toute la largeur : les couper en deux les rendrait illisibles, ce qui est
+ * l'inverse du but.
+ *
+ * `align-items: start` est indispensable : sans lui, deux blocs voisins de
+ * hauteurs différentes s'étirent au plus grand et laissent un vide au bas du
+ * plus court.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 1280px) {
+  .colonnes-larges {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+  }
+  .colonnes-larges > .pleine-largeur {
+    grid-column: 1 / -1;
+  }
 }
 
 body {

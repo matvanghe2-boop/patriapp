@@ -200,7 +200,7 @@ export default function Timeline({ bourse, historyPast, patrimoineNet, epargneMe
                     <div className={`rounded-xl border px-4 py-3 ${style.bg}`}>
                       <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
                         <span className="text-sm font-semibold text-slate-100">{ev.title}</span>
-                        <span className="text-[11px] text-slate-500 shrink-0">{relativeLabel(ev.date)}</span>
+                        <span className="text-micro text-slate-500 shrink-0">{relativeLabel(ev.date)}</span>
                       </div>
                       <p className={`text-sm text-slate-400 ${ev.sensitive ? "ghost-blur" : ""}`}>{ev.desc}</p>
                     </div>

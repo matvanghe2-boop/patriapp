@@ -54,32 +54,32 @@ function ContractForm({ open, onClose, onSubmit, initial }) {
     <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-cyan-400/20 bg-slate-950 space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="col-span-2">
-          <label htmlFor={`${idsChamps}-nom-du-contrat`} className="text-[11px] text-slate-500">Nom du contrat</label>
+          <label htmlFor={`${idsChamps}-nom-du-contrat`} className="text-micro text-slate-500">Nom du contrat</label>
           <input id={`${idsChamps}-nom-du-contrat`} required type="text" placeholder="Assurance habitation" value={v.label}
             onChange={(e) => setV((s) => ({ ...s, label: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60" />
         </div>
         <div>
-          <label htmlFor={`${idsChamps}-categorie`} className="text-[11px] text-slate-500">Catégorie</label>
+          <label htmlFor={`${idsChamps}-categorie`} className="text-micro text-slate-500">Catégorie</label>
           <select id={`${idsChamps}-categorie`} value={v.category} onChange={(e) => setV((s) => ({ ...s, category: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60">
             {CONTRACT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor={`${idsChamps}-preavis-jours`} className="text-[11px] text-slate-500">Préavis (jours)</label>
+          <label htmlFor={`${idsChamps}-preavis-jours`} className="text-micro text-slate-500">Préavis (jours)</label>
           <input id={`${idsChamps}-preavis-jours`} type="number" min="0" value={v.preavis_jours}
             onChange={(e) => setV((s) => ({ ...s, preavis_jours: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60" />
         </div>
         <div className="col-span-2">
-          <label htmlFor={`${idsChamps}-date-de-fin`} className="text-[11px] text-slate-500">Date de fin d'engagement / tacite reconduction</label>
+          <label htmlFor={`${idsChamps}-date-de-fin`} className="text-micro text-slate-500">Date de fin d'engagement / tacite reconduction</label>
           <input id={`${idsChamps}-date-de-fin`} required type="date" value={v.date_fin}
             onChange={(e) => setV((s) => ({ ...s, date_fin: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-cyan-400/60" />
         </div>
         <div className="col-span-2">
-          <label htmlFor={`${idsChamps}-notes-optionnel`} className="text-[11px] text-slate-500">Notes (optionnel)</label>
+          <label htmlFor={`${idsChamps}-notes-optionnel`} className="text-micro text-slate-500">Notes (optionnel)</label>
           <input id={`${idsChamps}-notes-optionnel`} type="text" placeholder="N° de contrat, organisme..." value={v.notes}
             onChange={(e) => setV((s) => ({ ...s, notes: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60" />
@@ -146,9 +146,9 @@ function ContractsModule({ contracts, setContracts }) {
         <EmptyState>Aucun contrat suivi — ajoute un bail, une assurance ou une garantie pour ne plus rater une échéance de résiliation.</EmptyState>
       ) : (
         <div className="overflow-x-auto mt-2 -mx-1">
-          <table className="w-full text-sm min-w-[680px] table-cards table-dense">
+          <table className="w-full text-sm min-w-[680px] table-cards table-donnees">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+              <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 px-1">Contrat</th>
                 <th className="py-2 px-1">Catégorie</th>
                 <th className="py-2 px-1">Fin d'engagement</th>
@@ -165,23 +165,23 @@ function ContractsModule({ contracts, setContracts }) {
                   <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
                     <td data-label="Contrat" className="py-2.5 px-1">
                       <div className="text-slate-100 font-medium">{c.label}</div>
-                      {c.notes && <div className="text-[11px] text-slate-500">{c.notes}</div>}
+                      {c.notes && <div className="text-micro text-slate-500">{c.notes}</div>}
                     </td>
                     <td data-label="Catégorie" className="py-2.5 px-1 text-slate-400 text-xs">{c.category}</td>
                     <td data-label="Fin d'engagement" className="py-2.5 px-1 font-data tabular-nums text-slate-300">{formatDateFr(c.date_fin)}</td>
                     <td data-label="Date limite de résiliation" className="py-2.5 px-1 font-data tabular-nums text-amber-300">
                       {deadline ? formatDateFr(deadline) : "—"}
-                      {c.preavis_jours > 0 && <span className="text-[10px] text-slate-600 block">préavis {c.preavis_jours} j</span>}
+                      {c.preavis_jours > 0 && <span className="text-micro text-slate-600 block">préavis {c.preavis_jours} j</span>}
                     </td>
                     <td data-label="Statut" className="py-2.5 px-1">
-                      <span className={`flex items-center gap-1.5 w-fit text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${status.cls}`}>
+                      <span className={`flex items-center gap-1.5 w-fit text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${status.cls}`}>
                         {status.key === "a_resilier" && <AlertTriangle size={11} />}
                         {status.label}
                       </span>
                     </td>
                     <td className="py-2.5 px-1">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => { setEditingId(c.id); setShowForm(false); }} className="text-[11px] text-slate-500 hover:text-cyan-300 px-2">
+                        <button onClick={() => { setEditingId(c.id); setShowForm(false); }} className="text-micro text-slate-500 hover:text-cyan-300 px-2">
                           Modifier
                         </button>
                         <IconTrash onClick={() => removeContract(c.id)} />
@@ -241,20 +241,20 @@ function SubForm({ open, onClose, onSubmit, initial }) {
     <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950 space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="col-span-2">
-          <label htmlFor={`${idsChamps}-nom-de-l`} className="text-[11px] text-slate-500">Nom de l'abonnement</label>
+          <label htmlFor={`${idsChamps}-nom-de-l`} className="text-micro text-slate-500">Nom de l'abonnement</label>
           <input id={`${idsChamps}-nom-de-l`} required type="text" placeholder="Netflix, Salle de sport..." value={v.label}
             onChange={(e) => setV((s) => ({ ...s, label: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-amber-400/60" />
         </div>
         <div>
-          <label htmlFor={`${idsChamps}-categorie`} className="text-[11px] text-slate-500">Catégorie</label>
+          <label htmlFor={`${idsChamps}-categorie`} className="text-micro text-slate-500">Catégorie</label>
           <select id={`${idsChamps}-categorie`} value={v.category} onChange={(e) => setV((s) => ({ ...s, category: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-amber-400/60">
             {SUB_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor={`${idsChamps}-frequence`} className="text-[11px] text-slate-500">Fréquence</label>
+          <label htmlFor={`${idsChamps}-frequence`} className="text-micro text-slate-500">Fréquence</label>
           <select id={`${idsChamps}-frequence`} value={v.frequence} onChange={(e) => setV((s) => ({ ...s, frequence: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-amber-400/60">
             <option value="mensuelle">Mensuelle</option>
@@ -262,13 +262,13 @@ function SubForm({ open, onClose, onSubmit, initial }) {
           </select>
         </div>
         <div>
-          <label htmlFor={`${idsChamps}-montant`} className="text-[11px] text-slate-500">Montant (€)</label>
+          <label htmlFor={`${idsChamps}-montant`} className="text-micro text-slate-500">Montant (€)</label>
           <input id={`${idsChamps}-montant`} required type="number" step="0.01" min="0" value={v.montant}
             onChange={(e) => setV((s) => ({ ...s, montant: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
         </div>
         <div>
-          <label htmlFor={`${idsChamps}-prochain-prelevement`} className="text-[11px] text-slate-500">Prochain prélèvement</label>
+          <label htmlFor={`${idsChamps}-prochain-prelevement`} className="text-micro text-slate-500">Prochain prélèvement</label>
           <input id={`${idsChamps}-prochain-prelevement`} type="date" value={v.prochaine_date}
             onChange={(e) => setV((s) => ({ ...s, prochaine_date: e.target.value }))}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
@@ -323,11 +323,11 @@ function SubsModule({ subs, setSubs }) {
       {/* Totaux lissés, réactifs */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">Coût mensuel cumulé</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">Coût mensuel cumulé</div>
           <div className="font-display text-lg text-amber-300 ghost-blur">{eur(totals.monthly, 2)}</div>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">Coût annuel cumulé</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">Coût annuel cumulé</div>
           <div className="font-display text-lg text-amber-300 ghost-blur">{eur(totals.annual, 2)}</div>
         </div>
       </div>
@@ -339,9 +339,9 @@ function SubsModule({ subs, setSubs }) {
         <EmptyState>Aucun abonnement suivi — ajoute tes charges fixes pour voir le coût mensuel/annuel cumulé.</EmptyState>
       ) : (
         <div className="overflow-x-auto mt-2 -mx-1">
-          <table className="w-full text-sm min-w-[640px] table-cards table-dense">
+          <table className="w-full text-sm min-w-[640px] table-cards table-donnees">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+              <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
                 <th className="py-2 px-1">Abonnement</th>
                 <th className="py-2 px-1">Fréquence</th>
                 <th className="py-2 px-1">Équiv. mensuel</th>
@@ -361,14 +361,14 @@ function SubsModule({ subs, setSubs }) {
                   <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
                     <td data-label="Abonnement" className="py-2.5 px-1">
                       <div className="text-slate-100 font-medium">{s.label}</div>
-                      <div className="text-[11px] text-slate-500">{s.category}</div>
+                      <div className="text-micro text-slate-500">{s.category}</div>
                     </td>
                     <td data-label="Fréquence" className="py-2.5 px-1 text-slate-400 text-xs capitalize">{s.frequence}</td>
                     <td data-label="Équiv. mensuel" className="py-2.5 px-1 font-data tabular-nums text-slate-200 ghost-blur">{eur(monthlyEquivalent(s), 2)}</td>
                     <td data-label="Équiv. annuel" className="py-2.5 px-1 font-data tabular-nums text-slate-400 ghost-blur">{eur(annualEquivalent(s), 2)}</td>
                     <td data-label="Prochain prélèvement" className="py-2.5 px-1">
                       {next ? (
-                        <span className={`flex items-center gap-1.5 w-fit text-[11px] font-data px-2 py-0.5 rounded border ${
+                        <span className={`flex items-center gap-1.5 w-fit text-micro font-data px-2 py-0.5 rounded border ${
                           soon ? "text-rose-300 border-rose-500/30 bg-rose-500/10" : "text-slate-400 border-slate-700 bg-slate-900/50"
                         }`}>
                           {soon && <CalendarClock size={11} />}
@@ -378,7 +378,7 @@ function SubsModule({ subs, setSubs }) {
                     </td>
                     <td className="py-2.5 px-1">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => { setEditingId(s.id); setShowForm(false); }} className="text-[11px] text-slate-500 hover:text-amber-300 px-2">
+                        <button onClick={() => { setEditingId(s.id); setShowForm(false); }} className="text-micro text-slate-500 hover:text-amber-300 px-2">
                           Modifier
                         </button>
                         <IconTrash onClick={() => removeSub(s.id)} />

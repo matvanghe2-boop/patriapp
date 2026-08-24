@@ -68,9 +68,9 @@ function KpiCard({ icon: Icon, theme, label, value, sub }) {
         <Icon size={18} />
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-0.5">{label}</div>
+        <div className="text-micro text-slate-500 uppercase tracking-wider mb-0.5">{label}</div>
         <div className="font-display text-lg text-slate-50 truncate">{value}</div>
-        {sub && <div className="text-[11px] text-slate-600 truncate">{sub}</div>}
+        {sub && <div className="text-micro text-slate-600 truncate">{sub}</div>}
       </div>
     </Card>
   );
@@ -100,7 +100,7 @@ function useLivretComparisons(livrets, catalog) {
 function ComparisonBadge({ diff }) {
   if (Math.abs(diff) < 0.05) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 rounded-full px-2 py-0.5">
+      <span className="inline-flex items-center gap-1 text-micro text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 rounded-full px-2 py-0.5">
         <BadgeCheck size={10} /> À jour
       </span>
     );
@@ -108,7 +108,7 @@ function ComparisonBadge({ diff }) {
   const up = diff > 0;
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 border ${
+      className={`inline-flex items-center gap-1 text-micro rounded-full px-2 py-0.5 border ${
         up ? "text-amber-300 bg-amber-400/10 border-amber-400/25" : "text-rose-300 bg-rose-400/10 border-rose-400/25"
       }`}
     >
@@ -130,10 +130,10 @@ function RateCard({ rate, matches }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-slate-100 leading-snug">{rate.label}</div>
-          {rate.condition && <div className="text-[11px] text-slate-500 mt-0.5">{rate.condition}</div>}
+          {rate.condition && <div className="text-micro text-slate-500 mt-0.5">{rate.condition}</div>}
         </div>
         <span
-          className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 border ${
+          className={`shrink-0 inline-flex items-center gap-1 text-micro font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 border ${
             rate.live
               ? "text-emerald-300 bg-emerald-400/10 border-emerald-400/30"
               : "text-slate-500 bg-slate-800/60 border-slate-700"
@@ -150,7 +150,7 @@ function RateCard({ rate, matches }) {
         <span className="text-xs text-slate-500">{rate.unit}</span>
       </div>
       {rate.netValue != null && (
-        <div className="text-[11px] text-slate-500 -mt-1.5">soit ≈ {rate.netValue.toFixed(2)} % net après flat tax</div>
+        <div className="text-micro text-slate-500 -mt-1.5">soit ≈ {rate.netValue.toFixed(2)} % net après flat tax</div>
       )}
 
       {matches.map((m) => (
@@ -162,9 +162,9 @@ function RateCard({ rate, matches }) {
         </div>
       ))}
 
-      <p className="text-[11px] text-slate-500 leading-relaxed">{rate.description}</p>
+      <p className="text-micro text-slate-500 leading-relaxed">{rate.description}</p>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600 pt-1 border-t border-slate-800/70">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600 pt-1 border-t border-slate-800/70">
         <span>Au {formatDateFr(rate.effectiveDate)}</span>
         {rate.plafond && <span>Plafond {rate.plafond.toLocaleString("fr-FR")} €</span>}
         {days != null && (
@@ -193,10 +193,10 @@ function CategoryFilters({ active, onToggle }) {
             key={key}
             onClick={() => onToggle(key)}
             aria-pressed={isActive}
-            className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-2.5 py-1.5 border transition-colors"
+            className="flex items-center gap-1.5 text-micro font-semibold rounded-lg px-2.5 py-1.5 border transition-colors"
             style={{
-              color: isActive ? cat.color : "#64748b",
-              borderColor: isActive ? `${cat.color}55` : "#1e293b",
+              color: isActive ? cat.color : "rgb(var(--c-slate-500))",
+              borderColor: isActive ? `${cat.color}55` : "rgb(var(--c-slate-800))",
               background: isActive ? `${cat.color}14` : "transparent",
             }}
           >
@@ -403,7 +403,7 @@ export default function RatesHub({ livrets = [] }) {
       )}
 
       {lastSync && (
-        <p className="text-[10px] text-slate-600">
+        <p className="text-micro text-slate-600">
           Dernière synchronisation : {lastSync.toLocaleTimeString("fr-FR")}
           {liveEnabled ? " · rafraîchissement live actif pour les séries disponibles" : " · rafraîchissement live non configuré (voir README)"}.
         </p>

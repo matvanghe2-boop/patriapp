@@ -36,7 +36,7 @@ export default class ErrorBoundary extends React.Component {
             Tes données n'ont pas été perdues : elles sont toujours stockées sur cet appareil et sur
             ton compte. Recharger la page suffit généralement à repartir.
           </p>
-          <pre className="mt-3 text-left text-[11px] text-slate-500 bg-slate-950 border border-slate-800 rounded-lg p-3 overflow-x-auto">
+          <pre className="mt-3 text-left text-micro text-slate-500 bg-slate-950 border border-slate-800 rounded-lg p-3 overflow-x-auto">
             {this.state.error?.message || String(this.state.error)}
           </pre>
           <button

@@ -316,7 +316,7 @@ export default function Simulation({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowStress(!showStress)}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-micro font-medium transition-colors ${
                     showStress ? "bg-amber-400/20 text-amber-300 border border-amber-400/30" : "bg-slate-800 text-slate-400 hover:text-slate-300"
                   }`}
                 >
@@ -325,7 +325,7 @@ export default function Simulation({
                 </button>
                 <button
                   onClick={() => setShowInflation(!showInflation)}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-micro font-medium transition-colors ${
                     showInflation ? "bg-amber-400/20 text-amber-300 border border-amber-400/30" : "bg-slate-800 text-slate-400 hover:text-slate-300"
                   }`}
                 >
@@ -350,7 +350,7 @@ export default function Simulation({
             {showStress && (
               <div className="text-xs text-slate-400 bg-slate-900/50 rounded-lg px-3 py-2">
                 <p>Mode Volatile : les rendements annuels sont basés sur les performances réelles du CAC 40/MSCI World (2018-2025).</p>
-                <p className="text-[10px] text-slate-500 mt-1">Cette séquence inclut krachs et reprises, reflétant la réalité des marchés.</p>
+                <p className="text-micro text-slate-500 mt-1">Cette séquence inclut krachs et reprises, reflétant la réalité des marchés.</p>
               </div>
             )}
           </div>
@@ -384,7 +384,7 @@ export default function Simulation({
           {showInflation && (
             <div className="text-xs text-slate-400 mt-1 ghost-blur">
               Pouvoir d'achat réel : {eur(Math.round(final.total / Math.pow(1 + inflationRate / 100, sim.years)))}
-              <span className="text-[10px] text-slate-500 ml-1">(inflation {inflationRate.toFixed(1)}%)</span>
+              <span className="text-micro text-slate-500 ml-1">(inflation {inflationRate.toFixed(1)}%)</span>
             </div>
           )}
         </Card>
@@ -467,9 +467,9 @@ export default function Simulation({
       <Card accent={CARD_THEMES.amber}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardLabel>Trajectoire du patrimoine (Livrets + Bourse)</CardLabel>
-          {showBand && <span className="text-[11px] text-amber-300/80">Horizon cible : 6–7 ans</span>}
+          {showBand && <span className="text-micro text-amber-300/80">Horizon cible : 6–7 ans</span>}
           {showStress && (
-            <span className="text-[11px] text-amber-300/60 flex items-center gap-1">
+            <span className="text-micro text-amber-300/60 flex items-center gap-1">
               <Zap size={12} /> Mode volatil
             </span>
           )}
@@ -493,9 +493,9 @@ export default function Simulation({
                   </linearGradient>
                 )}
               </defs>
-              <CartesianGrid stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="year" tickFormatter={(y) => `An ${y}`} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={compact} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
+              <CartesianGrid stroke="rgb(var(--c-slate-800))" vertical={false} />
+              <XAxis dataKey="year" tickFormatter={(y) => `An ${y}`} tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={compact} tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
               <Tooltip content={<CustomTooltip />} />
               {showBand && <ReferenceArea x1={6} x2={7} strokeOpacity={0} fill="#f8fafc" fillOpacity={0.05} />}
 
@@ -523,7 +523,7 @@ export default function Simulation({
           <LegendItem color="#94a3b8" label="Capital versé" dashed />
           {showInflation && <LegendItem color="#a78bfa" label="Valeur réelle" dashed />}
         </div>
-        <p className="font-data text-[11px] text-slate-600 mt-4">
+        <p className="font-data text-micro text-slate-600 mt-4">
           {showStress
             ? "Mode volatil : les rendements annuels de la poche Bourse sont basés sur une séquence de performances réelles du CAC 40/MSCI World (2018-2025), incluant krachs et reprises."
             : "Vf = M0·(1+t)^n + P·((1+t)^n-1)/t — appliquée séparément à chaque poche (Livrets, Bourse), puis sommée."}
@@ -535,7 +535,7 @@ export default function Simulation({
         <Card accent={CARD_THEMES.amber}>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardLabel icon={GitCompare}>Scénarios sauvegardés</CardLabel>
-            <span className="text-[11px] text-slate-500">Sélectionne jusqu'à 3 scénarios à comparer côte à côte.</span>
+            <span className="text-micro text-slate-500">Sélectionne jusqu'à 3 scénarios à comparer côte à côte.</span>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
@@ -564,9 +564,9 @@ export default function Simulation({
 
           {comparedScenarios.length > 0 && (
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm table-cards table-dense">
+              <table className="w-full text-sm table-cards table-donnees">
                 <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                  <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
                     <th className="py-2 pr-4">Scénario</th>
                     <th className="py-2 pr-4">Durée</th>
                     <th className="py-2 pr-4">Capital initial</th>
@@ -608,7 +608,7 @@ export default function Simulation({
 
 function LegendItem({ color, label, dashed }) {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+    <span className="flex items-center gap-1.5 text-micro text-slate-400">
       <span
         className="w-3 h-0.5"
         style={{ background: color, ...(dashed ? { borderTop: `2px dashed ${color}`, height: 0 } : {}) }}

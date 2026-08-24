@@ -158,7 +158,7 @@ export default function ChartFocusModal({
               </svg>
             )}
           />
-          <p className="text-[11px] text-slate-500 mt-2">
+          <p className="text-micro text-slate-500 mt-2">
             {drawingMode
               ? "Clique-glisse sur le graphique pour tracer, relâche pour valider. Les tracés restent accrochés aux cours quand tu zoomes."
               : "Molette pour zoomer, clic-glisser pour te déplacer, double-clic pour revenir à la vue complète. Choisis un outil pour dessiner."}

@@ -42,7 +42,7 @@ function PastilleCritere({ detail }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] rounded-full border px-2 py-0.5 ${styles[detail.statut]}`}
+      className={`inline-flex items-center gap-1 text-micro rounded-full border px-2 py-0.5 ${styles[detail.statut]}`}
       title={`${detail.libelle} — attendu ${attendu}, constaté ${formaterValeur(detail.valeur, detail.unite)}`}
     >
       {detail.statut === "ok" && <Check size={9} aria-hidden="true" />}
@@ -71,7 +71,7 @@ function ReglageCriteres({ criteres, onChange, onReinitialiser }) {
               </span>
             </label>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[11px] text-slate-500 font-data">{sens === SENS.MIN ? "≥" : "≤"}</span>
+              <span className="text-micro text-slate-500 font-data">{sens === SENS.MIN ? "≥" : "≤"}</span>
               <input
                 id={`crit-${c.cle}`}
                 type="number"
@@ -84,12 +84,12 @@ function ReglageCriteres({ criteres, onChange, onReinitialiser }) {
                 }}
                 className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-data tabular-nums focus:outline-none focus:border-violet-400/60"
               />
-              <span className="text-[11px] text-slate-600 w-4">{def.unite}</span>
+              <span className="text-micro text-slate-600 w-4">{def.unite}</span>
             </div>
           </div>
         );
       })}
-      <button onClick={onReinitialiser} className="text-[11px] text-slate-500 hover:text-slate-300">
+      <button onClick={onReinitialiser} className="text-micro text-slate-500 hover:text-slate-300">
         Rétablir les seuils de la recette
       </button>
     </div>
@@ -114,7 +114,7 @@ const TONS_SCORE = {
  */
 function BadgeScore({ score, nbNotes, detail }) {
   if (!Number.isFinite(score)) {
-    return <span className="text-[10px] text-slate-600 px-1.5">non noté</span>;
+    return <span className="text-micro text-slate-600 px-1.5">non noté</span>;
   }
   const q = qualifierScore(score);
   const explication = detail
@@ -158,7 +158,7 @@ function PanneauComparaison({ a, b, onFermer }) {
       </div>
 
       <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-1 mt-2">
-        <div className="text-[11px] text-slate-500 uppercase tracking-wide">Critère</div>
+        <div className="text-micro text-slate-500 uppercase tracking-wide">Critère</div>
         <div className="text-right text-xs font-data font-semibold text-slate-100">{a.symbole}</div>
         <div className="text-right text-xs font-data font-semibold text-slate-100">{b.symbole}</div>
 
@@ -173,7 +173,7 @@ function PanneauComparaison({ a, b, onFermer }) {
 
       {/* Le décompte global ne tranche pas — il résume. Un titre peut gagner
           sur huit critères secondaires et perdre sur le seul qui compte. */}
-      <p className="text-[11px] text-slate-500 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         {a.symbole} l'emporte sur {avantagesA} critère(s), {b.symbole} sur {avantagesB}. Un décompte
         n'est pas un verdict : regarde lesquels.
       </p>
@@ -205,12 +205,12 @@ function LigneResultat({ symbole, nom, secteur, evaluation, complement, action, 
             <span className="font-data font-semibold text-slate-100">{symbole}</span>
             {score}
             {evaluation?.retenu && (
-              <span className="text-[10px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-1.5">
+              <span className="text-micro text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-1.5">
                 retenu
               </span>
             )}
           </div>
-          <div className="text-[11px] text-slate-500 truncate max-w-[22rem]">
+          <div className="text-micro text-slate-500 truncate max-w-[22rem]">
             {nom}
             {secteur ? ` · ${secteur}` : ""}
           </div>
@@ -230,7 +230,7 @@ function LigneResultat({ symbole, nom, secteur, evaluation, complement, action, 
       )}
 
       {evaluation?.nbIndetermines > 0 && (
-        <p className="text-[10px] text-slate-600 mt-1.5">
+        <p className="text-micro text-slate-600 mt-1.5">
           {evaluation.nbIndetermines} critère(s) non publié(s) pour ce titre — jugé sur {evaluation.fiabilite}.
         </p>
       )}
@@ -455,11 +455,11 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
 
   const BoutonSuivre = ({ titre }) =>
     dejaSuivi(titre.symbole) ? (
-      <span className="text-[10px] text-slate-600 px-2">déjà suivi</span>
+      <span className="text-micro text-slate-600 px-2">déjà suivi</span>
     ) : (
       <button
         onClick={() => ajouterAWatchlist(titre)}
-        className="flex items-center gap-1 text-[11px] text-violet-300 hover:text-violet-200 border border-violet-500/40 rounded-lg px-2 py-1"
+        className="flex items-center gap-1 text-micro text-violet-300 hover:text-violet-200 border border-violet-500/40 rounded-lg px-2 py-1"
       >
         <Plus size={11} aria-hidden="true" /> Suivre
       </button>
@@ -515,7 +515,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                   disabled={!u.disponible}
                   aria-pressed={universActif === u.cle}
                   title={u.disponible ? u.description : `${u.description} — composition non fournie.`}
-                  className={`btn-flash text-[11px] rounded-lg border px-2.5 py-1 ${
+                  className={`btn-flash text-micro rounded-lg border px-2.5 py-1 ${
                     !u.disponible
                       ? "text-slate-700 border-slate-800/60 cursor-not-allowed"
                       : universActif === u.cle
@@ -536,7 +536,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                 value={tranche}
                 onChange={(e) => setTranche(e.target.value)}
                 aria-label="Tranche de capitalisation"
-                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-violet-400/60"
+                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-micro text-slate-200 focus:outline-none focus:border-violet-400/60"
               >
                 {TRANCHES_CAPITALISATION.map((t) => (
                   <option key={t.cle} value={t.cle}>
@@ -549,7 +549,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                 value={secteurFiltre}
                 onChange={(e) => setSecteurFiltre(e.target.value)}
                 aria-label="Secteur"
-                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-violet-400/60 max-w-[12rem]"
+                className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-micro text-slate-200 focus:outline-none focus:border-violet-400/60 max-w-[12rem]"
               >
                 <option value="">Tous secteurs</option>
                 {secteurs.map((s) => (
@@ -558,7 +558,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
               </select>
 
               <label
-                className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer"
+                className="flex items-center gap-1.5 text-micro text-slate-400 cursor-pointer"
                 title="Siège social dans l'Espace économique européen. Attention : une société éligible mais cotée uniquement hors d'Europe (cas de quelques valeurs du Russell) reste inatteignable depuis un PEA, faute de place de cotation européenne."
               >
                 <input
@@ -570,7 +570,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                 Éligible PEA
               </label>
 
-              <span className="text-[11px] text-slate-600">
+              <span className="text-micro text-slate-600">
                 {universFiltre.length} sur {donnees.length} valeurs
               </span>
             </div>
@@ -578,7 +578,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
         )}
 
         {mode === "portefeuille" && (
-          <p className="text-[11px] text-slate-500 mt-3">
+          <p className="text-micro text-slate-500 mt-3">
             Les critères sont appliqués à tes {positions.length} ligne(s). Ce qui décroche apparaît en premier.
           </p>
         )}
@@ -587,7 +587,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
             servi par un job silencieusement cassé serait indiscernable d'un
             instantané frais. */}
         {genereLe && mode !== "portefeuille" && (
-          <p className="text-[10px] text-slate-600 mt-2">
+          <p className="text-micro text-slate-600 mt-2">
             Fondamentaux du{" "}
             {new Date(genereLe).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}, filtrés
             localement — aucun appel réseau.{" "}
@@ -597,7 +597,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
           </p>
         )}
         {chargeLe && mode === "portefeuille" && (
-          <p className="text-[10px] text-slate-600 mt-2">
+          <p className="text-micro text-slate-600 mt-2">
             Fondamentaux chargés à {chargeLe.toLocaleTimeString("fr-FR")} · mis en cache une heure côté serveur.
           </p>
         )}
@@ -610,7 +610,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
           <button
             onClick={() => setReglagesOuverts((o) => !o)}
             aria-expanded={reglagesOuverts}
-            className="flex items-center gap-1 text-[11px] text-violet-300/80 hover:text-violet-200"
+            className="flex items-center gap-1 text-micro text-violet-300/80 hover:text-violet-200"
           >
             {reglagesOuverts ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
             Ajuster les seuils
@@ -639,7 +639,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
             <p className="text-sm text-slate-300">{recette.resume}</p>
             {/* Une recette sans doctrine énoncée est une grille de curseurs
                 qu'on applique sans savoir ce qu'elle cherche. */}
-            <p className="text-[11px] text-slate-500 mt-1">{recette.pourquoi}</p>
+            <p className="text-micro text-slate-500 mt-1">{recette.pourquoi}</p>
           </div>
         )}
 
@@ -663,7 +663,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
         <PanneauComparaison a={titresCompares[0]} b={titresCompares[1]} onFermer={() => setSelection([])} />
       )}
       {titresCompares.length === 1 && (
-        <p className="text-[11px] text-slate-500">
+        <p className="text-micro text-slate-500">
           Sélectionne un second titre pour afficher la comparaison.
         </p>
       )}
@@ -700,7 +700,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                   surComparer={() => basculerComparaison(titre.symbole)}
                   complement={
                     titre.cours != null && (
-                      <span className="text-[11px] font-data text-slate-400">{eur(titre.cours, 2)}</span>
+                      <span className="text-micro font-data text-slate-400">{eur(titre.cours, 2)}</span>
                     )
                   }
                   action={
@@ -709,7 +709,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                       {onOpenMarket && (
                         <button
                           onClick={() => onOpenMarket(titre.symbole)}
-                          className="text-[11px] text-slate-500 hover:text-violet-300 px-2"
+                          className="text-micro text-slate-500 hover:text-violet-300 px-2"
                         >
                           Fiche
                         </button>
@@ -744,9 +744,9 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                   score={titre ? (() => { const r = scoreComposite(titre, criteres); return <BadgeScore score={r.score} nbNotes={r.nbNotes} detail={r.detail} />; })() : null}
                   complement={
                     indisponible ? (
-                      <span className="text-[10px] text-slate-600">fondamentaux indisponibles</span>
+                      <span className="text-micro text-slate-600">fondamentaux indisponibles</span>
                     ) : (
-                      <span className="text-[11px] font-data text-slate-400 ghost-blur">
+                      <span className="text-micro font-data text-slate-400 ghost-blur">
                         {eur(position.quantity * position.current_price)}
                       </span>
                     )
@@ -755,7 +755,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                     onOpenMarket && (
                       <button
                         onClick={() => onOpenMarket(position.ticker)}
-                        className="text-[11px] text-slate-500 hover:text-violet-300 px-2"
+                        className="text-micro text-slate-500 hover:text-violet-300 px-2"
                       >
                         Fiche
                       </button>
@@ -775,7 +775,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                   .map(([secteur, poids]) => (
                     <span
                       key={secteur}
-                      className="text-[10px] text-slate-400 border border-slate-700 bg-slate-900/60 rounded-full px-2 py-0.5"
+                      className="text-micro text-slate-400 border border-slate-700 bg-slate-900/60 rounded-full px-2 py-0.5"
                     >
                       {secteur} {pctPlain(poids, 0)}
                     </span>
@@ -795,7 +795,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                     nom={titre.nom}
                     secteur={secteur}
                     complement={
-                      <span className="text-[10px] text-slate-500">
+                      <span className="text-micro text-slate-500">
                         {poidsActuelPct === 0 ? "secteur absent" : `secteur à ${pctPlain(poidsActuelPct, 0)}`}
                       </span>
                     }
@@ -804,7 +804,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                 ))}
               </div>
             )}
-            <p className="text-[11px] text-slate-600 mt-3">
+            <p className="text-micro text-slate-600 mt-3">
               Suggestions classées par rentabilité des capitaux propres à l'intérieur de chaque secteur. Ce
               n'est pas une recommandation d'achat : la diversification sectorielle est un critère parmi d'autres.
             </p>
@@ -812,7 +812,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
         )}
 
         {indisponibles.length > 0 && mode === "marche" && (
-          <p className="text-[11px] text-slate-600 mt-3 pt-3 border-t border-slate-800">
+          <p className="text-micro text-slate-600 mt-3 pt-3 border-t border-slate-800">
             Non évalués faute de données : {indisponibles.map((t) => t.symbole).join(", ")}. Un titre absent
             d'un filtre pour cause de panne réseau ressemblerait sinon à un titre qui ne passe pas le filtre.
           </p>

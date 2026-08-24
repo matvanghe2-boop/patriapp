@@ -449,9 +449,9 @@ export default function Projet({
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={donneesGraphique} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="annee" stroke="#64748b" fontSize={11} tickFormatter={(a) => `${a} an${a > 1 ? "s" : ""}`} />
-              <YAxis stroke="#64748b" fontSize={11} tickFormatter={compact} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-slate-800))" />
+              <XAxis dataKey="annee" stroke="rgb(var(--c-slate-500))" fontSize={11} tickFormatter={(a) => `${a} an${a > 1 ? "s" : ""}`} />
+              <YAxis stroke="rgb(var(--c-slate-500))" fontSize={11} tickFormatter={compact} />
               <Tooltip
                 contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
                 formatter={(v) => eur(v)}

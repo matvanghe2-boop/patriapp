@@ -68,7 +68,7 @@ function LigneObjectif({ objectif, etat, onSupprimer }) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-slate-100 font-medium truncate">{objectif.libelle || "Objectif"}</div>
-              <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <div className="text-micro text-slate-500 flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <CalendarClock size={11} aria-hidden="true" />
                 <Montant valeur={objectif.cible} decimales={0} />
                 <span>pour {formatEcheance(objectif.echeance)}</span>
@@ -78,7 +78,7 @@ function LigneObjectif({ objectif, etat, onSupprimer }) {
             <IconTrash onClick={onSupprimer} label={`Supprimer l'objectif ${objectif.libelle}`} />
           </div>
 
-          <div className="mt-2 text-[11px]">
+          <div className="mt-2 text-micro">
             {atteint ? (
               <span className="flex items-center gap-1 text-emerald-400 font-medium">
                 <CheckCircle2 size={11} aria-hidden="true" /> Objectif atteint
@@ -95,7 +95,7 @@ function LigneObjectif({ objectif, etat, onSupprimer }) {
       </div>
 
       {!atteint && (
-        <div className="mt-2.5 pt-2.5 border-t border-slate-800/70 text-[11px] text-slate-500 space-y-1">
+        <div className="mt-2.5 pt-2.5 border-t border-slate-800/70 text-micro text-slate-500 space-y-1">
           {effortMensuelRequis != null && (
             <p>
               Pour tenir l'échéance :{" "}
@@ -194,7 +194,7 @@ export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet,
           restent modifiables ensuite. */}
       {objectifs.length === 0 && !ouvert && (
         <div className="mt-1 mb-3">
-          <p className="text-[11px] text-slate-500 mb-2">
+          <p className="text-micro text-slate-500 mb-2">
             Partir d&apos;un modèle — montants indicatifs, à ajuster ensuite :
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -203,7 +203,7 @@ export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet,
                 key={m.id}
                 onClick={() => appliquerModele(m)}
                 title={`${m.detail} — environ ${eur(m.montant)}`}
-                className="btn-flash text-[11px] rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-400/60 px-2.5 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
+                className="btn-flash text-micro rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-400/60 px-2.5 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
               >
                 {m.libelle}
                 <span className="text-emerald-500/70 ml-1.5 font-data tabular-nums">

@@ -65,7 +65,7 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
         <div>
-          <label htmlFor={`${idsChamps}-actif`} className="text-[11px] text-slate-500">Actif</label>
+          <label htmlFor={`${idsChamps}-actif`} className="text-micro text-slate-500">Actif</label>
           <select id={`${idsChamps}-actif`}
             value={tickerId}
             onChange={(e) => setTickerId(e.target.value)}
@@ -78,7 +78,7 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
         </div>
 
         <div>
-          <label className="text-[11px] text-slate-500">Sens</label>
+          <label className="text-micro text-slate-500">Sens</label>
           <div className="flex rounded-lg border border-slate-700 overflow-hidden mt-0.5">
             <button
               type="button"
@@ -102,7 +102,7 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
         </div>
 
         <div>
-          <label htmlFor={`${idsChamps}-poids-cible`} className="text-[11px] text-slate-500">Poids cible (%)</label>
+          <label htmlFor={`${idsChamps}-poids-cible`} className="text-micro text-slate-500">Poids cible (%)</label>
           <input id={`${idsChamps}-poids-cible`}
             type="number"
             step="0.5"
@@ -125,40 +125,40 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <p className="text-[11px] text-slate-500">Poids actuel</p>
+            <p className="text-micro text-slate-500">Poids actuel</p>
             <p className="font-data font-bold text-slate-100">{pctPlain(result.currentWeight, 1)}</p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <p className="text-[11px] text-slate-500">Titres à {mode === "vente" ? "vendre" : "acheter"}</p>
+            <p className="text-micro text-slate-500">Titres à {mode === "vente" ? "vendre" : "acheter"}</p>
             <p className="font-data font-bold text-violet-300">{result.qty.toFixed(2)}</p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <p className="text-[11px] text-slate-500">Montant {mode === "vente" ? "récupéré" : "à investir"}</p>
+            <p className="text-micro text-slate-500">Montant {mode === "vente" ? "récupéré" : "à investir"}</p>
             <p className="font-data font-bold text-slate-100">{eur(result.montant, 2)}</p>
           </div>
           {mode === "vente" ? (
             <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-              <p className="text-[11px] text-slate-500">Gain réalisé estimé</p>
+              <p className="text-micro text-slate-500">Gain réalisé estimé</p>
               <p className={`font-data font-bold ${result.gainRealise >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                 {eur(result.gainRealise, 2)}
               </p>
             </div>
           ) : (
             <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-              <p className="text-[11px] text-slate-500">Nouveau poids</p>
+              <p className="text-micro text-slate-500">Nouveau poids</p>
               <p className="font-data font-bold text-violet-300">{pctPlain(result.newWeight, 1)}</p>
             </div>
           )}
           {mode === "vente" && (
             <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 col-span-2 sm:col-span-1">
-              <p className="text-[11px] text-slate-500">Nouveau poids</p>
+              <p className="text-micro text-slate-500">Nouveau poids</p>
               <p className="font-data font-bold text-violet-300">{pctPlain(result.newWeight, 1)}</p>
             </div>
           )}
         </div>
       )}
 
-      <p className="text-[11px] text-slate-600 mt-3">
+      <p className="text-micro text-slate-600 mt-3">
         Simulation indicative (frais non inclus). Le gain réalisé est calculé sur le PRU actuel de la ligne.
       </p>
     </Card>

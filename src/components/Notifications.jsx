@@ -131,7 +131,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
         <div className="absolute right-0 z-30 mt-2 w-80 max-h-[26rem] overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 shadow-xl p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Rappels</span>
-            <button onClick={() => setShowAdd((s) => !s)} className="flex items-center gap-1 text-[11px] text-amber-300/80 hover:text-amber-300">
+            <button onClick={() => setShowAdd((s) => !s)} className="flex items-center gap-1 text-micro text-amber-300/80 hover:text-amber-300">
               <Plus size={12} /> Ajouter
             </button>
           </div>
@@ -139,7 +139,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
           {permission !== "granted" && permission !== "unsupported" && (
             <button
               onClick={requestPermission}
-              className="w-full flex items-center justify-center gap-1.5 text-[11px] font-medium text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 rounded-lg px-2.5 py-1.5 mb-3"
+              className="w-full flex items-center justify-center gap-1.5 text-micro font-medium text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 rounded-lg px-2.5 py-1.5 mb-3"
             >
               <BellRing size={12} />
               {permission === "denied"
@@ -180,8 +180,8 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
                 )}
               </div>
               <div className="flex justify-end gap-2">
-                <button onClick={() => setShowAdd(false)} className="text-[11px] text-slate-500 hover:text-slate-300">Annuler</button>
-                <button onClick={addReminder} className="text-[11px] font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-3 py-1">
+                <button onClick={() => setShowAdd(false)} className="text-micro text-slate-500 hover:text-slate-300">Annuler</button>
+                <button onClick={addReminder} className="text-micro font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-3 py-1">
                   Enregistrer
                 </button>
               </div>
@@ -189,7 +189,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
           )}
 
           {reminders.length === 0 && alertes.length === 0 ? (
-            <p className="text-[11px] text-slate-600">Aucun rappel configuré.</p>
+            <p className="text-micro text-slate-600">Aucun rappel configuré.</p>
           ) : (
             <div className="space-y-1.5">
               {[...alertes, ...reminders].map((r) => {
@@ -203,7 +203,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
                   >
                     <span className="flex-1">
                       <span className={due ? "text-amber-200" : "text-slate-400"}>{r.label}</span>
-                      <span className="block text-[10px] text-slate-600">
+                      <span className="block text-micro text-slate-600">
                         {r.type === "bilan"
                           ? "Bilan mensuel — sous-onglet Projet"
                           : r.type === "alerte"

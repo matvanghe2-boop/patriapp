@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, Suspense, lazy } from "react";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
-  Repeat, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles,
+  Repeat, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation,
 } from "lucide-react";
 import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
@@ -14,7 +14,7 @@ import { useBilanRappel } from "./lib/useBilanRappel";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
 import { useConfirm } from "./lib/ConfirmContext";
-import { NavButton, SkeletonCard } from "./components/ui";
+import { NavButton, SkeletonCard, BandeauDomaine } from "./components/ui";
 import { theme } from "./lib/themes";
 import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
@@ -29,6 +29,8 @@ import { vibrer } from "./lib/haptique";
 import PaletteCommandes, { construireIndex, useRaccourciPalette } from "./components/PaletteCommandes";
 import ReglagesApparence from "./components/ReglagesApparence";
 import Retrospective from "./components/Retrospective";
+import ModePresentation from "./components/ModePresentation";
+import FeuillePlus from "./components/FeuillePlus";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -61,6 +63,21 @@ const TABS = [
   { id: "abonnements", label: "Abonnements", shortLabel: "Abos", icon: Repeat, theme: "cyan", Page: Abonnements },
 ];
 
+/**
+ * Sous-titre de chaque section, affiché sous son nom dans le bandeau de
+ * domaine. Une ligne qui dit à quoi sert la page — ce que le seul nom d'onglet
+ * ne fait pas, « Stratégie & Logs » n'annonçant ni un journal de thèses ni une
+ * timeline de jalons.
+ */
+const TAB_SOUS_TITRES = {
+  dashboard: "vue consolidée, objectifs, allocation",
+  livrets: "supports garantis, plafonds, matelas de sécurité",
+  bourse: "portefeuille, performance, marché, screener",
+  simulation: "intérêts composés, crédit, projet immobilier",
+  strategie: "thèses d'investissement, opérations, jalons",
+  abonnements: "dépenses récurrentes et échéances de contrat",
+};
+
 const TAB_IDS = TABS.map((t) => t.id);
 
 // BottomNav raisonne en `key` là où le routage raisonne en `id`.
@@ -89,6 +106,8 @@ export default function App() {
   const [paletteOuverte, setPaletteOuverte] = React.useState(false);
   const [reglagesOuverts, setReglagesOuverts] = React.useState(false);
   const [retroOuverte, setRetroOuverte] = React.useState(false);
+  const [presentation, setPresentation] = React.useState(false);
+  const [plusOuvert, setPlusOuvert] = React.useState(false);
   const { haptique } = useApparence();
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
@@ -275,6 +294,7 @@ export default function App() {
   const actionsPalette = useMemo(
     () => [
       { id: "act-reglages", libelle: "Apparence : thème, accent, densité", motsCles: "theme clair sombre couleur densite reglages", icone: Palette, executer: () => setReglagesOuverts(true) },
+      { id: "act-presentation", libelle: "Mode présentation", motsCles: "presentation plein ecran grand montrer", icone: Presentation, executer: () => setPresentation(true) },
       { id: "act-retro", libelle: "Rétrospective annuelle", motsCles: "bilan annee resume retrospective", icone: Sparkles, executer: () => setRetroOuverte(true) },
       { id: "act-ghost", libelle: ghostMode ? "Afficher les montants" : "Masquer les montants (mode Ghost)", motsCles: "ghost masquer flouter confidentialite", icone: ghostMode ? Eye : EyeOff, executer: () => setGhostMode((g) => !g) },
       { id: "act-export", libelle: "Exporter une sauvegarde", motsCles: "export sauvegarde json backup", icone: Download, executer: handleExport },
@@ -290,7 +310,7 @@ export default function App() {
   );
 
   return (
-    <div className={`flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100 ${ghostMode ? "ghost-mode" : ""}`}>
+    <div className={`coquille-fond texture-grain flex flex-col md:flex-row min-h-screen bg-slate-950 text-slate-100 ${ghostMode ? "ghost-mode" : ""}`}>
       <a
         href="#contenu-principal"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:bg-amber-400 focus:text-slate-950 focus:px-3 focus:py-2 focus:rounded-lg focus:text-sm focus:font-semibold"
@@ -358,6 +378,15 @@ export default function App() {
             <span className="hidden md:inline">Apparence</span>
           </button>
           <button
+            onClick={() => setPresentation(true)}
+            aria-label="Mode présentation"
+            title="Mode présentation — plein écran, gros chiffres"
+            className="flex items-center gap-2 text-mini text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
+          >
+            <Presentation size={15} aria-hidden="true" />
+            <span className="hidden md:inline">Présentation</span>
+          </button>
+          <button
             onClick={() => setRetroOuverte(true)}
             aria-label="Rétrospective annuelle"
             title="Rétrospective annuelle"
@@ -378,7 +407,7 @@ export default function App() {
           <span className="md:hidden">
             <GhostToggle ghostMode={ghostMode} setGhostMode={setGhostMode} />
           </span>
-          <p className="hidden md:block text-[11px] text-slate-600 leading-relaxed mt-1">
+          <p className="hidden md:block text-micro text-slate-600 leading-relaxed mt-1">
             Données stockées sur cet appareil et synchronisées sur ton compte. Les cours de bourse
             sont récupérés via un service externe.
           </p>
@@ -387,7 +416,7 @@ export default function App() {
 
       <main
         id="contenu-principal"
-        className={`flex-1 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 max-w-6xl transition-colors duration-500 ${TAB_BG[tab] || ""}`}
+        className={`coquille-zone flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 transition-colors duration-500 ${TAB_BG[tab] || ""}`}
       >
         {/* L'en-tête se condense au défilement pour garder le patrimoine net et
             sa variation visibles en permanence, sans immobiliser de la hauteur
@@ -442,14 +471,39 @@ export default function App() {
             changement d'onglet. aria-live annonce le changement de section aux
             lecteurs d'écran, qui n'ont sinon aucun repère de navigation. */}
         <div key={tab} className={direction === "droite" ? "page-entre-droite" : "page-entre-gauche"}>
-          <h1 className="sr-only">{activeTab.label}</h1>
+          <BandeauDomaine titre={activeTab.label} sousTitre={TAB_SOUS_TITRES[tab]} />
           <Suspense fallback={<TabSkeleton />}>
             <activeTab.Page {...patrimoine} />
           </Suspense>
         </div>
       </main>
 
-      <BottomNav tabs={BOTTOM_NAV_TABS} active={tab} onChange={allerA} />
+      <BottomNav tabs={BOTTOM_NAV_TABS} active={tab} onChange={allerA} onPlus={() => setPlusOuvert(true)} />
+
+      {/* Les sections au-delà de la quatrième, plus les actions qui vivaient
+          uniquement dans la barre latérale — donc invisibles sous 768 px. */}
+      <FeuillePlus
+        ouvert={plusOuvert}
+        onFermer={() => setPlusOuvert(false)}
+        sections={BOTTOM_NAV_TABS.slice(4)}
+        actif={tab}
+        onNaviguer={allerA}
+        actions={[
+          { id: "f-apparence", libelle: "Apparence", icone: Palette, executer: () => setReglagesOuverts(true) },
+          { id: "f-retro", libelle: "Rétrospective annuelle", icone: Sparkles, executer: () => setRetroOuverte(true) },
+          { id: "f-presentation", libelle: "Mode présentation", icone: Presentation, executer: () => setPresentation(true) },
+          { id: "f-export", libelle: "Exporter une sauvegarde", icone: Download, executer: handleExport },
+        ]}
+      />
+
+      <ModePresentation
+        ouvert={presentation}
+        onFermer={() => setPresentation(false)}
+        patrimoineNet={patrimoine.patrimoineNet}
+        deltaPct={delta30j.hasReference ? delta30j.pct : null}
+        tauxEpargne={patrimoine.tauxEpargne}
+        matelasMois={patrimoine.matelasMois}
+      />
 
       <PaletteCommandes
         ouvert={paletteOuverte}

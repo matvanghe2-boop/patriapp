@@ -60,7 +60,7 @@ function MatelasTrendBadge({ matelasMois }) {
   if (!trend || Math.abs(trend.delta) < 0.05) return null;
   const up = trend.delta > 0;
   return (
-    <span className={`flex items-center gap-1 text-[11px] mt-1 ${up ? "text-emerald-400/90" : "text-amber-300/90"}`}>
+    <span className={`flex items-center gap-1 text-micro mt-1 ${up ? "text-emerald-400/90" : "text-amber-300/90"}`}>
       {up ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
       {up ? "+" : ""}{trend.delta.toFixed(1)} mois vs dernier relevé
     </span>
@@ -87,7 +87,7 @@ function SmartProgressBar({ value, max, goal, color = "bg-indigo-400" }) {
           />
         )}
       </div>
-      <div className="flex items-center justify-between text-[10px] text-slate-500 font-data">
+      <div className="flex items-center justify-between text-micro text-slate-500 font-data">
         <span>{pct.toFixed(0)}%</span>
         <span className="ghost-blur">{eur(value, 0)} / {eur(max, 0)}</span>
       </div>
@@ -126,7 +126,7 @@ function SaturationAlert({ livrets }) {
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-slate-600 mt-2">
+      <p className="text-micro text-slate-600 mt-2">
         Envisage un autre support pour tes prochains versements sur ces comptes.
       </p>
     </Card>
@@ -164,7 +164,7 @@ function CompteCourant({ cash, setCash }) {
         ) : (
           <div className="flex items-baseline gap-2">
             <span className="font-display text-xl text-slate-100 ghost-blur">{eur(cash)}</span>
-            <span className="text-[11px] text-slate-600">cash disponible</span>
+            <span className="text-micro text-slate-600">cash disponible</span>
           </div>
         )}
       </div>
@@ -233,21 +233,21 @@ function NextDepositAdvisor({ livrets }) {
           {allocation.result.map((l, i) => (
             <div key={l.id} className="flex items-center justify-between text-sm rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
               <span className="flex items-center gap-2">
-                <span className="text-[10px] text-indigo-300 bg-indigo-400/10 border border-indigo-400/20 rounded-full w-5 h-5 flex items-center justify-center shrink-0">{i + 1}</span>
+                <span className="text-micro text-indigo-300 bg-indigo-400/10 border border-indigo-400/20 rounded-full w-5 h-5 flex items-center justify-center shrink-0">{i + 1}</span>
                 <span className="text-slate-300">{l.name}</span>
-                <span className="text-[11px] text-amber-300/80">{(l.rate * 100).toFixed(2)} %</span>
+                <span className="text-micro text-amber-300/80">{(l.rate * 100).toFixed(2)} %</span>
               </span>
               <span className="font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.alloc, 0)}</span>
             </div>
           ))}
           {allocation.leftover > 0.5 && (
-            <p className="text-[11px] text-amber-300/80 mt-1">
+            <p className="text-micro text-amber-300/80 mt-1">
               <span className="ghost-blur">{eur(allocation.leftover, 0)}</span> restants une fois tous les plafonds atteints — à orienter vers la Bourse ou un autre support.
             </p>
           )}
         </div>
       )}
-      <p className="text-[11px] text-slate-600 mt-3">
+      <p className="text-micro text-slate-600 mt-3">
         Classement par taux net décroissant, dans la limite de la place restante sous chaque plafond.
       </p>
     </Card>
@@ -325,7 +325,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                   />
                 )}
               </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-600 mt-1 font-data">
+              <div className="flex items-center justify-between text-micro text-slate-600 mt-1 font-data">
                 <span>0 €</span>
                 <span className="ghost-blur">{eur(livretsTotal)}</span>
               </div>
@@ -344,14 +344,14 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                   <div key={e.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${colors.bg}`}>
                     <span className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
                     <span className="flex-1 text-sm font-medium">{e.label}</span>
-                    <span className="text-[11px] opacity-60 font-data">{pct.toFixed(0)}%</span>
+                    <span className="text-micro opacity-60 font-data">{pct.toFixed(0)}%</span>
                     <input
                       type="number"
                       value={e.amount}
                       onChange={(ev) => updateEnv(e.id, ev.target.value)}
                       className="w-24 bg-black/20 border border-white/10 rounded-lg px-2 py-1 text-sm font-data tabular-nums text-right ghost-blur focus:outline-none focus:border-white/30"
                     />
-                    <span className="text-[11px] opacity-50">€</span>
+                    <span className="text-micro opacity-50">€</span>
                     <button onClick={() => removeEnv(e.id)} className="opacity-40 hover:opacity-80 ml-1">
                       <X size={13} />
                     </button>
@@ -376,7 +376,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
           {showAdd && (
             <div className="mt-3 flex items-end gap-2 p-3 rounded-xl border border-amber-400/20 bg-slate-950">
               <div className="flex-1">
-                <label htmlFor={`${idsChamps}-nom-de-l`} className="text-[11px] text-slate-500 block mb-1">Nom de l'enveloppe</label>
+                <label htmlFor={`${idsChamps}-nom-de-l`} className="text-micro text-slate-500 block mb-1">Nom de l'enveloppe</label>
                 <input id={`${idsChamps}-nom-de-l`}
                   type="text"
                   placeholder="Matelas urgence, Voyage..."
@@ -386,7 +386,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                 />
               </div>
               <div className="w-28">
-                <label htmlFor={`${idsChamps}-montant`} className="text-[11px] text-slate-500 block mb-1">Montant (€)</label>
+                <label htmlFor={`${idsChamps}-montant`} className="text-micro text-slate-500 block mb-1">Montant (€)</label>
                 <input id={`${idsChamps}-montant`}
                   type="number"
                   placeholder="3000"
@@ -455,12 +455,12 @@ function ArbitrageOptimizer({ livrets }) {
                 <span className="text-slate-300">{s.to}</span> ({(s.toRate * 100).toFixed(2)} %), tu gagnes{" "}
                 <span className="font-data font-semibold text-emerald-400 ghost-blur">+{eur(s.gainAnnuel)} / an</span>.
               </p>
-              <p className="text-[11px] text-slate-600 mt-1">{s.condition}</p>
+              <p className="text-micro text-slate-600 mt-1">{s.condition}</p>
             </div>
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-slate-600 mt-3">
+      <p className="text-micro text-slate-600 mt-3">
         Les taux alternatifs sont indicatifs. Vérifie les conditions d'éligibilité auprès de ton établissement bancaire.
       </p>
     </Card>
@@ -508,7 +508,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
     <tr className="group">
       <td data-label="Support" className="py-3 pr-3 text-slate-200 font-medium">
         {l.name}
-        <span className="ml-2 text-[10px] uppercase tracking-wide text-indigo-300/70 border border-indigo-400/30 rounded-full px-1.5 py-0.5 align-middle">
+        <span className="ml-2 text-micro uppercase tracking-wide text-indigo-300/70 border border-indigo-400/30 rounded-full px-1.5 py-0.5 align-middle">
           {l.envelope || guessEnvelope(l.name)}
         </span>
       </td>
@@ -564,17 +564,17 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
             color={barColor}
           />
         ) : (
-          <span className="text-[11px] text-slate-600">—</span>
+          <span className="text-micro text-slate-600">—</span>
         )}
         {/* Goal / limit labels */}
         <div className="flex items-center gap-2 mt-1">
           {hasGoal && (
-            <span className="text-[10px] text-violet-400/80 bg-violet-400/10 border border-violet-400/20 rounded-full px-2 py-0.5 ghost-blur">
+            <span className="text-micro text-violet-400/80 bg-violet-400/10 border border-violet-400/20 rounded-full px-2 py-0.5 ghost-blur">
               Objectif : {eur(l.goal, 0)}
             </span>
           )}
           {hasLimit && !hasGoal && (
-            <span className="text-[10px] text-slate-600">
+            <span className="text-micro text-slate-600">
               Plafond légal : {eur(l.limit, 0)}
             </span>
           )}
@@ -592,13 +592,13 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
               autoFocus
               onKeyDown={(e) => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") setShowGoalEdit(false); }}
             />
-            <button onClick={saveGoal} className="text-[10px] bg-violet-500 hover:bg-violet-400 text-white rounded px-1.5 py-0.5">OK</button>
+            <button onClick={saveGoal} className="text-micro bg-violet-500 hover:bg-violet-400 text-white rounded px-1.5 py-0.5">OK</button>
             <button onClick={() => setShowGoalEdit(false)}><X size={11} className="text-slate-600" /></button>
           </div>
         ) : (
           <button
             onClick={() => { setGoalDraft(l.goal ?? ""); setShowGoalEdit(true); }}
-            className="text-[10px] text-slate-600 hover:text-violet-400 border border-transparent hover:border-violet-400/30 rounded-full px-2 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+            className="text-micro text-slate-600 hover:text-violet-400 border border-transparent hover:border-violet-400/30 rounded-full px-2 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
           >
             <Target size={10} className="inline mr-1" />
             {hasGoal ? "Modifier objectif" : "Fixer objectif"}
@@ -691,14 +691,14 @@ export default function Livrets({
             {matelasMois == null ? (
               <>
                 <div className="font-display text-lg text-slate-500">—</div>
-                <div className="text-[11px] text-slate-600">
+                <div className="text-micro text-slate-600">
                   Renseigne tes dépenses mensuelles dans le Dashboard
                 </div>
               </>
             ) : (
               <>
                 <div className="font-display text-lg text-slate-50">{matelasMois.toFixed(1)} mois</div>
-                <div className="text-[11px] text-slate-600">de dépenses couvertes</div>
+                <div className="text-micro text-slate-600">de dépenses couvertes</div>
                 <MatelasTrendBadge matelasMois={matelasMois} />
               </>
             )}
@@ -712,7 +712,7 @@ export default function Livrets({
         <Card accent={CARD_THEMES.indigo}>
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Intérêts estimés / an</div>
           <div className="font-display text-xl text-emerald-400 ghost-blur">{eur(totalInterets)}</div>
-          <div className="text-[11px] text-slate-600 mt-0.5 ghost-blur">soit {eur(totalInterets / 12)} / mois</div>
+          <div className="text-micro text-slate-600 mt-0.5 ghost-blur">soit {eur(totalInterets / 12)} / mois</div>
         </Card>
       </div>
 
@@ -740,9 +740,9 @@ export default function Livrets({
               </EtatVide>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-cards table-dense">
+            <table className="w-full text-sm table-cards table-donnees">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                <tr className="text-left text-micro uppercase tracking-wider text-slate-500 border-b border-slate-800">
                   <th className="py-2 pr-3">Support</th>
                   <th className="py-2 pr-3">Capital</th>
                   <th className="py-2 pr-3">Taux net</th>

@@ -97,7 +97,7 @@ export default function GlobalSearch({
               >
                 <span className="flex flex-col">
                   <span className="text-slate-200">{r.label}</span>
-                  <span className="text-[10px] text-slate-500">{r.type}</span>
+                  <span className="text-micro text-slate-500">{r.type}</span>
                 </span>
                 <span className="text-slate-500 font-data tabular-nums shrink-0">{r.detail}</span>
               </button>

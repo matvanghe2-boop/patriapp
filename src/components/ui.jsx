@@ -47,8 +47,72 @@ export function EmptyState({ children, picto = "recherche" }) {
   return <EtatVide picto={picto}>{children}</EtatVide>;
 }
 
-export function Card({ children, className = "", accent = "" }) {
-  return <div className={`rounded-2xl border bg-slate-900 p-5 transition-colors duration-300 ${accent || "border-slate-800"} ${className}`}>{children}</div>;
+/**
+ * Carte, avec un RÔLE dans la hiérarchie de l'écran.
+ *
+ * Cent quarante cartes portaient exactement la même bordure : le patrimoine
+ * net, le rappel de sauvegarde et la liste des abonnements avaient la même
+ * enveloppe. L'œil n'avait donc aucun moyen de ranger l'important devant
+ * l'accessoire — et c'est précisément ce qui a rendu nécessaire le repli
+ * manuel de chaque bloc.
+ *
+ *  · `vedette`  — le chiffre qui porte l'écran. UN PAR ÉCRAN, jamais deux :
+ *                 deux vedettes ne se hiérarchisent plus entre elles.
+ *  · `standard` — le corps de l'écran. C'est l'ancienne carte, inchangée.
+ *  · `ambiant`  — ce qui n'est là qu'en appui. Sans fond plein, il ne dispute
+ *                 rien au reste.
+ *
+ * `accent` reste accepté et prioritaire : la vingtaine d'appels existants
+ * continuent de fonctionner à l'identique.
+ */
+export function Card({ children, className = "", accent = "", role = "standard" }) {
+  const fond = role === "ambiant" ? "" : "bg-slate-900";
+  return (
+    <div
+      className={`carte-${role} rounded-2xl border ${fond} p-5 transition-colors duration-300 ${accent} ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Bandeau de domaine : le nom de la page, enfin visible.
+ *
+ * Le `<h1>` de chaque écran était `sr-only` — présent pour les lecteurs
+ * d'écran, invisible à l'œil. On déduisait donc l'onglet courant de la couleur
+ * du fond et d'un bouton surligné dans une barre latérale qui, sur mobile,
+ * n'est même pas affichée. C'est le repère le plus élémentaire d'une
+ * application à six sections, et il manquait.
+ */
+export function BandeauDomaine({ titre, sousTitre, actions }) {
+  return (
+    <header className="bandeau-domaine">
+      <h1>{titre}</h1>
+      {sousTitre && <p>{sousTitre}</p>}
+      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+    </header>
+  );
+}
+
+/**
+ * Pastille d'état.
+ *
+ * Quatre jugements — favorable, attention, critique, neutre — portés par des
+ * couleurs INDÉPENDANTES DE L'ACCENT. L'ambre servait aux deux : depuis que
+ * l'accent est réglable, choisir le vert donnait des avertissements verts, et
+ * un bouton principal de la même couleur qu'un état « tout va bien ».
+ *
+ * La pastille porte aussi un point : la forme véhicule l'information autant
+ * que la couleur, pour que le sens survive au daltonisme comme à une capture
+ * en noir et blanc.
+ */
+export function PastilleEtat({ etat = "neutre", children, className = "" }) {
+  return (
+    <span className={`pastille-etat ${className}`} data-etat={etat}>
+      {children}
+    </span>
+  );
 }
 
 /**
@@ -97,7 +161,7 @@ export function SectionRepliable({ titre, icon: Icon, defautOuvert = false, resu
           {Icon && <Icon size={14} className="text-slate-500 shrink-0" aria-hidden="true" />}
           <span className="text-sm text-slate-200 truncate">{titre}</span>
           {resume && !ouvert && (
-            <span className="text-[11px] text-slate-500 truncate hidden sm:inline">— {resume}</span>
+            <span className="text-micro text-slate-500 truncate hidden sm:inline">— {resume}</span>
           )}
         </span>
         {/* Un seul chevron qui pivote, plutôt que deux icônes échangées : la
@@ -237,7 +301,7 @@ export function CarteRepliable({
             {titre}
           </span>
           {replie && resume && (
-            <span className="text-[11px] text-slate-600 truncate hidden sm:inline">— {resume}</span>
+            <span className="text-micro text-slate-600 truncate hidden sm:inline">— {resume}</span>
           )}
           {/* Même chevron pivotant que SectionRepliable : la rotation montre le
               sens de l'action, là où deux icônes échangées ne font que changer
@@ -474,7 +538,7 @@ export function AddPanel({ open, onClose, fields, onSubmit }) {
     <form onSubmit={submit} className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950">
       {fields.map((f) => (
         <div key={f.key} className="flex flex-col gap-1 col-span-1">
-          <label htmlFor={`${prefixeId}-${f.key}`} className="text-[11px] text-slate-500">{f.label}</label>
+          <label htmlFor={`${prefixeId}-${f.key}`} className="text-micro text-slate-500">{f.label}</label>
           {f.type === "select" ? (
             <select
               id={`${prefixeId}-${f.key}`}

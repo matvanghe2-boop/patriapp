@@ -102,13 +102,13 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => definirCibles(ciblesEquiponderees(positions))}
-            className="text-[11px] text-violet-300 hover:text-violet-200 border border-violet-500/40 rounded-lg px-2.5 py-1"
+            className="text-micro text-violet-300 hover:text-violet-200 border border-violet-500/40 rounded-lg px-2.5 py-1"
           >
             Équipondérer
           </button>
           <button
             onClick={() => definirCibles(ciblesActuelles(positions))}
-            className="text-[11px] text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1"
+            className="text-micro text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1"
           >
             Figer les poids actuels
           </button>
@@ -126,7 +126,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
       </div>
 
       {!cibleDefinie && (
-        <p className="text-[11px] text-slate-500 mt-1">
+        <p className="text-micro text-slate-500 mt-1">
           Aucun poids cible défini : chaque ligne est considérée à sa répartition actuelle. Choisis un
           préréglage ou saisis tes cibles ci-dessous.
         </p>
@@ -135,7 +135,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
       {/* ─── Paramètres ─────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-4 mt-3 pt-3 border-t border-slate-800">
         <div>
-          <label htmlFor="reeq-apport" className="text-[11px] text-slate-500 block mb-1">
+          <label htmlFor="reeq-apport" className="text-micro text-slate-500 block mb-1">
             Apport à investir (€)
           </label>
           <input
@@ -150,7 +150,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
           />
         </div>
         <div>
-          <label htmlFor="reeq-tol" className="text-[11px] text-slate-500 block mb-1">
+          <label htmlFor="reeq-tol" className="text-micro text-slate-500 block mb-1">
             Tolérance (%)
           </label>
           <input
@@ -178,21 +178,21 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
       {/* ─── Synthèse ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">Dérive moyenne</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">Dérive moyenne</div>
           <div className={`font-data font-bold ${plan.deriveMoyennePct > 5 ? "text-amber-300" : "text-slate-100"}`}>
             {pctPlain(plan.deriveMoyennePct, 1)}
           </div>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">À acheter</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">À acheter</div>
           <div className="font-data font-bold text-emerald-400 ghost-blur">{eur(plan.totalAchats)}</div>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">À vendre</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">À vendre</div>
           <div className="font-data font-bold text-rose-400 ghost-blur">{eur(plan.totalVentes)}</div>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-[11px] text-slate-500 uppercase tracking-wide">Liquidités</div>
+          <div className="text-micro text-slate-500 uppercase tracking-wide">Liquidités</div>
           <div
             className={`font-data font-bold ghost-blur ${plan.besoinLiquidites > 0 ? "text-amber-300" : "text-slate-100"}`}
             title={plan.besoinLiquidites > 0 ? "Il manque des liquidités pour exécuter le plan" : "Le plan se finance seul"}
@@ -203,7 +203,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
       </div>
 
       {plan.ciblesNormalisees && (
-        <p className="flex items-start gap-1.5 text-[11px] text-amber-300/90 mt-2">
+        <p className="flex items-start gap-1.5 text-micro text-amber-300/90 mt-2">
           <Info size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
           Tes poids cibles totalisent {pctPlain(plan.sommeCiblesInitiale, 1)} : ils ont été ramenés
           proportionnellement à 100 % pour construire le plan.
@@ -211,7 +211,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
       )}
 
       {fisc && (
-        <p className="flex items-start gap-1.5 text-[11px] text-amber-200 mt-2">
+        <p className="flex items-start gap-1.5 text-micro text-amber-200 mt-2">
           <AlertTriangle size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
           Les ventes exposeraient environ {eur(plan.plusValueCedeeTotale)} de plus-value, soit{" "}
           <strong>{eur(fisc.totalPrelevements)}</strong> de prélèvements estimés. Un rééquilibrage par
@@ -222,13 +222,13 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
       {/* ─── Cibles et ordres ───────────────────────────────────────────── */}
       <div className="mt-4 pt-3 border-t border-slate-800">
         <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
-          <span className="text-[11px] text-slate-500 uppercase tracking-wide">
+          <span className="text-micro text-slate-500 uppercase tracking-wide">
             Poids cible par ligne
           </span>
           {/* La somme est affichée en permanence : saisir douze pourcentages
               sans savoir où l'on en est oblige à les additionner de tête. */}
           <span
-            className={`text-[11px] font-data tabular-nums ${
+            className={`text-micro font-data tabular-nums ${
               Math.abs(sommeCibles - 100) < 0.05
                 ? "text-emerald-400"
                 : sommeCibles > 100
@@ -263,15 +263,15 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="min-w-0 flex-1">
                     <span className="font-data font-semibold text-slate-100">{o.ticker}</span>
-                    <span className="text-[11px] text-slate-500 ml-2">{o.nom}</span>
-                    <div className="text-[11px] text-slate-500 font-data tabular-nums mt-0.5">
+                    <span className="text-micro text-slate-500 ml-2">{o.nom}</span>
+                    <div className="text-micro text-slate-500 font-data tabular-nums mt-0.5">
                       actuel {pctPlain(o.poidsActuelPct, 1)}
                       <span className="text-slate-600 mx-1">→</span>
                       cible {pctPlain(o.poidsCiblePct, 1)}
                     </div>
                   </div>
 
-                  <label className="flex items-center gap-1.5 text-[11px] text-slate-500 shrink-0">
+                  <label className="flex items-center gap-1.5 text-micro text-slate-500 shrink-0">
                     <span className="sr-only">Poids cible de {o.ticker}</span>
                     <input
                       type="number"
@@ -289,7 +289,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
 
                   <span className="shrink-0 w-[11rem] text-right">
                     {o.sens === "aucun" ? (
-                      <span className="text-[11px] text-slate-600">
+                      <span className="text-micro text-slate-600">
                         {o.negligeable ? "dans la tolérance" : "rien à faire"}
                       </span>
                     ) : (
@@ -324,7 +324,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
         )}
       </div>
 
-      <p className="flex items-start gap-1.5 text-[11px] text-slate-600 mt-3">
+      <p className="flex items-start gap-1.5 text-micro text-slate-600 mt-3">
         <Wallet size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
         Plan indicatif : les ordres sont à passer chez ton courtier, rien n'est exécuté ici. Les
         quantités sont théoriques — la plupart des courtiers n'acceptent pas les fractions de titre.

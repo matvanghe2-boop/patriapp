@@ -107,7 +107,7 @@ function FiftyTwoWeekGauge({ low, high, current, currency }) {
   const posPct = Math.min(100, Math.max(0, ((current - low) / (high - low)) * 100));
   return (
     <div>
-      <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+      <div className="flex items-center justify-between text-micro text-slate-500 mb-1">
         <span className="font-data tabular-nums">{formatPrice(low, currency)}</span>
         <span className="text-slate-600">Plus bas / plus haut sur 52 semaines</span>
         <span className="font-data tabular-nums">{formatPrice(high, currency)}</span>
@@ -128,11 +128,11 @@ function StatCell({ icon: Icon, label, value, sub }) {
   if (value == null || value === "—") return null;
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+      <div className="flex items-center gap-1.5 text-micro uppercase tracking-wide text-slate-500 mb-1">
         {Icon && <Icon size={11} />} {label}
       </div>
       <div className="font-display text-base text-slate-100">{value}</div>
-      {sub && <div className="text-[11px] text-slate-500 mt-0.5">{sub}</div>}
+      {sub && <div className="text-micro text-slate-500 mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -403,7 +403,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   <AssetLogo ticker={r.symbol} size="xs" />
                   <div className="min-w-0">
                     <div className="text-sm text-slate-100 font-medium">{r.name}</div>
-                    <div className="text-[11px] text-slate-500 truncate">{r.symbol} {r.exchange ? `· ${r.exchange}` : ""}</div>
+                    <div className="text-micro text-slate-500 truncate">{r.symbol} {r.exchange ? `· ${r.exchange}` : ""}</div>
                   </div>
                 </button>
               ))}
@@ -416,7 +416,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
             <button
               key={q.symbol}
               onClick={() => pickSymbol(q.symbol)}
-              className={`text-[11px] font-medium px-2.5 py-1 rounded-md border transition-colors ${
+              className={`text-micro font-medium px-2.5 py-1 rounded-md border transition-colors ${
                 symbol === q.symbol ? "text-violet-300 border-violet-500/50 bg-violet-500/10" : "text-slate-500 border-slate-800 hover:text-slate-300 hover:border-slate-700"
               }`}
             >
@@ -440,10 +440,15 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                 <AssetLogo ticker={symbol} name={profile?.name} size="md" />
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-display text-xl text-slate-50">{profile?.name || symbol}</h2>
+                    {/* Cible de la transition d'élément partagé : le titre
+                        voyage depuis la ligne du tableau de positions au lieu
+                        d'être remplacé d'un écran à l'autre. */}
+                    <h2 className="font-display text-xl text-slate-50 titre-voyageur">
+                      {profile?.name || symbol}
+                    </h2>
                     <span className="text-xs text-slate-500 font-data">{symbol}</span>
                     {profile?.instrumentLabel && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded px-1.5 py-0.5">
+                      <span className="text-micro font-semibold uppercase tracking-wide text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded px-1.5 py-0.5">
                         {profile.instrumentLabel}
                       </span>
                     )}
@@ -465,7 +470,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   {profileLoading ? "…" : formatPrice(headlinePrice, profile?.currency)}
                 </div>
                 {headlineIsHover ? (
-                  <div className="text-[11px] text-violet-300/80 mt-0.5">au {formatFullDateTime(hoverPoint.date, isIntraday)}</div>
+                  <div className="text-micro text-violet-300/80 mt-0.5">au {formatFullDateTime(hoverPoint.date, isIntraday)}</div>
                 ) : dayChange ? (
                   <div className={`flex items-center justify-end gap-1 text-sm font-data mt-0.5 ${dayChange.abs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                     {dayChange.abs >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
@@ -476,7 +481,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
             </div>
 
             <div className="flex items-center justify-between flex-wrap gap-2 mt-4 pt-3 border-t border-slate-800">
-              <div className="flex items-center gap-3 text-[11px] text-slate-500">
+              <div className="flex items-center gap-3 text-micro text-slate-500">
                 <span className="flex items-center gap-1.5">
                   <Clock size={12} />
                   Cours différé d'environ 15 min · {lastUpdated ? `dernière actualisation ${timeAgo(lastUpdated)}` : "…"}
@@ -518,7 +523,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                     <button
                       key={r.key}
                       onClick={() => setRange(r.key)}
-                      className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${
+                      className={`text-micro font-medium px-2.5 py-1 rounded-md transition-colors ${
                         range === r.key ? "bg-violet-500/20 text-violet-300 border border-violet-500/40" : "text-slate-500 hover:text-slate-300"
                       }`}
                     >
@@ -529,14 +534,14 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                 <button
                   onClick={() => setFocusOpen(true)}
                   disabled={chartData.length < 2}
-                  className="flex items-center gap-1.5 text-[11px] font-medium text-violet-300 hover:text-violet-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-violet-500/50 rounded-lg px-2.5 py-1"
+                  className="flex items-center gap-1.5 text-micro font-medium text-violet-300 hover:text-violet-200 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 hover:border-violet-500/50 rounded-lg px-2.5 py-1"
                 >
                   <Maximize2 size={12} /> Plein écran &amp; outils de tracé
                 </button>
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-600 mb-2 flex items-center gap-1.5 flex-wrap">
+            <p className="text-micro text-slate-600 mb-2 flex items-center gap-1.5 flex-wrap">
               {seriesMeta?.firstTradeDate && <span>Première cotation connue : {formatFullDateTime(seriesMeta.firstTradeDate, false)}</span>}
               {totalReturnOnRange != null && (
                 <span>
@@ -576,7 +581,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   priceLines={priceLines}
                   onHoverBar={setHoverPoint}
                 />
-                <p className="text-[10px] text-slate-600 mt-2 flex items-center gap-1.5 flex-wrap">
+                <p className="text-micro text-slate-600 mt-2 flex items-center gap-1.5 flex-wrap">
                   <Info size={10} />
                   Molette = zoom sur le curseur · clic-glisser = déplacement dans le temps · double-clic = vue complète.
                   Volume coloré : <span className="text-emerald-400">vert</span> = clôture en hausse,{" "}
@@ -636,7 +641,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               <div className="grid sm:grid-cols-2 gap-6 mt-2">
                 {profile.holdings?.length > 0 && (
                   <div>
-                    <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Principales positions</div>
+                    <div className="text-micro uppercase tracking-wide text-slate-500 mb-2">Principales positions</div>
                     <div className="space-y-1.5">
                       {profile.holdings.map((h) => (
                         <div key={h.symbol || h.name} className="flex items-center justify-between text-xs">
@@ -649,7 +654,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                 )}
                 {profile.sectorWeightings?.length > 0 && (
                   <div>
-                    <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Répartition sectorielle</div>
+                    <div className="text-micro uppercase tracking-wide text-slate-500 mb-2">Répartition sectorielle</div>
                     <div className="space-y-1.5">
                       {profile.sectorWeightings.slice(0, 8).map((s) => (
                         <div key={s.key} className="flex items-center gap-2">
@@ -657,7 +662,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                           <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
                             <div className="h-full rounded-full bg-violet-400" style={{ width: `${Math.min(100, s.weightPct)}%` }} />
                           </div>
-                          <span className="text-[11px] font-data tabular-nums text-slate-400 w-10 text-right">{s.weightPct.toFixed(1)}%</span>
+                          <span className="text-micro font-data tabular-nums text-slate-400 w-10 text-right">{s.weightPct.toFixed(1)}%</span>
                         </div>
                       ))}
                     </div>
@@ -665,7 +670,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                 )}
               </div>
               {profile.expenseRatio != null && (
-                <p className="text-[11px] text-slate-500 mt-3 pt-3 border-t border-slate-800">
+                <p className="text-micro text-slate-500 mt-3 pt-3 border-t border-slate-800">
                   Frais annuels du fonds : <span className="text-slate-300 font-data">{pctPlain(profile.expenseRatio * 100, 2)}</span>
                 </p>
               )}
@@ -694,7 +699,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
             ) : profile ? (
               <div className="mt-2 space-y-4">
                 {profile.limited && (
-                  <div className="flex items-start gap-2 text-[11px] text-amber-300/90 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+                  <div className="flex items-start gap-2 text-micro text-amber-300/90 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
                     <AlertCircle size={13} className="shrink-0 mt-0.5" />
                     Fiche simplifiée : les données étendues (description détaillée, ratios complets) ne sont pas disponibles pour cette valeur pour le moment. Les cours et repères ci-dessus restent fiables.
                   </div>
@@ -721,7 +726,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
 
                 {profile.officers?.length > 0 && (
                   <div>
-                    <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">Direction</div>
+                    <div className="text-micro uppercase tracking-wide text-slate-500 mb-1.5">Direction</div>
                     <div className="flex flex-wrap gap-2">
                       {profile.officers.map((o, i) => (
                         <span key={i} className="text-xs text-slate-300 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1">
@@ -732,7 +737,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   </div>
                 )}
 
-                <p className="text-[11px] text-slate-600 flex items-start gap-1.5 pt-2 border-t border-slate-800">
+                <p className="text-micro text-slate-600 flex items-start gap-1.5 pt-2 border-t border-slate-800">
                   <Info size={12} className="shrink-0 mt-0.5" />
                   Données fournies à titre informatif (source : flux de marché grand public), avec un différé d'environ 15 minutes.
                   Elles ne constituent pas un conseil en investissement.

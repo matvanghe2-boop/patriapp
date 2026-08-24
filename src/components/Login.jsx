@@ -1,5 +1,5 @@
 import { useState, useId } from "react";
-import { Lock, Mail, LogIn, UserPlus, AlertCircle, CheckCircle2, KeyRound, ArrowLeft } from "lucide-react";
+import { Lock, Mail, LogIn, UserPlus, AlertCircle, CheckCircle2, KeyRound, ArrowLeft, ShieldCheck } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { translateAuthError, assessPassword, MIN_PASSWORD_LENGTH } from "../lib/authErrors";
@@ -74,13 +74,68 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+    /*
+      COMPOSITION EN DEUX TEMPS.
+
+      C'est le premier écran, le seul que voient ceux qui n'ont pas de compte,
+      et le seul écran public de l'application. Il n'affichait que deux champs
+      centrés sur fond uni : rien n'y disait ce que fait Patrium, ni ce qui la
+      distingue — alors que sa promesse, « tes chiffres ne sortent pas de ton
+      navigateur », est précisément ce qu'on veut savoir AVANT de saisir un mot
+      de passe.
+
+      Le volet de gauche porte donc cette promesse et trois repères vérifiables.
+      Il disparaît sous 1 024 px : sur un téléphone, la seule chose à faire est
+      de se connecter, et un argumentaire au-dessus du formulaire ne ferait
+      qu'éloigner les champs du pouce.
+    */
+    <div className="min-h-screen lg:grid lg:grid-cols-2 bg-slate-950">
+      <aside className="hidden lg:flex flex-col justify-between p-10 xl:p-14 border-r border-slate-800 relative overflow-hidden">
+        <div aria-hidden="true" className="pointer-events-none absolute -top-32 -left-24 w-[34rem] h-[34rem] rounded-full bg-amber-400/[0.07] blur-[120px]" />
+        <div aria-hidden="true" className="pointer-events-none absolute bottom-0 -right-24 w-[26rem] h-[26rem] rounded-full bg-emerald-400/[0.06] blur-[110px]" />
+
+        <div className="relative font-display text-lead text-slate-100">
+          Patri<span className="text-amber-400">um</span>
+        </div>
+
+        <div className="relative max-w-md">
+          <p className="font-display text-[2rem] leading-[1.15] text-slate-50 text-balance">
+            Ton patrimoine, calculé sur ton appareil.
+          </p>
+          <p className="text-corps text-slate-400 mt-4 text-pretty">
+            Livrets, PEA, immobilier, abonnements — réunis dans une seule vue, avec les
+            projections qui vont avec.
+          </p>
+
+          <ul className="mt-8 flex flex-col gap-3.5">
+            {[
+              ["Rien ne part en ligne", "Montants, soldes et quantités restent dans ton navigateur. Seuls les tickers sont envoyés, pour récupérer les cours."],
+              ["Chiffré côté compte", "La synchronisation est optionnelle. Sans compte, l'application fonctionne entièrement hors ligne."],
+              ["Export à tout moment", "Une sauvegarde JSON complète, en un clic, sans passer par nous."],
+            ].map(([titre, detail]) => (
+              <li key={titre} className="flex gap-3">
+                <ShieldCheck size={16} className="shrink-0 mt-0.5 text-emerald-400/80" aria-hidden="true" />
+                <span>
+                  <span className="block text-corps text-slate-200">{titre}</span>
+                  <span className="block text-mini text-slate-500 mt-0.5 text-pretty">{detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative text-micro text-slate-600">
+          Aucune donnée patrimoniale n'est lisible sans tes identifiants.
+        </p>
+      </aside>
+
+      <div className="min-h-screen lg:min-h-0 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <h1 className="font-display text-2xl text-slate-50">
+          <h1 className="font-display text-2xl text-slate-50 lg:hidden">
             Patri<span className="text-amber-400">um</span>
           </h1>
-          <p className="text-sm text-slate-500 mt-1">{TITLES[mode]}</p>
+          <p className="text-corps text-slate-500 mt-1">{TITLES[mode]}</p>
         </div>
 
         <form onSubmit={submit} className="space-y-3 bg-slate-900/60 border border-slate-800 rounded-xl p-5">
@@ -189,9 +244,10 @@ export default function Login() {
           )}
         </p>
 
-        <p className="text-center text-[11px] text-slate-600 mt-6">
+        <p className="text-center text-micro text-slate-600 mt-6">
           Tu resteras connecté(e) sur cet appareil tant que tu ne cliques pas sur « Se déconnecter ».
         </p>
+      </div>
       </div>
     </div>
   );
@@ -211,7 +267,7 @@ function PasswordStrength({ id, strength }) {
       <div className="h-1 w-full rounded-full bg-slate-800 overflow-hidden">
         <div className={`h-full rounded-full transition-all ${STRENGTH_STYLES[strength.score]}`} />
       </div>
-      <p className="text-[11px] text-slate-500 mt-1">
+      <p className="text-micro text-slate-500 mt-1">
         Robustesse : <span className="text-slate-300">{strength.label}</span>
         {strength.hints.length > 0 && <> — il manque {strength.hints.join(", ")}.</>}
       </p>

@@ -125,7 +125,7 @@ function TreemapTile(props) {
           <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 overflow-hidden">
             <AssetLogo ticker={ticker} size="sm" />
             <span className="font-data text-[12px] font-bold text-white truncate max-w-full">{ticker}</span>
-            <span className="text-[10px] text-white/75 font-data">{pctPlain(pct, 1)}</span>
+            <span className="text-micro text-white/75 font-data">{pctPlain(pct, 1)}</span>
             <span className="text-[9px] text-white/50 truncate max-w-full leading-none">{sector}</span>
           </div>
         </foreignObject>
@@ -133,7 +133,7 @@ function TreemapTile(props) {
       {showCompact && (
         <foreignObject x={x} y={y} width={width} height={height}>
           <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 p-0.5 overflow-hidden">
-            <span className="font-data text-[10px] font-bold text-white truncate max-w-full">{ticker}</span>
+            <span className="font-data text-micro font-bold text-white truncate max-w-full">{ticker}</span>
             <span className="text-[9px] text-white/70 font-data">{pctPlain(pct, 1)}</span>
           </div>
         </foreignObject>

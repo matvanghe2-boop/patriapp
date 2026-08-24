@@ -103,7 +103,7 @@ function EventChip({ ev, onClick }) {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(ev); }}
-      className={`w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[9px] sm:text-[10px] leading-tight truncate transition-transform hover:scale-[1.04] ${
+      className={`w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[9px] sm:text-micro leading-tight truncate transition-transform hover:scale-[1.04] ${
         isPortfolio ? "font-extrabold" : "font-medium"
       }`}
       style={
@@ -141,7 +141,7 @@ function SourceBadge({ source, size = "sm" }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded uppercase tracking-wide ${
-        size === "sm" ? "text-[9px] px-1.5 py-0.5" : "text-[10px] px-2 py-0.5"
+        size === "sm" ? "text-[9px] px-1.5 py-0.5" : "text-micro px-2 py-0.5"
       } ${isPortfolio ? "font-black text-black bg-white border border-white" : "font-medium text-[#8a8a8a] border border-[#2e2e2e]"}`}
     >
       <Icon size={size === "sm" ? 9 : 11} strokeWidth={2.5} />
@@ -153,7 +153,7 @@ function SourceBadge({ source, size = "sm" }) {
 /** Rappel du code visuel des deux origines, sous les filtres. */
 function SourceLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-3 text-[10px] text-[#777] mb-4">
+    <div className="flex flex-wrap items-center gap-3 text-micro text-[#777] mb-4">
       <span className="flex items-center gap-1.5">
         <span
           className="inline-block w-6 h-3 rounded"
@@ -214,7 +214,7 @@ function EventModal({ ev, onClose }) {
 
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span
-            className="inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded"
+            className="inline-block text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded"
             style={{ background: `${t.color}22`, color: t.color }}
           >
             {ev.type}
@@ -226,23 +226,23 @@ function EventModal({ ev, onClose }) {
         <p className="text-sm text-[#999] mb-4">{ev.name}</p>
 
         <div className="rounded-xl border border-[#222] bg-[#0a0a0a] p-3 mb-2">
-          <div className="text-[11px] text-[#888] mb-0.5">Événement</div>
+          <div className="text-micro text-[#888] mb-0.5">Événement</div>
           <div className="text-sm text-white font-semibold">{ev.label}</div>
         </div>
 
         {(ca || bnpa) && (
           <div className="rounded-xl border border-[#222] bg-[#0a0a0a] p-3 mb-2">
-            <div className="text-[11px] text-[#888] mb-1.5">Attentes du consensus</div>
+            <div className="text-micro text-[#888] mb-1.5">Attentes du consensus</div>
             <div className="flex items-center justify-between gap-3">
               {ca && (
                 <div>
-                  <div className="text-[10px] text-[#777]">Chiffre d'affaires</div>
+                  <div className="text-micro text-[#777]">Chiffre d'affaires</div>
                   <div className="font-data text-sm text-white font-bold">{ca}</div>
                 </div>
               )}
               {bnpa && (
                 <div className="text-right">
-                  <div className="text-[10px] text-[#777]">Bénéfice par action</div>
+                  <div className="text-micro text-[#777]">Bénéfice par action</div>
                   <div className="font-data text-sm text-white font-bold">{bnpa}</div>
                 </div>
               )}
@@ -252,11 +252,11 @@ function EventModal({ ev, onClose }) {
 
         <div className="flex items-center justify-between rounded-xl border border-[#222] bg-[#0a0a0a] p-3">
           <div>
-            <div className="text-[11px] text-[#888] mb-0.5">Date</div>
+            <div className="text-micro text-[#888] mb-0.5">Date</div>
             <div className="font-data text-base text-white font-bold">{formatDateFr(ev.date)}</div>
           </div>
           <div className="text-right">
-            <div className="text-[11px] text-[#888] mb-0.5">Échéance</div>
+            <div className="text-micro text-[#888] mb-0.5">Échéance</div>
             <div className="font-data text-sm font-bold" style={{ color: t.color }}>
               {daysLeft === 0 ? "Aujourd'hui" : daysLeft === 1 ? "Demain" : daysLeft > 0 ? `Dans ${daysLeft} j` : `Il y a ${-daysLeft} j`}
             </div>
@@ -303,7 +303,7 @@ function MonthGrid({ year, month, eventsByDate, onMonthChange, onEventClick }) {
 
       <div className="grid grid-cols-7 gap-1 mb-1">
         {DAY_NAMES.map((d) => (
-          <div key={d} className="text-center text-[10px] uppercase tracking-wider text-[#888] font-semibold py-1">
+          <div key={d} className="text-center text-micro uppercase tracking-wider text-[#888] font-semibold py-1">
             {d}
           </div>
         ))}
@@ -332,7 +332,7 @@ function MonthGrid({ year, month, eventsByDate, onMonthChange, onEventClick }) {
                   : "border-[#1a1a1a] bg-[#0a0a0a]"
               }`}
             >
-              <div className={`text-[11px] font-data ${isToday ? "text-white font-bold" : hasPortfolio ? "text-[#ddd] font-semibold" : "text-[#999]"}`}>{d}</div>
+              <div className={`text-micro font-data ${isToday ? "text-white font-bold" : hasPortfolio ? "text-[#ddd] font-semibold" : "text-[#999]"}`}>{d}</div>
               <div className="flex flex-col gap-0.5 flex-1 min-h-0">
                 {visible.map((ev, idx) => (
                   <EventChip key={idx} ev={ev} onClick={onEventClick} />
@@ -413,7 +413,7 @@ function TimelineView({ events, onEventClick }) {
                   {ev.ticker}
                 </span>
                 <span
-                  className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded"
+                  className="text-micro uppercase tracking-wide px-1.5 py-0.5 rounded"
                   style={
                     isPortfolio
                       ? { background: `${t.color}2E`, color: t.color, border: `1px solid ${t.color}80`, fontWeight: 800 }
@@ -430,7 +430,7 @@ function TimelineView({ events, onEventClick }) {
               <div className={`font-data text-sm ${isPortfolio ? "text-white font-bold" : "text-[#9a9a9a] font-medium"}`}>
                 {formatDateFr(ev.date)}
               </div>
-              <div className={`text-[10px] font-data ${isPortfolio ? "text-[#aaa]" : "text-[#6f6f6f]"}`}>
+              <div className={`text-micro font-data ${isPortfolio ? "text-[#aaa]" : "text-[#6f6f6f]"}`}>
                 {daysLeft === 0 ? "Aujourd'hui" : daysLeft === 1 ? "Demain" : `Dans ${daysLeft} j`}
               </div>
             </div>
@@ -453,7 +453,7 @@ function SourceFilter({ source, active, count, onToggle }) {
     <button
       onClick={onToggle}
       aria-pressed={active}
-      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-micro font-semibold transition-colors ${
         active ? activeClass : "border-[#2a2a2a] text-[#666] hover:text-[#999]"
       }`}
     >
@@ -645,7 +645,7 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
             key={type}
             onClick={() => toggleType(type)}
             aria-pressed={visibleTypes[type]}
-            className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-2 py-1 border transition-colors"
+            className="flex items-center gap-1.5 text-micro font-semibold rounded-lg px-2 py-1 border transition-colors"
             style={{
               color: visibleTypes[type] ? t.color : "#555",
               borderColor: visibleTypes[type] ? `${t.color}55` : "#222",
@@ -675,14 +675,14 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
         <TimelineView events={filteredEvents} onEventClick={setSelectedEvent} />
       )}
 
-      {error && events.length > 0 && <p className="text-[11px] text-[#ffb020] mt-3">{error}</p>}
+      {error && events.length > 0 && <p className="text-micro text-[#ffb020] mt-3">{error}</p>}
       {lastSync && (
-        <p className="text-[10px] text-[#666] mt-3">
+        <p className="text-micro text-[#666] mt-3">
           Dernière synchro : {lastSync.toLocaleTimeString("fr-FR")} · {positions.length} ligne(s) en
           portefeuille et {watchlist.length} valeur(s) surveillée(s) suivies automatiquement.
         </p>
       )}
-      <p className="text-[10px] text-[#555] mt-1">
+      <p className="text-micro text-[#555] mt-1">
         Source : Yahoo Finance. Les dates d'assemblée générale ne sont publiées par aucun endpoint
         Yahoo public : aucune n'est donc inventée ici. Le chiffre d'affaires attendu apparaît comme
         estimation rattachée à la publication des résultats.

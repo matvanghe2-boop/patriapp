@@ -80,7 +80,7 @@ export default function IndicesWidget() {
             >
               <span className="text-xs font-medium text-slate-300">{t.label}</span>
               {pct == null ? (
-                <span className="text-[11px] text-slate-600">—</span>
+                <span className="text-micro text-slate-600">—</span>
               ) : (
                 <span className={`flex items-center gap-1 font-data text-sm font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
                   {up ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
@@ -95,9 +95,9 @@ export default function IndicesWidget() {
       {openPanel && (
         <div className="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-4">
           <div>
-            <div className="text-[10px] uppercase tracking-wide text-emerald-400/80 mb-1.5">Meilleures perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>
+            <div className="text-micro uppercase tracking-wide text-emerald-400/80 mb-1.5">Meilleures perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>
             {moversLoading && !movers ? (
-              <p className="text-[11px] text-slate-600">Chargement…</p>
+              <p className="text-micro text-slate-600">Chargement…</p>
             ) : (
               <div className="space-y-1">
                 {(movers?.best || []).map((r) => (
@@ -110,9 +110,9 @@ export default function IndicesWidget() {
             )}
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wide text-rose-400/80 mb-1.5">Pires perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>
+            <div className="text-micro uppercase tracking-wide text-rose-400/80 mb-1.5">Pires perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>
             {moversLoading && !movers ? (
-              <p className="text-[11px] text-slate-600">Chargement…</p>
+              <p className="text-micro text-slate-600">Chargement…</p>
             ) : (
               <div className="space-y-1">
                 {(movers?.worst || []).map((r) => (
@@ -124,7 +124,7 @@ export default function IndicesWidget() {
               </div>
             )}
           </div>
-          <p className="col-span-2 text-[10px] text-slate-600">
+          <p className="col-span-2 text-micro text-slate-600">
             Échantillon indicatif de grandes capitalisations de l'indice, pas la totalité des composants.
           </p>
         </div>
