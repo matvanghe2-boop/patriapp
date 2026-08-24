@@ -688,7 +688,33 @@ export function totalCashDelta(operations) {
  * donnée existante n'est réinterprétée, et la comptabilité devient exacte à
  * partir de maintenant.
  */
-export function createLedgerBaseline(bourse) {
+export function createLedgerBaseline(bourse, precedente = bourse?.ledgerBaseline) {
+  /**
+   * Date d'ancrage d'un lot : depuis QUAND la ligne est-elle détenue ?
+   *
+   * C'est la seule information que la ligne de base ne peut pas déduire des
+   * positions, et c'est celle dont le TRI a besoin — un taux annualisé sans
+   * durée n'a aucun sens.
+   *
+   * Trois sources, dans cet ordre :
+   *
+   *  1. **L'ancre déjà connue.** `rebaselineLedger` est appelé à CHAQUE
+   *     retouche manuelle d'une position. Sans cette reprise, corriger un
+   *     cours suffisait à ramener l'ancre à aujourd'hui, donc à effacer
+   *     l'ancienneté de la ligne — et avec elle son TRI, puisque la série ne
+   *     couvrait plus aucun jour.
+   *  2. **La plus ancienne opération connue** sur ce ticker, quand la ligne
+   *     n'avait pas encore d'ancre : le journal sait mieux que nous.
+   *  3. **Aujourd'hui**, en dernier recours. Le TRI restera nul trente jours,
+   *     ce qui est le comportement correct : on ne sait rien de son passé.
+   */
+  const premiereOperation = {};
+  for (const op of bourse?.operations || []) {
+    const t = normalizeTicker(op?.asset);
+    if (!t || !op.date) continue;
+    if (!premiereOperation[t] || op.date < premiereOperation[t]) premiereOperation[t] = op.date;
+  }
+
   const lots = {};
   for (const p of bourse?.positions || []) {
     const ticker = normalizeTicker(p.ticker);
@@ -697,6 +723,7 @@ export function createLedgerBaseline(bourse) {
       quantity: Number(p.quantity) || 0,
       pru: Number(p.pru) || 0,
       totalBuyFees: Number(p.totalBuyFees) || 0,
+      at: precedente?.lots?.[ticker]?.at || premiereOperation[ticker] || todayIso(),
     };
   }
   // Ancrage de la courbe Capital investi : le total versé saisi à la main dans
@@ -1221,7 +1248,7 @@ export function tauxRendementInterne(flux = []) {
 export function triPosition(position, operations = [], options = {}) {
   const { baseline = null, aujourdhui = todayIso() } = options;
 
-  const vide = { tri: null, complet: false, quantiteJournal: 0, quantitePosition: position?.quantity || 0 };
+  const vide = { tri: null, complet: false, approxime: false, quantiteJournal: 0, quantitePosition: position?.quantity || 0 };
   if (!position?.ticker) return vide;
   const ticker = String(position.ticker).toUpperCase();
 
@@ -1229,17 +1256,60 @@ export function triPosition(position, operations = [], options = {}) {
   let quantiteJournal = 0;
 
   // Ouverture : la ligne de base fige ce qui existait avant le journal.
+  //
+  // `lot.at` et non `baseline.at` : le second est la date de CRÉATION de la
+  // ligne de base, remise à aujourd'hui à chaque retouche manuelle d'une
+  // position. Le flux d'ouverture se retrouvait alors daté du même jour que le
+  // solde fictif de clôture — une série couvrant zéro jour, qu'aucun taux
+  // annualisé ne peut décrire. C'est ce qui empêchait le TRI de s'afficher.
   const lot = baseline?.lots?.[ticker];
-  if (lot?.quantity > 0 && baseline?.at) {
-    flux.push({ date: baseline.at, montant: -Math.abs(lot.quantity * (lot.pru || 0) + (lot.totalBuyFees || 0)) });
+  /*
+   * Reprise des lignes de base ANTÉRIEURES à l'introduction de `lot.at`.
+   *
+   * Elles ne portent qu'une date globale, celle de leur dernière création —
+   * souvent récente, puisque toute retouche manuelle en refabrique une.
+   *
+   * On retient la PLUS ANCIENNE des deux pistes disponibles : la date de la
+   * ligne de base, et la plus vieille opération connue sur ce ticker. Les deux
+   * sont des indices de « depuis quand cette ligne existe », et rien
+   * n'ordonne l'une par rapport à l'autre — une ligne de base peut figer des
+   * titres détenus bien avant la première opération saisie, comme elle peut
+   * être recréée longtemps après.
+   *
+   * Prendre le minimum allonge la durée retenue, donc ABAISSE le taux. C'est
+   * le bon sens de l'erreur : entre deux approximations, l'application préfère
+   * systématiquement celle qui ne flatte pas.
+   */
+  const plusAncienneOperation = (operations || []).reduce((min, op) => {
+    if (String(op?.asset || "").toUpperCase() !== ticker || !op?.date) return min;
+    return !min || op.date < min ? op.date : min;
+  }, null);
+  const candidates = [lot?.at, baseline?.at, plusAncienneOperation].filter(Boolean);
+  const ancre = lot?.at || (candidates.length ? candidates.sort()[0] : null);
+  if (lot?.quantity > 0 && ancre) {
+    flux.push({ date: ancre, montant: -Math.abs(lot.quantity * (lot.pru || 0) + (lot.totalBuyFees || 0)) });
     quantiteJournal += lot.quantity;
   }
 
-  // Ordre chronologique indispensable : un split multiplie la quantité
-  // ACCUMULÉE JUSQUE-LÀ. L'appliquer sur un total incomplet — ce que ferait le
-  // tableau stocké, qui est anti-chronologique — donnerait un compte faux et
-  // ferait échouer la réconciliation d'une ligne pourtant complète.
-  for (const op of chronologicalOperations(operations)) {
+  /*
+   * SEULES LES OPÉRATIONS POSTÉRIEURES À LA LIGNE DE BASE sont rejouées.
+   *
+   * `createLedgerBaseline` absorbe les opérations existantes dans les lots et
+   * mémorise leurs identifiants ; tout le reste de l'application les écarte
+   * ensuite via `operationsAfterBaseline`. Cette fonction était la seule à
+   * rejouer le journal ENTIER par-dessus la ligne de base : chaque achat
+   * comptait deux fois, la quantité reconstituée ressortait doublée, et la
+   * ligne était rangée parmi les « journaux incomplets » alors qu'elle était
+   * parfaitement complète. Symptôme observé : presque aucune ligne n'affichait
+   * de TRI, et celles qui en affichaient un le tiraient de flux dédoublés.
+   *
+   * Ordre chronologique indispensable : un split multiplie la quantité
+   * ACCUMULÉE JUSQUE-LÀ. L'appliquer sur un total incomplet — ce que ferait le
+   * tableau stocké, qui est anti-chronologique — donnerait un compte faux et
+   * ferait échouer la réconciliation d'une ligne pourtant complète.
+   */
+  const aRejouer = baseline ? operationsAfterBaseline(operations, baseline) : operations;
+  for (const op of chronologicalOperations(aRejouer)) {
     if (String(op.asset || "").toUpperCase() !== ticker) continue;
     const q = Number(op.quantity) || 0;
     if (op.type === "ACHAT") {
@@ -1263,14 +1333,33 @@ export function triPosition(position, operations = [], options = {}) {
   const ecart = Math.abs(quantiteJournal - quantitePosition);
   const complet = flux.length > 0 && ecart <= Math.max(0.01, quantitePosition * 0.005);
 
-  if (!complet) return { tri: null, complet: false, quantiteJournal, quantitePosition };
+  if (!complet) {
+    return { tri: null, complet: false, approxime: false, quantiteJournal, quantitePosition };
+  }
 
   // La ligne encore détenue vaut sa valeur de marché : on la solde fictivement
   // aujourd'hui pour fermer la série.
   const valeur = valeurPosition(position);
   if (valeur > 0) flux.push({ date: aujourdhui, montant: valeur });
 
-  return { tri: tauxRendementInterne(flux), complet: true, quantiteJournal, quantitePosition };
+  /*
+   * Le taux repose-t-il sur une date d'acquisition RÉELLE ?
+   *
+   * Le critère est l'existence d'un ORDRE DATÉ sur cette ligne, où qu'il se
+   * trouve — rejoué ou figé dans la ligne de base. Un achat absorbé par la
+   * ligne de base reste un achat daté : c'est lui qui a fourni l'ancre, et le
+   * taux est aussi exact que s'il avait été rejoué.
+   *
+   * Sans aucun ordre, en revanche, l'ancre n'est qu'une trace — la première
+   * fois que l'application a vu la ligne. Elle SOUS-ESTIME l'ancienneté, donc
+   * SURESTIME le taux. Plutôt que de masquer le chiffre (il reste le meilleur
+   * disponible) ou de le présenter comme exact (il ne l'est pas), on le rend
+   * avec sa nature. Même logique que les lignes au journal incomplet, listées
+   * avec le nombre de titres retracés plutôt que dotées d'un chiffre flatteur.
+   */
+  const approxime = Boolean(lot?.quantity > 0) && plusAncienneOperation == null;
+
+  return { tri: tauxRendementInterne(flux), complet: true, approxime, quantiteJournal, quantitePosition };
 }
 
 export function computeXIRR(history) {

@@ -63,6 +63,10 @@ export default function SuiviDividendes({ bourse }) {
   );
   const trisCalculables = tris.filter((l) => l.tri != null);
   const trisIncomplets = tris.filter((l) => !l.complet);
+  // Journal complet mais série trop courte pour être annualisée : ce n'est pas
+  // la même chose qu'un journal troué, et le message doit le dire. Une ligne
+  // ouverte il y a trois semaines n'a rien à corriger — il faut attendre.
+  const trisTropJeunes = tris.filter((l) => l.complet && l.tri == null);
 
   const aucunDividende = serie.length === 0 && attendu === 0;
 
@@ -289,20 +293,36 @@ export default function SuiviDividendes({ bourse }) {
 
         {trisCalculables.length === 0 ? (
           <EmptyState>
-            {trisIncomplets.length > 0
-              ? "Aucune ligne n'a un journal d'opérations complet : le TRI ne peut pas être calculé sans le coût d'achat initial."
-              : "Le TRI se calcule à partir du journal d'opérations : il apparaîtra dès qu'une ligne aura un historique d'ordres et plus de trente jours d'ancienneté."}
+            {trisTropJeunes.length > 0
+              ? `${trisTropJeunes.length} ligne(s) sont suivies mais trop récentes : un taux ANNUALISÉ sur quelques jours n'aurait aucun sens. Il apparaîtra passé trente jours d'ancienneté.`
+              : trisIncomplets.length > 0
+                ? "Aucune ligne n'a un journal d'opérations complet : le TRI ne peut pas être calculé sans le coût d'achat initial."
+                : "Le TRI se calcule à partir du journal d'opérations : il apparaîtra dès qu'une ligne aura un historique d'ordres et plus de trente jours d'ancienneté."}
           </EmptyState>
         ) : (
           <div className="flex flex-col gap-2 mt-1">
-            {trisCalculables.map(({ position, tri }) => (
+            {trisCalculables.map(({ position, tri, approxime }) => (
               <div
                 key={position.id}
                 className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex items-center gap-2">
                   <span className="font-data font-semibold text-slate-100">{position.ticker}</span>
-                  <span className="text-[11px] text-slate-500 ml-2 truncate">{position.name}</span>
+                  <span className="text-[11px] text-slate-500 truncate">{position.name}</span>
+                  {/* Un taux ancré n'est pas un taux mesuré : la date d'achat
+                      est inconnue, l'application a pris la plus ancienne trace
+                      qu'elle possède. L'écart va toujours dans le même sens —
+                      ancienneté sous-estimée, donc taux surestimé — et le
+                      passer sous silence reviendrait à présenter comme exact
+                      un chiffre qui ne l'est pas. */}
+                  {approxime && (
+                    <span
+                      className="text-[10px] font-data text-amber-300/80 border border-amber-400/30 rounded px-1.5 py-0.5 shrink-0"
+                      title="Aucun ordre d'achat n'est saisi pour cette ligne : la date d'acquisition est estimée à partir de la plus ancienne trace connue. Le taux réel est probablement plus bas."
+                    >
+                      estimé
+                    </span>
+                  )}
                 </div>
                 <span className={`font-data tabular-nums text-sm font-semibold ${tri >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                   {tri >= 0 ? "+" : ""}{tri.toFixed(2)} % / an
