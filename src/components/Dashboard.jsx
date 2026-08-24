@@ -17,6 +17,7 @@ import { joursDeLAnnee, semainesAgitees } from "../lib/retrospective";
 import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import Objectifs from "./Objectifs";
+import ProchainesEcheances from "./ProchainesEcheances";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { AnneauRepartition, CalendrierAnnuel, CourbeEvolution } from "./graphiques";
@@ -78,7 +79,7 @@ function PointFinal({ cx, cy, index, serie }) {
 // doublon avec la StagnationBadge ni avec les alertes déjà présentes dans
 // Bourse/Livrets) : plafonds de livrets saturés, cash PEA dormant, matelas de
 // sécurité insuffisant.
-function PriorityActions({ livrets, bourse, matelasMois }) {
+function PriorityActions({ livrets, bourse, matelasMois, tauxReference = 0 }) {
   const actions = useMemo(() => {
     const list = [];
 
@@ -101,7 +102,19 @@ function PriorityActions({ livrets, bourse, matelasMois }) {
         id: "cash-dormant",
         icon: Wallet,
         tone: "violet",
-        text: `${eur(cashPocket, 0)} de cash dorment sur ton PEA — envisage de les investir.`,
+        /*
+         * Le manque à gagner, et pas seulement le montant détenu.
+         *
+         * « 2 400 € dorment » se supporte très bien ; « ils te coûtent 146 €
+         * par an » beaucoup moins. C'est le second chiffre qui fait agir, et
+         * il se calcule à partir de données déjà présentes — la performance
+         * réalisée du portefeuille sert de coût d'opportunité, faute de mieux
+         * et parce qu'elle est propre à l'utilisateur.
+         */
+        text: `${eur(cashPocket, 0)} de cash dorment sur ton PEA — environ ${eur(
+          cashPocket * (Math.max(0, tauxReference) / 100),
+          0
+        )} de manque à gagner par an.`,
         sensitive: true,
       });
     }
@@ -116,7 +129,7 @@ function PriorityActions({ livrets, bourse, matelasMois }) {
     }
 
     return list;
-  }, [livrets, bourse, matelasMois]);
+  }, [livrets, bourse, matelasMois, tauxReference]);
 
   if (actions.length === 0) return null;
 
@@ -456,7 +469,7 @@ export default function Dashboard({
   historyPast, setHistoryPast, livretsTotal, bourseTotal,
   livrets, bourse, matelasMois, setLastSnapshotDate,
   cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
-  objectifs, setObjectifs, bourseHistory = [],
+  objectifs, setObjectifs, bourseHistory = [], contracts = [], evenementsMarche = [],
 }) {
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -715,7 +728,22 @@ export default function Dashboard({
       {isEmpty && <OnboardingCard onLoadDemo={loadDemoData} />}
 
       {/* Actions prioritaires cross-onglets */}
-      <PriorityActions livrets={livrets} bourse={bourse} matelasMois={matelasMois} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 grille-cartes">
+        <PriorityActions
+          livrets={livrets}
+          bourse={bourse}
+          matelasMois={matelasMois}
+          tauxReference={bourseGainPct}
+        />
+        {/* Les deux répondent à « qu'est-ce que je dois faire » : l'un sans
+            date, l'autre daté. Les séparer obligerait à parcourir deux fois. */}
+        <ProchainesEcheances
+          evenements={evenementsMarche}
+          contracts={contracts}
+          objectifs={objectifs}
+          patrimoineNet={patrimoineNet}
+        />
+      </div>
 
       {/* Profil mensuel */}
       <Card accent={CARD_THEMES.emerald}>

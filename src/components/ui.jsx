@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useId } from "react";
-import { Plus, Trash2, X, Lock, ChevronDown } from "lucide-react";
+import { Plus, Trash2, X, Lock, ChevronDown, Maximize2 } from "lucide-react";
 import { eur, lireNombre } from "../lib/finance";
+import Modal from "./Modal";
 import { theme as themeDe, CARD_THEMES, GHOST_THEMES } from "../lib/themes";
 import EtatVide from "./EtatVide";
 
@@ -332,6 +333,89 @@ export function CarteRepliable({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Carte agrandissable.
+ *
+ * `ChartFocusModal` agrandissait déjà un graphique. Généraliser le geste évite
+ * d'avoir à concevoir chaque bloc pour deux tailles à la fois : on dessine la
+ * version compacte, et l'agrandissement vient gratuitement.
+ *
+ * Le bouton n'apparaît qu'au survol — sauf sur pointeur grossier, où il n'y a
+ * pas de survol et où il resterait donc inatteignable au doigt (voir
+ * `.bouton-focus` dans index.css).
+ */
+export function CarteFocalisable({ titre, icon, accent = "", role = "standard", className = "", children }) {
+  const [agrandi, setAgrandi] = useState(false);
+  return (
+    <>
+      <Card role={role} accent={accent} className={`carte-focalisable relative ${className}`}>
+        <button
+          onClick={() => setAgrandi(true)}
+          aria-label={`Agrandir « ${titre} »`}
+          title="Agrandir"
+          className="bouton-focus btn-flash absolute top-3 right-3 z-10 text-slate-500 hover:text-slate-100 p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+        >
+          <Maximize2 size={14} aria-hidden="true" />
+        </button>
+        {children}
+      </Card>
+
+      <Modal
+        open={agrandi}
+        onClose={() => setAgrandi(false)}
+        label={titre}
+        showClose
+        panelClassName={`feuille-bas w-full max-w-4xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl ${accent}`}
+      >
+        <div className="p-5">
+          <CardLabel icon={icon}>{titre}</CardLabel>
+          {children}
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+/**
+ * Courbe de tendance en fond de carte.
+ *
+ * Une carte de chiffre donne une valeur sans direction. La micro-courbe passée
+ * derrière, très atténuée, ajoute la tendance sans ajouter une ligne de texte
+ * et sans occuper de place.
+ *
+ * Le composant ne rend RIEN sous deux points : une courbe d'un seul relevé ne
+ * dit pas une tendance, elle en invente une.
+ */
+export function FondTendance({ valeurs = [], className = "" }) {
+  if (!valeurs || valeurs.length < 2) return null;
+  const min = Math.min(...valeurs);
+  const max = Math.max(...valeurs);
+  const etendue = max - min || 1;
+  const points = valeurs
+    .map((v, i) => `${(i / (valeurs.length - 1)) * 100},${28 - ((v - min) / etendue) * 26}`)
+    .join(" ");
+  const monte = valeurs[valeurs.length - 1] >= valeurs[0];
+
+  return (
+    <svg
+      className={`fond-tendance ${monte ? "text-emerald-400" : "text-rose-400"} ${className}`}
+      viewBox="0 0 100 28"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polygon points={`${points} 100,28 0,28`} fill="currentColor" fillOpacity="0.35" />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
   );
 }
 

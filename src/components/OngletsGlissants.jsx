@@ -21,6 +21,8 @@ export default function OngletsGlissants({
   onChange,
   className = "",
   ariaLabel = "Sous-navigation",
+  /** Reste visible au défilement. Voir `.onglets-colles` dans index.css. */
+  colle = true,
 }) {
   const { haptique } = useApparence();
   const barreRef = useRef(null);
@@ -69,7 +71,7 @@ export default function OngletsGlissants({
       role="tablist"
       aria-label={ariaLabel}
       ref={barreRef}
-      className={`onglets-glissants ${className}`}
+      className={`onglets-glissants ${colle ? "onglets-colles" : ""} ${className}`}
     >
       {onglets.map((o, i) => (
         <button

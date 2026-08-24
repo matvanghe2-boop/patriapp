@@ -2456,6 +2456,177 @@
   }
 }
 
+/* ═══════════════════ CARTES QUI ÉPOUSENT LEUR CONTENU ═════════════════════
+ * Une grille CSS étire par défaut ses éléments à la hauteur de la rangée
+ * (`align-items: stretch`). Deux cartes côte à côte prennent donc la même
+ * hauteur même si l'une contient un curseur et l'autre deux pastilles — d'où
+ * le grand vide observé sous « Paramètres avancés », précisément à la hauteur
+ * où l'œil cherche de l'information.
+ *
+ * `align-items: start` rend à chaque carte sa hauteur propre. Appliqué aux
+ * grilles de cartes seulement : une grille de colonnes de texte, elle, gagne
+ * à rester alignée.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.grille-cartes {
+  align-items: start;
+}
+
+/* ═══════════════════ SOUS-ONGLETS COLLANTS ════════════════════════════════
+ * Ils défilaient avec la page. Sur un onglet long — Simulation, Bourse — on
+ * perdait le repère de sous-section dès le premier écran, et changer de
+ * sous-onglet imposait de remonter.
+ *
+ * `top` vaut la hauteur de l'en-tête condensé, sinon les deux se recouvrent
+ * au défilement. Le fond est opaque : sans lui, le contenu défilerait
+ * visiblement DERRIÈRE les libellés.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.onglets-colles {
+  position: sticky;
+  top: 3rem;
+  z-index: 30;
+  background: rgb(var(--c-slate-950));
+  /* Déborde des marges de la carte parente pour que le fond couvre toute la
+     largeur utile, sinon le contenu réapparaît sur les côtés. */
+  margin-inline: -0.25rem;
+  padding-inline: 0.25rem;
+}
+
+/* ═══════════════════ RAIL LATÉRAL TEINTÉ ══════════════════════════════════
+ * La couleur de domaine ne vivait que dans le liseré de trois pixels du bouton
+ * actif : le reste de la barre restait strictement identique d'un onglet à
+ * l'autre. Teinter son bord intérieur relie la navigation au contenu, et donne
+ * un second repère à qui revient d'un autre onglet.
+ *
+ * La teinte est portée par `--teinte-page`, déjà posée sur <html> par App.jsx
+ * pour la barre de défilement : une seule source pour les deux.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  .rail-teinte {
+    position: relative;
+  }
+  .rail-teinte::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 2px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      hsl(var(--teinte-page, 38 92% 60%) / 0.55) 18%,
+      hsl(var(--teinte-page, 38 92% 60%) / 0.55) 82%,
+      transparent
+    );
+    transition: background 400ms ease;
+    pointer-events: none;
+  }
+}
+
+/* ═══════════════════ SPARKLINE DE FOND ════════════════════════════════════
+ * Une carte de chiffre donne une valeur sans direction. La micro-courbe passée
+ * en fond, très atténuée, ajoute la tendance sans ajouter une ligne de texte —
+ * et sans occuper de place, puisqu'elle vit derrière.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.carte-tendance {
+  position: relative;
+  overflow: hidden;
+}
+.carte-tendance > .fond-tendance {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 58%;
+  opacity: 0.3;
+  pointer-events: none;
+}
+.carte-tendance > :not(.fond-tendance) {
+  position: relative;
+}
+
+/* ═══════════════════ MODE FOCUS ═══════════════════════════════════════════
+ * `ChartFocusModal` agrandissait déjà un graphique. Généraliser le geste à
+ * n'importe quelle carte évite d'avoir à concevoir chaque bloc pour deux
+ * tailles à la fois : on dessine la version compacte, et l'agrandissement est
+ * gratuit.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.bouton-focus {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.carte-focalisable:hover .bouton-focus,
+.carte-focalisable:focus-within .bouton-focus {
+  opacity: 1;
+}
+/* Sur pointeur grossier il n'y a pas de survol : le bouton reste visible,
+   sinon l'agrandissement serait inatteignable au doigt. */
+@media (pointer: coarse) {
+  .bouton-focus { opacity: 1; }
+}
+
+/* ═══════════════════ AIDE-MÉMOIRE DES RACCOURCIS ══════════════════════════ */
+.raccourcis-liste {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 1.25rem;
+  align-items: center;
+}
+.raccourcis-liste dt { font-size: 0.875rem; color: rgb(var(--c-slate-300)); }
+.raccourcis-liste dd { margin: 0; display: flex; gap: 0.25rem; justify-content: flex-end; }
+.touche {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.6875rem;
+  min-width: 1.5rem;
+  text-align: center;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid rgb(var(--c-slate-700));
+  border-bottom-width: 2px;
+  background: rgb(var(--c-slate-950));
+  color: rgb(var(--c-slate-300));
+  white-space: nowrap;
+}
+
+
+/* ═══════════════════ FRISE UNIFIÉE ════════════════════════════════════════
+ * Les achats et ventes vivaient dans le journal, les dividendes dans le suivi,
+ * les jalons dans la Timeline, les objectifs atteints nulle part. La frise les
+ * remet dans l'ordre et rend lisible ce qu'aucun de ces écrans ne montrait :
+ * la succession.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.frise-unifiee {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+/* Le trait s'arrête au dernier point plutôt que de courir jusqu'au bas du
+   bloc : une ligne qui dépasse suggère une suite qui n'existe pas. */
+.frise-unifiee::before {
+  content: "";
+  position: absolute;
+  left: 3.5px;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 1px;
+  background: rgb(var(--c-slate-800));
+}
+.frise-ev { position: relative; }
+.frise-point {
+  position: absolute;
+  left: -1.25rem;
+  top: 0.4rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  /* La bordure de la couleur du fond détache le point du trait, sans quoi les
+     deux se confondent en un simple épaississement. */
+  border: 2px solid rgb(var(--c-slate-900));
+  box-sizing: content-box;
+}
+
 body {
   /* `Inter Variable` est le nom de famille exposé par le paquet variable ;
      `Inter` reste en repli pour une éventuelle version installée sur le
@@ -2748,6 +2919,11 @@ input[type="checkbox"] {
   font-size: 0.66em;
   color: rgb(var(--c-slate-400));
 }
+
+/* Séparateur de milliers atténué : on compte les paquets de trois au lieu de
+   compter les chiffres. Seule l'espace est estompée — les chiffres portent
+   l'information et gardent leur contraste. */
+.montant-groupe { color: rgb(var(--c-slate-600)); }
 
 /* ═══════════════════ PULSATION À LA VARIATION ═════════════════════════════
  * `useValeurAnimee` fait déjà filer un montant vers sa nouvelle valeur, pour

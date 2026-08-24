@@ -4,6 +4,8 @@ import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, Cartesian
 import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES, SkeletonCard, SkeletonChart } from "./ui";
 import { projectCompound, eur, pct, compact, solveMonthlyForTarget, generateVolatileReturns, uid, todayIso } from "../lib/finance";
 import Immobilier from "./Immobilier";
+import ComparateurScenarios from "./ComparateurScenarios";
+import Decumulation from "./Decumulation";
 
 // Chargé à la demande : « Projet » embarque le moteur Horizon et son propre
 // graphique, inutiles tant qu'on reste sur Projection ou Immobilier. En import
@@ -600,6 +602,15 @@ export default function Simulation({
           )}
         </Card>
       )}
+
+      {/* Le comparateur est la moitié manquante de « Sauvegarder ce scénario » :
+          enregistrer sans pouvoir comparer ne sert qu'à accumuler. */}
+      <ComparateurScenarios scenarios={simScenarios} />
+
+      {/* L'accumulation et la décumulation décrivent les deux moitiés du même
+          mouvement. Les mettre dans le même onglet le rend visible ; ailleurs,
+          la seconde passerait pour un outil sans rapport. */}
+      <Decumulation patrimoineNet={patrimoineNet} livretsAvgRate={livretsAvgRate} />
       </>
       )}
     </div>

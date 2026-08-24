@@ -20,6 +20,7 @@ import Reequilibrage from "./Reequilibrage";
 import PerformanceTab from "./BoursePerformance";
 import FiscaliteSortie from "./FiscaliteSortie";
 import Screener from "./Screener";
+import SantePortefeuille from "./SantePortefeuille";
 import { verifierEligibilite } from "../../shared/eligibilitePea";
 
 // Reprend le même code couleur que le module Stratégie & Logs pour que le
@@ -896,7 +897,12 @@ export default function Bourse({
       </div>
       {/* Deux colonnes au-delà de 1 280 px : les blocs de contexte tiennent à
           côté du flux principal au lieu de rallonger le défilement. */}
-      <div className="mt-6 flex flex-col gap-4 colonnes-larges">
+      <div className="mt-6 flex flex-col gap-4 colonnes-larges grille-cartes">
+        {/* Ces deux mesures portent sur les LIGNES, pas sur le patrimoine :
+            leur place est ici et pas au Dashboard, où un score de robustesse
+            se lirait comme un jugement global alors qu'il ne dit rien des
+            livrets ni de l'immobilier. */}
+        <SantePortefeuille positions={bourse.positions} />
         <PeaFiscalWidget
           bourse={bourse}
           setBourse={setBourse}

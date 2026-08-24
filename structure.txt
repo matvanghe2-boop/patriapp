@@ -95,6 +95,7 @@ src/App.jsx
 src/App.test.jsx
 src/classesCss.test.js
 src/components/Abonnements.jsx
+src/components/AideRaccourcis.jsx
 src/components/AssetLogo.jsx
 src/components/AssetStats.jsx
 src/components/AssistantHorizon.jsx
@@ -107,7 +108,9 @@ src/components/Bourse.jsx
 src/components/BoursePerformance.jsx
 src/components/CarteRepliable.test.jsx
 src/components/ChartFocusModal.jsx
+src/components/ComparateurScenarios.jsx
 src/components/Dashboard.jsx
+src/components/Decumulation.jsx
 src/components/ErrorBoundary.jsx
 src/components/EtatSourceMarche.jsx
 src/components/EtatVide.jsx
@@ -116,7 +119,9 @@ src/components/FicheFinanciere.jsx
 src/components/FinancialCalendar.jsx
 src/components/FinancialCalendar.test.jsx
 src/components/FiscaliteSortie.jsx
+src/components/FriseUnifiee.jsx
 src/components/GlobalSearch.jsx
+src/components/HistoireTaux.jsx
 src/components/Immobilier.jsx
 src/components/IndicesWidget.jsx
 src/components/Livrets.jsx
@@ -140,8 +145,10 @@ src/components/PanneauTransparence.test.jsx
 src/components/PortefeuilleRepli.test.jsx
 src/components/ProChart.jsx
 src/components/ProChart.test.jsx
+src/components/ProchainesEcheances.jsx
 src/components/Projet.jsx
 src/components/Projet.test.jsx
+src/components/RapprochementsAbonnements.jsx
 src/components/RatesHub.jsx
 src/components/RatesHub.test.jsx
 src/components/Reequilibrage.jsx
@@ -149,6 +156,7 @@ src/components/ReglagesApparence.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
 src/components/Retrospective.jsx
+src/components/SantePortefeuille.jsx
 src/components/ScenariosProjet.jsx
 src/components/ScenariosProjet.test.jsx
 src/components/Screener.jsx
@@ -163,6 +171,7 @@ src/components/Watchlist.jsx
 src/components/gestes.jsx
 src/components/graphiques.jsx
 src/components/graphiques.test.jsx
+src/components/nouveauxWidgets.test.jsx
 src/components/refonte.test.jsx
 src/components/ui.jsx
 src/index.css
@@ -179,13 +188,21 @@ src/lib/apparence.test.jsx
 src/lib/authErrors.js
 src/lib/authErrors.test.js
 src/lib/compact.test.js
+src/lib/decumulation.js
+src/lib/decumulation.test.js
 src/lib/devises.test.js
+src/lib/doublonsAbonnements.js
+src/lib/doublonsAbonnements.test.js
+src/lib/echeances.js
+src/lib/echeances.test.js
 src/lib/exportOperations.js
 src/lib/exportOperations.test.js
 src/lib/exportReport.js
 src/lib/finance.js
 src/lib/finance.test.js
 src/lib/haptique.js
+src/lib/histoireTaux.js
+src/lib/histoireTaux.test.js
 src/lib/horizonClient.js
 src/lib/indexConstituents.js
 src/lib/ledger.test.js
@@ -193,6 +210,8 @@ src/lib/lireNombre.test.js
 src/lib/netWorth.test.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
+src/lib/portefeuilleSante.js
+src/lib/portefeuilleSante.test.js
 src/lib/retrospective.js
 src/lib/retrospective.test.js
 src/lib/sectors.js

@@ -6,6 +6,7 @@ import { useToast } from "../lib/ToastContext";
 import Operations from "./Operations";
 import AssetStats from "./AssetStats";
 import Timeline from "./Timeline";
+import FriseUnifiee from "./FriseUnifiee";
 
 // Statuts de thèse — inspirés du tableau "Performance vs Thèse" : un simple
 // code couleur suffit à se souvenir de l'état sans relire toute la note.
@@ -422,7 +423,7 @@ function PerformanceTable({ notes, positions }) {
  */
 export default function StrategieLogs({
   strategyNotes = [], setStrategyNotes, bourse, setBourse,
-  historyPast, patrimoineNet, epargneMensuelle, tauxEpargne,
+  historyPast, patrimoineNet, epargneMensuelle, tauxEpargne, objectifs = [],
 }) {
   const notes = strategyNotes;
   const setNotes = setStrategyNotes;
@@ -565,13 +566,24 @@ export default function StrategieLogs({
       ) : subTab === "stats" ? (
         <AssetStats bourse={bourse} />
       ) : subTab === "timeline" ? (
-        <Timeline
-          bourse={bourse}
-          historyPast={historyPast}
-          patrimoineNet={patrimoineNet}
-          epargneMensuelle={epargneMensuelle}
-          tauxEpargne={tauxEpargne}
-        />
+        <div className="flex flex-col gap-4">
+          {/* La Timeline raconte les JALONS du patrimoine ; la frise raconte
+              les ÉVÉNEMENTS qui l'ont fait bouger. Les deux dans le même
+              sous-onglet, parce que c'est la même question — que s'est-il
+              passé, et dans quel ordre — posée à deux échelles. */}
+          <Timeline
+            bourse={bourse}
+            historyPast={historyPast}
+            patrimoineNet={patrimoineNet}
+            epargneMensuelle={epargneMensuelle}
+            tauxEpargne={tauxEpargne}
+          />
+          <FriseUnifiee
+            operations={bourse?.operations}
+            objectifs={objectifs}
+            patrimoineNet={patrimoineNet}
+          />
+        </div>
       ) : (
       <>
       {/* Performance vs Thèse */}

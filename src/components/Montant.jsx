@@ -49,6 +49,22 @@ export function decouperMontant(valeur, decimales = 2) {
     // Signe, chiffres et séparateurs de milliers — sans le séparateur décimal,
     // qui est réinjecté à l'affichage avec les centimes.
     entier: joindre("minusSign", "plusSign", "integer", "group"),
+    /**
+     * La partie entière découpée en fragments, pour pouvoir atténuer les seuls
+     * SÉPARATEURS de milliers.
+     *
+     * Les centimes sont déjà en retrait ; le même traitement appliqué aux
+     * espaces de groupement rend un grand nombre lisible d'un coup d'œil — on
+     * compte les paquets de trois au lieu de compter les chiffres. Atténuer les
+     * chiffres eux-mêmes serait une faute : ils portent l'information.
+     *
+     * L'espace insécable vient d'`Intl`, pas de nous : le séparateur français
+     * en est un, et le remplacer par une espace ordinaire autoriserait un
+     * retour à la ligne au milieu d'un montant.
+     */
+    fragments: parties
+      .filter((p) => ["minusSign", "plusSign", "integer", "group"].includes(p.type))
+      .map((p) => ({ texte: p.value, separateur: p.type === "group" })),
     fraction: joindre("fraction"),
     devise: joindre("currency"),
   };
@@ -93,7 +109,7 @@ export default function Montant({
     return () => clearTimeout(minuterie.current);
   }, [brut, pulse]);
 
-  const { entier, fraction, devise } = decouperMontant(valeurRendue, decimales);
+  const { fragments, fraction, devise } = decouperMontant(valeurRendue, decimales);
 
   return (
     <span
@@ -101,7 +117,13 @@ export default function Montant({
       data-sens={sens || undefined}
       className={`font-data tabular-nums ${sensible ? "ghost-blur" : ""} ${pulse ? "valeur-pulsante" : ""} ${className}`}
     >
-      {entier}
+      {fragments.map((f, i) =>
+        f.separateur ? (
+          <span key={i} className="montant-groupe">{f.texte}</span>
+        ) : (
+          f.texte
+        )
+      )}
       {decimales > 0 && <span className="montant-centimes">,{fraction}</span>}
       <span className="montant-devise">&nbsp;{devise}</span>
     </span>

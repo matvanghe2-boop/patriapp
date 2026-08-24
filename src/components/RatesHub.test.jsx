@@ -18,23 +18,26 @@ describe("RatesHub", () => {
   it("affiche le catalogue complet une fois chargé", async () => {
     fetchRates.mockResolvedValue(LIVE_PAYLOAD);
     render(<RatesHub livrets={[]} />);
-    expect(await screen.findByText("Livret A")).toBeInTheDocument();
+    expect((await screen.findAllByText("Livret A")).length).toBeGreaterThan(0);
     // Le libellé du LEP apparaît à la fois sur sa carte et dans le sous-texte
     // du KPI « Meilleur taux réglementé » : on vérifie juste sa présence.
     expect(screen.getAllByText(/LEP \(Livret d'Épargne Populaire\)/).length).toBeGreaterThan(0);
   });
 
   // Les cartes de KPI en haut de page (meilleur taux, prochaine révision)
-  // réaffichent le libellé de certains taux, indépendamment du filtrage. Les
-  // assertions de filtrage doivent donc porter sur le catalogue lui-même, pas
-  // sur le document entier.
+  // réaffichent le libellé de certains taux, indépendamment du filtrage — et
+  // « Le taux dans son histoire » y ajoute un sélecteur de série portant lui
+  // aussi « Livret A ». Les assertions de filtrage doivent donc porter sur le
+  // catalogue lui-même, pas sur le document entier ; et les barrières
+  // d'attente utilisent `findAllByText`, puisque l'unicité n'est justement
+  // plus vraie.
   const catalogue = () => within(screen.getByRole("region", { name: /catalogue des taux/i }));
 
   it("filtre par la barre de recherche", async () => {
     const user = userEvent.setup();
     fetchRates.mockResolvedValue(LIVE_PAYLOAD);
     render(<RatesHub livrets={[]} />);
-    await screen.findByText("Livret A");
+    await screen.findAllByText("Livret A");
 
     await user.type(screen.getByPlaceholderText(/rechercher un taux/i), "inflation");
 
@@ -46,7 +49,7 @@ describe("RatesHub", () => {
     const user = userEvent.setup();
     fetchRates.mockResolvedValue(LIVE_PAYLOAD);
     render(<RatesHub livrets={[]} />);
-    await screen.findByText("Livret A");
+    await screen.findAllByText("Livret A");
 
     await user.click(screen.getByRole("button", { name: /^Épargne$/ }));
 
@@ -65,7 +68,7 @@ describe("RatesHub", () => {
   it("ne signale aucun écart quand le taux saisi correspond au taux officiel", async () => {
     fetchRates.mockResolvedValue(LIVE_PAYLOAD);
     render(<RatesHub livrets={[{ id: "l1", name: "Livret A", rate: 0.017 }]} />);
-    await screen.findByText("Livret A");
+    await screen.findAllByText("Livret A");
     expect(screen.getByText("À jour")).toBeInTheDocument();
   });
 
@@ -78,7 +81,10 @@ describe("RatesHub", () => {
     fetchRates.mockRejectedValue(new Error("Catalogue des taux indisponible"));
     render(<RatesHub livrets={[]} />);
 
-    expect(await screen.findByText("Livret A")).toBeInTheDocument();
+    await screen.findAllByText("Livret A");
+    // Dans le CATALOGUE, et pas n'importe où : c'est bien le catalogue de
+    // secours qui doit s'afficher quand l'API tombe.
+    expect(catalogue().getByText("Livret A")).toBeInTheDocument();
     expect(screen.getByText(/référence hors-ligne/i)).toBeInTheDocument();
   });
 
@@ -86,7 +92,7 @@ describe("RatesHub", () => {
     const user = userEvent.setup();
     fetchRates.mockResolvedValue(LIVE_PAYLOAD);
     render(<RatesHub livrets={[]} />);
-    await screen.findByText("Livret A");
+    await screen.findAllByText("Livret A");
 
     await user.type(screen.getByPlaceholderText(/rechercher un taux/i), "zzzintrouvable");
 
@@ -96,7 +102,7 @@ describe("RatesHub", () => {
   it("affiche les KPI de synthèse (meilleur taux, Livret A, prochaine révision)", async () => {
     fetchRates.mockResolvedValue(LIVE_PAYLOAD);
     render(<RatesHub livrets={[]} />);
-    await screen.findByText("Livret A");
+    await screen.findAllByText("Livret A");
 
     expect(screen.getByText("Meilleur taux réglementé")).toBeInTheDocument();
     expect(screen.getByText("Livret A en vigueur")).toBeInTheDocument();

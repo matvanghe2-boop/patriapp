@@ -4,6 +4,7 @@ import {
   Landmark, PiggyBank, LineChart, ScrollText, CalendarClock, WifiOff, BadgeCheck,
 } from "lucide-react";
 import { Card, CardLabel, EmptyState, CARD_THEMES, SkeletonCard } from "./ui";
+import HistoireTaux from "./HistoireTaux";
 import { fetchRates } from "../lib/api";
 import {
   RATES_CATALOG, RATE_CATEGORIES, searchRates, groupByCategory,
@@ -282,6 +283,11 @@ export default function RatesHub({ livrets = [] }) {
 
   return (
     <div className="space-y-5">
+      {/* L'histoire du taux vient AVANT le catalogue : « 1,7 % » ne se juge
+          pas seul, et c'est la question qu'on se pose en lisant le chiffre du
+          jour. La placer après reviendrait à répondre trop tard. */}
+      <HistoireTaux />
+
       <div className="flex items-start justify-between flex-wrap gap-2">
         <div>
           <h2 className="font-display text-xl text-slate-50">

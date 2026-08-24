@@ -2,6 +2,7 @@ import { useMemo, useState, useId } from "react";
 import { FileText, Repeat, AlertTriangle, CalendarClock, Wallet, X } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, todayIso, lireNombre } from "../lib/finance";
+import RapprochementsAbonnements from "./RapprochementsAbonnements";
 import { useToast } from "../lib/ToastContext";
 
 function addDays(iso, days) {
@@ -406,6 +407,11 @@ export default function Abonnements({ contracts = [], setContracts, subs = [], s
   return (
     <div className="relative space-y-6">
       <PageGlow color="cyan" />
+
+      {/* L'onglet listait et totalisait sans jamais RAPPROCHER — or c'est le
+          rapprochement qui fait économiser. En tête, parce qu'un signal placé
+          sous deux listes longues ne serait jamais vu. */}
+      <RapprochementsAbonnements subs={subs} contracts={contracts} />
       <div className="relative">
         <h1 className="font-display text-2xl text-slate-50">
           Abonnements &amp; <span className="text-cyan-300">Échéances</span>

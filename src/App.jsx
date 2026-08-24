@@ -31,6 +31,7 @@ import ReglagesApparence from "./components/ReglagesApparence";
 import Retrospective from "./components/Retrospective";
 import ModePresentation from "./components/ModePresentation";
 import FeuillePlus from "./components/FeuillePlus";
+import AideRaccourcis from "./components/AideRaccourcis";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -318,7 +319,7 @@ export default function App() {
         Aller au contenu principal
       </a>
 
-      <aside className="md:w-60 md:h-screen md:sticky md:top-0 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950 flex md:flex-col items-center md:items-stretch px-4 md:px-0 py-2 md:py-0">
+      <aside className="rail-teinte md:w-60 md:h-screen md:sticky md:top-0 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950 flex md:flex-col items-center md:items-stretch px-4 md:px-0 py-2 md:py-0">
         <div className="md:px-5 md:pt-6 md:pb-4 flex-1 md:flex-none">
           <div className="flex items-center justify-between">
             <div className="font-display text-lg text-slate-50">Patrium</div>
@@ -495,6 +496,8 @@ export default function App() {
           { id: "f-export", libelle: "Exporter une sauvegarde", icone: Download, executer: handleExport },
         ]}
       />
+
+      <AideRaccourcis />
 
       <ModePresentation
         ouvert={presentation}
