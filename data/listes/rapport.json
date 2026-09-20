@@ -1,5 +1,5 @@
 {
-  "genereLe": "2026-09-13T11:11:44.821Z",
+  "genereLe": "2026-09-20T10:45:06.535Z",
   "univers": {
     "sbf120": {
       "demandes": 107,
@@ -9,9 +9,10 @@
     },
     "fr-small": {
       "demandes": 97,
-      "retenus": 96,
+      "retenus": 95,
       "morts": [
-        "PVL.PA"
+        "PVL.PA",
+        "RAL.PA"
       ],
       "tailleKo": 14
     },
