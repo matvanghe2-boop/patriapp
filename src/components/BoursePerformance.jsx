@@ -11,8 +11,9 @@ import {
   computeSharpeRatio, computeBestWorst, computeAlphaBeta, computeContribution,
   computeRollingPerformance, computeFeeEfficiency, computeTSR, filterHistoryByRange,
   MIN_DAYS_FOR_ANNUALIZATION, MIN_POINTS_FOR_STATS, computeInvestedCapital, investedCapitalAsOf,
-  formatDateShort,
+  formatDateShort, seriesIndisponibles,
 } from "../lib/finance";
+import { BENCHMARKS, CLES_INDICE } from "../lib/benchmarks";
 import { useToast } from "../lib/ToastContext";
 import SuiviDividendes from "./SuiviDividendes";
 
@@ -28,18 +29,11 @@ import SuiviDividendes from "./SuiviDividendes";
 
 // ─── Onglet Performance ───────────────────────────────────────────────────
 const RANGE_OPTIONS = ["1M", "3M", "YTD", "1A", "MAX"];
-const ALL_BENCHMARKS = [
-  { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8" },
-  { symbol: "^FCHI", name: "CAC 40", color: "#a78bfa" },
-  { symbol: "URTH", name: "MSCI World", color: "#34d399" },
-  { symbol: "^IXIC", name: "Nasdaq", color: "#f472b6" },
-  { symbol: "EEM", name: "MSCI Emerging", color: "#fb923c" },
-  { symbol: "GC=F", name: "Or", color: "#facc15" },
-];
-const ALL_BENCHMARK_KEYS = {
-  "^GSPC": "sp500", "^FCHI": "cac40", URTH: "msciWorld",
-  "^IXIC": "nasdaq", EEM: "msciEmerging", "GC=F": "or",
-};
+// Importés de `src/lib/benchmarks.js` : cette liste et celle de Bourse.jsx
+// étaient deux copies indépendantes, et c'est leur divergence qui vidait le
+// graphique dès qu'on sélectionnait un des trois indices jamais collectés.
+const ALL_BENCHMARKS = BENCHMARKS;
+const ALL_BENCHMARK_KEYS = CLES_INDICE;
 
 /** Petite pastille "où je me situe" par rapport à une valeur de référence marché. */
 function BenchmarkGauge({ label, value, target, unit = "", higherIsBetter = true, digits = 2 }) {
@@ -231,6 +225,7 @@ export default function PerformanceTab({
   bourse, bourseHistory, setBourseHistory, bourseGainAbs, trackLoading, trackError, captureSnapshot,
   hasEnoughHistory, hasEnoughBase100, perfRange, setPerfRange,
   selectedBenchmarks, setSelectedBenchmarks, showDividendsReinvested, setShowDividendsReinvested,
+  apercuRecalcul, recalculEnCours, onPreparerRecalcul, onValiderRecalcul, onAnnulerRecalcul,
 }) {
   // Mémoïsé : `|| []` produit un tableau neuf à chaque rendu et invalidait
   // les trois useMemo qui en dépendent plus bas.
@@ -272,10 +267,28 @@ export default function PerformanceTab({
   const feeEfficiency = useMemo(() => computeFeeEfficiency(operations, bourseGainAbs), [operations, bourseGainAbs]);
   const tsr = useMemo(() => computeTSR(history, operations), [history, operations]);
 
-  const base100Data = useMemo(() => rebaseTo100(rangedHistory, ["valeur", ...selectedBenchmarks.map((s) => ALL_BENCHMARK_KEYS[s])]), [rangedHistory, selectedBenchmarks]);
+  // Indices sélectionnés dont l'historique ne contient AUCUNE valeur sur la
+  // période : ils sont retirés du rebasage et annoncés sous le graphique.
+  // Sans ce tri, un seul indice vide suffisait à faire renvoyer un tableau
+  // vide à `rebaseTo100` — donc à effacer aussi la courbe du portefeuille,
+  // ce qui donnait l'impression que c'était le graphique qui était cassé.
+  const benchIndisponibles = useMemo(
+    () => seriesIndisponibles(rangedHistory, selectedBenchmarks.map((s) => ALL_BENCHMARK_KEYS[s])),
+    [rangedHistory, selectedBenchmarks]
+  );
+  const benchAffichables = useMemo(
+    () =>
+      selectedBenchmarks.filter((s) => !benchIndisponibles.includes(ALL_BENCHMARK_KEYS[s])),
+    [selectedBenchmarks, benchIndisponibles]
+  );
+
+  const base100Data = useMemo(
+    () => rebaseTo100(rangedHistory, ["valeur", ...benchAffichables.map((s) => ALL_BENCHMARK_KEYS[s])]),
+    [rangedHistory, benchAffichables]
+  );
 
   // Écart de surperformance vs le premier indice sélectionné, pour l'affichage en zone colorée
-  const primaryBenchKey = selectedBenchmarks[0] ? ALL_BENCHMARK_KEYS[selectedBenchmarks[0]] : null;
+  const primaryBenchKey = benchAffichables[0] ? ALL_BENCHMARK_KEYS[benchAffichables[0]] : null;
   const spreadData = useMemo(() => {
     if (!primaryBenchKey) return [];
     return base100Data
@@ -353,6 +366,85 @@ export default function PerformanceTab({
         </button>
       </div>
       {trackError && <p className="text-micro text-amber-300/80">{trackError}</p>}
+
+      {/* ─── Recalcul de l'historique ───────────────────────────────────────
+          Un relevé pris en séance peut avoir figé une valeur fausse : c'est
+          le « faux creux » laissé par une vente dont le produit n'était pas
+          crédité en poche cash au même instant. Le rattrapage ne corrige
+          jamais un point existant, seul ce recalcul le peut.
+
+          Rien n'est écrit avant que l'écart ait été montré, jour par jour. */}
+      {bourseHistory.length > 1 && (
+        <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+          {!apercuRecalcul ? (
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <p className="text-micro text-slate-500 max-w-md">
+                Un creux qui ne correspond à aucune perte réelle ? Le recalcul rejoue ton journal
+                d&apos;opérations contre les clôtures réelles et corrige les relevés concernés.
+              </p>
+              <button
+                onClick={onPreparerRecalcul}
+                disabled={recalculEnCours}
+                className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-slate-100 disabled:opacity-40 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                <RefreshCw size={13} className={recalculEnCours ? "animate-spin" : ""} />
+                {recalculEnCours ? "Calcul..." : "Recalculer l'historique"}
+              </button>
+            </div>
+          ) : apercuRecalcul.length === 0 ? (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-micro text-emerald-400">
+                Aucun écart : tes relevés correspondent déjà au journal d&apos;opérations.
+              </p>
+              <button
+                onClick={onAnnulerRecalcul}
+                className="text-xs text-slate-400 hover:text-slate-200 underline underline-offset-2"
+              >
+                Fermer
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-micro text-slate-300">
+                <span className="font-medium text-amber-300">{apercuRecalcul.length} relevé(s)</span>{" "}
+                seraient corrigés. Rien n&apos;est encore enregistré.
+              </p>
+              <ul className="mt-2 max-h-44 overflow-y-auto flex flex-col gap-1 pr-1">
+                {apercuRecalcul.map((c) => (
+                  <li
+                    key={c.date}
+                    className="flex items-center justify-between gap-3 text-micro font-data tabular-nums border-b border-slate-800/60 pb-1 last:border-0"
+                  >
+                    <span className="text-slate-400">{formatDateShort(c.date)}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-slate-600 line-through">{eur(c.avant)}</span>
+                      <span className="text-slate-200">{eur(c.apres)}</span>
+                      <span className={c.ecart >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                        {c.ecart >= 0 ? "+" : "−"}
+                        {eur(Math.abs(c.ecart))}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <button
+                  onClick={onValiderRecalcul}
+                  className="btn-flash flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 px-3 py-1.5 text-xs font-medium"
+                >
+                  Appliquer ces corrections
+                </button>
+                <button
+                  onClick={onAnnulerRecalcul}
+                  className="text-xs text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5"
+                >
+                  Annuler
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
        
        {/* Gestion des points d'historique (suppression d'un jour aberrant) */}
       {bourseHistory.length > 0 && (
@@ -694,7 +786,7 @@ export default function PerformanceTab({
                     <Tooltip content={<BenchmarkCompareTooltip />} cursor={{ stroke: "#fbbf24", strokeWidth: 1, strokeDasharray: "3 4" }} />
                     {/* Ligne du point de départ : au-dessus = gain, en dessous = perte */}
                     <ReferenceLine y={100} stroke="#475569" strokeDasharray="4 4" strokeWidth={1} />
-                    {ALL_BENCHMARKS.filter((b) => selectedBenchmarks.includes(b.symbol)).map((b) => (
+                    {ALL_BENCHMARKS.filter((b) => benchAffichables.includes(b.symbol)).map((b) => (
                       <Line
                         key={b.symbol} type="monotone" dataKey={ALL_BENCHMARK_KEYS[b.symbol]} name={b.name}
                         stroke={b.color} strokeWidth={1.5} strokeOpacity={0.85} dot={false}
@@ -714,15 +806,43 @@ export default function PerformanceTab({
             )}
             <div className="flex flex-wrap gap-3 mt-2">
               <Legend2 color="#fbbf24" label="Mon portefeuille" />
-              {ALL_BENCHMARKS.filter((b) => selectedBenchmarks.includes(b.symbol)).map((b) => <Legend2 key={b.symbol} color={b.color} label={b.name} />)}
+              {ALL_BENCHMARKS.filter((b) => benchAffichables.includes(b.symbol)).map((b) => <Legend2 key={b.symbol} color={b.color} label={b.name} />)}
             </div>
+
+            {/* Un indice sans données n'efface plus le graphique : il est
+                retiré du tracé et la raison est écrite. Le cas nominal est
+                celui d'un indice ajouté récemment, dont l'historique ne se
+                remplit qu'à partir du prochain relevé quotidien. */}
+            {benchIndisponibles.length > 0 && (
+              <p className="text-micro text-amber-300/80 mt-3 flex items-start gap-1.5">
+                <Info size={11} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>
+                  Pas encore de données pour{" "}
+                  <span className="font-medium">
+                    {benchIndisponibles
+                      .map((cle) => ALL_BENCHMARKS.find((b) => b.cle === cle)?.name || cle)
+                      .join(", ")}
+                  </span>{" "}
+                  sur cette période — ces indices se remplissent à partir du prochain relevé
+                  quotidien. Les autres courbes restent affichées.
+                </span>
+              </p>
+            )}
+
+            {/* Les indices hors zone euro sont comparés en base 100, donc en
+                variation : aucune conversion n'est nécessaire, mais la courbe
+                se lit du point de vue d'un investisseur en devise locale. */}
+            <p className="text-micro text-slate-600 mt-2">
+              Comparaison en base 100 : les indices cotés en dollars sont lus en devise locale,
+              sans effet de change.
+            </p>
           </Card>
 
           {/* ─── Écart de surperformance (zone colorée) ─── */}
           {primaryBenchKey && spreadData.length > 1 && (
             <Card accent={CARD_THEMES.violet}>
               <CardLabel icon={Activity}>
-                Surperformance vs {ALL_BENCHMARKS.find((b) => b.symbol === selectedBenchmarks[0])?.name}
+                Surperformance vs {ALL_BENCHMARKS.find((b) => b.symbol === benchAffichables[0])?.name}
               </CardLabel>
               <div className="h-60 mt-2">
                 <ResponsiveContainer width="100%" height="100%">

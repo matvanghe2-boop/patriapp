@@ -5,6 +5,8 @@ import {
   weightedAverageRate,
   upsertByDate,
   rebaseTo100,
+  seriesIndisponibles,
+  variationDuJour,
   solveMonthlyForTarget,
   assuranceMensuelle,
   applyInflation,
@@ -143,6 +145,81 @@ describe("rebaseTo100", () => {
 
   it("renvoie un tableau vide si aucune date commune", () => {
     expect(rebaseTo100([{ date: "2026-01-01", a: 1, b: null }], ["a", "b"])).toEqual([]);
+  });
+
+  it("reporte la dernière valeur connue sur un jour sans cotation", () => {
+    // Cas réel : un férié américain au milieu d'une semaine française. Le
+    // Nasdaq ne cote pas, le CAC si. Sans report, la courbe de l'indice se
+    // coupait ce jour-là.
+    const merged = [
+      { date: "2026-01-02", portefeuille: 100, nasdaq: 200 },
+      { date: "2026-01-03", portefeuille: 110, nasdaq: null },
+      { date: "2026-01-04", portefeuille: 120, nasdaq: 240 },
+    ];
+    const out = rebaseTo100(merged, ["portefeuille", "nasdaq"]);
+    expect(out).toHaveLength(3);
+    // Le 03, l'indice garde sa valeur du 02 : base 100, inchangé.
+    expect(out[1].nasdaq).toBeCloseTo(100, 6);
+    expect(out[1].portefeuille).toBeCloseTo(110, 6);
+    expect(out[2].nasdaq).toBeCloseTo(120, 6);
+  });
+
+  it("ne remonte jamais avant la première cotation réelle d'une série", () => {
+    // Un indice ajouté récemment ne doit pas se voir inventer un passé : le
+    // rebasage commun démarre à sa première valeur, pas avant.
+    const merged = [
+      { date: "2026-01-01", portefeuille: 100, or: null },
+      { date: "2026-01-02", portefeuille: 110, or: null },
+      { date: "2026-01-03", portefeuille: 120, or: 2000 },
+      { date: "2026-01-04", portefeuille: 132, or: 2100 },
+    ];
+    const out = rebaseTo100(merged, ["portefeuille", "or"]);
+    expect(out).toHaveLength(2);
+    expect(out[0].date).toBe("2026-01-03");
+    expect(out[0]).toMatchObject({ portefeuille: 100, or: 100 });
+    expect(out[1].or).toBeCloseTo(105, 6);
+  });
+
+  it("aligne trois séries de calendriers différents sur une base commune", () => {
+    const merged = [
+      { date: "2026-01-02", valeur: 1000, cac40: 7500, nasdaq: 15000 },
+      { date: "2026-01-03", valeur: 1010, cac40: null, nasdaq: 15150 }, // férié FR
+      { date: "2026-01-06", valeur: 1020, cac40: 7650, nasdaq: null }, // férié US
+    ];
+    const out = rebaseTo100(merged, ["valeur", "cac40", "nasdaq"]);
+    expect(out).toHaveLength(3);
+    // Chaque point porte les TROIS séries : plus aucun trou dans le tracé.
+    out.forEach((row) => {
+      expect(row.valeur).toBeDefined();
+      expect(row.cac40).toBeDefined();
+      expect(row.nasdaq).toBeDefined();
+    });
+    expect(out[1].cac40).toBeCloseTo(100, 6); // reportée du 02
+    expect(out[2].nasdaq).toBeCloseTo(101, 6); // reportée du 03
+  });
+});
+
+describe("seriesIndisponibles", () => {
+  it("repère une série sans aucune valeur", () => {
+    // C'était le cas de nasdaq, msciEmerging et or : proposés à la sélection
+    // mais jamais collectés, donc vides pour toujours.
+    const merged = [
+      { date: "2026-01-01", valeur: 100, cac40: 7500, nasdaq: null },
+      { date: "2026-01-02", valeur: 110, cac40: 7600, nasdaq: null },
+    ];
+    expect(seriesIndisponibles(merged, ["cac40", "nasdaq"])).toEqual(["nasdaq"]);
+  });
+
+  it("ne signale pas une série simplement trouée", () => {
+    const merged = [
+      { date: "2026-01-01", nasdaq: 15000 },
+      { date: "2026-01-02", nasdaq: null },
+    ];
+    expect(seriesIndisponibles(merged, ["nasdaq"])).toEqual([]);
+  });
+
+  it("traite un historique vide sans lever", () => {
+    expect(seriesIndisponibles([], ["nasdaq"])).toEqual(["nasdaq"]);
   });
 });
 
@@ -611,5 +688,77 @@ describe("simulation", () => {
     expect(out[0]).toBe(100);
     expect(out[1]).toBeCloseTo(90.909, 3);
     expect(out[2]).toBeCloseTo(82.645, 3);
+  });
+});
+
+describe("variationDuJour", () => {
+  const ligne = (q, veille, cours, extra = {}) => ({
+    quantity: q, previousClose: veille, current_price: cours, ...extra,
+  });
+
+  it("un jour sans mouvement de cours : variation nulle", () => {
+    const v = variationDuJour([ligne(10, 100, 100)], 500);
+    expect(v.montant).toBe(0);
+    expect(v.pourcentage).toBe(0);
+    expect(v.exploitable).toBe(true);
+  });
+
+  it("calcule la variation sur la clôture de la veille, cash inclus au dénominateur", () => {
+    // 10 titres passés de 100 à 102 : +20 €. Base : 1 000 € de titres + 500 €
+    // de cash = 1 500 €, soit +1,333 %.
+    const v = variationDuJour([ligne(10, 100, 102)], 500);
+    expect(v.montant).toBeCloseTo(20, 6);
+    expect(v.base).toBeCloseTo(1500, 6);
+    expect(v.pourcentage).toBeCloseTo((20 / 1500) * 100, 6);
+  });
+
+  it("un versement du jour ne crée AUCUNE performance", () => {
+    // Même séance, mêmes cours : seul le cash a grossi de 1 000 €. Le montant
+    // de variation ne doit pas bouger d'un centime — un versement n'est pas
+    // un gain. C'était tout l'enjeu de ne pas s'appuyer sur un écart de
+    // valorisation d'un jour à l'autre.
+    const positions = [ligne(10, 100, 102)];
+    const avant = variationDuJour(positions, 500);
+    const apres = variationDuJour(positions, 1500);
+    expect(apres.montant).toBeCloseTo(avant.montant, 6);
+    // Le pourcentage, lui, se dilue : la même performance rapportée à un
+    // capital plus gros. C'est voulu et mathématiquement correct.
+    expect(apres.pourcentage).toBeLessThan(avant.pourcentage);
+  });
+
+  it("un lundi se compare au vendredi, sans calendrier à tenir", () => {
+    // `previousClose` vaut la clôture de vendredi : la fonction n'a aucune
+    // date à manipuler, donc aucun week-end ni férié à connaître.
+    const v = variationDuJour([ligne(5, 200 /* vendredi */, 190 /* lundi */)], 0);
+    expect(v.montant).toBeCloseTo(-50, 6);
+    expect(v.pourcentage).toBeCloseTo(-5, 6);
+  });
+
+  it("convertit les lignes en devise étrangère", () => {
+    // 10 titres à +2 $, taux 0,90 € pour 1 $ → +18 €.
+    const v = variationDuJour([ligne(10, 100, 102, { currency: "USD", fxRate: 0.9 })], 0);
+    expect(v.montant).toBeCloseTo(18, 6);
+    expect(v.base).toBeCloseTo(900, 6);
+  });
+
+  it("ignore une ligne sans clôture de veille au lieu de la compter à zéro", () => {
+    const v = variationDuJour(
+      [ligne(10, 100, 102), ligne(10, null, 50)],
+      0
+    );
+    // Seule la première ligne compte, dans les DEUX termes.
+    expect(v.montant).toBeCloseTo(20, 6);
+    expect(v.base).toBeCloseTo(1000, 6);
+    expect(v.lignesIgnorees).toBe(1);
+  });
+
+  it("refuse une clôture de veille à zéro, qui donnerait −100 %", () => {
+    const v = variationDuJour([ligne(10, 0, 102)], 0);
+    expect(v.exploitable).toBe(false);
+    expect(v.lignesIgnorees).toBe(1);
+  });
+
+  it("se déclare inexploitable sur un portefeuille sans cours", () => {
+    expect(variationDuJour([], 1000).exploitable).toBe(false);
   });
 });

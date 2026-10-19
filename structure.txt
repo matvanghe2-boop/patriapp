@@ -31,6 +31,9 @@ api/_lib/routes/quote.js
 api/_lib/routes/rates.js
 api/_lib/routes/screen.js
 api/_lib/routes/search.js
+api/_lib/sources/edgar.js
+api/_lib/sources/fusion.js
+api/_lib/sources/fusion.test.js
 api/_lib/webstat.js
 api/_lib/webstat.test.js
 api/_lib/withApi.test.js
@@ -156,6 +159,7 @@ src/components/Reequilibrage.jsx
 src/components/ReglagesApparence.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
+src/components/ReparationJournal.jsx
 src/components/Retrospective.jsx
 src/components/SantePortefeuille.jsx
 src/components/ScenariosProjet.jsx
@@ -188,6 +192,7 @@ src/lib/api.test.js
 src/lib/apparence.test.jsx
 src/lib/authErrors.js
 src/lib/authErrors.test.js
+src/lib/benchmarks.js
 src/lib/compact.test.js
 src/lib/decumulation.js
 src/lib/decumulation.test.js
@@ -232,6 +237,8 @@ src/lib/useBilanRappel.js
 src/lib/useDailySnapshot.js
 src/lib/useHashRoute.js
 src/lib/useMaintenant.js
+src/lib/useRappelsCalendrier.js
+src/lib/useRappelsCalendrier.test.js
 src/main.jsx
 src/test/setup.js
 structure.txt

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, TrendingUp, TrendingDown } from "lucide-react";
-import { eur, pct } from "../lib/finance";
+import { eur, pct, pctPlain } from "../lib/finance";
 import { useValeurAnimee } from "./ui";
 
 const SCROLL_THRESHOLD = 48; // px de défilement avant de basculer en mode condensé
@@ -15,7 +15,7 @@ const SCROLL_THRESHOLD = 48; // px de défilement avant de basculer en mode cond
  * reste affiché en permanence à droite ; seule la partie "résumé chiffré"
  * change de taille/format.
  */
-export default function StickySummaryHeader({ patrimoineNet, deltaPct, ghostMode, onToggleGhost, children }) {
+export default function StickySummaryHeader({ patrimoineNet, deltaPct, variationJour, ghostMode, onToggleGhost, children }) {
   const [scrolled, setScrolled] = useState(false);
   const tickingRef = useRef(false);
 
@@ -87,10 +87,41 @@ export default function StickySummaryHeader({ patrimoineNet, deltaPct, ghostMode
             <span className="text-slate-500 hidden sm:inline">Total :</span>
             <span className={`font-semibold text-slate-100 ${ghostMode ? "ghost-blur" : ""}`}>{eur(netAnime)}</span>
 
+            {/* Variation de la SÉANCE. C'est la première chose qu'on cherche
+                en rouvrant l'application, et l'en-tête condensé est souvent
+                tout ce qui reste à l'écran sur un téléphone après quelques
+                centimètres de défilement.
+
+                Elle passe avant le delta 30 jours, qui parle d'une autre
+                échelle de temps : masqué sous 640 px pour que les deux ne se
+                disputent pas la largeur. */}
+            {variationJour?.exploitable && (
+              <span
+                className={`flex items-center gap-1 ${
+                  variationJour.montant >= 0 ? "text-emerald-400" : "text-rose-400"
+                }`}
+                title="Variation depuis la clôture de la veille"
+              >
+                {variationJour.montant >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                <span className="font-semibold">
+                  {variationJour.montant >= 0 ? "+" : "−"}
+                  {pctPlain(Math.abs(variationJour.pourcentage))}
+                </span>
+                <span className={`hidden xs:inline ${ghostMode ? "ghost-blur" : ""}`}>
+                  {variationJour.montant >= 0 ? "+" : "−"}
+                  {eur(Math.abs(variationJour.montant))}
+                </span>
+              </span>
+            )}
+
             {deltaPct != null && (
-              <span className={`flex items-center gap-1 ${perfPositive ? "text-emerald-400" : "text-rose-400"}`}>
+              <span
+                className={`hidden sm:flex items-center gap-1 ${perfPositive ? "text-emerald-400" : "text-rose-400"}`}
+                title="Variation sur 30 jours glissants"
+              >
                 {perfPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 {pct(deltaPct)}
+                <span className="text-slate-600">30 j</span>
               </span>
             )}
 

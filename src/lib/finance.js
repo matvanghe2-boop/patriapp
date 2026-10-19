@@ -217,17 +217,67 @@ export function upsertByDate(arr, entry) {
  * indispensable pour comparer équitablement un portefeuille à des indices
  * dont l'historique disponible peut démarrer à des dates différentes.
  */
+/**
+ * Séries demandées qui n'ont AUCUNE valeur exploitable sur la période.
+ *
+ * Une série vide n'est pas la même chose qu'une série en retard : la première
+ * doit être annoncée à l'utilisateur, la seconde se rattrape toute seule par
+ * report de la dernière valeur connue. Sans cette distinction, un indice
+ * jamais collecté produisait un graphique vide sans la moindre explication.
+ */
+export function seriesIndisponibles(merged = [], keys = []) {
+  return keys.filter((k) => !merged.some((row) => row[k] != null && row[k] !== 0));
+}
+
+/**
+ * Aligne plusieurs séries sur un calendrier commun et les rebase à 100 à la
+ * MÊME date.
+ *
+ * Trois sources d'écart, qui se cumulent :
+ *
+ *  - les places ne cotent pas les mêmes jours (férié américain, férié
+ *    français, l'or qui suit le calendrier du COMEX) ;
+ *  - un relevé quotidien peut manquer, l'application n'ayant pas été ouverte ;
+ *  - une série peut démarrer plus tard que les autres.
+ *
+ * Les deux premiers sont des TROUS : on reporte la dernière valeur connue,
+ * exactement comme le ferait un graphique boursier — un indice fermé n'a pas
+ * « perdu sa valeur », il n'a simplement pas coté. Le troisième est un vrai
+ * décalage de départ : il décide de la date de rebasage commune.
+ *
+ * Avant, aucun report n'était fait et la date de départ exigeait que TOUTES
+ * les séries soient renseignées le même jour. Un seul trou au mauvais endroit
+ * suffisait donc à vider le graphique, courbe du portefeuille comprise.
+ */
 export function rebaseTo100(merged, keys) {
+  if (!Array.isArray(merged) || merged.length === 0 || keys.length === 0) return [];
+
+  // Report de la dernière valeur connue, série par série. Rien n'est inventé
+  // AVANT la première cotation réelle : on ne remonte jamais dans le temps.
+  const derniere = {};
+  const rempli = merged.map((row) => {
+    const out = { date: row.date };
+    for (const k of keys) {
+      const v = row[k];
+      if (v != null && v !== 0) derniere[k] = v;
+      if (derniere[k] != null) out[k] = derniere[k];
+    }
+    return out;
+  });
+
   // La date de départ doit avoir une base EXPLOITABLE pour chaque série, pas
   // seulement une valeur non nulle : une base à 0 rend le rebasage impossible
   // (division par zéro) et faisait disparaître la série sans le moindre signal.
-  const startIndex = merged.findIndex((row) => keys.every((k) => row[k] != null && row[k] !== 0));
+  // Après report, c'est la date de première cotation de la série la plus
+  // tardive — donc la seule date à laquelle une comparaison a un sens.
+  const startIndex = rempli.findIndex((row) => keys.every((k) => row[k] != null && row[k] !== 0));
   if (startIndex === -1) return [];
+
   const bases = {};
   keys.forEach((k) => {
-    bases[k] = merged[startIndex][k];
+    bases[k] = rempli[startIndex][k];
   });
-  return merged.slice(startIndex).map((row) => {
+  return rempli.slice(startIndex).map((row) => {
     const out = { date: row.date };
     keys.forEach((k) => {
       if (row[k] != null && bases[k]) out[k] = (row[k] / bases[k]) * 100;
@@ -515,9 +565,16 @@ export function dividendYieldOnCost(annualDividendPerShare, pru) {
  * indispensable à la logique anti-doublons.
  */
 export function sanitizeOperation(order) {
-  const { transactionId, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee, id, ratio } = order;
+  const { transactionId, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee, id, ratio, origine } = order;
   return {
     id, transactionId: transactionId || null, date, asset, type, quantity, price, fees, amount, montantNet, plusValueRealisee,
+    // `origine` dit COMMENT l'écriture est née (saisie manuelle, ajustement
+    // de poche, import de relevé). Sans elle, impossible de distinguer plus
+    // tard un vrai versement d'un versement fabriqué par une correction de
+    // solde — c'est précisément la confusion que l'outil de réparation doit
+    // démêler sur les données déjà enregistrées. Ce champ doit donc survivre
+    // à la persistance, comme `ratio`.
+    ...(origine ? { origine } : {}),
     // `ratio` n'a de sens que sur une opération sur titres, mais il DOIT
     // survivre à la persistance : sans lui, un split relu depuis le stockage
     // serait rejoué avec un ratio de 1, c'est-à-dire ignoré en silence.
@@ -636,6 +693,12 @@ export function operationCashDelta(op) {
   if (op.type === "DIVIDENDE") return amount;
   if (op.type === "VERSEMENT") return Math.abs(amount);
   if (op.type === "RETRAIT") return -Math.abs(amount);
+  // Ajustement de solde : il DÉPLACE bien de l'argent dans la poche cash —
+  // `cash_pocket` est rejoué depuis le journal, sans delta le solde saisi ne
+  // tiendrait pas — mais ce n'est PAS un flux externe. Il ne doit donc jamais
+  // entrer dans le capital investi ni dans la performance. C'est toute la
+  // différence avec le VERSEMENT que produisait l'ancienne saisie de poche.
+  if (op.type === "AJUSTEMENT") return Number(op.amount ?? op.montantNet ?? 0) || 0;
   if (op.type === "ACHAT") return -(q * p + f);
   if (op.type === "VENTE") return q * p - f;
   // Une opération sur titres ne fait entrer ni sortir d'argent : elle
@@ -994,21 +1057,137 @@ export function rebaselineLedger(bourse) {
  * PEA » (un apport, qui doit faire monter la courbe Capital investi sans
  * compter comme une performance) de « mes titres ont pris de la valeur ».
  */
+/**
+ * Corrige la poche cash à la main, SANS inventer de flux externe.
+ *
+ * Cette fonction produisait un VERSEMENT ou un RETRAIT, c'est-à-dire une
+ * entrée ou une sortie d'argent du compte. C'est faux dans le cas le plus
+ * courant : on corrige son solde parce qu'une vente, un dividende ou des
+ * frais n'ont pas été saisis au centime près — pas parce qu'on a viré de
+ * l'argent depuis son compte courant.
+ *
+ * Conséquence observée : après une vente, le solde recalé à la main créait un
+ * RETRAIT du montant de la vente. La courbe de performance y lisait une
+ * sortie d'argent, et le capital investi chutait d'autant, alors que l'argent
+ * n'avait pas quitté le portefeuille — il avait juste changé de poche.
+ *
+ * Un AJUSTEMENT déplace le solde et rien d'autre : il n'entre ni dans le
+ * capital investi (`computeCumulativeContributions` ne retient que VERSEMENT
+ * et RETRAIT) ni dans les flux externes de la performance. Un vrai versement
+ * se saisit désormais explicitement depuis Opérations.
+ */
 export function buildCashAdjustment(currentCash, targetCash, date = todayIso()) {
   const delta = Number(targetCash) - Number(currentCash);
   if (!Number.isFinite(delta) || Math.abs(delta) < 0.005) return null;
   return {
     id: uid(),
     date,
-    type: delta > 0 ? "VERSEMENT" : "RETRAIT",
+    type: "AJUSTEMENT",
     asset: null,
-    amount: Math.abs(delta),
-    montantNet: Math.abs(delta),
+    // Montant SIGNÉ : le sens de la correction est porté par la valeur, et
+    // non plus par deux types distincts.
+    amount: delta,
+    montantNet: delta,
     quantity: null,
     price: null,
     fees: 0,
     plusValueRealisee: null,
+    origine: "ajustement-cash",
   };
+}
+
+/**
+ * Crée un vrai mouvement d'argent entre le compte courant et le portefeuille.
+ * C'est la SEULE façon de produire un VERSEMENT ou un RETRAIT, et elle est
+ * réservée à la saisie explicite depuis Opérations.
+ */
+export function buildCashMovement({ type, amount, date = todayIso() }) {
+  const montant = Math.abs(Number(amount) || 0);
+  if (!Number.isFinite(montant) || montant < 0.005) return null;
+  if (type !== "VERSEMENT" && type !== "RETRAIT") return null;
+  return {
+    id: uid(),
+    date,
+    type,
+    asset: null,
+    amount: montant,
+    montantNet: montant,
+    quantity: null,
+    price: null,
+    fees: 0,
+    plusValueRealisee: null,
+    origine: "saisie",
+  };
+}
+
+/**
+ * Repère les VERSEMENT/RETRAIT qui ont toutes les marques d'une correction de
+ * solde, et non d'un vrai mouvement d'argent.
+ *
+ * Les écritures créées à partir d'aujourd'hui portent `origine`, donc le
+ * diagnostic est certain. Pour celles déjà enregistrées — qui n'ont pas ce
+ * champ — on s'appuie sur l'empreinte exacte que laissait l'ancienne
+ * `buildCashAdjustment` : aucun titre, aucune quantité, aucun prix, aucuns
+ * frais, et `amount` strictement égal à `montantNet`.
+ *
+ * C'est une PRÉSOMPTION, jamais une certitude : un versement saisi à la main
+ * laisse la même empreinte. D'où le champ `certitude`, et d'où le fait que
+ * rien n'est converti sans que l'utilisateur ait vu la liste et tranché.
+ *
+ * @returns {Array<{operation: object, certitude: "sure"|"probable", motif: string}>}
+ */
+export function versementsSuspects(operations = []) {
+  const suspects = [];
+  for (const op of operations) {
+    if (op?.type !== "VERSEMENT" && op?.type !== "RETRAIT") continue;
+
+    if (op.origine === "ajustement-cash") {
+      suspects.push({
+        operation: op,
+        certitude: "sure",
+        motif: "Créé par une correction de la poche cash.",
+      });
+      continue;
+    }
+    if (op.origine) continue; // saisie explicite ou import : on n'y touche pas
+
+    const sansTitre = !op.asset;
+    const sansQuantite = op.quantity == null || Number(op.quantity) === 0;
+    const sansPrix = op.price == null || Number(op.price) === 0;
+    const sansFrais = !op.fees || Number(op.fees) === 0;
+    const montantsCoherents = Number(op.amount) === Number(op.montantNet);
+
+    if (sansTitre && sansQuantite && sansPrix && sansFrais && montantsCoherents) {
+      suspects.push({
+        operation: op,
+        certitude: "probable",
+        motif: "Aucune trace de titre ni de frais : ressemble à une correction de solde.",
+      });
+    }
+  }
+  return suspects;
+}
+
+/**
+ * Convertit en ajustements les écritures désignées, en conservant leur effet
+ * sur le solde. Un VERSEMENT de 1 000 € devient un ajustement de +1 000 €, un
+ * RETRAIT de 1 000 € un ajustement de −1 000 € : la poche cash ne bouge pas,
+ * seule leur nature change — et avec elle le capital investi.
+ */
+export function convertirEnAjustements(operations = [], ids = []) {
+  const aConvertir = new Set(ids);
+  return operations.map((op) => {
+    if (!aConvertir.has(op.id)) return op;
+    const signe = op.type === "RETRAIT" ? -1 : 1;
+    const montant = Math.abs(Number(op.amount ?? op.montantNet ?? 0) || 0) * signe;
+    return {
+      ...op,
+      type: "AJUSTEMENT",
+      amount: montant,
+      montantNet: montant,
+      origine: "ajustement-cash",
+    };
+  });
 }
 
 /**
@@ -1790,4 +1969,81 @@ export function computePeaAge(dateOuverture) {
   const eligible = totalMonths >= 60;
   const monthsRemaining = Math.max(0, 60 - totalMonths);
   return { years, months, eligible, monthsRemaining };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIATION DU JOUR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Variation du portefeuille sur la séance en cours.
+ *
+ * Le repère est la CLÔTURE DE LA VEILLE de chaque ligne (`previousClose`,
+ * renvoyé par la source de cours), et non un relevé enregistré par
+ * l'application. C'est ce qui rend le calcul juste sans avoir à tenir un
+ * calendrier boursier : la source sait déjà que la veille d'un lundi est un
+ * vendredi, que la veille d'un lendemain de férié n'est pas la veille
+ * calendaire, et que les places ne ferment pas les mêmes jours. Un relevé
+ * interne, lui, n'existe que les jours où l'application a été ouverte — après
+ * trois jours d'absence il aurait désigné « la veille » un point vieux de
+ * trois séances, sans le dire.
+ *
+ * LES FLUX NE SONT PAS DE LA PERFORMANCE. Ils n'ont ici rien à neutraliser :
+ * un versement, un retrait ou un ajustement ne font bouger que la poche cash,
+ * qui n'entre pas au numérateur. Seule la variation des COURS y figure. La
+ * poche cash reste au dénominateur, parce qu'elle fait bien partie du capital
+ * sur lequel la performance du jour se mesure.
+ *
+ * Conversion de change incluse : une ligne en dollars varie en dollars, et le
+ * montant affiché est en euros.
+ *
+ * Deux limites, assumées et signalées à l'affichage :
+ *  - une ligne achetée AUJOURD'HUI est mesurée depuis la clôture de la veille
+ *    et non depuis son prix d'achat. C'est la convention de tous les
+ *    courtiers, et l'écart disparaît dès le lendemain ;
+ *  - une ligne sans `previousClose` (cours indisponible, titre suspendu,
+ *    jamais actualisé) est EXCLUE des deux termes plutôt que comptée à zéro,
+ *    et leur nombre est renvoyé dans `lignesIgnorees`.
+ *
+ * @returns {{montant: number, pourcentage: number, base: number,
+ *            lignesIgnorees: number, exploitable: boolean} | null}
+ */
+export function variationDuJour(positions = [], cashPocket = 0) {
+  let variation = 0;
+  let base = 0;
+  let lignesIgnorees = 0;
+  let lignesRetenues = 0;
+
+  for (const p of positions) {
+    const quantite = Number(p?.quantity) || 0;
+    if (!quantite) continue;
+
+    const cours = Number(p?.current_price);
+    const veille = Number(p?.previousClose);
+    // `> 0` et non `!= null` : une clôture à zéro n'est pas une clôture, et
+    // elle produirait une variation de −100 % sur la ligne.
+    if (!Number.isFinite(cours) || !Number.isFinite(veille) || veille <= 0) {
+      lignesIgnorees += 1;
+      continue;
+    }
+
+    const taux = tauxPosition(p);
+    variation += (cours - veille) * quantite * taux;
+    base += veille * quantite * taux;
+    lignesRetenues += 1;
+  }
+
+  if (lignesRetenues === 0) {
+    return { montant: 0, pourcentage: 0, base: 0, lignesIgnorees, exploitable: false };
+  }
+
+  const cash = Number(cashPocket) || 0;
+  const denominateur = base + cash;
+  return {
+    montant: variation,
+    pourcentage: denominateur > 0 ? (variation / denominateur) * 100 : 0,
+    base: denominateur,
+    lignesIgnorees,
+    exploitable: true,
+  };
 }

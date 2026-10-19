@@ -9,6 +9,10 @@ import {
   applyOperationsToBourse,
   operationCashDelta,
   buildCashAdjustment,
+  buildCashMovement,
+  versementsSuspects,
+  convertirEnAjustements,
+  totalCashDelta,
   todayIso,
 } from "./finance";
 
@@ -207,20 +211,109 @@ describe("applyOperationsToBourse", () => {
   });
 });
 
+/**
+ * Corriger la poche cash produisait un VERSEMENT ou un RETRAIT, c'est-à-dire
+ * un mouvement d'argent entre le compte courant et le portefeuille. C'était
+ * faux dans le cas le plus fréquent — on recale son solde parce qu'une vente
+ * ou des frais ne tombaient pas juste — et cela faisait lire à la performance
+ * une sortie d'argent qui n'avait jamais eu lieu.
+ *
+ * Ces tests décrivent le comportement voulu : la correction reste tracée,
+ * parce que `cash_pocket` est rejoué depuis le journal, mais elle ne se fait
+ * plus passer pour un flux externe.
+ */
 describe("buildCashAdjustment", () => {
-  it("transforme une hausse manuelle du cash en versement date", () => {
+  it("enregistre une hausse manuelle comme un ajustement, pas un versement", () => {
     const mv = buildCashAdjustment(500, 1500, "2026-02-01");
-    expect(mv.type).toBe("VERSEMENT");
+    expect(mv.type).toBe("AJUSTEMENT");
     expect(mv.amount).toBe(1000);
     expect(mv.date).toBe("2026-02-01");
+    // La provenance est écrite : c'est elle qui permet de distinguer plus tard
+    // cette écriture d'un versement réellement saisi.
+    expect(mv.origine).toBe("ajustement-cash");
   });
 
-  it("transforme une baisse en retrait", () => {
-    expect(buildCashAdjustment(1500, 500).type).toBe("RETRAIT");
+  it("porte le sens de la correction dans un montant SIGNÉ", () => {
+    const mv = buildCashAdjustment(1500, 500);
+    expect(mv.type).toBe("AJUSTEMENT");
+    // Un montant négatif, et non un second type : le solde descend de 1 000 €.
+    expect(mv.amount).toBe(-1000);
   });
 
   it("ignore un non-changement", () => {
     expect(buildCashAdjustment(500, 500)).toBeNull();
+  });
+
+  it("déplace le solde sans compter comme capital investi", () => {
+    const ajustement = buildCashAdjustment(0, 1000, "2026-02-01");
+    // Il bouge bien la poche cash — sinon la correction ne tiendrait pas.
+    expect(operationCashDelta(ajustement)).toBe(1000);
+    // Mais il reste hors du capital investi, à la différence d'un versement.
+    expect(computeCumulativeContributions([ajustement])).toEqual([]);
+  });
+
+  it("un vrai versement, lui, compte bien comme capital investi", () => {
+    const versement = buildCashMovement({ type: "VERSEMENT", amount: 1000, date: "2026-02-01" });
+    expect(versement.type).toBe("VERSEMENT");
+    expect(operationCashDelta(versement)).toBe(1000);
+    expect(computeCumulativeContributions([versement])).toEqual([
+      { date: "2026-02-01", capital: 1000 },
+    ]);
+  });
+
+  it("refuse de fabriquer un mouvement sans montant ni type valide", () => {
+    expect(buildCashMovement({ type: "VERSEMENT", amount: 0 })).toBeNull();
+    expect(buildCashMovement({ type: "AJUSTEMENT", amount: 100 })).toBeNull();
+  });
+});
+
+/**
+ * Réparation des écritures DÉJÀ enregistrées : c'est le pendant du correctif
+ * ci-dessus pour les données existantes.
+ */
+describe("versementsSuspects / convertirEnAjustements", () => {
+  it("reconnaît avec certitude une écriture marquée comme ajustement", () => {
+    const ops = [
+      { id: "a", date: "2026-08-29", type: "VERSEMENT", amount: 1000, montantNet: 1000, origine: "ajustement-cash" },
+    ];
+    const [suspect] = versementsSuspects(ops);
+    expect(suspect.certitude).toBe("sure");
+  });
+
+  it("présume un ancien versement sans titre, ni prix, ni frais", () => {
+    const ops = [
+      { id: "b", date: "2026-08-29", type: "RETRAIT", asset: null, quantity: null, price: null, fees: 0, amount: 1000, montantNet: 1000 },
+    ];
+    const [suspect] = versementsSuspects(ops);
+    expect(suspect.certitude).toBe("probable");
+  });
+
+  it("laisse tranquille un versement explicitement saisi", () => {
+    const ops = [
+      { id: "c", date: "2026-08-29", type: "VERSEMENT", amount: 1000, montantNet: 1000, origine: "saisie" },
+    ];
+    expect(versementsSuspects(ops)).toEqual([]);
+  });
+
+  it("ne touche ni aux achats ni aux ventes", () => {
+    const ops = [{ id: "d", date: "2026-08-29", type: "VENTE", quantity: 10, price: 100, fees: 0 }];
+    expect(versementsSuspects(ops)).toEqual([]);
+  });
+
+  it("convertit un RETRAIT en ajustement négatif, sans bouger le solde", () => {
+    const ops = [
+      { id: "e", date: "2026-08-29", type: "RETRAIT", asset: null, quantity: null, price: null, fees: 0, amount: 1000, montantNet: 1000 },
+    ];
+    const avant = totalCashDelta(ops);
+    const apres = convertirEnAjustements(ops, ["e"]);
+    expect(apres[0].type).toBe("AJUSTEMENT");
+    expect(apres[0].amount).toBe(-1000);
+    // Le solde est strictement identique : seule la NATURE de l'écriture
+    // change. C'est ce qui rend la conversion sûre.
+    expect(totalCashDelta(apres)).toBe(avant);
+    // En revanche elle sort du capital investi, et c'est tout l'objectif.
+    expect(computeCumulativeContributions(ops)).toHaveLength(1);
+    expect(computeCumulativeContributions(apres)).toHaveLength(0);
   });
 });
 

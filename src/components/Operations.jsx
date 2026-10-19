@@ -9,6 +9,7 @@ import { parseOperationPdf } from "../lib/api";
 import OperationForm from "./OperationForm";
 import OperationList from "./OperationList";
 import OrderSimulator from "./OrderSimulator";
+import ReparationJournal from "./ReparationJournal";
 import { useToast } from "../lib/ToastContext";
 import { exporterOperationsCsv } from "../lib/exportOperations";
 
@@ -208,7 +209,13 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     if (!original) return false;
 
     let updated;
-    if (original.type === "VERSEMENT" || original.type === "RETRAIT") {
+    if (original.type === "AJUSTEMENT") {
+      // Correction de solde : le montant est SIGNÉ, son sens fait partie de
+      // l'information. Le forcer en valeur absolue, comme pour un versement,
+      // transformerait une correction à la baisse en correction à la hausse.
+      const amount = Number(order.amount ?? original.amount) || 0;
+      updated = { ...original, date: order.date || original.date, amount, montantNet: amount };
+    } else if (original.type === "VERSEMENT" || original.type === "RETRAIT") {
       // Mouvement de trésorerie : seul le montant (et la date) a un sens ;
       // le formulaire d'ordre ne sait pas les représenter, on préserve le type.
       const amount = Math.abs(Number(order.amount ?? original.amount) || 0);
@@ -267,6 +274,11 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
           n'attend pas : `positions` retombait sur son tableau vide par défaut
           et le simulateur se masquait tout seul, sans la moindre erreur. */}
       <OrderSimulator positions={positions} cashPocket={bourse?.cash_pocket || 0} />
+
+      {/* Réparation du journal — ne s'affiche QUE s'il y a quelque chose à
+          réparer : une carte permanente « tout va bien » n'apprend rien et
+          finit par être ignorée le jour où elle a quelque chose à dire. */}
+      <ReparationJournal bourse={bourse} setBourse={setBourse} appliquerJournal={applyLedger} />
 
       {/* En-tête d'action & import */}
       <Card>

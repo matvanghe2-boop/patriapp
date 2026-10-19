@@ -1,5 +1,5 @@
 import { useState, useId } from "react";
-import { X, Check, TrendingUp, TrendingDown, Coins, Split } from "lucide-react";
+import { X, Check, TrendingUp, TrendingDown, Coins, Split, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { todayIso, lireNombre } from "../lib/finance";
 import Modal from "./Modal";
 
@@ -65,9 +65,30 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
 
   const isDividende = values.type === "DIVIDENDE";
   const isSplit = values.type === "SPLIT";
+  // Versement et retrait ne portent sur aucun titre : ils déplacent de
+  // l'argent entre le compte courant et le portefeuille. C'est la SEULE façon
+  // de créer un flux externe — corriger la poche cash produit désormais un
+  // ajustement, qui ne compte ni dans le capital investi ni dans la
+  // performance.
+  const isMouvementCash = values.type === "VERSEMENT" || values.type === "RETRAIT";
 
   const submit = (e) => {
     e.preventDefault();
+    if (isMouvementCash) {
+      const montant = lireNombre(values.amount);
+      if (!Number.isFinite(montant) || montant <= 0) return;
+      onSubmit({
+        ...(preset?.id ? { id: preset.id } : {}),
+        type: values.type,
+        asset: null,
+        amount: Math.abs(montant),
+        date: values.date,
+        origine: "saisie",
+        broker: preset?.broker || "Saisie manuelle",
+        transactionId: preset?.transactionId ?? null,
+      });
+      return;
+    }
     if (!values.asset.trim()) return;
     if (isSplit) {
       const ratio = lireNombre(values.ratio);
@@ -132,8 +153,8 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           </button>
         </div>
 
-        {/* Toggle ACHAT / VENTE / DIVIDENDE / SPLIT */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {/* Toggle ACHAT / VENTE / DIVIDENDE / SPLIT / VERSEMENT / RETRAIT */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => setValues((v) => ({ ...v, type: "ACHAT" }))}
@@ -178,9 +199,61 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
           >
             <Split size={15} /> Split
           </button>
+          <button
+            type="button"
+            onClick={() => setValues((v) => ({ ...v, type: "VERSEMENT" }))}
+            className={`btn-flash flex items-center justify-center gap-1.5 rounded-xl border py-2 text-sm font-semibold transition-colors ${
+              values.type === "VERSEMENT"
+                ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
+                : "border-slate-700 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            <ArrowDownLeft size={15} /> Versement
+          </button>
+          <button
+            type="button"
+            onClick={() => setValues((v) => ({ ...v, type: "RETRAIT" }))}
+            className={`btn-flash flex items-center justify-center gap-1.5 rounded-xl border py-2 text-sm font-semibold transition-colors ${
+              values.type === "RETRAIT"
+                ? "bg-rose-500/15 border-rose-500/50 text-rose-300"
+                : "border-slate-700 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            <ArrowUpRight size={15} /> Retrait
+          </button>
         </div>
 
-        {/* Actif */}
+        {/* Un mouvement d'argent se décrit par un montant et une date, rien
+            d'autre : ni titre, ni quantité, ni prix. */}
+        {isMouvementCash && (
+          <div>
+            <label htmlFor={`${idsChamps}-montant-cash`} className="text-micro text-slate-500">
+              Montant (€)
+            </label>
+            <input
+              id={`${idsChamps}-montant-cash`}
+              required
+              type="text"
+              inputMode="decimal"
+              placeholder="1 000"
+              value={values.amount}
+              onChange={(e) => setValues((v) => ({ ...v, amount: e.target.value }))}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60"
+            />
+            <p className="text-micro text-slate-600 mt-1">
+              {values.type === "VERSEMENT"
+                ? "Argent qui ENTRE dans le portefeuille depuis ton compte courant."
+                : "Argent qui SORT du portefeuille vers ton compte courant."}{" "}
+              Pour corriger un solde qui ne tombe pas juste, modifie plutôt la poche cash : cela crée
+              un ajustement, sans fausser la performance.
+            </p>
+          </div>
+        )}
+
+        {/* Actif — sans objet pour un versement ou un retrait, qui ne portent sur
+            aucun titre. Ce champ est `required` : le laisser monté
+            empêcherait purement et simplement la soumission. */}
+        {!isMouvementCash && (
         <div>
           <label htmlFor={`${idsChamps}-actif`} className="text-micro text-slate-500">Actif</label>
           <input id={`${idsChamps}-actif`}
@@ -198,8 +271,9 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
             ))}
           </datalist>
         </div>
+        )}
 
-        {isSplit ? (
+        {isMouvementCash ? null : isSplit ? (
           <div>
             <label htmlFor={`${idsChamps}-nombre-de-titres`} className="text-micro text-slate-500">
               Nombre de titres obtenus pour 1 titre détenu

@@ -8,7 +8,7 @@ import { Sparkline } from "./graphiques";
 import OngletsGlissants from "./OngletsGlissants";
 import EtatVide from "./EtatVide";
 import { useTirerPourRafraichir, IndicateurRafraichissement, useBalayageSuppression } from "./gestes";
-import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux, lireNombre } from "../lib/finance";
+import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux, lireNombre, variationDuJour } from "../lib/finance";
 import { searchSecurity, fetchQuotes, fetchTauxChange, fetchHistory } from "../lib/api";
 import {
   plagePour,
@@ -17,7 +17,10 @@ import {
   indexerClotures,
   datesCotees,
   ABSENCE_MAX_JOURS,
+  recalculerReleves,
+  appliquerRecalcul,
 } from "../lib/rattrapage";
+import { BENCHMARKS, CLES_INDICE } from "../lib/benchmarks";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
 
@@ -50,12 +53,10 @@ function formatDateFrShort(iso) {
 // vivait jusqu'ici en dur dans `captureSnapshot` ; le rattrapage en a besoin
 // aussi, et deux listes qui doivent rester d'accord sans que rien ne le
 // vérifie finissent toujours par diverger.
-const BENCHMARKS = [
-  { symbol: "^GSPC", name: "S&P 500", color: "#38bdf8", cle: "sp500" },
-  { symbol: "^FCHI", name: "CAC 40", color: "#a78bfa", cle: "cac40" },
-  { symbol: "URTH", name: "MSCI World", color: "#34d399", cle: "msciWorld" },
-];
-const CLES_INDICE = Object.fromEntries(BENCHMARKS.map((b) => [b.symbol, b.cle]));
+// La liste vit désormais dans `src/lib/benchmarks.js`, importée plus haut :
+// elle était dupliquée ici et dans BoursePerformance.jsx, et les deux copies
+// avaient divergé — trois indices proposés à la sélection n'étaient jamais
+// collectés, ce qui vidait le graphique au lieu d'afficher une courbe en moins.
 const PIE_PALETTE = ["#a78bfa", "#d946ef", "#818cf8", "#c084fc", "#22d3ee", "#f472b6", "#8b5cf6", "#e879f9"];
 
 const today = () => todayIso();
@@ -432,13 +433,23 @@ function EligibilitePeaWarning({ positions, enveloppe }) {
 }
 
 /**
- * Poche de cash — modifiable à la main, mais tout écart est enregistré comme
- * un mouvement daté (VERSEMENT ou RETRAIT) dans le journal d'opérations.
+ * Poche de cash — modifiable à la main. Tout écart est tracé, mais comme un
+ * AJUSTEMENT de solde, et non plus comme un versement ou un retrait.
  *
- * Sans cette trace, l'application n'a aucun moyen de distinguer « j'ai
- * alimenté mon PEA » d'« un gain de marché » : le versement serait compté
- * comme de la performance dans le TWR, et la courbe Capital investi ne
- * bougerait pas alors que de l'argent vient d'entrer.
+ * La trace reste indispensable : `cash_pocket` est rejoué depuis le journal,
+ * une correction non écrite ne tiendrait pas d'un rechargement à l'autre.
+ * Mais sa NATURE comptait autant que son existence. En créant un VERSEMENT ou
+ * un RETRAIT, l'ancienne version déclarait un mouvement d'argent entre le
+ * compte courant et le portefeuille — un flux externe, donc du capital
+ * investi en plus ou en moins, et une performance faussée d'autant.
+ *
+ * Or on corrige son solde presque toujours pour la raison inverse : une
+ * vente, un dividende ou des frais qui ne tombaient pas au centime près.
+ * Après une vente, recaler le solde créait ainsi un retrait du montant de la
+ * vente — l'argent était pourtant toujours là, simplement passé des titres
+ * vers le cash.
+ *
+ * Un vrai versement se saisit désormais depuis Opérations, explicitement.
  *
  * La saisie n'est validée qu'à la sortie du champ (ou sur Entrée) : sinon
  * chaque frappe créerait sa propre écriture.
@@ -707,6 +718,12 @@ export default function Bourse({
             return {
               ...p,
               current_price: q.price,
+              // Clôture de la veille CONSERVÉE sur la position : c'est elle qui
+              // permet de calculer la variation du jour du portefeuille entier.
+              // C'est Yahoo qui décide de ce qu'est « la veille » — vendredi pour
+              // un lundi, l'avant-veille après un jour férié — ce qui évite d'avoir
+              // à tenir un calendrier boursier par place.
+              previousClose: q.previousClose ?? p.previousClose ?? null,
               currency: devise,
               fxRate: taux,
               fxUpdatedAt: taux != null && devise !== "EUR" ? refreshedAt : p.fxUpdatedAt ?? null,
@@ -761,7 +778,16 @@ export default function Bourse({
       const priceMap = {};
       quotes.forEach((q) => { if (q.ok) priceMap[q.symbol] = q.price; });
 
-      const valeur = bourse.positions.reduce((sum, p) => sum + (priceMap[p.ticker] ?? p.current_price) * p.quantity, 0) + bourse.cash_pocket;
+      // Valorisation par `valeurPosition`, donc CONVERTIE en euros. L'ancien
+      // calcul multipliait le cours par la quantité sans toucher au taux de
+      // change : une ligne en dollars entrait dans l'instantané quotidien à
+      // parité 1:1, alors que le reste de l'application la convertit. La
+      // courbe de valeur et la variation du jour en héritaient.
+      const valeur =
+        bourse.positions.reduce(
+          (sum, p) => sum + valeurPosition({ ...p, current_price: priceMap[p.ticker] ?? p.current_price }),
+          0
+        ) + bourse.cash_pocket;
       // Cumul des versements, dérivé du journal d'opérations — et non plus
       // `Σ quantité × PRU + cash`, qui chutait à chaque vente alors qu'aucun
       // argent n'était sorti du compte.
@@ -771,9 +797,10 @@ export default function Bourse({
         date: today(),
         valeur: Math.round(valeur),
         capital: Math.round(capital),
-        sp500: priceMap["^GSPC"] ?? null,
-        cac40: priceMap["^FCHI"] ?? null,
-        msciWorld: priceMap["URTH"] ?? null,
+        // Dérivé de la liste d'indices, et non réécrit à la main : c'est
+        // l'énumération en dur de trois clés qui avait laissé Nasdaq, MSCI
+        // Emerging et Or vides en permanence.
+        ...Object.fromEntries(BENCHMARKS.map((b) => [b.cle, priceMap[b.symbol] ?? null])),
       };
       setBourseHistory((h) => upsertByDate(h, entry));
 
@@ -842,6 +869,63 @@ export default function Bourse({
     }
   };
 
+  /**
+   * Recalcul des relevés DÉJÀ enregistrés.
+   *
+   * Le rattrapage ci-dessus ne comble que les trous ; il ne corrige jamais un
+   * point existant, et c'est voulu — un relevé pris en séance vaut mieux
+   * qu'une clôture reconstituée. Sauf quand ce relevé a figé une valeur
+   * fausse, ce qui est exactement ce qu'a produit le « faux creux » : après
+   * une vente dont le produit n'était pas crédité en poche cash au même
+   * instant, le portefeuille paraissait avoir perdu le montant de la vente.
+   * Le creux est entré dans l'historique, et le rattrapage ne pouvait pas
+   * l'en sortir.
+   *
+   * Le recalcul rejoue le journal CORRIGÉ contre les clôtures réelles, et ne
+   * touche que les points dont la valeur change. Rien n'est écrit avant que
+   * l'utilisateur ait vu l'écart, point par point.
+   */
+  const [apercuRecalcul, setApercuRecalcul] = useState(null);
+  const [recalculEnCours, setRecalculEnCours] = useState(false);
+
+  const preparerRecalcul = async () => {
+    if (bourseHistory.length === 0) return;
+    setRecalculEnCours(true);
+    setTrackError("");
+    try {
+      const premier = bourseHistory.map((e) => e.date).filter(Boolean).sort()[0];
+      const profondeur = Math.round(
+        (new Date(`${today()}T00:00:00`) - new Date(`${premier}T00:00:00`)) / 86400000
+      );
+      const tickers = [...new Set(bourse.positions.map((p) => p.ticker))];
+      const symboles = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
+      const reponses = await fetchHistory(symboles, plagePour(Math.min(profondeur, ABSENCE_MAX_JOURS)), "1d");
+      const clotures = indexerClotures(reponses);
+      const changements = recalculerReleves({
+        bourse,
+        historique: bourseHistory,
+        clotures,
+        indices: CLES_INDICE,
+      });
+      setApercuRecalcul(changements);
+    } catch {
+      setTrackError("Recalcul impossible — les clôtures n'ont pas pu être récupérées.");
+    } finally {
+      setRecalculEnCours(false);
+    }
+  };
+
+  const validerRecalcul = () => {
+    if (!apercuRecalcul || apercuRecalcul.length === 0) return;
+    const avant = bourseHistory;
+    setBourseHistory((h) => appliquerRecalcul(h, apercuRecalcul));
+    showToast({
+      message: `${apercuRecalcul.length} relevé(s) recalculé(s) à partir du journal.`,
+      onUndo: () => setBourseHistory(avant),
+    });
+    setApercuRecalcul(null);
+  };
+
   useEffect(() => {
     const hasToday = bourseHistory.some((e) => e.date === today());
     // Effet de CHARGEMENT : Relevé de performance du jour au montage :
@@ -888,16 +972,19 @@ export default function Bourse({
     }
   }, [bourse.positions, sort, dailyData, bourseTotal]);
 
-  // ─── Portfolio daily total variation ───────────────────────────────────────
-  const portfolioDailyChange = useMemo(() => {
-    let total = 0;
-    let hasData = false;
-    bourse.positions.forEach((p) => {
-      const d = dailyData[p.ticker];
-      if (d) { total += d.changeAbs * p.quantity; hasData = true; }
-    });
-    return hasData ? total : null;
-  }, [bourse.positions, dailyData]);
+  /**
+   * Variation du portefeuille sur la séance.
+   *
+   * Calculée par `variationDuJour`, à partir de la clôture de la veille de
+   * chaque ligne. L'ancienne version sommait `changeAbs × quantité` SANS
+   * convertir les devises : une ligne en dollars pesait son montant brut en
+   * euros dans le total. Elle n'affichait pas non plus de pourcentage, alors
+   * que c'est lui qui se lit d'un coup d'œil.
+   */
+  const variationJour = useMemo(
+    () => variationDuJour(bourse.positions, bourse.cash_pocket || 0),
+    [bourse.positions, bourse.cash_pocket]
+  );
 
   return (
     <div className="relative space-y-6">
@@ -958,10 +1045,34 @@ export default function Bourse({
         <Card accent={CARD_THEMES.violet}>
           <CardLabel>Valeur du portefeuille</CardLabel>
           <div className="font-display text-xl text-slate-100 ghost-blur">{eur(bourseTotal)}</div>
-          {portfolioDailyChange !== null && (
-            <div className={`flex items-center gap-1 text-xs mt-1 font-data ghost-blur ${portfolioDailyChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              {portfolioDailyChange >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-              {portfolioDailyChange >= 0 ? "+" : ""}{eur(portfolioDailyChange)} aujourd'hui
+          {/* Le POURCENTAGE d'abord, le montant à côté : c'est l'ordre de
+              lecture naturel d'une variation de séance, et le pourcentage est
+              le seul des deux qui soit comparable d'un jour à l'autre. */}
+          {variationJour.exploitable && (
+            <div
+              className={`flex items-center gap-1.5 text-xs mt-1 font-data tabular-nums ghost-blur ${
+                variationJour.montant >= 0 ? "text-emerald-400" : "text-rose-400"
+              }`}
+            >
+              {variationJour.montant >= 0 ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}
+              <span className="font-semibold">
+                {variationJour.montant >= 0 ? "+" : "−"}
+                {pctPlain(Math.abs(variationJour.pourcentage))}
+              </span>
+              <span className="text-slate-400">
+                {variationJour.montant >= 0 ? "+" : "−"}
+                {eur(Math.abs(variationJour.montant))}
+              </span>
+              <span className="text-slate-600">aujourd&apos;hui</span>
+            </div>
+          )}
+          {/* Une ligne sans cours de veille est exclue des deux termes du
+              calcul, pas comptée à zéro : la variation affichée porte alors
+              sur une partie seulement du portefeuille, et le dire vaut mieux
+              que de laisser croire à un total. */}
+          {variationJour.exploitable && variationJour.lignesIgnorees > 0 && (
+            <div className="text-micro text-amber-300/70 mt-0.5">
+              {variationJour.lignesIgnorees} ligne(s) sans cours de veille, hors de ce calcul
             </div>
           )}
         </Card>
@@ -1326,6 +1437,11 @@ export default function Bourse({
         trackLoading={trackLoading}
         trackError={trackError}
         captureSnapshot={captureSnapshot}
+        apercuRecalcul={apercuRecalcul}
+        recalculEnCours={recalculEnCours}
+        onPreparerRecalcul={preparerRecalcul}
+        onValiderRecalcul={validerRecalcul}
+        onAnnulerRecalcul={() => setApercuRecalcul(null)}
         hasEnoughHistory={hasEnoughHistory}
         hasEnoughBase100={hasEnoughBase100}
         perfRange={perfRange}

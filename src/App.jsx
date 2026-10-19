@@ -7,9 +7,10 @@ import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
 } from "./lib/storage";
 import { usePatrimoine, STORAGE_KEYS } from "./lib/PatrimoineContext";
-import { todayIso, netWorthDelta } from "./lib/finance";
+import { todayIso, netWorthDelta, variationDuJour } from "./lib/finance";
 import { useDailySnapshot } from "./lib/useDailySnapshot";
 import { useAlertesWatchlist } from "./lib/useAlertesWatchlist";
+import { useRappelsCalendrier } from "./lib/useRappelsCalendrier";
 import { useBilanRappel } from "./lib/useBilanRappel";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
@@ -138,6 +139,23 @@ export default function App() {
     dernierBilan: patrimoine.horizonDernierBilan,
     setDernierBilan: patrimoine.setHorizonDernierBilan,
   });
+
+  /**
+   * Rappels « c'est demain » du calendrier financier. Montés ici pour la même
+   * raison que les alertes de watchlist : une échéance ne doit pas dépendre de
+   * l'onglet ouvert pour se signaler.
+   */
+  const rappelsCalendrier = useRappelsCalendrier();
+
+  /**
+   * Variation du jour, calculée ici parce que l'en-tête collant est monté au
+   * niveau de l'application : sur un téléphone, c'est souvent la seule chose
+   * qui reste à l'écran une fois la page défilée.
+   */
+  const variationJour = useMemo(
+    () => variationDuJour(patrimoine.bourse?.positions || [], patrimoine.bourse?.cash_pocket || 0),
+    [patrimoine.bourse]
+  );
 
   const delta30j = useMemo(
     () => netWorthDelta(patrimoine.historyPast, patrimoine.patrimoineNet, 30),
@@ -429,6 +447,7 @@ export default function App() {
         <StickySummaryHeader
           patrimoineNet={patrimoine.patrimoineNet}
           deltaPct={delta30j.hasReference ? delta30j.pct : null}
+          variationJour={variationJour}
           ghostMode={ghostMode}
           onToggleGhost={() => setGhostMode((g) => !g)}
         >
@@ -445,7 +464,7 @@ export default function App() {
           <Notifications
             reminders={patrimoine.reminders}
             setReminders={patrimoine.setReminders}
-            alertes={[...bilanDu, ...alertesDues]}
+            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier]}
             onAcquitterAlerte={acquitterAlerte}
             onAcquitterBilan={acquitterBilan}
           />

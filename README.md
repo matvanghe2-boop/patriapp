@@ -39,6 +39,9 @@ L'application démarre **vide** : aucun patrimoine fictif n'est préchargé. Un 
 - **Rééquilibrage** — sous les positions : **poids cible saisissable ligne par ligne**, avec le total affiché en permanence et ce qu'il reste à répartir ; plan d'ordres complet, besoin de liquidités et impact fiscal des ventes. Remplace l'ancien simulateur d'ordre, qui ne raisonnait que sur une ligne à la fois alors que vendre l'une modifie le poids de toutes les autres
 - **Simulation** — intérêts composés sur l'ensemble du patrimoine (poche Livrets + poche Bourse, chacune avec son taux et son versement), scénarios comparables
 - **Immobilier & Crédit** — sous-onglet de Simulation : apport, mensualités sur 15/20/25 ans, alerte taux d'endettement (norme HCSF 35 %), suivi des travaux
+- **Variation du jour** — sous la valeur du portefeuille, et dans l'en-tête condensé du mobile. Mesurée depuis la **clôture de la veille de chaque ligne**, pas depuis un relevé enregistré : c'est la source de cours qui sait qu'un lundi se compare au vendredi et que les places ne ferment pas les mêmes jours, là où un relevé interne n'existe que les jours d'ouverture de l'application. Les versements et retraits ne comptent pas comme de la performance — ils ne bougent que la poche cash, qui reste au dénominateur sans entrer au numérateur. Conversion de change incluse ; une ligne sans cours de veille est exclue des deux termes plutôt que comptée à zéro, et leur nombre est affiché
+- **Journal d'opérations et poche cash** — corriger la poche cash crée un **ajustement de solde**, pas un versement. La distinction n'est pas cosmétique : un versement est un flux externe, il entre dans le capital investi et modifie la performance. Recaler son solde après une vente créait donc un retrait du montant de la vente, alors que l'argent n'avait pas quitté le portefeuille. Un vrai versement se saisit explicitement depuis Opérations, où les types **Versement** et **Retrait** ont été ajoutés. Pour les écritures déjà enregistrées, « Réparer le journal » les repère et propose de les convertir — l'écran distingue ce qui est certain de ce qui n'est que probable, et ne convertit rien sans validation
+- **Recalcul de l'historique** — dans Performance. Le rattrapage ne comble que les trous, jamais un point existant ; ce recalcul rejoue le journal corrigé contre les clôtures réelles et corrige les relevés qui avaient figé une valeur fausse (le « faux creux » d'une vente). Il affiche l'écart jour par jour **avant** d'écrire, et reste annulable
 - **Dividendes & TRI** — dans Performance : dividendes attendus confrontés aux dividendes réellement encaissés, **projection à 5 ou 10 ans** au rythme de croissance mesuré sur ton propre historique (taux composé, ajustable à la main), rendement sur prix de revient, et **taux de rendement interne par ligne**
 
   Le TRI n'est affiché que si le journal d'opérations couvre **toute** la position. Sans le coût d'achat initial, la série se résume à une petite sortie récente suivie de la valeur totale d'aujourd'hui — ce qui produit des rendements de plusieurs centaines de pourcents. Les lignes incomplètes sont listées avec le nombre de titres retracés, plutôt que dotées d'un chiffre flatteur et faux.
@@ -75,6 +78,20 @@ Trois limites, énoncées parce qu'elles se voient à l'usage :
 - **La couverture chute sur les petites valeurs** : 96 % des champs renseignés sur le SBF 120, 88 % sur les small caps françaises, où le PER n'est publié que pour un titre sur deux (beaucoup sont en perte, ou relèvent d'Euronext Growth). `couvertureTitre` mesure cette disponibilité titre par titre.
 - **Le consensus s'arrête à l'exercice suivant.** L'application affiche donc un PER estimé sur deux exercices — l'année en cours et la suivante. Pas de troisième année : elle ne pourrait qu'être extrapolée, et s'afficherait à côté de vrais consensus sans que rien ne les distingue.
 - **Une donnée manquante n'est pas un échec.** Un titre dont le taux de distribution n'est pas publié n'est pas éliminé du filtre : le critère ressort « indéterminé » et le nombre de critères réellement évalués est affiché. Sans cette distinction, un titre disparaîtrait d'un écran pour une raison étrangère au filtre.
+
+### Calendrier financier : deux sources, et un statut assumé
+
+Le calendrier couvre le portefeuille et la watchlist : résultats, dividendes, conférences, communiqués, assemblées.
+
+**Ce qui manquait n'était pas des dates, mais leur degré de certitude.** Yahoo ne dit jamais si une date de résultats est communiquée par la société ou simplement extrapolée du rythme des trimestres précédents — les deux s'affichaient à l'identique. Il existe pourtant un aveu exploitable : quand Yahoo renvoie une **fourchette** plutôt qu'un jour, c'est que la société n'a rien annoncé. Chaque événement porte donc désormais un statut **Confirmé** ou **Estimé**, sa provenance, et l'heure de sa dernière relecture.
+
+**Deuxième source : SEC EDGAR** (`SEC_USER_AGENT`), pour les lignes américaines. EDGAR est un registre de dépôts : il ne contient aucun calendrier prévisionnel, et on n'en tire donc aucune date future — ce serait les inventer. Il apporte deux choses que Yahoo n'a pas : les **communiqués (8-K)**, qui n'existent nulle part chez Yahoo, et une **confirmation** — un 10-Q effectivement déposé fait passer l'événement d'estimé à confirmé. Quand les deux sources décrivent le même fait, elles n'en forment qu'un seul et le dépôt réglementaire l'emporte, sans perdre les estimations d'analystes que Yahoo était seule à porter.
+
+**Les dates sont calculées en heure de Paris.** Elles étaient dérivées en UTC : une publication américaine tombant après la clôture de New York (21 h ou 22 h UTC) était le même jour à Paris en hiver, mais le lendemain en été. Le calendrier décalait donc certaines dates d'un jour, de façon saisonnière.
+
+**Rappel la veille** — optionnel, désactivé par défaut, et réservé aux événements **confirmés** : prévenir la veille d'une date estimée reviendrait à annoncer un rendez-vous que personne n'a fixé.
+
+Limite connue, déjà vraie avant : Yahoo n'expose aucune date d'assemblée générale pour les valeurs européennes, et EDGAR ne couvre que les sociétés américaines. Le type existe, il reste vide pour les lignes françaises — aucune date n'est fabriquée pour combler ce trou.
 
 ### Quand la source de cours tombe
 
@@ -163,6 +180,7 @@ git push -u origin main
 | `VITE_SUPABASE_ANON_KEY` | non | Clé publique Supabase (protégée par RLS) |
 | `ALLOWED_ORIGINS` | non (voir ci-dessous) | Origines **supplémentaires** autorisées à appeler `api/*`, séparées par des virgules. Le domaine de production est déjà accepté automatiquement ; à renseigner pour un domaine personnalisé non encore rattaché au projet, ou une autre origine légitime |
 | `WEBSTAT_CLIENT_ID` | non | Identifiant client Banque de France (Webstat), pour rafraîchir en direct quelques taux du sous-onglet Taux. Absent ⇒ catalogue de référence maintenu à la main (voir plus bas) |
+| `SEC_USER_AGENT` | non | En-tête de contact exigé par la SEC (`"Patrium contact@domaine.fr"`), pour enrichir le calendrier des dépôts réglementaires américains. Absent ⇒ source éteinte, Yahoo seul |
 
 Les variables préfixées `VITE_` sont **intégrées au JavaScript envoyé au navigateur** : elles sont donc publiques par construction. C'est acceptable pour la clé `anon` de Supabase (c'est son rôle, la sécurité repose sur RLS) ; n'y mets jamais de clé de service.
 

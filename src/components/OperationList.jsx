@@ -72,12 +72,16 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                       ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
                       : op.type === "RETRAIT"
                       ? "bg-slate-500/10 border-slate-500/30 text-slate-300"
+                      : op.type === "AJUSTEMENT"
+                      ? "bg-slate-600/10 border-slate-600/40 text-slate-400"
                       : op.type === "SPLIT"
                       ? "bg-violet-500/10 border-violet-500/30 text-violet-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                   }`}
                 >
-                  {op.type}
+                  {/* « AJUSTEMENT » tient mal dans la colonne et se lit comme
+                      un mouvement d'argent : on l'abrège en « solde ». */}
+                  {op.type === "AJUSTEMENT" ? "SOLDE" : op.type}
                 </span>
               </td>
               {/* Un split n'a pas de quantité propre : il en a un RATIO, qu'on

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { History, ShoppingCart, Banknote, Coins, Target, Split, ArrowDownLeft } from "lucide-react";
+import { History, ShoppingCart, Banknote, Coins, Target, Split, ArrowDownLeft , Pencil } from "lucide-react";
 import { CarteFocalisable, CardLabel } from "./ui";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
@@ -26,6 +26,10 @@ const TYPES = {
   DIVIDENDE: { icone: Coins, couleur: "emerald", libelle: "Dividende" },
   VERSEMENT: { icone: ArrowDownLeft, couleur: "indigo", libelle: "Versement" },
   RETRAIT: { icone: ArrowDownLeft, couleur: "rose", libelle: "Retrait" },
+  // Une correction de solde n'est pas un mouvement d'argent : elle porte son
+  // propre libellé et une teinte neutre, pour qu'on ne la lise pas comme un
+  // versement dans la frise — c'était tout le problème.
+  AJUSTEMENT: { icone: Pencil, couleur: "slate", libelle: "Ajustement de solde" },
   SPLIT: { icone: Split, couleur: "cyan", libelle: "Division" },
   OBJECTIF: { icone: Target, couleur: "amber", libelle: "Objectif atteint" },
 };
@@ -37,6 +41,7 @@ const CLASSES_POINT = {
   indigo: "bg-indigo-400",
   rose: "bg-rose-400",
   cyan: "bg-cyan-400",
+  slate: "bg-slate-500",
 };
 
 function formatDate(iso) {
@@ -58,6 +63,8 @@ function montantDe(op) {
     case "DIVIDENDE": return Math.abs(lireNombre(op.amount ?? op.montantNet) ?? 0);
     case "VERSEMENT": return Math.abs(lireNombre(op.amount) ?? 0);
     case "RETRAIT": return -Math.abs(lireNombre(op.amount) ?? 0);
+    // Montant deja signe : le sens est porte par la valeur, pas par le type.
+    case "AJUSTEMENT": return lireNombre(op.amount ?? op.montantNet) ?? 0;
     default: return null;
   }
 }

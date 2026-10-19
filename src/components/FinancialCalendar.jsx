@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { fetchCalendarEvents } from "../lib/api";
 import { todayIso } from "../lib/finance";
+import { usePersistentState } from "../lib/storage";
 import { SkeletonChart } from "./ui";
 import Modal from "./Modal";
 
@@ -228,6 +229,64 @@ function EventModal({ ev, onClose }) {
         <div className="rounded-xl border border-[#222] bg-[#0a0a0a] p-3 mb-2">
           <div className="text-micro text-[#888] mb-0.5">Événement</div>
           <div className="text-sm text-white font-semibold">{ev.label}</div>
+
+          {/* Provenance et fiabilité.
+
+              Une date de résultats annoncée par la société et une date
+              extrapolée du rythme des trimestres précédents s'affichaient
+              exactement pareil. Impossible de savoir laquelle on regardait,
+              donc impossible de savoir s'il fallait y croire. */}
+          <div className="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-[#222]">
+            <span
+              className={`text-micro font-semibold px-1.5 py-0.5 rounded border ${
+                ev.statut === "confirme"
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                  : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+              }`}
+              title={
+                ev.statut === "confirme"
+                  ? "Date communiquée par la société ou attestée par un dépôt réglementaire."
+                  : "Date extrapolée du rythme des publications précédentes : elle peut bouger."
+              }
+            >
+              {ev.statut === "confirme" ? "Confirmé" : "Estimé"}
+            </span>
+            <span className="text-micro text-[#777]">
+              {(ev.fournisseurs || [ev.fournisseur])
+                .filter(Boolean)
+                .map((f) => (f === "sec-edgar" ? "SEC EDGAR" : "Yahoo Finance"))
+                .join(" + ") || "Yahoo Finance"}
+            </span>
+            {ev.majLe && (
+              <span className="text-micro text-[#555]">
+                relu {new Date(ev.majLe).toLocaleString("fr-FR", {
+                  timeZone: "Europe/Paris",
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
+          </div>
+
+          {ev.fourchette && (
+            <p className="text-micro text-amber-300/80 mt-1.5">
+              La société n&apos;a pas encore communiqué sa date : attendue entre le{" "}
+              {ev.fourchette.debut} et le {ev.fourchette.fin}.
+            </p>
+          )}
+
+          {ev.lien && (
+            <a
+              href={ev.lien}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-micro text-sky-400 hover:text-sky-300 underline underline-offset-2 mt-1.5"
+            >
+              Lire le document déposé
+            </a>
+          )}
         </div>
 
         {(ca || bnpa) && (
@@ -486,6 +545,11 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
     return { year: now.getFullYear(), month: now.getMonth() };
   });
   const [events, setEvents] = useState([]);
+  // Persistés pour que le rappel « c'est demain » fonctionne depuis n'importe
+  // quel onglet : le hook d'application lit cette clé plutôt que de refaire un
+  // appel réseau que le cache serveur servirait à l'identique.
+  const [, setEvenementsPersistes] = usePersistentState("calendrierEvenements", []);
+  const [notifVeille, setNotifVeille] = usePersistentState("calendrierNotifVeille", false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastSync, setLastSync] = useState(null);
@@ -520,6 +584,7 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
         r.ok ? r.events.map((ev) => ({ ...ev, source: sourceByTicker[ev.ticker] || "watchlist" })) : []
       );
       setEvents(merged);
+      setEvenementsPersistes(merged);
       const failed = results.filter((r) => !r.ok).length;
       if (failed > 0) setError(`${failed} valeur(s) sur ${results.length} sans calendrier disponible.`);
       setLastSync(new Date());
@@ -619,6 +684,28 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
           </button>
         </div>
       </div>
+
+      {/* Rappel la veille — OPTIONNEL et désactivé par défaut. Une
+          notification qu'on n'a pas demandée est une nuisance ; et seules les
+          dates confirmées la déclenchent, prévenir la veille d'une date
+          estimée reviendrait à annoncer un rendez-vous que personne n'a fixé. */}
+      <label className="flex items-center gap-2 mb-3 text-micro text-[#888] cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={notifVeille}
+          onChange={(e) => setNotifVeille(e.target.checked)}
+          className="accent-sky-400"
+        />
+        <span>
+          Me rappeler la veille des événements confirmés
+          {notifVeille && (
+            <span className="text-[#555]">
+              {" "}
+              — les dates estimées restent silencieuses
+            </span>
+          )}
+        </span>
+      </label>
 
       {/* Filtres par origine — portefeuille mis en avant, watchlist en retrait */}
       <div className="flex flex-wrap items-center gap-2 mb-3">

@@ -29,6 +29,8 @@
 
 import { httpError, cached } from "../http.js";
 import { YF_HEADERS, getYahooSession, invalidateYahooSession, parseSymbols } from "../yahoo.js";
+import { evenementsSec } from "../sources/edgar.js";
+import { fusionnerEvenements, statutYahoo } from "../sources/fusion.js";
 
 // Un calendrier d'événements évolue au mieux une fois par jour : cache long.
 const CACHE_MS = 60 * 60_000;
@@ -38,11 +40,31 @@ const CACHE_MS = 60 * 60_000;
 // d'exécution de la fonction serverless.
 const ENRICH_CONCURRENCY = 6;
 
-// Yahoo renvoie les timestamps en epoch secondes (nombre entier).
-function toIsoDate(epochSeconds) {
+/**
+ * Yahoo renvoie les timestamps en epoch secondes — et le jour qu'ils
+ * désignent dépend du fuseau dans lequel on les lit.
+ *
+ * `toISOString()` lit en UTC. Une publication de résultats américaine tombe
+ * typiquement après la clôture de New York, soit 21 h ou 22 h UTC : en hiver
+ * c'est encore le même jour à Paris, en été c'est déjà le lendemain. Le
+ * calendrier affichait donc certaines dates décalées d'un jour, de façon
+ * saisonnière — le genre d'écart qu'on met longtemps à soupçonner.
+ *
+ * On formate donc explicitement dans le fuseau de Paris, qui est celui de
+ * l'utilisateur de cette application. `en-CA` est utilisé pour sa seule
+ * propriété utile ici : il produit nativement un format AAAA-MM-JJ.
+ */
+const FORMAT_PARIS = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function toIsoDate(epochSeconds) {
   if (epochSeconds == null) return null;
   const d = new Date(epochSeconds * 1000);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  return Number.isNaN(d.getTime()) ? null : FORMAT_PARIS.format(d);
 }
 
 /** Yahoo enveloppe ses nombres dans { raw, fmt } — parfois non. */
@@ -195,6 +217,11 @@ export function eventsFromRow(row) {
       type: "Résultats",
       date: earningsStart,
       label: `Publication des résultats (entre le ${earningsStart} et le ${earningsEnd})`,
+      // Yahoo ne dit jamais « cette date est estimée ». Mais renvoyer une
+      // FOURCHETTE plutôt qu'un jour revient à l'avouer : la société n'a pas
+      // encore communiqué sa date. C'est le seul signal exploitable, et
+      // `statutYahoo` s'en sert pour distinguer estimation et confirmation.
+      fourchette: { debut: earningsStart, fin: earningsEnd },
     });
   } else if (earningsSingle || earningsStart) {
     events.push({
@@ -260,24 +287,54 @@ async function handler(req, res) {
     });
     const detailBySymbol = Object.fromEntries(details);
 
+    /**
+     * Seconde source : les dépôts réglementaires américains.
+     *
+     * Elle est facultative à deux titres — elle ne s'active qu'avec
+     * `SEC_USER_AGENT`, et son échec est absorbé. Ne pas dépendre d'une
+     * source unique était l'objectif ; en faire un nouveau point de panne
+     * l'aurait manqué.
+     */
+    let secParSymbole = {};
+    try {
+      const evenementsSecs = await evenementsSec(symbols);
+      secParSymbole = evenementsSecs.reduce((acc, e) => {
+        (acc[e.ticker] ||= []).push(e);
+        return acc;
+      }, {});
+    } catch {
+      secParSymbole = {};
+    }
+
+    const aujourdhui = toIsoDate(Math.floor(Date.now() / 1000));
+
     return res.status(200).json(
       symbols.map((symbol) => {
         const row = rowBySymbol[symbol];
         const detail = detailBySymbol[symbol];
-        if (!row && !detail) return { symbol, ok: false, error: "Symbole introuvable", events: [] };
+        const sec = secParSymbole[symbol] || [];
+        if (!row && !detail && sec.length === 0) {
+          return { symbol, ok: false, error: "Symbole introuvable", events: [] };
+        }
         const shortName = row?.shortName || row?.longName || symbol;
+
+        // La source détaillée passe en premier : ses libellés sont plus
+        // précis (« Résultats annuels » plutôt que « Publication des
+        // résultats »). La source groupée complète ce qui manque —
+        // notamment les dates de dividende, absentes de calendarEvents
+        // pour beaucoup de valeurs européennes.
+        const yahoo = mergeEvents(
+          eventsFromDetail(detail, symbol, shortName),
+          row ? eventsFromRow(row) : []
+        ).map((e) => ({ ...e, fournisseur: "yahoo", statut: statutYahoo(e, aujourdhui) }));
+
         return {
           symbol,
           ok: true,
-          // La source détaillée passe en premier : ses libellés sont plus
-          // précis (« Résultats annuels » plutôt que « Publication des
-          // résultats »). La source groupée complète ce qui manque —
-          // notamment les dates de dividende, absentes de calendarEvents
-          // pour beaucoup de valeurs européennes.
-          events: mergeEvents(
-            eventsFromDetail(detail, symbol, shortName),
-            row ? eventsFromRow(row) : []
-          ),
+          // Fusion des deux sources : un dépôt EDGAR tombant le même jour
+          // qu'une date annoncée par Yahoo ne crée pas une seconde ligne, il
+          // la confirme.
+          events: fusionnerEvenements([yahoo, sec]),
         };
       })
     );

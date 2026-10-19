@@ -221,3 +221,69 @@ export function datesCotees(clotures = {}) {
   }
   return [...dates].sort();
 }
+
+/**
+ * Recalcule des relevés DÉJÀ enregistrés, au lieu de se contenter de combler
+ * les trous.
+ *
+ * `reconstituer` ne sert que les jours manquants, parce qu'un relevé pris en
+ * séance vaut mieux qu'une clôture reconstituée. Mais un relevé pris en
+ * séance peut avoir figé une valeur fausse : c'est le cas du « faux creux »
+ * laissé par une vente dont le produit n'était pas crédité en poche cash au
+ * même instant. Le point est exact au sens où il reflète ce que
+ * l'application croyait ce jour-là, et faux au sens où le portefeuille
+ * n'avait jamais perdu cet argent.
+ *
+ * Le recalcul rejoue le journal corrigé contre les clôtures réelles. Il ne
+ * touche QUE les points dont la valeur change, et laisse le reste intact.
+ *
+ * @returns {{date, avant: number, apres: number, ecart: number, entree: object}[]}
+ *   Les points qui changeraient, pour l'aperçu. Rien n'est écrit ici.
+ */
+export function recalculerReleves({ bourse, historique = [], clotures = {}, indices = {} }) {
+  const dates = historique.map((h) => h.date).filter(Boolean);
+  if (dates.length === 0) return [];
+
+  const recalcules = reconstituer({ bourse, dates, clotures, indices });
+  const parDate = new Map(recalcules.map((r) => [r.date, r]));
+
+  const changements = [];
+  for (const point of historique) {
+    const neuf = parDate.get(point.date);
+    if (!neuf) continue; // clôture indisponible : on ne touche pas au point
+
+    const avant = Math.round(Number(point.valeur) || 0);
+    const apres = Math.round(Number(neuf.valeur) || 0);
+    // Un euro d'écart vient de l'arrondi, pas d'une correction : l'afficher
+    // noierait les vrais écarts dans du bruit.
+    if (Math.abs(apres - avant) < 2) continue;
+
+    changements.push({
+      date: point.date,
+      avant,
+      apres,
+      ecart: apres - avant,
+      // Les indices et le capital recalculés sont conservés, mais on garde
+      // les valeurs d'origine quand la nouvelle est absente : une clôture
+      // d'indice manquante ne doit pas effacer celle déjà enregistrée.
+      entree: {
+        ...point,
+        valeur: apres,
+        capital: neuf.capital ?? point.capital,
+        ...Object.fromEntries(
+          Object.values(indices)
+            .filter((cle) => neuf[cle] != null)
+            .map((cle) => [cle, neuf[cle]])
+        ),
+        recalcule: true,
+      },
+    });
+  }
+  return changements;
+}
+
+/** Applique à l'historique les changements validés par l'utilisateur. */
+export function appliquerRecalcul(historique = [], changements = []) {
+  const parDate = new Map(changements.map((c) => [c.date, c.entree]));
+  return historique.map((point) => parDate.get(point.date) || point);
+}
