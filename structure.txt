@@ -80,6 +80,8 @@ shared/adaptateursLLM.js
 shared/adaptateursLLM.test.js
 shared/anonymiser.js
 shared/anonymiser.test.js
+shared/calendrierReference.js
+shared/calendrierReference.test.js
 shared/dividendes.js
 shared/dividendes.test.js
 shared/eligibilitePea.js

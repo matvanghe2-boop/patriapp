@@ -7,6 +7,7 @@ import { fetchCalendarEvents } from "../lib/api";
 import { todayIso } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { evenementsManuels, creerDateManuelle, retirerDateManuelle, TYPES_MANUELS } from "../lib/calendrierManuel";
+import { evenementsReference, VERIFIE_LE, CALENDRIER_REFERENCE } from "../../shared/calendrierReference.js";
 import { SkeletonChart } from "./ui";
 import Modal from "./Modal";
 import ResumePublications from "./ResumePublications";
@@ -727,7 +728,15 @@ function SaisieDateManuelle({ tickers = [], dates = [], onAjouter, onRetirer }) 
  * positions : [{ ticker, name }, ...]  — lignes du portefeuille
  * watchlist : [{ ticker, name }, ...]  — valeurs surveillées
  */
-export default function FinancialCalendar({ positions = [], watchlist = [] }) {
+export default function FinancialCalendar({
+  positions = [],
+  watchlist = [],
+  // Le catalogue de référence est injectable pour que les tests puissent
+  // exercer le filtrage sur leurs seules données. Sans cela, ajouter une
+  // valeur au catalogue ferait tomber des tests qui n'ont rien à voir avec
+  // lui, simplement parce qu'ils utilisent le même ticker en exemple.
+  catalogueReference = CALENDRIER_REFERENCE,
+}) {
   const [view, setView] = useState("grid"); // "grid" | "timeline"
   const [cursor, setCursor] = useState(() => {
     const now = new Date();
@@ -803,18 +812,27 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
    * automatiques — un rafraîchissement ne les écrase jamais.
    */
   const tousEvenements = useMemo(() => {
-    const manuels = evenementsManuels(datesManuelles, tickers).map((e) => ({
-      ...e,
-      source: sourceByTicker[e.ticker] || "watchlist",
-    }));
-    if (manuels.length === 0) return events;
+    const marquerOrigine = (e) => ({ ...e, source: sourceByTicker[e.ticker] || "watchlist" });
 
-    // Même clé d'identité que la fusion côté serveur : une date saisie qui
-    // tombe le même jour que celle d'une API la remplace au lieu de doubler.
+    // Ordre de priorité croissant : les API d'abord, puis le catalogue de
+    // référence relevé sur les communiqués des sociétés, puis les saisies de
+    // l'utilisateur — qui connaît ses lignes mieux que n'importe quelle liste.
+    const reference = evenementsReference(tickers, catalogueReference).map(marquerOrigine);
+    const manuels = evenementsManuels(datesManuelles, tickers).map(marquerOrigine);
+    if (reference.length === 0 && manuels.length === 0) return events;
+
+    // Même clé d'identité que la fusion côté serveur : une date plus sûre qui
+    // tombe le même jour qu'une date d'API la remplace au lieu de doubler.
     const cle = (e) => `${e.ticker}|${e.type}|${e.date}`;
-    const prioritaires = new Set(manuels.map(cle));
-    return [...events.filter((e) => !prioritaires.has(cle(e))), ...manuels];
-  }, [events, datesManuelles, tickers, sourceByTicker]);
+    const clesReference = new Set(reference.map(cle));
+    const clesManuelles = new Set(manuels.map(cle));
+
+    return [
+      ...events.filter((e) => !clesReference.has(cle(e)) && !clesManuelles.has(cle(e))),
+      ...reference.filter((e) => !clesManuelles.has(cle(e))),
+      ...manuels,
+    ];
+  }, [events, datesManuelles, tickers, sourceByTicker, catalogueReference]);
 
   // La liste PERSISTÉE est celle qui inclut les saisies manuelles : sans
   // cela, le rappel « c'est demain » ignorerait précisément les dates les
@@ -925,6 +943,13 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
         </span>
       </label>
 
+      {/* Un catalogue tenu à la main vieillit : dire quand il a été vérifié
+          évite de le croire éternellement à jour. */}
+      <p className="text-micro text-[#666] mb-3">
+        Certaines dates viennent d&apos;un catalogue relevé sur les communiqués des sociétés,
+        vérifié le {VERIFIE_LE}. Les dates que tu saisis priment toujours dessus.
+      </p>
+
       {/* ─── Dates saisies à la main ───────────────────────────────────────
           Aucune source gratuite ne publie l'agenda à venir des valeurs
           d'Euronext : Yahoo n'avait une date de résultats encore à venir que
@@ -989,7 +1014,7 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
         </p>
       ) : isInitialLoad ? (
         <SkeletonChart height={280} />
-      ) : error && events.length === 0 ? (
+      ) : error && tousEvenements.length === 0 ? (
         <p className="text-sm text-[#ff5c5c] py-8 text-center border border-dashed border-[#2a2a2a] rounded-xl">
           {error}
         </p>
@@ -999,7 +1024,7 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
         <TimelineView events={filteredEvents} onEventClick={setSelectedEvent} />
       )}
 
-      {error && events.length > 0 && <p className="text-micro text-[#ffb020] mt-3">{error}</p>}
+      {error && tousEvenements.length > 0 && <p className="text-micro text-[#ffb020] mt-3">{error}</p>}
       {lastSync && (
         <p className="text-micro text-[#666] mt-3">
           Dernière synchro : {lastSync.toLocaleTimeString("fr-FR")} · {positions.length} ligne(s) en
