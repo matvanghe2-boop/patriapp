@@ -38,7 +38,14 @@ export default function StickySummaryHeader({ patrimoineNet, deltaPct, variation
   return (
     <div
       className={`sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 transition-all duration-300 ease-out ${
-        scrolled ? "bg-slate-950/95 backdrop-blur border-b border-slate-800 shadow-lg py-2" : "bg-transparent py-0 mb-2"
+        scrolled
+          ? // Verre dépoli plutôt qu'un fond presque opaque : le contenu
+            // continue de transparaître sous l'en-tête, ce qui garde le
+            // sentiment d'une page qui défile sous une barre, et non d'un
+            // bandeau posé par-dessus. `saturate` évite le gris terne que
+            // produit un flou seul sur un fond sombre.
+            "bg-slate-950/70 [backdrop-filter:blur(14px)_saturate(160%)] border-b border-slate-700/60 shadow-lg shadow-slate-950/40 py-2"
+          : "bg-transparent py-0 mb-2"
       }`}
     >
       <div className="flex items-center justify-between gap-3">

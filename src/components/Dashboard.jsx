@@ -1142,6 +1142,10 @@ export default function Dashboard({
         patrimoineNet={patrimoineNet}
         epargneMensuelle={epargneMensuelle}
         tauxAnnuelPct={blendedRatePct}
+        // L'historique de patrimoine nourrit la courbe réelle de la
+        // trajectoire : sans lui, il ne resterait que la ligne cible, et
+        // l'écart — la seule chose qui compte — serait invisible.
+        historique={historyPast}
       />
 
       {/* Passifs */}

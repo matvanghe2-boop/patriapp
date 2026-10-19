@@ -181,3 +181,72 @@ export function formaterDuree(mois) {
   if (reste === 0) return `${ans} an${ans > 1 ? "s" : ""}`;
   return `${ans} an${ans > 1 ? "s" : ""} et ${reste} mois`;
 }
+
+/**
+ * Série mensuelle pour tracer un objectif en TRAJECTOIRE plutôt qu'en barre
+ * de progression.
+ *
+ * Une barre dit « 64 % » et s'arrête là. Elle ne dit pas si ces 64 % arrivent
+ * en avance ou avec six mois de retard — or c'est la seule chose qui décide
+ * si l'objectif tiendra. La trajectoire montre les deux courbes et l'écart
+ * entre elles.
+ *
+ * Trois séries par point :
+ *  - `attendu` : la ligne cible, du départ à l'échéance. Interpolation
+ *    linéaire, cohérente avec `trajectoireAttendue` qui arbitre l'avance ;
+ *  - `reel`    : le patrimoine réellement constaté, qui s'arrête AUJOURD'HUI.
+ *    Le prolonger serait une projection déguisée en historique ;
+ *  - `ecart`   : la différence, pour colorer la zone entre les deux.
+ *
+ * `historique` est la série de patrimoine net déjà tenue par l'application
+ * (`historyPast`). Les mois sans relevé reprennent le dernier connu : un trou
+ * ferait plonger la courbe à zéro, ce qui se lirait comme une perte.
+ */
+export function serieTrajectoire(objectif, { historique = [], patrimoineActuel = 0, aujourdhui = todayIso() } = {}) {
+  if (!objectif?.departDate || !objectif?.echeance) return [];
+  const total = moisEntre(objectif.departDate, objectif.echeance);
+  if (total <= 0) return [];
+
+  // Dernier relevé connu pour chaque mois, au format AAAA-MM.
+  const parMois = new Map();
+  for (const point of historique) {
+    if (!point?.date) continue;
+    const mois = String(point.date).slice(0, 7);
+    const valeur = Number(point.valeur ?? point.net ?? point.total);
+    if (Number.isFinite(valeur)) parMois.set(mois, valeur);
+  }
+
+  const depart = new Date(`${objectif.departDate}T12:00:00Z`);
+  const moisCourant = String(aujourdhui).slice(0, 7);
+  const serie = [];
+  let dernierConnu = objectif.departValeur;
+
+  for (let m = 0; m <= total; m++) {
+    const d = new Date(depart);
+    d.setUTCMonth(d.getUTCMonth() + m);
+    const iso = d.toISOString().slice(0, 10);
+    const mois = iso.slice(0, 7);
+
+    const attendu = objectif.departValeur + (objectif.cible - objectif.departValeur) * (m / total);
+
+    let reel = null;
+    if (mois < moisCourant) {
+      if (parMois.has(mois)) dernierConnu = parMois.get(mois);
+      reel = dernierConnu;
+    } else if (mois === moisCourant) {
+      // Le mois en cours porte la valeur du jour, plus fraîche qu'un relevé
+      // de début de mois.
+      reel = Number.isFinite(patrimoineActuel) ? patrimoineActuel : dernierConnu;
+    }
+
+    serie.push({
+      date: iso,
+      mois,
+      attendu: Math.round(attendu),
+      reel: reel == null ? null : Math.round(reel),
+      ecart: reel == null ? null : Math.round(reel - attendu),
+    });
+  }
+
+  return serie;
+}

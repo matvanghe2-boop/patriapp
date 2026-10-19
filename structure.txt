@@ -181,6 +181,7 @@ src/components/StrategieLogs.jsx
 src/components/SuiviDividendes.jsx
 src/components/SyncIndicator.jsx
 src/components/Timeline.jsx
+src/components/TrajectoireObjectif.jsx
 src/components/Watchlist.jsx
 src/components/gestes.jsx
 src/components/graphiques.jsx

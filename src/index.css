@@ -3141,3 +3141,50 @@ input[type="checkbox"] {
     animation: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TRANSITION ENTRE ONGLETS
+
+   Changer d'onglet remplaçait l'écran d'un coup. L'animation sert ici à dire
+   « ceci est un nouveau contenu », pas à faire joli — d'où une durée courte
+   et un déplacement de quelques pixels seulement.
+
+   ELLE NE DOIT JAMAIS RALENTIR LA NAVIGATION. Deux garde-fous :
+   l'animation ne joue qu'à l'ENTRÉE (rien à attendre avant de quitter un
+   onglet), et le contenu est immédiatement interactif puisque seule son
+   opacité et sa position changent — aucun `pointer-events: none`, aucun
+   délai avant affichage.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes entree-onglet {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.entree-onglet {
+  animation: entree-onglet 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Le mouvement réduit supprime le déplacement, pas l'apparition : un contenu
+   qui surgit sans aucune transition est plus brutal qu'un simple fondu. */
+@media (prefers-reduced-motion: reduce) {
+  .entree-onglet {
+    animation-duration: 120ms;
+    animation-name: entree-onglet-fondu;
+  }
+
+  @keyframes entree-onglet-fondu {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

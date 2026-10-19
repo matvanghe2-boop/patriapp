@@ -660,7 +660,7 @@ export default function PerformanceTab({
             </div>
             <div className="h-96 mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={rangedHistory} margin={{ left: 0, right: 12, top: 14, bottom: 4 }}>
+                <ComposedChart syncId="perf-dates" data={rangedHistory} margin={{ left: 0, right: 12, top: 14, bottom: 4 }}>
                   <defs>
                     <linearGradient id="bourseValeurFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.35} />
@@ -771,7 +771,7 @@ export default function PerformanceTab({
             ) : (
               <div className="h-96 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={base100Data} margin={{ left: 0, right: 12, top: 14, bottom: 4 }}>
+                  <LineChart syncId="perf-dates" data={base100Data} margin={{ left: 0, right: 12, top: 14, bottom: 4 }}>
                     <CartesianGrid stroke="rgb(var(--c-slate-800))" strokeDasharray="0" vertical={false} />
                     <XAxis
                       dataKey="date" tickFormatter={formatDateShort}
@@ -846,7 +846,7 @@ export default function PerformanceTab({
               </CardLabel>
               <div className="h-60 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={spreadData} margin={{ left: 0, right: 12, top: 14, bottom: 4 }}>
+                  <ComposedChart syncId="perf-dates" data={spreadData} margin={{ left: 0, right: 12, top: 14, bottom: 4 }}>
                     <defs>
                       {/* Une seule aire, dont le dégradé bascule du vert au rouge
                           exactement à la hauteur du zéro. */}

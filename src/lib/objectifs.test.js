@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { moisEntre, creerObjectif, trajectoireAttendue, evaluerObjectif, formaterDuree } from "./objectifs";
+import { moisEntre, creerObjectif, trajectoireAttendue, evaluerObjectif, formaterDuree , serieTrajectoire } from "./objectifs";
 
 const OBJ = {
   id: "o1",
@@ -115,5 +115,63 @@ describe("formaterDuree", () => {
     expect(formaterDuree(7)).toBe("7 mois");
     expect(formaterDuree(0)).toBe("échu");
     expect(formaterDuree(null)).toBe("—");
+  });
+});
+
+describe("serieTrajectoire", () => {
+  const objectif = {
+    id: "o1",
+    libelle: "Apport",
+    cible: 100000,
+    departDate: "2026-01-01",
+    departValeur: 20000,
+    echeance: "2027-01-01",
+  };
+
+  it("interpole la ligne cible du départ à l'échéance", () => {
+    const s = serieTrajectoire(objectif, { aujourdhui: "2026-01-15" });
+    expect(s).toHaveLength(13); // 12 mois + le point de départ
+    expect(s[0].attendu).toBe(20000);
+    expect(s[12].attendu).toBe(100000);
+    // À mi-parcours, la moitié du chemin.
+    expect(s[6].attendu).toBe(60000);
+  });
+
+  it("arrête la courbe réelle AUJOURD'HUI", () => {
+    // La prolonger serait une projection déguisée en historique.
+    const s = serieTrajectoire(objectif, { aujourdhui: "2026-04-10", patrimoineActuel: 45000 });
+    const futurs = s.filter((p) => p.mois > "2026-04");
+    expect(futurs.every((p) => p.reel === null)).toBe(true);
+    expect(s.find((p) => p.mois === "2026-04").reel).toBe(45000);
+  });
+
+  it("reporte le dernier relevé connu sur les mois sans donnée", () => {
+    // Un trou qui tomberait à zéro se lirait comme une perte totale.
+    const s = serieTrajectoire(objectif, {
+      aujourdhui: "2026-05-10",
+      patrimoineActuel: 50000,
+      historique: [
+        { date: "2026-02-28", valeur: 30000 },
+        // mars manquant
+        { date: "2026-04-30", valeur: 42000 },
+      ],
+    });
+    expect(s.find((p) => p.mois === "2026-03").reel).toBe(30000);
+    expect(s.find((p) => p.mois === "2026-04").reel).toBe(42000);
+  });
+
+  it("calcule l'écart qui colore la zone avance/retard", () => {
+    const s = serieTrajectoire(objectif, { aujourdhui: "2026-07-01", patrimoineActuel: 70000 });
+    const juillet = s.find((p) => p.mois === "2026-07");
+    // Attendu à 6 mois : 60 000. Réel : 70 000 → 10 000 d'avance.
+    expect(juillet.ecart).toBe(10000);
+  });
+
+  it("renvoie une série vide sur un objectif incomplet ou déjà échu", () => {
+    expect(serieTrajectoire(null)).toEqual([]);
+    expect(serieTrajectoire({ cible: 1000 })).toEqual([]);
+    expect(
+      serieTrajectoire({ ...objectif, departDate: "2027-01-01", echeance: "2026-01-01" })
+    ).toEqual([]);
   });
 });

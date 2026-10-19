@@ -435,7 +435,8 @@ export default function App() {
 
       <main
         id="contenu-principal"
-        className={`coquille-zone flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 transition-colors duration-500 ${TAB_BG[tab] || ""}`}
+        key={tab}
+        className={`coquille-zone entree-onglet flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 transition-colors duration-500 ${TAB_BG[tab] || ""}`}
       >
         {/* L'en-tête se condense au défilement pour garder le patrimoine net et
             sa variation visibles en permanence, sans immobiliser de la hauteur

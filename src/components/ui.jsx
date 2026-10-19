@@ -66,13 +66,22 @@ export function EmptyState({ children, picto = "recherche" }) {
  * `accent` reste accepté et prioritaire : la vingtaine d'appels existants
  * continuent de fonctionner à l'identique.
  */
-export function Card({ children, className = "", accent = "", role = "standard" }) {
+/**
+ * `tendance` ajoute une lueur colorée sous la carte — verte en hausse, rouge
+ * en baisse. Elle est purement décorative et redondante avec le chiffre
+ * affiché : la couleur seule n'est pas une information accessible, elle ne
+ * doit donc jamais être le seul porteur du sens.
+ */
+export function Card({ children, className = "", accent = "", role = "standard", tendance = 0 }) {
   const fond = role === "ambiant" ? "" : "bg-slate-900";
   return (
     <div
-      className={`carte-${role} rounded-2xl border ${fond} p-5 transition-colors duration-300 ${accent} ${className}`}
+      className={`carte-${role} rounded-2xl border ${fond} p-5 transition-colors duration-300 ${accent} ${
+        tendance ? "relative overflow-hidden" : ""
+      } ${className}`}
     >
-      {children}
+      <HaloTendance sens={tendance} />
+      {tendance ? <span className="relative">{children}</span> : children}
     </div>
   );
 }
@@ -748,4 +757,115 @@ export function SkeletonAnneaux({ nombre = 3, taille = 56 }) {
 /** Micro-courbe fantôme, pour une ligne de tableau. */
 export function SkeletonSparkline({ largeur = "3.5rem" }) {
   return <span className="skeleton squelette-sparkline" style={{ width: largeur, display: "block" }} />;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHIFFRES À DÉFILEMENT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Compteur mécanique : chaque chiffre roule verticalement vers sa nouvelle
+ * valeur, comme les rouleaux d'un odomètre.
+ *
+ * DEUX PROBLÈMES RÉSOLUS ENSEMBLE
+ *
+ *  1. Un cours qui bouge remplaçait son nombre d'un coup. On voyait que
+ *     quelque chose avait changé, jamais dans quel sens ni de combien.
+ *  2. Les chiffres d'une police proportionnelle n'ont pas la même largeur :
+ *     passer de 11 111 à 88 888 élargissait le texte et DÉCALAIT tout ce qui
+ *     suivait sur la ligne. D'où `tabular-nums` et une largeur de colonne
+ *     fixe : la mise en page ne bouge plus d'un pixel pendant l'animation.
+ *
+ * Seuls les CHIFFRES roulent. Les séparateurs — espace, virgule, symbole de
+ * devise, signe — restent immobiles : les faire défiler donnerait une bouillie
+ * illisible au lieu d'un compteur.
+ *
+ * Respecte `prefers-reduced-motion` : sans mouvement, la valeur s'affiche
+ * simplement, sans transition.
+ */
+const DUREE_ROULEAU_MS = 520;
+
+function RouleauChiffre({ chiffre, anime, index }) {
+  const n = Number(chiffre);
+  return (
+    <span
+      className="inline-block overflow-hidden align-baseline"
+      style={{ height: "1em", width: "0.62em" }}
+      aria-hidden="true"
+    >
+      <span
+        className="flex flex-col items-center"
+        style={{
+          transform: `translateY(${-n * 10}%)`,
+          // Un décalage par rang donne l'impression que les rouleaux
+          // s'arrêtent l'un après l'autre, comme un vrai compteur.
+          transition: anime
+            ? `transform ${DUREE_ROULEAU_MS}ms cubic-bezier(0.22, 1, 0.36, 1) ${index * 28}ms`
+            : "none",
+        }}
+      >
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
+          <span key={d} style={{ height: "1em", lineHeight: "1em" }}>
+            {d}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+export function ChiffreCompteur({ valeur, format = (v) => String(Math.round(v)), className = "" }) {
+  const animee = useValeurAnimee(valeur);
+  const anime = !mouvementReduit();
+  // La valeur ANIMÉE est formatée à chaque image : c'est elle qui fait défiler
+  // les rangs intermédiaires, et non un simple saut de la valeur de départ à
+  // la valeur d'arrivée.
+  const texte = format(Number.isFinite(animee) ? animee : 0);
+
+  let rang = 0;
+  return (
+    <span className={`font-data tabular-nums inline-flex items-baseline ${className}`}>
+      {/* Le texte complet reste lisible par les lecteurs d'écran, qui n'ont
+          rien à faire d'une pile de dix chiffres par colonne. */}
+      <span className="sr-only">{texte}</span>
+      {[...texte].map((c, i) =>
+        /\d/.test(c) ? (
+          <RouleauChiffre key={i} chiffre={c} anime={anime} index={rang++} />
+        ) : (
+          <span key={i} aria-hidden="true">
+            {c}
+          </span>
+        )
+      )}
+    </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HALO DE TENDANCE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Lueur colorée posée sous une carte : verte quand la valeur monte, rouge
+ * quand elle descend.
+ *
+ * C'est une redondance VOULUE. Le sens d'une variation était porté par la
+ * seule couleur du texte, en petit ; la carte entière le dit maintenant d'un
+ * coup d'œil, avant même qu'on ait lu le chiffre.
+ *
+ * Et parce que la couleur seule n'est pas une information accessible, elle ne
+ * remplace rien : le signe et le pourcentage restent écrits à côté. Un
+ * utilisateur daltonien perd le halo, pas la donnée.
+ */
+export function HaloTendance({ sens = 0, className = "" }) {
+  if (!sens) return null;
+  const monte = sens > 0;
+  return (
+    <span
+      aria-hidden="true"
+      className={`pointer-events-none absolute inset-x-0 bottom-0 h-16 rounded-b-2xl blur-xl opacity-40 ${
+        monte ? "bg-emerald-500/30" : "bg-rose-500/30"
+      } ${className}`}
+    />
+  );
 }

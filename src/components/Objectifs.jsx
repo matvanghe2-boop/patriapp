@@ -4,11 +4,13 @@ import { Card, CardLabel, GhostButton, IconTrash, AddPanel, CARD_THEMES } from "
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { AnneauProgression } from "./graphiques";
+import TrajectoireObjectif from "./TrajectoireObjectif";
 import { useApparence } from "../lib/ApparenceContext";
 import { vibrer } from "../lib/haptique";
 import { eur, uid, todayIso } from "../lib/finance";
 import {
   creerObjectif, evaluerObjectif, formaterDuree, MODELES_OBJECTIFS, echeanceDansMois,
+  serieTrajectoire,
 } from "../lib/objectifs";
 import { useToast } from "../lib/ToastContext";
 
@@ -17,7 +19,7 @@ function formatEcheance(iso) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
-function LigneObjectif({ objectif, etat, onSupprimer }) {
+function LigneObjectif({ objectif, etat, onSupprimer, serie = [] }) {
   const { atteint, enAvance, ecart, progressionPct, moisRestants, effortMensuelRequis, retardEstimeMois } = etat;
   const { haptique } = useApparence();
 
@@ -94,6 +96,13 @@ function LigneObjectif({ objectif, etat, onSupprimer }) {
         </div>
       </div>
 
+      {/* La trajectoire remplace la seule barre de progression : elle montre
+          l'écart à la ligne cible, c'est-à-dire ce qui décide réellement si
+          l'objectif tiendra. L'anneau reste pour le coup d'œil chiffré. */}
+
+      {!atteint && <TrajectoireObjectif serie={serie} cible={objectif.cible} />}
+
+
       {!atteint && (
         <div className="mt-2.5 pt-2.5 border-t border-slate-800/70 text-micro text-slate-500 space-y-1">
           {effortMensuelRequis != null && (
@@ -134,7 +143,7 @@ function LigneObjectif({ objectif, etat, onSupprimer }) {
  * retard ? ». Chaque objectif fige son point de départ à la création, ce qui
  * rend l'avance ou le retard mesurable plutôt que déclaratif.
  */
-export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet, epargneMensuelle, tauxAnnuelPct }) {
+export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet, epargneMensuelle, tauxAnnuelPct, historique = [] }) {
   const [ouvert, setOuvert] = useState(false);
   const { showToast } = useToast();
 
@@ -237,6 +246,7 @@ export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet,
             <LigneObjectif
               key={o.id}
               objectif={o}
+              serie={serieTrajectoire(o, { historique, patrimoineActuel: patrimoineNet })}
               etat={evaluerObjectif(o, {
                 patrimoineActuel: patrimoineNet,
                 epargneMensuelle,

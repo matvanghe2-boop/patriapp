@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useId } from "react";
 import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, Search, CalendarDays, Filter } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES } from "./ui";
+import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES, ChiffreCompteur } from "./ui";
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
 import { Sparkline } from "./graphiques";
@@ -1075,9 +1075,14 @@ export default function Bourse({
       <>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card accent={CARD_THEMES.violet}>
+        {/* Le halo reprend le SENS de la séance, que le pourcentage écrit
+            juste en dessous donne déjà : la couleur ajoute un coup d'œil,
+            elle ne porte jamais l'information à elle seule. */}
+        <Card accent={CARD_THEMES.violet} tendance={variationJour.exploitable ? Math.sign(variationJour.montant) : 0}>
           <CardLabel>Valeur du portefeuille</CardLabel>
-          <div className="font-display text-xl text-slate-100 ghost-blur">{eur(bourseTotal)}</div>
+          <div className="font-display text-xl text-slate-100 ghost-blur">
+            <ChiffreCompteur valeur={bourseTotal} format={(v) => eur(v)} />
+          </div>
           {/* Le POURCENTAGE d'abord, le montant à côté : c'est l'ordre de
               lecture naturel d'une variation de séance, et le pourcentage est
               le seul des deux qui soit comparable d'un jour à l'autre. */}
