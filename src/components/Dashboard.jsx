@@ -17,6 +17,7 @@ import { joursDeLAnnee, semainesAgitees } from "../lib/retrospective";
 import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import Objectifs from "./Objectifs";
+import CascadeMensuelle from "./CascadeMensuelle";
 import ProchainesEcheances from "./ProchainesEcheances";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
@@ -1136,6 +1137,11 @@ export default function Dashboard({
 
       {/* Objectifs datés — la seule chose qui transforme la courbe de
           patrimoine en réponse à « suis-je en avance ou en retard ? ». */}
+      {/* Décomposition du mois : versements, marché, dividendes, frais.
+          Placée avant les objectifs, parce qu'elle explique la variation que
+          les objectifs se contentent de mesurer. */}
+      <CascadeMensuelle historique={historyPast} operations={bourse?.operations || []} />
+
       <Objectifs
         objectifs={objectifs}
         setObjectifs={setObjectifs}

@@ -393,7 +393,11 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                 const gap = current != null && hasTarget ? ((current - w.target_price) / w.target_price) * 100 : null;
                 const reached = gap != null && gap <= 0;
                 return (
-                  <tr key={w.id} className="group hover:bg-slate-800/30 transition-colors">
+                  // Repli sur le ticker : une sauvegarde importee ou une entree ancienne
+                  // peut ne pas porter d identifiant, et React perd alors le suivi des
+                  // lignes — ce qui se voit a la saisie, un champ gardant la valeur
+                  // d une autre ligne apres un tri.
+                  <tr key={w.id || w.ticker} className="group hover:bg-slate-800/30 transition-colors">
                     <td data-label="Actif" className="py-3 pr-3">
                       <button
                         type="button"

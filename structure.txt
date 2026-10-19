@@ -123,6 +123,7 @@ src/components/BottomNav.jsx
 src/components/Bourse.jsx
 src/components/BoursePerformance.jsx
 src/components/CarteRepliable.test.jsx
+src/components/CascadeMensuelle.jsx
 src/components/ChartFocusModal.jsx
 src/components/ComparateurScenarios.jsx
 src/components/Dashboard.jsx
@@ -209,6 +210,8 @@ src/lib/authErrors.test.js
 src/lib/benchmarks.js
 src/lib/calendrierManuel.js
 src/lib/calendrierManuel.test.js
+src/lib/cascade.js
+src/lib/cascade.test.js
 src/lib/compact.test.js
 src/lib/decumulation.js
 src/lib/decumulation.test.js
