@@ -49,7 +49,7 @@ vi.mock("./supabaseClient", () => ({
   },
 }));
 
-const { usePersistentState, _resetStorageCache } = await import("./storage");
+const { usePersistentState, useManualRefresh, _resetStorageCache } = await import("./storage");
 
 function Sonde({ initial = "INITIAL" }) {
   const [valeur] = usePersistentState(CLE, initial);
@@ -139,5 +139,128 @@ describe("usePersistentState — arbitrage cloud/local au montage", () => {
     // 31 clés du contexte patrimonial, cela faisait une soixantaine
     // d'aller-retours au seul démarrage de l'application.
     expect(lectures).toBe(1);
+  });
+});
+
+/**
+ * Plusieurs composants peuvent lire la MÊME clé. C'est le cas réel de
+ * `watchlistDailyData` : `useAlertesWatchlist` la lit depuis App.jsx, monté en
+ * permanence, pendant que `Watchlist.jsx` l'écrit depuis l'onglet Bourse,
+ * monté à la demande.
+ *
+ * Tant que le module ne retenait qu'un `setState` par clé, le second montage
+ * écrasait le premier : les cours rafraîchis n'atteignaient jamais le hook
+ * d'alertes, qui continuait d'évaluer ses seuils sur la valeur lue à son
+ * propre montage. L'alerte de seuil était donc neutralisée par sa source.
+ */
+describe("usePersistentState — plusieurs consommateurs d'une même clé", () => {
+  const CLE_PARTAGEE = "watchlistDailyData";
+  let ecrire;
+
+  beforeEach(() => {
+    localStorage.clear();
+    lignesCloud = [];
+    upserts = [];
+    lectures = 0;
+    _resetStorageCache();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function Ecrivain() {
+    const [data, setData] = usePersistentState(CLE_PARTAGEE, {});
+    ecrire = setData;
+    return <div data-testid="ecrivain">{JSON.stringify(data)}</div>;
+  }
+
+  let relire;
+
+  function Lecteur() {
+    const [data] = usePersistentState(CLE_PARTAGEE, {});
+    // Le bouton « Actualiser » de l'interface passe par ce même hook : s'en
+    // servir ici teste le vrai chemin de relecture cloud.
+    relire = useManualRefresh();
+    return <div data-testid="lecteur">{JSON.stringify(data)}</div>;
+  }
+
+  it("propage une écriture à tous les lecteurs de la clé", async () => {
+    render(
+      <>
+        <Lecteur />
+        <Ecrivain />
+      </>
+    );
+
+    await act(async () => {
+      ecrire({ "AI.PA": { price: 95 } });
+    });
+
+    const attendu = JSON.stringify({ "AI.PA": { price: 95 } });
+    expect(screen.getByTestId("ecrivain").textContent).toBe(attendu);
+    // Le cœur du correctif : le lecteur voit le nouveau cours, et non celui
+    // qu'il avait lu à son montage.
+    expect(screen.getByTestId("lecteur").textContent).toBe(attendu);
+    expect(localStorage.getItem(`patrimoine:${CLE_PARTAGEE}`)).toBe(attendu);
+  });
+
+  it("n'écrit qu'une seule fois en cloud malgré la propagation", async () => {
+    render(
+      <>
+        <Lecteur />
+        <Ecrivain />
+      </>
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    upserts.length = 0;
+
+    // L'écriture et l'attente sont dans deux `act` distincts : groupées, la
+    // temporisation s'écoulerait avant que React n'ait appliqué l'effet qui
+    // programme la poussée, et l'on mesurerait un silence qui n'existe pas.
+    await act(async () => {
+      ecrire({ "AI.PA": { price: 95 } });
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 1200));
+    });
+
+    // La valeur reçue par propagation ne doit pas être ré-horodatée puis
+    // repoussée : sans le témoin `skipNextPush`, chaque lecteur renverrait au
+    // serveur ce qu'il vient d'en recevoir, en se déclarant plus récent.
+    const pousseesDeLaCle = upserts.filter((u) => u.key === CLE_PARTAGEE);
+    expect(pousseesDeLaCle).toHaveLength(1);
+  });
+
+  it("garde la clé interrogeable tant qu'un lecteur reste monté", async () => {
+    const vue = render(
+      <>
+        <Lecteur />
+        <Ecrivain />
+      </>
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    // L'onglet Bourse se referme : seul l'écrivain est démonté.
+    vue.rerender(<Lecteur />);
+
+    // Une valeur cloud plus récente doit toujours atteindre le lecteur. Avant
+    // le correctif, le démontage de l'écrivain supprimait l'entrée de la clé,
+    // qui sortait du même coup de la liste interrogée par le polling.
+    lignesCloud = [
+      { key: CLE_PARTAGEE, value: { "AI.PA": { price: 120 } }, updated_at: AUJOURDHUI },
+    ];
+    await act(async () => {
+      await relire();
+    });
+
+    expect(screen.getByTestId("lecteur").textContent).toBe(
+      JSON.stringify({ "AI.PA": { price: 120 } })
+    );
   });
 });

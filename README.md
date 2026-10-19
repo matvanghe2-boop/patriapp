@@ -12,6 +12,7 @@ C'est la question la plus importante pour une app de ce type, donc autant y rép
 | E-mail + mot de passe | Supabase Auth | Toi seul |
 | Tickers que tu consultes | Envoyés à **Yahoo Finance** (via `/api/*`) pour récupérer les cours | Yahoo |
 | Descriptions d'entreprises (texte public fourni par Yahoo) | Envoyées à un endpoint public de **Google Translate** pour l'affichage en français | Google |
+| Noms de domaine des sociétés affichées (pour leur logo) | Demandés à `icons.duckduckgo.com` par le navigateur, une requête par logo affiché | DuckDuckGo |
 | Questions posées à l'assistant du sous-onglet **Projet**, accompagnées d'un contexte **anonymisé** : répartition en pourcentages, taux d'épargne, mois d'épargne de sécurité. Aucun montant, aucun nom de compte, aucun ticker. | Envoyées au fournisseur de modèle configuré — **Gemini** par défaut, sinon Groq, sinon Ollama | Le fournisseur configuré, ou personne du tout avec Ollama, qui tourne en local |
 
 Ce qui n'est **jamais** envoyé nulle part : tes montants, tes soldes, tes quantités détenues, ton PRU, tes revenus. Les endpoints `/api/*` ne reçoivent que des symboles boursiers (`AI.PA`, `CW8.PA`…), jamais une position.
@@ -229,6 +230,33 @@ Les fonctions sont publiques par nature (pas d'authentification, elles ne serven
 - **Upload** : `parse-pdf` plafonne la taille, vérifie la signature `%PDF-` et refuse tout le reste
 
 Limite connue : le compteur de débit et le cache sont **par instance serverless** (mémoire locale, remise à zéro à froid). C'est suffisant pour couper un abus grossier ; un quota strict demanderait un store partagé (Vercel KV / Upstash Redis).
+
+Deux points méritent d'être connus, parce qu'ils ont chacun rendu une protection inopérante sans qu'aucune erreur ne le signale :
+
+- **Le compartiment de débit est la ROUTE, pas le chemin.** Les dix actions partagent l'URL `/api/market` : en déduisant le compartiment du chemin, elles partageaient aussi un unique compteur. La limite réellement appliquée était donc la plus basse des dix, et consulter ses cours (`quote`, 120/min) suffisait à faire répondre 429 au premier appel du screener (`screen`, 20/min), dont le quota n'avait pourtant jamais servi. D'où l'option `portee`, passée par `market.js` à chaque enveloppe.
+- **`Vary: Origin` est posé sans condition, y compris sur les refus.** Il n'était écrit que sur les réponses portant un en-tête `Origin`. Or toutes les routes de marché déclarent un `s-maxage` : le CDN mettait en cache la réponse d'une requête *sans* `Origin` — le cas nominal du navigateur en same-origin — sous une clé indépendante de l'origine, puis la servait à n'importe qui. Vérifié en production avant correctif : `Origin: https://evil.example` recevait 200 depuis le cache, alors que le même appel forcé en MISS recevait bien 403. Le contrôle d'origine fonctionnait parfaitement et n'était simplement jamais atteint.
+
+### En-têtes de sécurité du document (`vercel.json`)
+
+Les en-têtes posés par `withApi` ne couvrent que `/api/*`. La **page**, elle, n'en portait aucun — alors que c'est elle qui détient le jeton de session Supabase dans le `localStorage`, aux côtés de toutes les données patrimoniales : tout script qui s'y exécute peut lire les deux.
+
+`vercel.json` applique donc à tout ce qui n'est pas `/api/*` (ces routes gardent les leurs, et une politique de contenu n'a aucun sens sur du JSON) :
+
+| En-tête | Rôle |
+| --- | --- |
+| `Content-Security-Policy` | `default-src 'self'`, aucune exception pour les scripts |
+| `X-Frame-Options: DENY` | doublon de `frame-ancestors` pour les navigateurs qui l'ignorent encore |
+| `X-Content-Type-Options: nosniff` | pas de deviner-le-type |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | caméra, micro et géolocalisation refusés — aucun n'est utilisé |
+
+Trois assouplissements, et seulement trois :
+
+- `style-src 'unsafe-inline'` — les composants Orbit injectent une balise `<style>`, et l'interface pose ~70 attributs `style={{…}}` (recharts en particulier). `script-src` n'a **aucune** exception : le build Vite ne produit ni script ni style *inline* dans `index.html`, c'est vérifiable sur `dist/`.
+- `img-src … https://icons.duckduckgo.com` — source des logos d'entreprise (`AssetLogo.jsx`).
+- `connect-src … https://*.supabase.co` — l'authentification et la synchronisation. Un projet Supabase servi depuis un **domaine personnalisé** ne correspondrait pas à ce motif et la connexion échouerait : c'est la seule ligne à adapter en cas de changement d'hébergement.
+
+⚠️ **À savoir** : les logos d'entreprise sont demandés à `icons.duckduckgo.com`, qui apprend donc quels titres tu consultes. C'est le même type de fuite que les tickers envoyés à Yahoo, et il n'était pas mentionné dans le tableau « Où vont tes données » ci-dessus.
 
 ## 💶 Sous-onglet Taux (Livrets & Épargne)
 

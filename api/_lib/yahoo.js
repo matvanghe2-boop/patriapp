@@ -45,31 +45,60 @@ export async function fetchJson(url, { headers = YF_HEADERS, timeoutMs = DEFAULT
 const AUTH_TTL_MS = 30 * 60_000;
 let cachedAuth = null;
 
+/**
+ * Négociation EN COURS, partagée par tous les appelants simultanés.
+ *
+ * Le cache ci-dessus ne protège que les appels qui arrivent APRÈS une première
+ * négociation réussie. Au démarrage à froid, le tableau de bord demande d'un
+ * coup les cours, le change, l'historique et le calendrier : quatre handlers
+ * trouvaient `cachedAuth` vide en même temps et lançaient chacun le flux
+ * complet `fc.yahoo.com` + `getcrumb`. C'est précisément ce que le commentaire
+ * ci-dessus annonce comme déclencheur de 429 côté Yahoo — et c'était donc la
+ * situation de chaque instance froide, soit le pire moment possible.
+ *
+ * La promesse est partagée : le premier appelant négocie, les autres attendent
+ * le même résultat.
+ */
+let negociationEnCours = null;
+
 export async function getYahooSession() {
   if (cachedAuth && cachedAuth.expiresAt > Date.now()) return cachedAuth;
+  if (negociationEnCours) return negociationEnCours;
 
-  const r1 = await fetch("https://fc.yahoo.com", { headers: YF_HEADERS, redirect: "manual" });
-  const cookies =
-    typeof r1.headers.getSetCookie === "function"
-      ? r1.headers.getSetCookie()
-      : [r1.headers.get("set-cookie")].filter(Boolean);
-  const cookie = cookies.map((c) => c.split(";")[0]).join("; ");
-  if (!cookie) throw new Error("Cookie de session Yahoo indisponible");
+  negociationEnCours = (async () => {
+    const r1 = await fetch("https://fc.yahoo.com", { headers: YF_HEADERS, redirect: "manual" });
+    const cookies =
+      typeof r1.headers.getSetCookie === "function"
+        ? r1.headers.getSetCookie()
+        : [r1.headers.get("set-cookie")].filter(Boolean);
+    const cookie = cookies.map((c) => c.split(";")[0]).join("; ");
+    if (!cookie) throw new Error("Cookie de session Yahoo indisponible");
 
-  const r2 = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
-    headers: { ...YF_HEADERS, Cookie: cookie },
-  });
-  if (!r2.ok) throw new Error(`Échec récupération crumb (HTTP ${r2.status})`);
-  const crumb = (await r2.text()).trim();
-  if (!crumb || crumb.includes("<")) throw new Error("Crumb Yahoo invalide");
+    const r2 = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+      headers: { ...YF_HEADERS, Cookie: cookie },
+    });
+    if (!r2.ok) throw new Error(`Échec récupération crumb (HTTP ${r2.status})`);
+    const crumb = (await r2.text()).trim();
+    if (!crumb || crumb.includes("<")) throw new Error("Crumb Yahoo invalide");
 
-  cachedAuth = { cookie, crumb, expiresAt: Date.now() + AUTH_TTL_MS };
-  return cachedAuth;
+    cachedAuth = { cookie, crumb, expiresAt: Date.now() + AUTH_TTL_MS };
+    return cachedAuth;
+  })();
+
+  // Le `finally` est indispensable : sans lui, une négociation échouée resterait
+  // mémorisée et tous les appels suivants attendraient une promesse rejetée,
+  // sans jamais retenter — une panne d'une seconde deviendrait définitive.
+  try {
+    return await negociationEnCours;
+  } finally {
+    negociationEnCours = null;
+  }
 }
 
 /** À appeler quand un appel authentifié échoue : force une renégociation. */
 export function invalidateYahooSession() {
   cachedAuth = null;
+  negociationEnCours = null;
 }
 
 // ─── Validation des entrées ──────────────────────────────────────────────────

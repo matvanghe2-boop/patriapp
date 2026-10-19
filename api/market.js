@@ -47,8 +47,17 @@ export const ACTIONS = Object.keys(ROUTES);
 // des compteurs de débit qui doivent persister d'une requête à l'autre.
 // La reconstruire à chaque appel remettrait le quota à zéro à chaque requête,
 // c'est-à-dire supprimerait la limitation de débit sans que rien ne le signale.
+//
+// `portee` est ce qui rend les quotas par route effectifs. Le compartiment de
+// débit est sinon déduit du chemin — identique pour les dix actions, puisque
+// c'est tout l'intérêt de ce routeur. Les limites déclarées dans `_lib/routes/`
+// étaient donc toutes appliquées au MÊME compteur : la plus basse l'emportait,
+// et consulter ses cours suffisait à faire refuser le screener.
 const ENVELOPPES = Object.fromEntries(
-  Object.entries(ROUTES).map(([nom, route]) => [nom, withApi(route.handler, route.options)])
+  Object.entries(ROUTES).map(([nom, route]) => [
+    nom,
+    withApi(route.handler, { ...route.options, portee: `market:${nom}` }),
+  ])
 );
 
 /**
@@ -59,17 +68,25 @@ const ENVELOPPES = Object.fromEntries(
  */
 export const config = { maxDuration: 30 };
 
+/**
+ * Refus des actions inconnues, traité par une enveloppe minimale pour que le
+ * rejet porte les mêmes en-têtes de sécurité et le même contrôle d'origine que
+ * le reste. Construite ICI et non dans le handler : la reconstruire à chaque
+ * appel repartait d'un compteur vide, donc n'imposait aucune limite — ce que
+ * le commentaire au-dessus de `ENVELOPPES` met justement en garde de faire.
+ */
+const ENVELOPPE_INCONNUE = withApi(
+  async () => {
+    throw httpError(400, `Action inconnue. Attendu : ${ACTIONS.join(", ")}.`);
+  },
+  { methods: ["GET"], limit: 60, windowMs: 60_000, portee: "market:inconnue" }
+);
+
 export default async function handler(req, res) {
   const action = String(req.query?.action || "").trim();
   const enveloppe = ENVELOPPES[action];
 
-  if (!enveloppe) {
-    // Réponse traitée par une enveloppe minimale, pour que le refus porte les
-    // mêmes en-têtes de sécurité et le même contrôle d'origine que le reste.
-    return withApi(async () => {
-      throw httpError(400, `Action inconnue. Attendu : ${ACTIONS.join(", ")}.`);
-    }, { methods: ["GET"], limit: 60, windowMs: 60_000 })(req, res);
-  }
+  if (!enveloppe) return ENVELOPPE_INCONNUE(req, res);
 
   return enveloppe(req, res);
 }

@@ -94,11 +94,51 @@ const latestValues = new Map();
 // `keepalive` est plafonnée à 64 Ko de corps par la spécification.
 const dirtyKeys = new Set();
 
-// setState de chaque clé actuellement montée, pour pouvoir lui appliquer une
-// valeur cloud plus récente sans repasser par un remontage du composant (voir
-// pullAllFromCloud plus bas — c'est ce qui permet à la PWA du téléphone de se
-// mettre à jour sans que l'utilisateur ait à fermer/rouvrir l'app).
+/**
+ * Abonnés de chaque clé montée, pour pouvoir leur appliquer une valeur plus
+ * récente sans remonter le composant (voir `pullAllFromCloud` — c'est ce qui
+ * permet à la PWA du téléphone de se mettre à jour sans fermer/rouvrir l'app).
+ *
+ * UN ENSEMBLE D'ABONNÉS PAR CLÉ, et non un seul `setState`.
+ *
+ * Une clé peut être lue par plusieurs composants à la fois. C'est le cas de
+ * `watchlistDailyData`, consommée par `useAlertesWatchlist` — monté en
+ * permanence dans App.jsx — et par `Watchlist.jsx`, monté seulement quand
+ * l'onglet Bourse est ouvert. Avec un seul setter par clé, le second montage
+ * écrasait silencieusement le premier, ce qui produisait deux défauts :
+ *
+ *  1. Watchlist rafraîchissait les cours, les écrivait en local et en cloud,
+ *     mais la copie de `useAlertesWatchlist` ne bougeait pas : les alertes de
+ *     seuil continuaient d'être évaluées sur les cours du démarrage de l'app.
+ *     La fonctionnalité d'alerte était donc neutralisée par sa propre source.
+ *  2. En quittant l'onglet, le démontage de Watchlist supprimait l'entrée de
+ *     la Map alors que le hook d'App était toujours monté : la clé sortait
+ *     aussi de `pullAllFromCloud`, qui construit sa liste à partir d'elle.
+ *
+ * Chaque abonné porte son propre `skipNextPush` : une valeur REÇUE (du cloud
+ * ou d'un autre composant) ne doit pas être ré-horodatée, sans quoi elle
+ * repartirait vers le cloud comme une modification de cet appareil.
+ */
 const activeSetters = new Map();
+
+/**
+ * Applique une valeur à tous les abonnés d'une clé, sauf à son émetteur.
+ *
+ * L'abonné dont l'état est DÉJÀ cette valeur est ignoré, et c'est nécessaire :
+ * React abandonne un `setState` qui ne change rien (`Object.is`), le composant
+ * ne rend pas, son effet de persistance ne s'exécute pas — et le témoin
+ * `skipNextPush` qu'on vient d'armer resterait armé. Il ferait alors sauter la
+ * sauvegarde de la PROCHAINE modification réelle, celle-là bien voulue.
+ */
+function diffuser(key, valeur, emetteur = null) {
+  const abonnes = activeSetters.get(key);
+  if (!abonnes) return;
+  for (const abonne of abonnes) {
+    if (abonne === emetteur || Object.is(abonne.valeur, valeur)) continue;
+    abonne.skipNextPush.current = true;
+    abonne.setState(valeur);
+  }
+}
 
 /**
  * Identité courante, tenue à jour par l'abonnement d'authentification plutôt
@@ -177,8 +217,11 @@ function applyCloudRow(key, row) {
   // rien à y repousser, et la laisser marquée « à écrire » ferait renvoyer au
   // serveur ce qu'on vient d'en recevoir.
   dirtyKeys.delete(key);
-  const setState = activeSetters.get(key);
-  if (setState) setState(row.value);
+  // Tous les abonnés, et chacun avec son `skipNextPush` armé : l'ancienne
+  // version appelait le setter sans ce témoin, si bien qu'une valeur reçue du
+  // cloud était aussitôt ré-horodatée « maintenant » par l'effet de
+  // persistance et repoussée vers le serveur comme une modification locale.
+  diffuser(key, row.value);
   markSynced(key);
 }
 
@@ -354,11 +397,32 @@ export function usePersistentState(key, initialValue) {
   // identique, rien n'a été modifié et il n'y a donc rien à réécrire.
   const etatAuMontage = useRef(state);
 
-  // Le poll périodique (pullAllFromCloud) a besoin de pouvoir appliquer une
-  // valeur cloud plus récente à ce composant précis, d'où cet enregistrement.
+  // Le poll périodique (pullAllFromCloud) et les autres consommateurs de la
+  // même clé ont besoin de pouvoir appliquer une valeur à ce composant précis,
+  // d'où cet enregistrement. L'abonné est conservé dans une ref pour que
+  // l'effet de persistance puisse s'exclure lui-même de la diffusion.
+  const abonneRef = useRef(null);
   useEffect(() => {
-    activeSetters.set(key, setState);
-    return () => activeSetters.delete(key);
+    // `valeur` suit l'état de CET abonné, tenu à jour par l'effet de
+    // persistance ci-dessous ; il sert à `diffuser` pour ne rien appliquer à
+    // un composant qui porte déjà la valeur.
+    const abonne = { setState, skipNextPush, valeur: etatAuMontage.current };
+    abonneRef.current = abonne;
+
+    let abonnes = activeSetters.get(key);
+    if (!abonnes) {
+      abonnes = new Set();
+      activeSetters.set(key, abonnes);
+    }
+    abonnes.add(abonne);
+
+    return () => {
+      abonnes.delete(abonne);
+      // La clé ne disparaît QUE lorsque plus personne ne l'écoute : c'est ce
+      // qui la maintient dans la liste interrogée par pullAllFromCloud tant
+      // qu'un composant l'affiche encore.
+      if (abonnes.size === 0) activeSetters.delete(key);
+    };
   }, [key]);
 
   // Au montage : on compare la version cloud et la version locale, et on garde
@@ -424,6 +488,11 @@ export function usePersistentState(key, initialValue) {
   // À chaque changement : cache local instantané, puis push cloud débouncé
   // pour ne pas écrire en base à chaque frappe.
   useEffect(() => {
+    // L'abonné porte toujours l'état courant de ce composant, avant toute
+    // sortie anticipée : c'est ce qui permet à `diffuser` de l'ignorer quand
+    // il n'a rien à lui apprendre.
+    if (abonneRef.current) abonneRef.current.valeur = state;
+
     // Rien n'a changé depuis le montage : l'état est encore exactement celui
     // qui a été lu dans le localStorage. Le réécrire ne changerait pas son
     // contenu mais repousserait son horodatage à « maintenant », faisant
@@ -449,6 +518,11 @@ export function usePersistentState(key, initialValue) {
     const updatedAt = new Date().toISOString();
     writeLocal(key, state, updatedAt);
     latestValues.set(key, { value: state, updatedAt });
+
+    // Les autres composants branchés sur la même clé suivent immédiatement.
+    // Sans cette diffusion, ils gardaient la valeur lue à LEUR montage :
+    // le localStorage et le cloud étaient à jour, l'écran ne l'était pas.
+    diffuser(key, state, abonneRef.current);
 
     if (!isSupabaseConfigured) return undefined;
     dirtyKeys.add(key);

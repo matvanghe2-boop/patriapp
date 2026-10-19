@@ -33,6 +33,7 @@ api/_lib/routes/screen.js
 api/_lib/routes/search.js
 api/_lib/webstat.js
 api/_lib/webstat.test.js
+api/_lib/withApi.test.js
 api/_lib/yahoo.js
 api/_lib/yahooFondamentaux.js
 api/advisor.js
@@ -235,4 +236,5 @@ src/main.jsx
 src/test/setup.js
 structure.txt
 tailwind.config.cjs
+vercel.json
 vite.config.js

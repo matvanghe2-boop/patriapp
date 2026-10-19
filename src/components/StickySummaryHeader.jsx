@@ -71,9 +71,15 @@ export default function StickySummaryHeader({ patrimoineNet, deltaPct, ghostMode
             d'accessibilité en une seule propriété. Il est ignoré par les
             navigateurs qui ne le connaissent pas, où `pointer-events-none`
             conservé ci-dessous garde l'ancien comportement.
+
+            La valeur est un BOOLÉEN et non `""`. React 19 traite la chaîne
+            vide d'un attribut booléen comme `false` — il émettait d'ailleurs
+            un avertissement à chaque rendu — si bien que `inert` n'était
+            jamais posé et que le bouton ci-dessous restait atteignable au
+            clavier : exactement le défaut que ce bloc corrige.
           */}
           <div
-            inert={!scrolled ? "" : undefined}
+            inert={!scrolled}
             className={`flex items-center gap-3 font-data tabular-nums transition-all duration-300 ${
               scrolled ? "opacity-100 text-sm" : "opacity-0 pointer-events-none h-0 text-xs"
             }`}
