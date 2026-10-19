@@ -776,7 +776,32 @@ export default function Bourse({
       const allSymbols = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
       const quotes = allSymbols.length > 0 ? await fetchQuotes(allSymbols) : [];
       const priceMap = {};
-      quotes.forEach((q) => { if (q.ok) priceMap[q.symbol] = q.price; });
+      const veilleMap = {};
+      quotes.forEach((q) => {
+        if (!q.ok) return;
+        priceMap[q.symbol] = q.price;
+        if (q.previousClose != null) veilleMap[q.symbol] = q.previousClose;
+      });
+
+      /*
+       * La clôture de la veille est écrite sur les positions ICI aussi.
+       *
+       * Elle ne l'était que dans `refreshPrices`, déclenché par le bouton
+       * « Actualiser les cours ». Tant qu'on ne l'avait pas pressé une fois,
+       * aucune position ne portait de `previousClose` : `variationDuJour` se
+       * déclarait inexploitable et la variation du jour ne s'affichait tout
+       * simplement pas, sans rien dire. Or ce relevé-ci tourne tout seul au
+       * montage de l'onglet, et il tient déjà les cotations en main — les
+       * jeter pour les redemander plus tard n'avait aucun sens.
+       */
+      if (Object.keys(veilleMap).length > 0) {
+        setBourse((b) => ({
+          ...b,
+          positions: b.positions.map((p) =>
+            veilleMap[p.ticker] != null ? { ...p, previousClose: veilleMap[p.ticker] } : p
+          ),
+        }));
+      }
 
       // Valorisation par `valeurPosition`, donc CONVERTIE en euros. L'ancien
       // calcul multipliait le cours par la quantité sans toucher au taux de
@@ -928,6 +953,14 @@ export default function Bourse({
 
   useEffect(() => {
     const hasToday = bourseHistory.some((e) => e.date === today());
+    // Une position sans clôture de veille empêche le calcul de la variation
+    // du jour. Le relevé quotidien ramène justement ces clôtures : on le
+    // déclenche donc aussi dans ce cas, même si le point du jour existe déjà.
+    // Sinon la variation restait invisible jusqu'à ce que l'utilisateur pense
+    // à presser « Actualiser les cours » — c'est-à-dire, en pratique, jamais.
+    const veilleManquante = bourse.positions.some(
+      (p) => p.quantity && (p.previousClose == null || !(p.previousClose > 0))
+    );
     // Effet de CHARGEMENT : Relevé de performance du jour au montage :
     // `captureSnapshot` lève son propre témoin de chargement avant d'interroger
     // le réseau. C'est la définition même d'un effet — synchroniser avec un
@@ -940,7 +973,7 @@ export default function Bourse({
     // Plus de `set-state-in-effect` à museler ici : les deux écritures d'état
     // partent désormais d'une continuation asynchrone, pas du corps de l'effet.
     rattraperHistorique().finally(() => {
-      if (!hasToday) captureSnapshot(true);
+      if (!hasToday || veilleManquante) captureSnapshot(true);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

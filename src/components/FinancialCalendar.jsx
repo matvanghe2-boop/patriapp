@@ -420,11 +420,59 @@ function TimelineView({ events, onEventClick }) {
     [events, today]
   );
 
+  /**
+   * Derniers événements passés, affichés quand il n'y a rien devant.
+   *
+   * Un cadre vide laissait croire à une panne. Le plus souvent il n'en est
+   * rien : la source ne publie simplement pas encore la prochaine date pour
+   * ces valeurs — c'est très courant hors États-Unis, où une société n'annonce
+   * son agenda qu'à quelques semaines. Montrer la dernière publication connue
+   * dit à la fois que la ligne est bien suivie et à quand elle remonte.
+   */
+  const recents = useMemo(
+    () =>
+      events
+        .filter((e) => e.date < today)
+        .sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0))
+        .slice(0, 6),
+    [events, today]
+  );
+
   if (upcoming.length === 0) {
     return (
-      <p className="text-sm text-[#888] py-8 text-center border border-dashed border-[#2a2a2a] rounded-xl">
-        Aucun événement à venir détecté pour les valeurs suivies.
-      </p>
+      <div className="border border-dashed border-[#2a2a2a] rounded-xl p-5">
+        <p className="text-sm text-[#888] text-center">
+          Aucune date à venir publiée pour ces valeurs.
+        </p>
+        <p className="text-micro text-[#666] text-center mt-1.5 max-w-lg mx-auto">
+          Ce n&apos;est pas une erreur : hors États-Unis, une société n&apos;annonce souvent son
+          agenda qu&apos;à quelques semaines, et la source ne le relaie qu&apos;ensuite. Les dates
+          apparaîtront d&apos;elles-mêmes.
+        </p>
+
+        {recents.length > 0 && (
+          <>
+            <p className="text-micro uppercase tracking-wide text-[#666] mt-5 mb-2">
+              Derniers événements connus
+            </p>
+            <div className="space-y-1.5">
+              {recents.map((ev, idx) => (
+                <button
+                  key={`${ev.ticker}-${ev.type}-${ev.date}-${idx}`}
+                  onClick={() => onEventClick?.(ev)}
+                  className="w-full flex items-center justify-between gap-3 text-left rounded-lg border border-[#222] bg-[#0a0a0a] px-3 py-2 hover:border-[#333] transition-colors"
+                >
+                  <span className="min-w-0">
+                    <span className="text-xs text-[#ccc]">{ev.ticker}</span>
+                    <span className="block text-micro text-[#666] truncate">{ev.label || ev.type}</span>
+                  </span>
+                  <span className="text-micro font-data text-[#777] shrink-0">{ev.date}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     );
   }
 

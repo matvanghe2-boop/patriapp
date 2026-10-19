@@ -30,6 +30,7 @@
 import { httpError, cached } from "../http.js";
 import { YF_HEADERS, getYahooSession, invalidateYahooSession, parseSymbols } from "../yahoo.js";
 import { evenementsSec } from "../sources/edgar.js";
+import { evenementsCalendrierYahoo } from "../sources/yahooCalendrier.js";
 import { fusionnerEvenements, statutYahoo } from "../sources/fusion.js";
 
 // Un calendrier d'événements évolue au mieux une fois par jour : cache long.
@@ -306,6 +307,25 @@ async function handler(req, res) {
       secParSymbole = {};
     }
 
+    /**
+     * Troisième entrée : le backend du calendrier de Yahoo lui-même.
+     *
+     * `v7/quote` et `quoteSummary` ne donnent qu'UNE prochaine date de
+     * résultats. Celui-ci apporte les assemblées générales — que le README
+     * annonçait comme introuvables — et des libellés qualifiés par exercice.
+     * Sans clé, même session, et tout échec est absorbé.
+     */
+    let visuParSymbole = {};
+    try {
+      const evenementsVisu = await evenementsCalendrierYahoo(symbols, toIsoDate);
+      visuParSymbole = evenementsVisu.reduce((acc, e) => {
+        (acc[e.ticker] ||= []).push(e);
+        return acc;
+      }, {});
+    } catch {
+      visuParSymbole = {};
+    }
+
     const aujourdhui = toIsoDate(Math.floor(Date.now() / 1000));
 
     return res.status(200).json(
@@ -313,7 +333,8 @@ async function handler(req, res) {
         const row = rowBySymbol[symbol];
         const detail = detailBySymbol[symbol];
         const sec = secParSymbole[symbol] || [];
-        if (!row && !detail && sec.length === 0) {
+        const visu = visuParSymbole[symbol] || [];
+        if (!row && !detail && sec.length === 0 && visu.length === 0) {
           return { symbol, ok: false, error: "Symbole introuvable", events: [] };
         }
         const shortName = row?.shortName || row?.longName || symbol;
@@ -334,7 +355,7 @@ async function handler(req, res) {
           // Fusion des deux sources : un dépôt EDGAR tombant le même jour
           // qu'une date annoncée par Yahoo ne crée pas une seconde ligne, il
           // la confirme.
-          events: fusionnerEvenements([yahoo, sec]),
+          events: fusionnerEvenements([yahoo, visu, sec]),
         };
       })
     );

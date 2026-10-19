@@ -34,6 +34,8 @@ api/_lib/routes/search.js
 api/_lib/sources/edgar.js
 api/_lib/sources/fusion.js
 api/_lib/sources/fusion.test.js
+api/_lib/sources/yahooCalendrier.js
+api/_lib/sources/yahooCalendrier.test.js
 api/_lib/webstat.js
 api/_lib/webstat.test.js
 api/_lib/withApi.test.js
