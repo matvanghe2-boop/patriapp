@@ -5,7 +5,14 @@ import userEvent from "@testing-library/user-event";
 const fetchCalendarEvents = vi.fn();
 vi.mock("../lib/api", () => ({ fetchCalendarEvents: (...a) => fetchCalendarEvents(...a) }));
 
+import { ToastProvider } from "../lib/ToastContext";
 import FinancialCalendar from "./FinancialCalendar";
+
+/**
+ * Rendu dans le même contexte que l'application : le détail d'un événement
+ * propose de résumer la publication, et ce panneau utilise les toasts.
+ */
+const rendre = (ui) => render(<ToastProvider>{ui}</ToastProvider>);
 
 const POSITIONS = [{ ticker: "AI.PA", name: "Air Liquide" }];
 const WATCHLIST = [{ ticker: "MC.PA", name: "LVMH" }];
@@ -30,7 +37,7 @@ beforeEach(() => {
 
 describe("FinancialCalendar", () => {
   it("interroge à la fois les positions du portefeuille et la watchlist", async () => {
-    render(<FinancialCalendar positions={POSITIONS} watchlist={WATCHLIST} />);
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={WATCHLIST} />);
     await vi.waitFor(() => expect(fetchCalendarEvents).toHaveBeenCalled());
     expect(fetchCalendarEvents.mock.calls[0][0].sort()).toEqual(["AI.PA", "MC.PA"]);
   });
@@ -40,7 +47,7 @@ describe("FinancialCalendar", () => {
     mockEvents([
       { ticker: "AI.PA", name: "Air Liquide", type: "Dividende", date: futureIso(5), label: "Date ex-dividende" },
     ]);
-    render(
+    rendre(
       <FinancialCalendar
         positions={[{ ticker: "AI.PA", name: "Air Liquide" }]}
         watchlist={[{ ticker: "AI.PA", name: "Air Liquide" }]}
@@ -57,7 +64,7 @@ describe("FinancialCalendar", () => {
       { ticker: "AI.PA", name: "Air Liquide", type: "Dividende", date: futureIso(3), label: "Date ex-dividende" },
       { ticker: "MC.PA", name: "LVMH", type: "Résultats", date: futureIso(6), label: "Résultats annuels (estimé)" },
     ]);
-    render(<FinancialCalendar positions={POSITIONS} watchlist={WATCHLIST} />);
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={WATCHLIST} />);
     await user_clickTimeline();
 
     const detenu = await screen.findByRole("button", { name: /Air Liquide/ });
@@ -76,7 +83,7 @@ describe("FinancialCalendar", () => {
       { ticker: "AI.PA", name: "Air Liquide", type: "Dividende", date: futureIso(3), label: "Date ex-dividende" },
       { ticker: "MC.PA", name: "LVMH", type: "Résultats", date: futureIso(6), label: "Résultats annuels (estimé)" },
     ]);
-    render(<FinancialCalendar positions={POSITIONS} watchlist={WATCHLIST} />);
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={WATCHLIST} />);
     await user_clickTimeline();
     await screen.findByRole("button", { name: /LVMH/ });
 
@@ -92,7 +99,7 @@ describe("FinancialCalendar", () => {
       { ticker: "AI.PA", name: "Air Liquide", type: "Dividende", date: futureIso(3), label: "Date ex-dividende" },
       { ticker: "AI.PA", name: "Air Liquide", type: "Résultats", date: futureIso(6), label: "Résultats annuels (estimé)" },
     ]);
-    render(<FinancialCalendar positions={POSITIONS} watchlist={[]} />);
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={[]} />);
     await user_clickTimeline();
     await vi.waitFor(() => expect(screen.getAllByRole("button", { name: /Air Liquide/ })).toHaveLength(2));
 
@@ -113,7 +120,7 @@ describe("FinancialCalendar", () => {
         estimates: { chiffreAffairesAttendu: 27_000_000_000, beneficeAttendu: 3.1 },
       },
     ]);
-    render(<FinancialCalendar positions={POSITIONS} watchlist={[]} />);
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={[]} />);
     await user_clickTimeline();
     await user.click(await screen.findByRole("button", { name: /Air Liquide/ }));
 
@@ -123,13 +130,13 @@ describe("FinancialCalendar", () => {
   });
 
   it("invite à remplir portefeuille ou watchlist quand les deux sont vides", async () => {
-    render(<FinancialCalendar positions={[]} watchlist={[]} />);
+    rendre(<FinancialCalendar positions={[]} watchlist={[]} />);
     expect(await screen.findByText(/watchlist pour voir apparaître/i)).toBeInTheDocument();
     expect(fetchCalendarEvents).not.toHaveBeenCalled();
   });
 
   it("indique clairement que les assemblées générales ne sont pas fournies par la source", async () => {
-    render(<FinancialCalendar positions={POSITIONS} watchlist={[]} />);
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={[]} />);
     expect(
       await screen.findByText(/assemblée générale ne sont publiées par aucun endpoint/i)
     ).toBeInTheDocument();

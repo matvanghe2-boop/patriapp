@@ -6,8 +6,10 @@ import {
 import { fetchCalendarEvents } from "../lib/api";
 import { todayIso } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
+import { evenementsManuels, creerDateManuelle, retirerDateManuelle, TYPES_MANUELS } from "../lib/calendrierManuel";
 import { SkeletonChart } from "./ui";
 import Modal from "./Modal";
+import ResumePublications from "./ResumePublications";
 
 // ─── Types d'événements ─────────────────────────────────────────────────────
 // Code couleur demandé : vert pour les dividendes, bleu pour tout ce qui
@@ -321,6 +323,16 @@ function EventModal({ ev, onClose }) {
             </div>
           </div>
         </div>
+
+        {/* Résumé de la publication, accessible depuis l'événement lui-même —
+            c'est là qu'on se pose la question « qu'est-ce qu'ils ont annoncé ? ».
+            N'apparaît que pour les événements qui PORTENT un contenu : une
+            date ex-dividende n'a rien à résumer. */}
+        {["Résultats", "Communication", "Chiffre d'affaires"].includes(ev.type) && (
+          <div className="mt-3">
+            <ResumePublications ticker={ev.ticker} nom={ev.name} lienDocument={ev.lien || null} />
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -571,6 +583,135 @@ function SourceFilter({ source, active, count, onToggle }) {
   );
 }
 
+/**
+ * Saisie d'une date d'agenda relevée à la main.
+ *
+ * Repliée par défaut : c'est un recours, pas le mode de fonctionnement
+ * normal. Elle ne s'ouvre que quand on en a besoin, et le compteur annonce
+ * combien de dates sont déjà tenues ainsi.
+ */
+function SaisieDateManuelle({ tickers = [], dates = [], onAjouter, onRetirer }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [brouillon, setBrouillon] = useState({
+    ticker: tickers[0] || "",
+    type: "Résultats",
+    date: "",
+    label: "",
+    source: "",
+  });
+  const [erreur, setErreur] = useState("");
+
+  const valider = (e) => {
+    e.preventDefault();
+    if (!onAjouter(brouillon)) {
+      setErreur("Il manque un titre, un type ou une date valide.");
+      return;
+    }
+    setErreur("");
+    setBrouillon((b) => ({ ...b, date: "", label: "", source: "" }));
+  };
+
+  return (
+    <div className="mb-3">
+      <button
+        onClick={() => setOuvert((o) => !o)}
+        className="text-micro text-[#888] hover:text-[#ccc] underline underline-offset-2"
+      >
+        {ouvert ? "Masquer" : "Ajouter une date à la main"}
+        {dates.length > 0 && <span className="text-[#666]"> · {dates.length} enregistrée(s)</span>}
+      </button>
+
+      {ouvert && (
+        <div className="mt-2 rounded-xl border border-[#222] bg-[#0a0a0a] p-3">
+          <p className="text-micro text-[#777] mb-2.5">
+            Aucune API gratuite ne publie l&apos;agenda à venir des valeurs d&apos;Euronext. Relève
+            la date sur l&apos;agenda financier de la société : elle primera sur toutes les sources
+            automatiques et ne sera jamais écrasée par un rafraîchissement.
+          </p>
+
+          <form onSubmit={valider} className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <select
+              value={brouillon.ticker}
+              onChange={(e) => setBrouillon((b) => ({ ...b, ticker: e.target.value }))}
+              className="bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs text-[#ddd]"
+              aria-label="Titre"
+            >
+              {tickers.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <select
+              value={brouillon.type}
+              onChange={(e) => setBrouillon((b) => ({ ...b, type: e.target.value }))}
+              className="bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs text-[#ddd]"
+              aria-label="Type d'événement"
+            >
+              {TYPES_MANUELS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              required
+              value={brouillon.date}
+              onChange={(e) => setBrouillon((b) => ({ ...b, date: e.target.value }))}
+              className="bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs text-[#ddd]"
+              aria-label="Date"
+            />
+            <input
+              type="url"
+              placeholder="Lien agenda (optionnel)"
+              value={brouillon.source}
+              onChange={(e) => setBrouillon((b) => ({ ...b, source: e.target.value }))}
+              className="bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs text-[#ddd]"
+              aria-label="Lien vers la source"
+            />
+            <button
+              type="submit"
+              className="btn-flash rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-300 px-2 py-1.5 text-xs font-medium"
+            >
+              Ajouter
+            </button>
+          </form>
+          {erreur && <p className="text-micro text-rose-400 mt-1.5">{erreur}</p>}
+
+          {dates.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1">
+              {dates.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex items-center justify-between gap-2 text-micro text-[#999] border-b border-[#1c1c1c] pb-1 last:border-0"
+                >
+                  <span className="font-data">
+                    {d.date} · {d.ticker} · {d.type}
+                    {d.source && (
+                      <a
+                        href={d.source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-1.5 text-sky-400 hover:text-sky-300 underline underline-offset-2"
+                      >
+                        source
+                      </a>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => onRetirer(d.id)}
+                    className="text-[#666] hover:text-rose-400 shrink-0"
+                    aria-label={`Supprimer la date du ${d.date} pour ${d.ticker}`}
+                  >
+                    retirer
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Composant principal ────────────────────────────────────────────────────
 /**
  * Calendrier financier mode sombre, alimenté automatiquement par les tickers
@@ -598,6 +739,7 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
   // appel réseau que le cache serveur servirait à l'identique.
   const [, setEvenementsPersistes] = usePersistentState("calendrierEvenements", []);
   const [notifVeille, setNotifVeille] = usePersistentState("calendrierNotifVeille", false);
+  const [datesManuelles, setDatesManuelles] = usePersistentState("calendrierDatesManuelles", []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastSync, setLastSync] = useState(null);
@@ -632,7 +774,6 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
         r.ok ? r.events.map((ev) => ({ ...ev, source: sourceByTicker[ev.ticker] || "watchlist" })) : []
       );
       setEvents(merged);
-      setEvenementsPersistes(merged);
       const failed = results.filter((r) => !r.ok).length;
       if (failed > 0) setError(`${failed} valeur(s) sur ${results.length} sans calendrier disponible.`);
       setLastSync(new Date());
@@ -653,17 +794,46 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
     load();
   }, [load]);
 
+  /**
+   * Les dates saisies à la main rejoignent celles des API.
+   *
+   * Elles sont ajoutées ICI plutôt qu'envoyées au serveur : elles vivent dans
+   * le navigateur, comme le reste des données patrimoniales, et n'ont donc
+   * aucune raison de faire l'aller-retour. Elles priment sur les sources
+   * automatiques — un rafraîchissement ne les écrase jamais.
+   */
+  const tousEvenements = useMemo(() => {
+    const manuels = evenementsManuels(datesManuelles, tickers).map((e) => ({
+      ...e,
+      source: sourceByTicker[e.ticker] || "watchlist",
+    }));
+    if (manuels.length === 0) return events;
+
+    // Même clé d'identité que la fusion côté serveur : une date saisie qui
+    // tombe le même jour que celle d'une API la remplace au lieu de doubler.
+    const cle = (e) => `${e.ticker}|${e.type}|${e.date}`;
+    const prioritaires = new Set(manuels.map(cle));
+    return [...events.filter((e) => !prioritaires.has(cle(e))), ...manuels];
+  }, [events, datesManuelles, tickers, sourceByTicker]);
+
+  // La liste PERSISTÉE est celle qui inclut les saisies manuelles : sans
+  // cela, le rappel « c'est demain » ignorerait précisément les dates les
+  // plus sûres, celles relevées sur l'agenda officiel de la société.
+  useEffect(() => {
+    setEvenementsPersistes(tousEvenements);
+  }, [tousEvenements, setEvenementsPersistes]);
+
   const counts = useMemo(
     () => ({
-      portefeuille: events.filter((e) => e.source === "portefeuille").length,
-      watchlist: events.filter((e) => e.source === "watchlist").length,
+      portefeuille: tousEvenements.filter((e) => e.source === "portefeuille").length,
+      watchlist: tousEvenements.filter((e) => e.source === "watchlist").length,
     }),
-    [events]
+    [tousEvenements]
   );
 
   const filteredEvents = useMemo(
-    () => events.filter((e) => visibleSources[e.source] !== false && visibleTypes[e.type] !== false),
-    [events, visibleSources, visibleTypes]
+    () => tousEvenements.filter((e) => visibleSources[e.source] !== false && visibleTypes[e.type] !== false),
+    [tousEvenements, visibleSources, visibleTypes]
   );
 
   const eventsByDate = useMemo(() => {
@@ -754,6 +924,25 @@ export default function FinancialCalendar({ positions = [], watchlist = [] }) {
           )}
         </span>
       </label>
+
+      {/* ─── Dates saisies à la main ───────────────────────────────────────
+          Aucune source gratuite ne publie l'agenda à venir des valeurs
+          d'Euronext : Yahoo n'avait une date de résultats encore à venir que
+          pour quatre valeurs du CAC sur douze, Twelve Data refuse les
+          symboles Euronext sur son offre gratuite, et Euronext chiffre les
+          réponses de son propre site. Ces dates existent pourtant, sur
+          l'agenda financier de chaque société. On permet donc de les saisir,
+          et elles priment sur toutes les sources automatiques. */}
+      <SaisieDateManuelle
+        tickers={tickers}
+        dates={datesManuelles}
+        onAjouter={(saisie) => {
+          const d = creerDateManuelle(saisie);
+          if (d) setDatesManuelles((liste) => [...liste, d]);
+          return Boolean(d);
+        }}
+        onRetirer={(id) => setDatesManuelles((liste) => retirerDateManuelle(liste, id))}
+      />
 
       {/* Filtres par origine — portefeuille mis en avant, watchlist en retrait */}
       <div className="flex flex-wrap items-center gap-2 mb-3">

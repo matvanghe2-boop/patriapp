@@ -47,6 +47,8 @@ api/health.test.js
 api/market.js
 api/parse-pdf.js
 api/rates.test.js
+api/resume.js
+api/resume.test.js
 data/listes/fr-small.txt
 data/listes/rapport.json
 data/listes/russell2000.txt
@@ -93,6 +95,8 @@ shared/ratiosHistoriques.js
 shared/ratiosHistoriques.test.js
 shared/reequilibrage.js
 shared/reequilibrage.test.js
+shared/resumePublication.js
+shared/resumePublication.test.js
 shared/screener.js
 shared/screener.test.js
 shared/universSnapshot.js
@@ -162,6 +166,7 @@ src/components/ReglagesApparence.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
 src/components/ReparationJournal.jsx
+src/components/ResumePublications.jsx
 src/components/Retrospective.jsx
 src/components/SantePortefeuille.jsx
 src/components/ScenariosProjet.jsx
@@ -195,6 +200,8 @@ src/lib/apparence.test.jsx
 src/lib/authErrors.js
 src/lib/authErrors.test.js
 src/lib/benchmarks.js
+src/lib/calendrierManuel.js
+src/lib/calendrierManuel.test.js
 src/lib/compact.test.js
 src/lib/decumulation.js
 src/lib/decumulation.test.js
@@ -220,6 +227,8 @@ src/lib/objectifs.js
 src/lib/objectifs.test.js
 src/lib/portefeuilleSante.js
 src/lib/portefeuilleSante.test.js
+src/lib/publications.js
+src/lib/publications.test.js
 src/lib/rattrapage.js
 src/lib/rattrapage.test.js
 src/lib/retrospective.js

@@ -39,10 +39,15 @@ function cle(e) {
 }
 
 /**
- * Ordre de préférence des sources en cas de doublon. EDGAR l'emporte sur
- * Yahoo : un dépôt réglementaire est un fait, une date Yahoo une annonce.
+ * Ordre de préférence des sources en cas de doublon.
+ *
+ * La saisie manuelle prime sur tout : si l'utilisateur a relevé la date sur
+ * l'agenda financier de la société, elle vaut mieux qu'une estimation de
+ * fournisseur — et il n'y a aucune raison qu'un rafraîchissement automatique
+ * vienne l'écraser. Vient ensuite le dépôt réglementaire, qui est un fait
+ * daté, puis l'annonce Yahoo.
  */
-const RANG_SOURCE = { "sec-edgar": 2, yahoo: 1 };
+const RANG_SOURCE = { manuel: 3, "sec-edgar": 2, yahoo: 1 };
 
 /**
  * Fusionne plusieurs listes d'événements.

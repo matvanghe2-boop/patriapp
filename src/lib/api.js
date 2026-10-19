@@ -219,3 +219,35 @@ export async function fetchEtatSource() {
     return { ok: false, source: "yahoo", motif: "reseau", verifieLe: new Date().toISOString() };
   }
 }
+
+/**
+ * Résumé d'une publication d'entreprise.
+ *
+ * La route exige un jeton de session : son abus coûte le quota du fournisseur
+ * de modèle, exactement comme l'assistant. Le jeton est donc joint ici, comme
+ * le fait `horizonClient`.
+ *
+ * Ce qui part : un symbole, et du texte DÉJÀ PUBLIC — ou un lien vers un
+ * document de la SEC. Jamais un montant, jamais une quantité, jamais un nom
+ * de compte.
+ */
+export async function resumerPublication({ symbole, texte, url, guidancePrecedente = null }) {
+  const { supabase, isSupabaseConfigured } = await import("./supabaseClient");
+  let jeton = null;
+  if (isSupabaseConfigured) {
+    const { data } = await supabase.auth.getSession();
+    jeton = data?.session?.access_token ?? null;
+  }
+
+  const res = await fetch(`${BASE}/resume`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
+    },
+    body: JSON.stringify({ symbole, texte, url, guidancePrecedente }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || "Résumé impossible pour le moment.");
+  return body;
+}

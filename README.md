@@ -93,6 +93,36 @@ Le calendrier couvre le portefeuille et la watchlist : résultats, dividendes, c
 
 Limite connue, déjà vraie avant : Yahoo n'expose aucune date d'assemblée générale pour les valeurs européennes, et EDGAR ne couvre que les sociétés américaines. Le type existe, il reste vide pour les lignes françaises — aucune date n'est fabriquée pour combler ce trou.
 
+### Dates d'agenda : pourquoi la saisie manuelle existe
+
+Aucune source gratuite ne publie l'agenda **à venir** des valeurs d'Euronext. Ce n'est pas une supposition, c'est mesuré :
+
+| Source | Résultat |
+| --- | --- |
+| Yahoo (12 valeurs du CAC) | **4 sur 12** avaient une date de résultats encore à venir, 2 sur 12 une date de dividende. Pour Schneider, Veolia et Vinci, la dernière date connue remontait à juillet |
+| Yahoo, endpoint calendrier | Pour Air Liquide : deux événements en tout, tous deux de 2025 |
+| Twelve Data (offre gratuite) | Refuse les symboles Euronext **y compris sur `/quote`**, et ferme `/earnings`, `/dividends` et `/earnings_calendar` à tous les plans inférieurs à « grow ». Inutilisable ici |
+| Euronext | Chiffre les réponses de son propre site |
+| SEC EDGAR | Ne couvre que les sociétés américaines |
+
+Ces dates existent pourtant : elles sont publiées sur l'**agenda financier** du site investisseurs de chaque société. Elles sont simplement hors de portée d'une API gratuite.
+
+Le calendrier permet donc de les **saisir à la main**, avec le lien vers la source. C'est le même parti pris que `shared/ratesCatalog.js` pour les taux réglementés : quand aucune API ne sert la donnée, une référence tenue à la main, datée et sourcée, vaut mieux qu'une case vide. Ces dates **priment sur toutes les sources automatiques** — un rafraîchissement ne les écrase jamais.
+
+### Résumés de communiqués et de résultats
+
+Le détail d'un événement de résultats propose de résumer la publication avec le fournisseur de modèle déjà configuré (Gemini par défaut).
+
+**Aucun chiffre n'est pris au mot.** Tout nombre avancé par le modèle est confronté au texte source ; ceux qui ne s'y retrouvent pas sont **retirés et comptés**, et le résumé est alors marqué « incertain » plutôt que réparé en silence. Un modèle qui « arrondit » 4 732 M€ en 4,7 Md€ produit une valeur absente du communiqué : indiscernable d'une invention, donc traitée comme telle. La consigne lui interdit explicitement de calculer, d'arrondir ou de convertir.
+
+La **guidance** est comparée à la précédente sur le milieu de fourchette (relevée, maintenue, abaissée), et l'historique permet de dire si l'entreprise a **tenu ses promesses passées** — les exercices sans réalisé connu sont ignorés plutôt que comptés comme manqués.
+
+**Confidentialité** : la route `/api/resume` ne reçoit qu'un symbole et du texte **déjà public**. Jamais un montant, jamais une quantité, jamais un nom de compte. Elle exige un jeton de session, comme l'assistant, parce que son abus coûte le quota du fournisseur de modèle.
+
+Deux façons de fournir le texte : un lien vers un document **de la SEC** (liste blanche stricte — récupérer une URL arbitraire ferait de la fonction un relais vers le réseau interne de l'hébergeur), ou le **texte collé**, seule voie possible pour les sociétés européennes et qui ne scrape rien. Sans fournisseur de modèle configuré, l'écran affiche le lien et le texte brut, sans résumé.
+
+Ton neutre : aucune recommandation d'achat, de vente ou de conservation, aucune cible de cours.
+
 ### Quand la source de cours tombe
 
 Toutes les données de marché — cours, change, fondamentaux, calendrier, fiches — viennent d'une seule source non officielle. Une panne de sa part se manifestait par une série d'échecs isolés dont rien ne donnait la cause commune : un cours qui ne bouge plus, une fiche vide, un screener sans résultat. On en concluait naturellement que son propre portefeuille ou son propre filtre était en cause.
