@@ -1,7 +1,8 @@
 import { withApi, httpError, cached } from "./_lib/http.js";
 import { exigerUtilisateur } from "./_lib/auth.js";
 import { construireChaine } from "../shared/adaptateursLLM.js";
-import { PROMPT_RESUME, construireResume } from "../shared/resumePublication.js";
+import { PROMPT_RESUME, construireResume, verifierChiffres } from "../shared/resumePublication.js";
+import { PROMPT_ANALYSE, fourchetteValorisation } from "../shared/valorisation.js";
 
 /**
  * Résumé d'une publication d'entreprise — POST /api/resume
@@ -107,8 +108,85 @@ export function lireJsonModele(brut) {
   }
 }
 
+/**
+ * Mode « analyse » : explication de la trajectoire d'une société.
+ *
+ * Le PRIX n'est jamais demandé au modèle. Il est calculé par
+ * `fourchetteValorisation`, à partir de ratios publiés et de règles
+ * explicites, et seulement transmis au modèle pour qu'il le commente.
+ * « Estimer un juste prix » est précisément la question à laquelle un modèle
+ * répond avec aplomb et sans fondement : la réponse doit donc être de
+ * l'arithmétique vérifiable, pas une génération.
+ *
+ * Aucune donnée de portefeuille n'entre ici : seulement des ratios publics
+ * de la société, les mêmes que ceux déjà affichés dans sa fiche.
+ */
+async function analyser(req, res) {
+  const { symbole, donnees = {} } = req.body ?? {};
+  if (typeof symbole !== "string" || !symbole.trim()) {
+    throw httpError(400, "Symbole manquant.");
+  }
+
+  const valorisation = fourchetteValorisation(donnees);
+
+  const adaptateurs = construireChaine(process.env);
+  if (adaptateurs.length === 0) {
+    // La valorisation, elle, ne dépend d'aucun modèle : on la rend quand même.
+    return res.status(200).json({ disponible: false, motif: "Aucun fournisseur de modèle configuré.", valorisation });
+  }
+
+  // Le modèle reçoit les chiffres mis à plat, et la fourchette DÉJÀ calculée.
+  const contexte = JSON.stringify({ symbole: symbole.trim(), ratios: donnees, valorisation }, null, 1);
+
+  let reponse = null;
+  for (const adaptateur of adaptateurs) {
+    try {
+      const sortie = await adaptateur.envoyer({
+        systeme: PROMPT_ANALYSE,
+        messages: [{ role: "utilisateur", contenu: `Chiffres de ${symbole} :\n\n${contexte}` }],
+      });
+      reponse = lireJsonModele(sortie?.contenu);
+      if (reponse) break;
+    } catch {
+      /* fournisseur suivant */
+    }
+  }
+
+  if (!reponse) {
+    return res.status(200).json({ disponible: false, motif: "Le fournisseur de modèle n'a pas répondu.", valorisation });
+  }
+
+  // Les chiffres cités par le modèle sont confrontés au contexte qu'on lui a
+  // transmis : il n'a pas le droit d'en introduire d'autres.
+  const champsTexte = [reponse.trajectoire, reponse.positionnement, reponse.incertitudes]
+    .filter((t) => typeof t === "string")
+    .join(" ");
+  const nombresCites = [...champsTexte.matchAll(/-?\d[\d\u00a0\u202f .,]*\d|-?\d/g)].map((m) => m[0]);
+  const { rejetes } = verifierChiffres(
+    nombresCites.map((v) => ({ libelle: "cité", valeur: v })),
+    contexte
+  );
+
+  return res.status(200).json({
+    disponible: true,
+    symbole: symbole.trim(),
+    valorisation,
+    trajectoire: typeof reponse.trajectoire === "string" ? reponse.trajectoire : "",
+    positionnement: typeof reponse.positionnement === "string" ? reponse.positionnement : "",
+    forces: Array.isArray(reponse.forces) ? reponse.forces.filter((f) => typeof f === "string") : [],
+    vigilance: Array.isArray(reponse.vigilance) ? reponse.vigilance.filter((f) => typeof f === "string") : [],
+    incertitudes: typeof reponse.incertitudes === "string" ? reponse.incertitudes : "",
+    // Un chiffre cité qui ne figure pas dans les données transmises signale
+    // que le modèle a brodé : l'analyse est alors présentée comme incertaine.
+    fiable: rejetes.length === 0,
+    chiffresDouteux: rejetes.length,
+  });
+}
+
 async function handler(req, res) {
   await exigerUtilisateur(req);
+
+  if (req.body?.mode === "analyse") return analyser(req, res);
 
   const { symbole, url, texte, guidancePrecedente = null } = req.body ?? {};
   if (typeof symbole !== "string" || !symbole.trim()) {

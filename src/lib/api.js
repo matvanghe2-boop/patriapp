@@ -251,3 +251,31 @@ export async function resumerPublication({ symbole, texte, url, guidancePreceden
   if (!res.ok) throw new Error(body.error || "Résumé impossible pour le moment.");
   return body;
 }
+
+/**
+ * Analyse de trajectoire et de valorisation d'une valeur.
+ *
+ * `donnees` ne contient que des ratios PUBLICS de la société — les mêmes que
+ * ceux déjà affichés dans sa fiche. Aucune position, aucun montant, aucune
+ * quantité détenue : cette route ignore jusqu'à l'existence du portefeuille.
+ */
+export async function analyserValeur({ symbole, donnees }) {
+  const { supabase, isSupabaseConfigured } = await import("./supabaseClient");
+  let jeton = null;
+  if (isSupabaseConfigured) {
+    const { data } = await supabase.auth.getSession();
+    jeton = data?.session?.access_token ?? null;
+  }
+
+  const res = await fetch(`${BASE}/resume`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
+    },
+    body: JSON.stringify({ mode: "analyse", symbole, donnees }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || "Analyse indisponible pour le moment.");
+  return body;
+}

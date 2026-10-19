@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Card, CardLabel, EmptyState, CARD_THEMES, SkeletonChart } from "./ui";
 import FicheFinanciere from "./FicheFinanciere";
+import AnalyseValeur from "./AnalyseValeur";
 import AssetLogo from "./AssetLogo";
 import IndicesWidget from "./IndicesWidget";
 import ChartFocusModal from "./ChartFocusModal";
@@ -681,6 +682,40 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               publiés et consensus d'analystes. Chargés à part de la fiche
               entreprise, qui vient d'un endpoint distinct. */}
           <FicheFinanciere symbole={symbol} devise={profile?.currency} />
+
+          {/* Trajectoire et valorisation — APRÈS les graphiques et les états
+              financiers : c'est une lecture de ce qui précède, pas un
+              raccourci qui dispenserait de le regarder.
+
+              Le PER moyen historique vient de la fiche ci-dessus, qui le
+              calcule déjà sur les quatre exercices publiés ; à défaut, le PER
+              courant sert de repère, ce qui ramène la méthode à « le titre
+              vaut ce qu'il vaut » et se voit dans l'écart affiché. */}
+          {profile && (
+            <AnalyseValeur
+              symbole={symbol}
+              devise={profile.currency || "€"}
+              donnees={{
+                cours: profile.currentPrice,
+                per: profile.peRatio,
+                perMoyenHistorique: null,
+                perAttendu: profile.forwardPE,
+                rendementPct: profile.dividendYield != null ? profile.dividendYield * 100 : null,
+                // Pas d historique de rendement non plus : la methode « retour au
+                // rendement moyen » reste donc inactive plutot que de se comparer
+                // a elle-meme, ce qui redonnerait toujours le cours actuel.
+                rendementMoyenPct: null,
+                dividendeParAction: profile.dividendRate,
+                consensusAnalystes: profile.targetMeanPrice,
+                margeNettePct: profile.profitMargin != null ? profile.profitMargin * 100 : null,
+                croissanceCaPct: profile.revenueGrowth != null ? profile.revenueGrowth * 100 : null,
+                roePct: profile.returnOnEquity != null ? profile.returnOnEquity * 100 : null,
+                detteSurFondsPropres: profile.debtToEquity,
+                beta: profile.beta,
+                nbAnalystes: profile.numberOfAnalystOpinions,
+              }}
+            />
+          )}
 
           <Card accent={CARD_THEMES.violet}>
             <CardLabel icon={Building2}>Fiche entreprise &amp; activité</CardLabel>
