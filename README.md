@@ -161,7 +161,7 @@ git push -u origin main
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | non | URL du projet Supabase. Absente ⇒ mode local pur, sans compte |
 | `VITE_SUPABASE_ANON_KEY` | non | Clé publique Supabase (protégée par RLS) |
-| `ALLOWED_ORIGINS` | **oui en production** | Origines autorisées à appeler `api/*`, séparées par des virgules. Ex : `https://patrium.vercel.app` |
+| `ALLOWED_ORIGINS` | non (voir ci-dessous) | Origines **supplémentaires** autorisées à appeler `api/*`, séparées par des virgules. Le domaine de production est déjà accepté automatiquement ; à renseigner pour un domaine personnalisé non encore rattaché au projet, ou une autre origine légitime |
 | `WEBSTAT_CLIENT_ID` | non | Identifiant client Banque de France (Webstat), pour rafraîchir en direct quelques taux du sous-onglet Taux. Absent ⇒ catalogue de référence maintenu à la main (voir plus bas) |
 
 Les variables préfixées `VITE_` sont **intégrées au JavaScript envoyé au navigateur** : elles sont donc publiques par construction. C'est acceptable pour la clé `anon` de Supabase (c'est son rôle, la sécurité repose sur RLS) ; n'y mets jamais de clé de service.
@@ -223,7 +223,9 @@ Recommandation si l'app devait un jour se doubler d'un fournisseur de secours : 
 
 Les fonctions sont publiques par nature (pas d'authentification, elles ne servent que des données de marché publiques), mais elles ne sont plus un proxy ouvert :
 
-- **Origine** : les requêtes navigateur venant d'un domaine hors `ALLOWED_ORIGINS` sont rejetées (403)
+- **Origine** : les requêtes navigateur venant d'un domaine non autorisé sont rejetées (403). Sont acceptés : le domaine de production (`VERCEL_PROJECT_PRODUCTION_URL`), l'URL du déploiement courant (`VERCEL_URL`) et tout ce que liste `ALLOWED_ORIGINS`.
+
+  ⚠️ **`VERCEL_URL` ne suffit pas, et c'est contre-intuitif.** Elle désigne le *déploiement* (`patriapp-m6h8f0z1a-….vercel.app`, différente à chaque mise en ligne), jamais l'adresse à laquelle les utilisateurs arrivent. Tant qu'elle était la seule origine Vercel acceptée, l'application se refusait elle-même — sans que cela se voie sur les cours, puisqu'un navigateur n'envoie pas d'en-tête `Origin` sur un GET same-origin. Seules les **deux routes en POST** étaient touchées, la spécification Fetch imposant l'en-tête même same-origin : l'import de relevés PDF et l'assistant Horizon répondaient « Origine non autorisée » à tous les utilisateurs. D'où l'ajout de `VERCEL_PROJECT_PRODUCTION_URL`, qui porte le domaine stable (personnalisé s'il existe, sinon `<projet>.vercel.app`).
 - **Débit** : fenêtre glissante par IP et par endpoint (de 10 req/min pour `parse-pdf` à 120 pour `quote`)
 - **Cache** : mémoire + `s-maxage` CDN, pour ne pas retaper Yahoo à chaque rechargement de page
 - **Validation** : les symboles sont filtrés par expression régulière stricte avant toute interpolation dans une URL externe

@@ -13,7 +13,7 @@
  *     d'origine était contourné sans jamais être exécuté.
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { withApi, cached, _resetRateLimit, _resetCache } from "./http.js";
+import { withApi, cached, isOriginAllowed, _resetRateLimit, _resetCache } from "./http.js";
 
 beforeEach(() => {
   _resetRateLimit();
@@ -132,6 +132,51 @@ describe("withApi — Vary: Origin", () => {
     const { code, entetes } = lire();
     expect(code).toBe(403);
     expect(entetes.Vary).toBe("Origin");
+  });
+});
+
+describe("isOriginAllowed — origines Vercel", () => {
+  const avec = (env) => {
+    const sauvegarde = { ...process.env };
+    Object.assign(process.env, env);
+    return () => {
+      for (const cle of Object.keys(process.env)) delete process.env[cle];
+      Object.assign(process.env, sauvegarde);
+    };
+  };
+
+  it("accepte le domaine de production, pas seulement l'URL du déploiement", () => {
+    // Le cas qui cassait l'import PDF et l'assistant en production : seule
+    // VERCEL_URL était acceptée, or elle désigne le déploiement et non
+    // l'adresse à laquelle les utilisateurs arrivent.
+    const restaurer = avec({
+      NODE_ENV: "production",
+      ALLOWED_ORIGINS: "",
+      VERCEL_PROJECT_PRODUCTION_URL: "patriapp.vercel.app",
+      VERCEL_URL: "patriapp-m6h8f0z1a-exemple.vercel.app",
+    });
+    try {
+      expect(isOriginAllowed("https://patriapp.vercel.app")).toBe(true);
+      expect(isOriginAllowed("https://patriapp-m6h8f0z1a-exemple.vercel.app")).toBe(true);
+      expect(isOriginAllowed("https://evil.example")).toBe(false);
+    } finally {
+      restaurer();
+    }
+  });
+
+  it("accepte toujours une origine listée explicitement", () => {
+    const restaurer = avec({
+      NODE_ENV: "production",
+      ALLOWED_ORIGINS: "https://patrium.fr",
+      VERCEL_PROJECT_PRODUCTION_URL: "patriapp.vercel.app",
+      VERCEL_URL: "",
+    });
+    try {
+      expect(isOriginAllowed("https://patrium.fr")).toBe(true);
+      expect(isOriginAllowed("https://patriapp.vercel.app")).toBe(true);
+    } finally {
+      restaurer();
+    }
   });
 });
 

@@ -9,14 +9,30 @@
  * En production, renseigner ALLOWED_ORIGINS (liste séparée par des virgules)
  * dans les variables d'environnement Vercel, ex :
  *   ALLOWED_ORIGINS=https://patrium.vercel.app,https://patrium.fr
- * VERCEL_URL (injectée automatiquement par Vercel) est toujours acceptée.
+ *
+ * DEUX variables Vercel, et elles ne désignent pas la même chose.
+ *
+ * `VERCEL_URL` est l'URL propre au DÉPLOIEMENT — du genre
+ * `patriapp-m6h8f0z1a-….vercel.app`, différente à chaque mise en ligne. Ce
+ * n'est jamais l'adresse à laquelle les utilisateurs arrivent. Seule
+ * `VERCEL_PROJECT_PRODUCTION_URL` porte le domaine de production stable
+ * (domaine personnalisé s'il existe, sinon `<projet>.vercel.app`).
+ *
+ * N'accepter que la première revenait à REFUSER l'application elle-même. Le
+ * symptôme ne se voyait pas sur les cours : un navigateur n'envoie pas
+ * d'en-tête `Origin` sur un GET same-origin. Il n'apparaissait que sur les
+ * deux routes en POST — où la spécification Fetch impose cet en-tête, même
+ * same-origin — c'est-à-dire sur l'import de relevés PDF et sur l'assistant,
+ * qui répondaient « Origine non autorisée » à tous les utilisateurs.
  */
 function allowedOrigins() {
   const fromEnv = (process.env.ALLOWED_ORIGINS || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  const vercel = process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : [];
+  const vercel = [process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_URL]
+    .filter(Boolean)
+    .map((h) => `https://${h}`);
   const dev =
     process.env.NODE_ENV === "production"
       ? []
