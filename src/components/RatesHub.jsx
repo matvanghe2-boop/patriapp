@@ -10,7 +10,7 @@ import {
   RATES_CATALOG, RATE_CATEGORIES, searchRates, groupByCategory,
   bestSavingsRate, nextUpcomingReview, findOfficialRateFor,
 } from "../../shared/ratesCatalog";
-import { pctPlain } from "../lib/finance";
+import { pctPlain, nombre } from "../lib/finance";
 
 // Chaque catégorie de taux reprend une teinte de carte déjà utilisée
 // ailleurs dans l'app, pour ne pas introduire de nouvelle palette.
@@ -116,7 +116,7 @@ function ComparisonBadge({ diff }) {
     >
       {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
       {up ? "+" : ""}
-      {diff.toFixed(2)} pt vs officiel
+      {nombre(diff, 2)} pt vs officiel
     </span>
   );
 }

@@ -51,21 +51,29 @@ beforeEach(() => {
   window.location.hash = "#/bourse";
 });
 
-/** Les huit blocs repliables de l'onglet Portefeuille, avec leur clé stockée. */
+/**
+ * Les huit blocs repliables de PEA & Bourse, avec leur clé stockée et le
+ * sous-onglet qui les porte : Portefeuille décrit ce qu'on détient, Analyse
+ * juge sa répartition.
+ */
 const BLOCS = [
-  [/Plafond de versements PEA/, "plafondPea"],
-  [/Plus-value nette après impôt/, "fiscalite"],
-  [/Revenus de dividendes estimés/, "dividendes"],
-  [/^Positions\b/, "positions"],
-  [/Plan de rééquilibrage/, "reequilibrage"],
-  [/Watchlist/, "watchlist"],
-  [/Répartition par ligne/, "repartition"],
-  [/Répartition sectorielle/, "heatmap"],
+  [/Plafond de versements PEA/, "plafondPea", "portefeuille"],
+  [/Plus-value nette après impôt/, "fiscalite", "portefeuille"],
+  [/Revenus de dividendes estimés/, "dividendes", "portefeuille"],
+  [/^Positions\b/, "positions", "portefeuille"],
+  [/Watchlist/, "watchlist", "portefeuille"],
+  [/Plan de rééquilibrage/, "reequilibrage", "analyse"],
+  [/Répartition par ligne/, "repartition", "analyse"],
+  [/Répartition sectorielle/, "heatmap", "analyse"],
 ];
 
 describe("repli des blocs du Portefeuille", () => {
-  it.each(BLOCS)("replie et déplie « %s »", async (motif, cle) => {
+  it.each(BLOCS)("replie et déplie « %s »", async (motif, cle, sousOnglet) => {
     renderApp();
+
+    if (sousOnglet === "analyse") {
+      await userEvent.click(await screen.findByRole("tab", { name: /Analyse/ }, { timeout: 30_000 }));
+    }
 
     const bouton = await screen.findByRole("button", { name: motif }, { timeout: 30_000 });
     expect(bouton).toHaveAttribute("aria-expanded", "true");

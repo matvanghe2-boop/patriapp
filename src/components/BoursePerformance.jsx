@@ -12,6 +12,7 @@ import {
   computeRollingPerformance, computeFeeEfficiency, computeTSR, filterHistoryByRange,
   MIN_DAYS_FOR_ANNUALIZATION, MIN_POINTS_FOR_STATS, computeInvestedCapital, investedCapitalAsOf,
   formatDateShort, seriesIndisponibles, avecIndicePerformance,
+  nombre,
 } from "../lib/finance";
 import { BENCHMARKS, CLES_INDICE } from "../lib/benchmarks";
 import { useToast } from "../lib/ToastContext";
@@ -45,7 +46,7 @@ function BenchmarkGauge({ label, value, target, unit = "", higherIsBetter = true
       <span className="text-slate-500">{label}</span>
       <span className="flex items-center gap-1.5">
         <span className={`font-data tabular-nums ${good ? "text-emerald-400" : "text-amber-300"}`}>
-          {value.toFixed(digits)}{unit}
+          {nombre(value, digits)}{unit}
         </span>
         <span className="text-slate-500">vs {target}{unit} (marché)</span>
       </span>
@@ -196,7 +197,7 @@ function BenchmarkCompareTooltip({ active, payload, label }) {
             {p.name}
           </span>
           <span className="flex items-center gap-2">
-            <span className="text-slate-100">{typeof p.value === "number" ? p.value.toFixed(1) : p.value}</span>
+            <span className="text-slate-100">{typeof p.value === "number" ? nombre(p.value, 1) : p.value}</span>
             {typeof p.value === "number" && (
               <span className={p.value >= 100 ? "text-emerald-400" : "text-rose-400"}>
                 {p.value >= 100 ? "+" : ""}{pctPlain((p.value - 100), 1)}
@@ -544,13 +545,13 @@ export default function PerformanceTab({
               />
               <MetricCard
                 icon={Scale} label="Ratio de Sharpe"
-                value={sharpe != null ? sharpe.toFixed(2) : "—"}
+                value={sharpe != null ? nombre(sharpe, 2) : "—"}
                 sub={sharpe != null ? `Bon ≥ ${MARKET_BENCHMARKS.sharpe.good} · marché ≈ ${MARKET_BENCHMARKS.sharpe.market}` : `Fiable à partir de ${MIN_POINTS_FOR_STATS} points`}
                 tone={sharpe != null && sharpe >= MARKET_BENCHMARKS.sharpe.good ? "emerald" : "amber"}
               />
               <MetricCard
                 icon={Scale} label="Bêta (vs S&P 500)"
-                value={alphaBeta ? alphaBeta.beta.toFixed(2) : "—"}
+                value={alphaBeta ? nombre(alphaBeta.beta, 2) : "—"}
                 sub={alphaBeta ? "Sensibilité au marché — 1 = comme le marché" : `Fiable à partir de ${MIN_POINTS_FOR_STATS} points`}
                 tone="violet"
               />
@@ -894,7 +895,7 @@ export default function PerformanceTab({
                       width={44} tickMargin={6} tickCount={5} tickFormatter={(v) => `${v > 0 ? "+" : ""}${v.toFixed(0)}`}
                     />
                     <Tooltip
-                      formatter={(v) => [`${v >= 0 ? "+" : ""}${v.toFixed(1)} pts`, "Écart"]}
+                      formatter={(v) => [`${v >= 0 ? "+" : ""}${nombre(v, 1)} pts`, "Écart"]}
                       labelFormatter={formatDateShort}
                       cursor={{ stroke: "#a78bfa", strokeWidth: 1, strokeDasharray: "3 4" }}
                       contentStyle={{ background: "rgba(2,6,23,0.95)", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}

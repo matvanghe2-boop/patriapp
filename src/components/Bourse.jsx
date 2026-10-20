@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useId } from "react";
-import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, Search, CalendarDays, Filter } from "lucide-react";
+import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, Search, CalendarDays, Filter, Gauge } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES, ChiffreCompteur } from "./ui";
 import AssetLogo from "./AssetLogo";
@@ -533,7 +533,7 @@ export default function Bourse({
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
   const [panicPosition, setPanicPosition] = useState(null);
-  const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "performance" | "marche"
+  const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "analyse" | "performance" | "marche" | "screener" | "calendrier"
   // Requête d'ouverture d'une fiche dans l'onglet Marché depuis le tableau de
   // positions ou la watchlist. Le "ts" force le rechargement dans <Marche>
   // même si on reclique deux fois de suite sur la même valeur.
@@ -1095,6 +1095,7 @@ export default function Bourse({
         onChange={setSubTab}
         onglets={[
           { id: "portefeuille", libelle: "Portefeuille", icone: Briefcase },
+          { id: "analyse", libelle: "Analyse", icone: Gauge },
           { id: "performance", libelle: "Performance", icone: Activity },
           { id: "marche", libelle: "Marché", icone: Search },
           { id: "screener", libelle: "Screener", icone: Filter },
@@ -1426,16 +1427,6 @@ export default function Bourse({
         </p>
       </CarteRepliable>
 
-      {/* Remplace le simulateur d'ordre : celui-ci ne traitait qu'une ligne à
-          la fois, alors que vendre une position modifie le poids de toutes les
-          autres. */}
-      <Reequilibrage
-        bourse={bourse}
-        setBourse={setBourse}
-        replie={replie("reequilibrage")}
-        onBasculer={basculer("reequilibrage")}
-      />
-
       <Watchlist
         watchlist={watchlist}
         setWatchlist={setWatchlist}
@@ -1444,6 +1435,37 @@ export default function Bourse({
         setAlertes={setAlertesWatchlist}
         replie={replie("watchlist")}
         onBasculer={basculer("watchlist")}
+      />
+      </>
+      )}
+
+      {/*
+        Analyse : tout ce qui JUGE le portefeuille, séparé de ce qui le
+        décrit. L'onglet Portefeuille enchaînait indicateurs, positions,
+        watchlist, rééquilibrage, deux répartitions et la santé — une dizaine
+        d'écrans sur téléphone, où l'on cherchait ses lignes entre deux
+        graphiques. On lit d'abord ce qu'on détient ; on vient ici quand on
+        veut savoir si c'est bien réparti, et quoi faire si ce ne l'est pas.
+
+        Ordre : le diagnostic (santé, avec l'exposition par pays), puis ce
+        qu'il implique (rééquilibrage), puis le détail qui le fonde (les
+        deux répartitions). Ces mesures portent sur les LIGNES, pas sur le
+        patrimoine : leur place est ici et non au Dashboard, où un score de
+        robustesse se lirait comme un jugement global alors qu'il ne dit
+        rien des livrets ni de l'immobilier.
+      */}
+      {subTab === "analyse" && (
+      <>
+      <SantePortefeuille positions={bourse.positions} />
+
+      {/* Remplace le simulateur d'ordre : celui-ci ne traitait qu'une ligne à
+          la fois, alors que vendre une position modifie le poids de toutes les
+          autres. */}
+      <Reequilibrage
+        bourse={bourse}
+        setBourse={setBourse}
+        replie={replie("reequilibrage")}
+        onBasculer={basculer("reequilibrage")}
       />
 
       {/* Pie */}
@@ -1497,16 +1519,6 @@ export default function Bourse({
         onBasculer={basculer("heatmap")}
       />
 
-      {/*
-        En pied d'onglet, après les lignes qu'elle analyse.
-        Ces deux mesures portent sur les LIGNES, pas sur le patrimoine — leur
-        place est dans cet onglet et pas au Dashboard, où un score de robustesse
-        se lirait comme un jugement global alors qu'il ne dit rien des livrets
-        ni de l'immobilier. Mais elles ne sont pas non plus une entrée en
-        matière : on lit d'abord ce qu'on détient, on juge sa répartition
-        ensuite.
-      */}
-      <SantePortefeuille positions={bourse.positions} />
       </>
       )}
 

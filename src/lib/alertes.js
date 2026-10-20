@@ -1,4 +1,4 @@
-import { todayIso } from "./finance";
+import { todayIso, nombre } from "./finance";
 
 /**
  * Alertes de seuil sur la watchlist.
@@ -83,7 +83,7 @@ export function acquitter(alertes = [], id) {
  */
 export function versRappel(alerte) {
   const sens = libelleSens(alerte.sens);
-  const cours = Number.isFinite(alerte.cours) ? ` (cours : ${alerte.cours.toFixed(2)})` : "";
+  const cours = Number.isFinite(alerte.cours) ? ` (cours : ${nombre(alerte.cours, 2)})` : "";
   return {
     id: `alerte-${alerte.id}`,
     label: `${alerte.nom} ${sens} ${alerte.seuil}${cours}`,

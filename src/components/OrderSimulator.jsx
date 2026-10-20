@@ -1,7 +1,7 @@
 import { useMemo, useState, useId } from "react";
 import { Sliders, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardLabel, EmptyState } from "./ui";
-import { eur, pctPlain, valeurPosition, lireNombre } from "../lib/finance";
+import { eur, pctPlain, valeurPosition, lireNombre, nombre } from "../lib/finance";
 
 function computeSimulation(pos, totalValue, targetWeightPct, mode) {
   if (!pos || totalValue <= 0) return null;
@@ -130,7 +130,7 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
             <p className="text-micro text-slate-500">Titres à {mode === "vente" ? "vendre" : "acheter"}</p>
-            <p className="font-data font-bold text-violet-300">{result.qty.toFixed(2)}</p>
+            <p className="font-data font-bold text-violet-300">{nombre(result.qty, 2)}</p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
             <p className="text-micro text-slate-500">Montant {mode === "vente" ? "récupéré" : "à investir"}</p>

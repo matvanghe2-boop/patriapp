@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from "recharts";
 import { Card, CardLabel, EmptyState, CARD_THEMES } from "./ui";
-import { eur, pctPlain, compact, triPosition, lireNombre, pct } from "../lib/finance";
+import { eur, pctPlain, compact, triPosition, lireNombre, pct, nombre } from "../lib/finance";
 import {
   totalAttendu, comparerAttenduPercu, rendementSurPrixDeRevient,
   percusParActif, serieAvecProjection, totalRetenueSource,
@@ -168,7 +168,7 @@ export default function SuiviDividendes({ bourse }) {
                   step="0.5"
                   value={tauxManuel}
                   onChange={(e) => setTauxManuel(e.target.value)}
-                  placeholder={projection.croissance.tauxPct != null ? projection.croissance.tauxPct.toFixed(1) : "—"}
+                  placeholder={projection.croissance.tauxPct != null ? nombre(projection.croissance.tauxPct, 1) : "—"}
                   className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-emerald-400/60"
                 />
               </div>

@@ -26,6 +26,8 @@ export const STORAGE_KEYS = [
   "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate", "allocationTarget",
   "profileHistory", "horizonScenarios", "horizonReglages", "horizonDernierBilan",
   "matelasHistory", "objectifs", "alertesWatchlist", "widgetsReplies",
+  // Ordre et visibilité des blocs du Dashboard (voir dispositionDashboard.js).
+  "dispositionDashboard",
   // Préférences d'affichage (thème, accent, densité, retours) — voir
   // ApparenceContext. Persistées comme le reste : un réglage d'affichage suit
   // d'un appareil à l'autre.

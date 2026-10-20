@@ -11,7 +11,7 @@ import AssetLogo from "./AssetLogo";
 import IndicesWidget from "./IndicesWidget";
 import ChartFocusModal from "./ChartFocusModal";
 import ProChart from "./ProChart";
-import { pct, pctPlain } from "../lib/finance";
+import { pct, pctPlain, nombre } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchCompanyProfile, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 
@@ -59,7 +59,7 @@ function formatPrice(n, currency) {
   try {
     return n.toLocaleString("fr-FR", { style: "currency", currency: currency || "EUR", minimumFractionDigits: digits, maximumFractionDigits: digits });
   } catch {
-    return `${n.toFixed(digits)} ${currency || ""}`;
+    return `${nombre(n, digits)} ${currency || ""}`;
   }
 }
 
@@ -67,9 +67,9 @@ function formatCompact(n, currency) {
   if (n == null || !Number.isFinite(n)) return "—";
   const abs = Math.abs(n);
   let out;
-  if (abs >= 1e12) out = `${(n / 1e12).toFixed(2)} T`;
-  else if (abs >= 1e9) out = `${(n / 1e9).toFixed(2)} Md`;
-  else if (abs >= 1e6) out = `${(n / 1e6).toFixed(2)} M`;
+  if (abs >= 1e12) out = `${nombre((n / 1e12), 2)} T`;
+  else if (abs >= 1e9) out = `${nombre((n / 1e9), 2)} Md`;
+  else if (abs >= 1e6) out = `${nombre((n / 1e6), 2)} M`;
   else if (abs >= 1e3) out = `${(n / 1e3).toFixed(0)} k`;
   else out = n.toFixed(0);
   return currency ? `${out} ${currency}` : out;
@@ -606,9 +606,9 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               <CardLabel icon={Scale}>Valorisation &amp; rentabilité</CardLabel>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
                 <StatCell icon={BarChart3} label="Capitalisation" value={profile.marketCap != null ? formatCompact(profile.marketCap, profile.currency) : null} />
-                <StatCell icon={Percent} label="PER (résultats passés)" value={profile.peRatio != null ? profile.peRatio.toFixed(1) : null} />
-                <StatCell icon={Percent} label="PER prévisionnel" value={profile.forwardPE != null ? profile.forwardPE.toFixed(1) : null} />
-                <StatCell icon={Scale} label="Bêta" value={profile.beta != null ? profile.beta.toFixed(2) : null} sub="Sensibilité au marché" />
+                <StatCell icon={Percent} label="PER (résultats passés)" value={profile.peRatio != null ? nombre(profile.peRatio, 1) : null} />
+                <StatCell icon={Percent} label="PER prévisionnel" value={profile.forwardPE != null ? nombre(profile.forwardPE, 1) : null} />
+                <StatCell icon={Scale} label="Bêta" value={profile.beta != null ? nombre(profile.beta, 2) : null} sub="Sensibilité au marché" />
                 <StatCell icon={Percent} label="Rendement du dividende" value={profile.dividendYield != null ? pctPlain(profile.dividendYield * 100, 2) : null} />
                 <StatCell icon={Percent} label="Marge nette" value={profile.profitMargin != null ? pctPlain(profile.profitMargin * 100, 1) : null} />
                 <StatCell icon={TrendingUp} label="Croissance du CA" value={profile.revenueGrowth != null ? pct(profile.revenueGrowth * 100, 1) : null} />

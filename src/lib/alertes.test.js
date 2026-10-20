@@ -77,7 +77,7 @@ describe("alertesDeclenchees", () => {
 describe("versRappel", () => {
   it("produit un libellé lisible pour le panneau de notifications", () => {
     const r = versRappel({ ...sous, cours: 435 });
-    expect(r.label).toBe("Amundi MSCI World descend sous 440 (cours : 435.00)");
+    expect(r.label).toBe("Amundi MSCI World descend sous 440 (cours : 435,00)");
     expect(r.type).toBe("alerte");
     expect(r.alerteId).toBe("a1");
   });

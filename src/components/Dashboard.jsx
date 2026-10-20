@@ -10,7 +10,7 @@ import {
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, ChampNumerique, CARD_THEMES } from "./ui";
 import {
   eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore,
-  computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition, lireNombre } from "../lib/finance";
+  computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition, lireNombre, nombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { useMaintenant, joursDepuis } from "../lib/useMaintenant";
 import { joursDeLAnnee, semainesAgitees } from "../lib/retrospective";
@@ -23,7 +23,9 @@ import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { AnneauRepartition, CalendrierAnnuel, CourbeEvolution } from "./graphiques";
 import { serieSparkline, marqueursOperations, decrireOperation, NATURES_MARQUEUR } from "../lib/marqueursCourbe";
-import { FileDown, FileSpreadsheet, PieChart as PieIcon } from "lucide-react";
+import { FileDown, FileSpreadsheet, PieChart as PieIcon, SlidersHorizontal } from "lucide-react";
+import { Disposition, Bloc, PersonnaliserDashboard } from "./DispositionDashboard";
+import { DISPOSITION_DEFAUT } from "../lib/dispositionDashboard";
 
 function formatDateFr(iso) {
   if (!iso) return "—";
@@ -126,7 +128,7 @@ function PriorityActions({ livrets, bourse, matelasMois, tauxReference = 0 }) {
         id: "matelas-faible",
         icon: PiggyBank,
         tone: "rose",
-        text: `Matelas de sécurité de ${matelasMois.toFixed(1)} mois seulement — viser au moins 3 mois de dépenses.`,
+        text: `Matelas de sécurité de ${nombre(matelasMois, 1)} mois seulement — viser au moins 3 mois de dépenses.`,
       });
     }
 
@@ -530,6 +532,11 @@ export default function Dashboard({
   // l'autre, sans que rien ne le signale.
   const [allocationTarget, saveAllocationTarget] = usePersistentState("allocationTarget", { bourse: 60 });
 
+  // Ordre et visibilité des blocs. Persistés comme le reste : la disposition
+  // choisie sur l'ordinateur se retrouve sur le téléphone.
+  const [disposition, setDisposition] = usePersistentState("dispositionDashboard", DISPOSITION_DEFAUT);
+  const [personnalisation, setPersonnalisation] = useState(false);
+
   const addDette = (v) => setDettes((d) => [...d, { id: uid(), name: v.name, amount: v.amount }]);
 
   // Suppressions annulables. Elles étaient jusqu'ici immédiates et sans filet :
@@ -777,7 +784,14 @@ export default function Dashboard({
           </h1>
           <p className="text-sm text-slate-500 mt-1">La photographie consolidée de ton patrimoine, à date.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <button
+            onClick={() => setPersonnalisation(true)}
+            aria-haspopup="dialog"
+            className="flex items-center gap-1.5 text-micro font-medium text-slate-400 hover:text-emerald-300 border border-slate-800 hover:border-emerald-400/40 rounded-lg px-2.5 py-1.5 transition-colors"
+          >
+            <SlidersHorizontal size={13} aria-hidden="true" /> Personnaliser
+          </button>
           <button
             onClick={() =>
               exportToExcel({
@@ -809,14 +823,22 @@ export default function Dashboard({
 
       {isEmpty && <OnboardingCard onLoadDemo={loadDemoData} />}
 
+      {/* Ordre et visibilité des blocs, choisis dans « Personnaliser ». Le
+          message d'accueil reste hors de la disposition : il disparaît de
+          lui-même dès la première saisie. */}
+      <Disposition disposition={disposition}>
+
       {/* Actions prioritaires cross-onglets */}
+      <Bloc id="actions">
       <PriorityActions
         livrets={livrets}
         bourse={bourse}
         matelasMois={matelasMois}
         tauxReference={bourseGainPct}
       />
+      </Bloc>
 
+      <Bloc id="profil">
       {/* Profil mensuel */}
       <Card accent={CARD_THEMES.emerald}>
         <div className="flex flex-wrap items-center gap-6">
@@ -853,6 +875,7 @@ export default function Dashboard({
             oubliée les rendait faux tous les trois, en silence. */}
         <ProfileFreshness updatedAt={profile.updatedAt} history={profileHistory} />
       </Card>
+      </Bloc>
 
       {/*
         BANDEAU D'OUVERTURE.
@@ -872,6 +895,7 @@ export default function Dashboard({
         direction d'un coup d'œil, pas pour être lue point par point — c'est le
         rôle du graphique complet, plus bas sur la page.
       */}
+      <Bloc id="vedette">
       <Card role="vedette" accent="teinte-emerald" className="relative overflow-hidden">
         {serieAnnee.length > 0 && (
           <div className="absolute inset-x-0 bottom-0 h-3/5 opacity-60 pointer-events-none" aria-hidden="true">
@@ -910,13 +934,17 @@ export default function Dashboard({
             <div>
               <dt className="text-micro uppercase tracking-wider text-slate-500">Matelas</dt>
               <dd className="font-data tabular-nums text-chiffre text-slate-100 ghost-blur">
-                {matelasMois != null ? `${matelasMois.toFixed(1)} mois` : "—"}
+                {matelasMois != null
+                  ? `${matelasMois.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mois`
+                  : "—"}
               </dd>
             </div>
           </dl>
         </div>
       </Card>
+      </Bloc>
 
+      <Bloc id="kpis">
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -967,7 +995,9 @@ export default function Dashboard({
           </Card>
         </div>
       </div>
+      </Bloc>
 
+      <Bloc id="allocation">
       {/* Allocation + historique */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Allocation card */}
@@ -1243,14 +1273,18 @@ export default function Dashboard({
               utilisées par le graphique et les calculs, simplement non listées). */}
         </Card>
       </div>
+      </Bloc>
 
       {/* Objectifs datés — la seule chose qui transforme la courbe de
           patrimoine en réponse à « suis-je en avance ou en retard ? ». */}
       {/* Décomposition du mois : versements, marché, dividendes, frais.
           Placée avant les objectifs, parce qu'elle explique la variation que
           les objectifs se contentent de mesurer. */}
+      <Bloc id="cascade">
       <CascadeMensuelle historique={historyPast} operations={bourse?.operations || []} />
+      </Bloc>
 
+      <Bloc id="objectifs">
       <Objectifs
         objectifs={objectifs}
         setObjectifs={setObjectifs}
@@ -1262,7 +1296,9 @@ export default function Dashboard({
         // l'écart — la seule chose qui compte — serait invisible.
         historique={historyPast}
       />
+      </Bloc>
 
+      <Bloc id="passifs">
       {/* Passifs */}
       <Card accent={CARD_THEMES.emerald}>
         <div className="flex items-center justify-between">
@@ -1303,6 +1339,7 @@ export default function Dashboard({
           ]}
         />
       </Card>
+      </Bloc>
 
       {/*
         Les échéances ferment la page au lieu de l'ouvrir.
@@ -1311,11 +1348,21 @@ export default function Dashboard({
         question et cassait la progression du regard ; en pied de page, elle
         répond à « et ensuite », qui vient bien après.
       */}
+      <Bloc id="echeances">
       <ProchainesEcheances
         evenements={evenementsMarche}
         contracts={contracts}
         objectifs={objectifs}
         patrimoineNet={patrimoineNet}
+      />
+      </Bloc>
+      </Disposition>
+
+      <PersonnaliserDashboard
+        open={personnalisation}
+        onClose={() => setPersonnalisation(false)}
+        disposition={disposition}
+        setDisposition={setDisposition}
       />
     </div>
   );

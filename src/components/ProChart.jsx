@@ -3,7 +3,7 @@ import {
   CandlestickChart, LineChart as LineIcon, AreaChart as AreaIcon,
   ZoomIn, ZoomOut, RotateCcw, BarChart3, Activity,
 } from "lucide-react";
-import { pct } from "../lib/finance";
+import { pct, nombre } from "../lib/finance";
 
 /**
  * Graphique de cours "façon TradingView", dessiné en SVG à la main plutôt
@@ -99,10 +99,10 @@ function movingAverage(bars, period) {
 function compactNum(n) {
   if (n == null || !Number.isFinite(n)) return "—";
   const abs = Math.abs(n);
-  if (abs >= 1e12) return `${(n / 1e12).toFixed(2)} T`;
-  if (abs >= 1e9) return `${(n / 1e9).toFixed(2)} Md`;
-  if (abs >= 1e6) return `${(n / 1e6).toFixed(2)} M`;
-  if (abs >= 1e3) return `${(n / 1e3).toFixed(1)} k`;
+  if (abs >= 1e12) return `${nombre((n / 1e12), 2)} T`;
+  if (abs >= 1e9) return `${nombre((n / 1e9), 2)} Md`;
+  if (abs >= 1e6) return `${nombre((n / 1e6), 2)} M`;
+  if (abs >= 1e3) return `${nombre((n / 1e3), 1)} k`;
   return n.toFixed(0);
 }
 

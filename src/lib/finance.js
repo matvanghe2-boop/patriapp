@@ -48,6 +48,15 @@ function formatPct(digits, signe) {
 export const pct = (n, digits = 1) =>
   `${formatPct(digits, true).format(Number.isFinite(n) ? n : 0)}${ESPACE_FINE}%`;
 
+/**
+ * Nombre à décimales fixes, à la française : « 3,5 mois », « PER 30,9 »,
+ * « 1,25 Md€ ». Même défaut que les pourcentages : ces valeurs passaient par
+ * `toFixed`, qui écrit toujours un point. Une valeur absente s'affiche « — »
+ * plutôt que « NaN ».
+ */
+export const nombre = (n, digits = 1) =>
+  Number.isFinite(n) ? formatPct(digits, false).format(n) : "—";
+
 /** Pourcentage simple, sans signe, pour des taux/ratios (ex: taux d'endettement). */
 export const pctPlain = (n, digits = 1) =>
   `${formatPct(digits, false).format(Number.isFinite(n) ? n : 0)}${ESPACE_FINE}%`;

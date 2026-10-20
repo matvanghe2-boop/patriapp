@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { createPortal } from "react-dom";
-import { eur, pct, pctPlain } from "../lib/finance";
+import { eur, pct, pctPlain, nombre } from "../lib/finance";
 import { useValeurAnimee } from "./ui";
 
 /**
@@ -87,7 +87,7 @@ export default function ModePresentation({ ouvert, onFermer, patrimoineNet, delt
         )}
         {matelasMois != null && (
           <div className="presentation-repere">
-            <b className="ghost-blur">{matelasMois.toFixed(1)}</b>
+            <b className="ghost-blur">{nombre(matelasMois, 1)}</b>
             <span>Mois de matelas</span>
           </div>
         )}

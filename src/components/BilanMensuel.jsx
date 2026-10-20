@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { CalendarClock, X, TrendingUp, TrendingDown, ShieldCheck, RefreshCw } from "lucide-react";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
-import { eur, pctPlain, todayIso } from "../lib/finance";
+import { eur, pctPlain, todayIso, nombre } from "../lib/finance";
 import { revisionReferencesEchue, PERIODICITE_REVISION_MOIS } from "../../shared/horizon";
 
 /**
@@ -141,8 +141,8 @@ export function construireBilan({
       cle: "matelas",
       ton: suffisant ? "positif" : "negatif",
       texte: suffisant
-        ? `Ton épargne de sécurité couvre ${epargneSecuriteMois.toFixed(1)} mois de dépenses.`
-        : `Ton épargne de sécurité ne couvre que ${epargneSecuriteMois.toFixed(1)} mois de dépenses — en dessous des trois mois habituellement retenus.`,
+        ? `Ton épargne de sécurité couvre ${nombre(epargneSecuriteMois, 1)} mois de dépenses.`
+        : `Ton épargne de sécurité ne couvre que ${nombre(epargneSecuriteMois, 1)} mois de dépenses — en dessous des trois mois habituellement retenus.`,
     });
   }
 

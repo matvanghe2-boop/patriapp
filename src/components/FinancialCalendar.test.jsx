@@ -126,7 +126,7 @@ describe("FinancialCalendar", () => {
     await user.click(await screen.findByRole("button", { name: /Air Liquide/ }));
 
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("27.00 Md€")).toBeInTheDocument();
+    expect(within(dialog).getByText("27,00 Md€")).toBeInTheDocument();
     expect(within(dialog).getByText(/Chiffre d'affaires/)).toBeInTheDocument();
   });
 

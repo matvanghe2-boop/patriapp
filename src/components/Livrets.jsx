@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useId } from "react";
 import { PiggyBank, ShieldCheck, Banknote, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, uid, guessEnvelope, todayIso, lireNombre, pctPlain } from "../lib/finance";
+import { eur, uid, guessEnvelope, todayIso, lireNombre, pctPlain, nombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
 import RatesHub from "./RatesHub";
@@ -62,7 +62,7 @@ function MatelasTrendBadge({ matelasMois }) {
   return (
     <span className={`flex items-center gap-1 text-micro mt-1 ${up ? "text-emerald-400/90" : "text-amber-300/90"}`}>
       {up ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
-      {up ? "+" : ""}{trend.delta.toFixed(1)} mois vs dernier relevé
+      {up ? "+" : ""}{nombre(trend.delta, 1)} mois vs dernier relevé
     </span>
   );
 }
@@ -697,7 +697,7 @@ export default function Livrets({
               </>
             ) : (
               <>
-                <div className="font-display text-lg text-slate-50">{matelasMois.toFixed(1)} mois</div>
+                <div className="font-display text-lg text-slate-50">{nombre(matelasMois, 1)} mois</div>
                 <div className="text-micro text-slate-500">de dépenses couvertes</div>
                 <MatelasTrendBadge matelasMois={matelasMois} />
               </>

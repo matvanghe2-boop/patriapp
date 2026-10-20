@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { X, Minus, TrendingUp as DiagIcon, Eraser, Pencil, Undo2, Move } from "lucide-react";
 import ProChart from "./ProChart";
 import Modal from "./Modal";
+import { nombre } from "../lib/finance";
 
 /**
  * Plein écran d'analyse : le même graphique professionnel que dans l'onglet
@@ -67,7 +68,7 @@ export default function ChartFocusModal({
         <g key={key}>
           <line x1={api.plot.left} y1={y} x2={api.plot.right} y2={y} stroke={color} strokeWidth={1.2} strokeDasharray="5 3" />
           <text x={api.plot.left + 6} y={y - 5} fill={color} fontSize={10} className="font-data">
-            {formatPrice ? formatPrice(l.price, currency) : l.price.toFixed(2)}
+            {formatPrice ? formatPrice(l.price, currency) : nombre(l.price, 2)}
           </text>
         </g>
       );

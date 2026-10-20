@@ -4,7 +4,7 @@ import {
   ChevronDown, ChevronUp, Info, Plus, GitCompare,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, EmptyState, SkeletonTable, CARD_THEMES } from "./ui";
-import { eur, pctPlain, uid, compact, lireNombre } from "../lib/finance";
+import { eur, pctPlain, uid, compact, lireNombre, nombre } from "../lib/finance";
 import { fetchScreen } from "../lib/api";
 import {
   UNIVERS, universParCle, chargerUnivers, appliquerPrefiltres,
@@ -27,8 +27,8 @@ function formaterValeur(valeur, unite) {
   if (valeur == null || !Number.isFinite(valeur)) return "—";
   if (unite === "%") return pctPlain(valeur, 1);
   if (unite === "€") return compact(valeur);
-  if (unite === "×") return `${valeur.toFixed(1)} ×`;
-  return valeur.toFixed(2);
+  if (unite === "×") return `${nombre(valeur, 1)} ×`;
+  return nombre(valeur, 2);
 }
 
 /** Une pastille par critère : ce qui était attendu, ce qui a été constaté. */

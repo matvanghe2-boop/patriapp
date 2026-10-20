@@ -4,7 +4,7 @@ import {
   FileBarChart, Users, X, Briefcase, Eye, Megaphone, BarChart3,
 } from "lucide-react";
 import { fetchCalendarEvents } from "../lib/api";
-import { todayIso } from "../lib/finance";
+import { todayIso, nombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { evenementsManuels, creerDateManuelle, retirerDateManuelle, TYPES_MANUELS } from "../lib/calendrierManuel";
 import { evenementsReference, VERIFIE_LE, CALENDRIER_REFERENCE } from "../../shared/calendrierReference.js";
@@ -70,8 +70,8 @@ function formatDateFr(iso) {
 function formatEstimate(n) {
   if (n == null || !Number.isFinite(n)) return null;
   const abs = Math.abs(n);
-  if (abs >= 1e9) return `${(n / 1e9).toFixed(2)} Md€`;
-  if (abs >= 1e6) return `${(n / 1e6).toFixed(1)} M€`;
+  if (abs >= 1e9) return `${nombre((n / 1e9), 2)} Md€`;
+  if (abs >= 1e6) return `${nombre((n / 1e6), 1)} M€`;
   return n.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
 }
 

@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import { Card, CardLabel, EmptyState, SkeletonCard, CARD_THEMES } from "./ui";
-import { pctPlain, compact, pct } from "../lib/finance";
+import { pctPlain, compact, pct, nombre } from "../lib/finance";
 import { fetchFundamentals } from "../lib/api";
 import { syntheseRatios } from "../../shared/ratiosHistoriques";
 
@@ -26,7 +26,7 @@ import { syntheseRatios } from "../../shared/ratiosHistoriques";
 const NON_RENSEIGNE = "—";
 
 function fmtRatio(v, suffixe = "×") {
-  return v == null || !Number.isFinite(v) ? NON_RENSEIGNE : `${v.toFixed(2)} ${suffixe}`.trim();
+  return v == null || !Number.isFinite(v) ? NON_RENSEIGNE : `${nombre(v, 2)} ${suffixe}`.trim();
 }
 function fmtPct(v, d = 1) {
   return v == null || !Number.isFinite(v) ? NON_RENSEIGNE : pctPlain(v, d);
@@ -242,10 +242,10 @@ function BlocConsensus({ consensus, cours, devise }) {
                 Exercice {anneeDe(e.exercice)}
               </div>
               <div className="font-display text-lg text-amber-300 mt-0.5">
-                PER {perEstime != null ? perEstime.toFixed(1) : NON_RENSEIGNE} ×
+                PER {perEstime != null ? nombre(perEstime, 1) : NON_RENSEIGNE} ×
               </div>
               <div className="text-micro text-slate-400 mt-1">
-                BPA attendu {e.bpaEstime?.toFixed(2)} {devise || ""}
+                BPA attendu {nombre(e.bpaEstime, 2)} {devise || ""}
               </div>
               {e.croissanceEstimeePct != null && (
                 <div className="text-micro text-slate-500">
@@ -342,7 +342,7 @@ export default function FicheFinanciere({ symbole, devise }) {
           icon={Coins}
           lignes={[
             { label: "Rendement", valeur: fmtPct(fiche.rendementPct, 2) },
-            { label: "Dividende par action", valeur: fiche.dividendeParAction != null ? `${fiche.dividendeParAction.toFixed(2)} ${dev || ""}` : NON_RENSEIGNE },
+            { label: "Dividende par action", valeur: fiche.dividendeParAction != null ? `${nombre(fiche.dividendeParAction, 2)} ${dev || ""}` : NON_RENSEIGNE },
             {
               label: "Taux de distribution",
               valeur: fmtPct(fiche.payoutPct),
@@ -368,7 +368,7 @@ export default function FicheFinanciere({ symbole, devise }) {
           titre="Objectif de place"
           icon={Users}
           lignes={[
-            { label: "Objectif de cours moyen", valeur: fiche.objectifCoursMoyen != null ? `${fiche.objectifCoursMoyen.toFixed(2)} ${dev || ""}` : NON_RENSEIGNE },
+            { label: "Objectif de cours moyen", valeur: fiche.objectifCoursMoyen != null ? `${nombre(fiche.objectifCoursMoyen, 2)} ${dev || ""}` : NON_RENSEIGNE },
             {
               label: "Potentiel",
               valeur:
