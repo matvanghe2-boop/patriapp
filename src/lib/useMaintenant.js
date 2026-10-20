@@ -36,10 +36,20 @@ export function useMaintenant(intervalleMs = 60_000) {
   return maintenant;
 }
 
-/** Nombre de jours pleins écoulés depuis une date ISO, ou `null` si absente. */
+/**
+ * Nombre de jours pleins écoulés depuis une date ISO, ou `null` si absente.
+ *
+ * Jamais négatif. `maintenant` est figé au rendu et ne se rafraîchit qu'une
+ * fois par minute : une date enregistrée JUSTE APRÈS (profil modifié, jeu
+ * d'exemple chargé) tombait quelques secondes dans le futur, et
+ * `Math.floor` d'un écart négatif donne -1 — d'où « Mis à jour il y a
+ * -1 jour », ou un badge rouge « Cours vieux de -1 jours ». Une horloge
+ * d'appareil en retard sur celle qui a écrit la date produisait la même
+ * chose. Une date future se lit donc « aujourd'hui ».
+ */
 export function joursDepuis(dateIso, maintenant) {
   if (!dateIso) return null;
   const debut = new Date(dateIso).getTime();
   if (!Number.isFinite(debut)) return null;
-  return Math.floor((maintenant - debut) / 86400000);
+  return Math.max(0, Math.floor((maintenant - debut) / 86400000));
 }

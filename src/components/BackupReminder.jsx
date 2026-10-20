@@ -77,7 +77,7 @@ export default function BackupReminder({ onExport }) {
       <button
         onClick={close}
         aria-label="Masquer ce rappel pendant une semaine"
-        className="text-slate-600 hover:text-slate-300 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
+        className="text-slate-500 hover:text-slate-300 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
       >
         <X size={15} aria-hidden="true" />
       </button>

@@ -142,7 +142,7 @@ function tendance(serie) {
 function DailyVariation({ position, dailyData }) {
   const d = dailyData?.[position.ticker];
   if (!d) {
-    return <span className="text-slate-600 text-xs font-data">—</span>;
+    return <span className="text-slate-500 text-xs font-data">—</span>;
   }
   const { changeAbs, changePct } = d;
   const pos = changeAbs >= 0;
@@ -151,7 +151,7 @@ function DailyVariation({ position, dailyData }) {
       {pos ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
       <span>
         {pos ? "+" : ""}{eur(changeAbs * position.quantity, 2)}
-        <span className="opacity-70 ml-1">({pos ? "+" : ""}{changePct.toFixed(2)}%)</span>
+        <span className="opacity-70 ml-1">({pos ? "+" : ""}{pctPlain(changePct, 2)})</span>
       </span>
     </div>
   );
@@ -183,7 +183,7 @@ function AntiPanicModal({ position, note, onClose }) {
             <AlertTriangle size={20} />
             <span className="text-xs font-bold uppercase tracking-wide">Secousse détectée</span>
           </div>
-          <button onClick={onClose} className="text-slate-600 hover:text-white transition-colors" aria-label="Fermer">
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors" aria-label="Fermer">
             <XIcon size={18} />
           </button>
         </div>
@@ -266,7 +266,7 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
       accent={CARD_THEMES.violet}
       replie={replie}
       onBasculer={onBasculer}
-      resume={`${pctPlafond.toFixed(0)} % de ${eur(plafond, 0)}`}
+      resume={`${pctPlain(pctPlafond, 0)} de ${eur(plafond, 0)}`}
       actions={
         <button
           onClick={() => { setDraft({ peaOuverture: bourse.peaOuverture || "", peaVersements: versements }); setEditing((e) => !e); }}
@@ -286,7 +286,7 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
           <div>
             <label htmlFor={`${idsChamps}-total-verse`} className="text-micro text-slate-500 block mb-1">Total versé (€)</label>
             <input id={`${idsChamps}-total-verse`} type="number" step="100" value={draft.peaVersements} onChange={(e) => setDraft((d) => ({ ...d, peaVersements: e.target.value }))} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
-            <p className="text-micro text-slate-600 mt-1 max-w-[13rem]">
+            <p className="text-micro text-slate-500 mt-1 max-w-[13rem]">
               Point de départ de la courbe « Capital investi ». Il évoluera ensuite tout seul à chaque versement ou retrait de cash.
             </p>
           </div>
@@ -316,7 +316,7 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
           <div className="h-2.5 rounded-full bg-slate-800 overflow-hidden">
             <div className={`h-full rounded-full transition-all ${pctPlafond >= 90 ? "bg-rose-400" : pctPlafond >= 70 ? "bg-amber-400" : "bg-violet-400"}`} style={{ width: `${pctPlafond}%` }} />
           </div>
-          <div className="text-micro text-slate-500 mt-1">{pctPlafond.toFixed(1)} % du plafond — reste <span className="ghost-blur">{eur(plafond - versements, 0)}</span> de marge de versement</div>
+          <div className="text-micro text-slate-500 mt-1">{pctPlain(pctPlafond, 1)} du plafond — reste <span className="ghost-blur">{eur(plafond - versements, 0)}</span> de marge de versement</div>
           {typeCourant === "jeune" && (
             <p className="text-micro text-violet-300/80 mt-1.5 leading-relaxed">
               {PEA_PLAFONDS.jeune.detail}
@@ -338,11 +338,11 @@ function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
                   ? "Exonération d'impôt sur les plus-values — seuls 17,2 % de prélèvements sociaux restent dus."
                   : `Clôture entraînerait imposition spécifique — encore ${age.monthsRemaining} mois avant l'exonération.`}
               </div>
-              <div className="text-micro text-slate-600 font-data mt-0.5">Ouvert depuis {age.years} an(s) {age.months} mois</div>
+              <div className="text-micro text-slate-500 font-data mt-0.5">Ouvert depuis {age.years} an(s) {age.months} mois</div>
             </div>
           </>
         ) : (
-          <span className="text-micro text-slate-600">Renseigne la date d'ouverture pour voir le décompte fiscal.</span>
+          <span className="text-micro text-slate-500">Renseigne la date d'ouverture pour voir le décompte fiscal.</span>
         )}
       </div>
     </CarteRepliable>
@@ -455,9 +455,19 @@ function EligibilitePeaWarning({ positions, enveloppe }) {
  * La saisie n'est validée qu'à la sortie du champ (ou sur Entrée) : sinon
  * chaque frappe créerait sa propre écriture.
  */
+/**
+ * Le solde est rejoué depuis le journal, par additions successives : il porte
+ * donc les scories de l'arithmétique flottante (555,8100000000001). Le champ
+ * les affichait telles quelles — « 555,810000 » tronqué dans sa case. On
+ * l'arrondit au centime pour l'affichage ; l'écart résiduel reste sous le
+ * seuil de `buildCashAdjustment`, qui n'écrit donc rien si l'on quitte le
+ * champ sans y toucher.
+ */
+const auCentime = (n) => String(Math.round((Number(n) || 0) * 100) / 100);
+
 function CashPocketCard({ bourse, setBourse }) {
   const current = bourse.cash_pocket || 0;
-  const [draft, setDraft] = useState(String(current));
+  const [draft, setDraft] = useState(auCentime(current));
 
   // Resynchronisation du brouillon quand la valeur de référence change
   // (import de relevé, rejeu du journal, arrivée d'une valeur cloud).
@@ -469,13 +479,13 @@ function CashPocketCard({ bourse, setBourse }) {
   const [refPrecedente, setRefPrecedente] = useState(current);
   if (current !== refPrecedente) {
     setRefPrecedente(current);
-    setDraft(String(current));
+    setDraft(auCentime(current));
   }
 
   const commit = () => {
     const target = lireNombre(draft);
     if (!Number.isFinite(target)) {
-      setDraft(String(current));
+      setDraft(auCentime(current));
       return;
     }
     const movement = buildCashAdjustment(current, target);
@@ -493,12 +503,17 @@ function CashPocketCard({ bourse, setBourse }) {
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-          title="Un changement est enregistré comme versement ou retrait daté dans le journal d'opérations."
+          title="Une correction est enregistrée comme ajustement de solde daté dans le journal d'opérations."
           className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
         />
-        <span className="text-xs text-slate-600">€</span>
+        <span className="text-xs text-slate-500">€</span>
       </div>
-      <p className="text-micro text-slate-600 mt-1">Versement ou retrait enregistré dans le journal</p>
+      {/* Le libellé annonçait encore « versement ou retrait » : c'était
+          l'ancien comportement, celui qui faussait la performance. Une
+          correction crée désormais un ajustement de solde. */}
+      <p className="text-micro text-slate-500 mt-1">
+        Corriger le solde crée un ajustement — un versement se saisit dans Opérations
+      </p>
     </Card>
   );
 }
@@ -1130,7 +1145,7 @@ export default function Bourse({
                 {variationJour.montant >= 0 ? "+" : "−"}
                 {eur(Math.abs(variationJour.montant))}
               </span>
-              <span className="text-slate-600">aujourd&apos;hui</span>
+              <span className="text-slate-500">aujourd&apos;hui</span>
             </div>
           )}
           {/* Une ligne sans cours de veille est exclue des deux termes du
@@ -1266,7 +1281,7 @@ export default function Bourse({
                   <th className="py-2 pr-3">
                     <span className="flex items-center gap-1">
                       Var. J
-                      <span className="text-[9px] text-slate-600 normal-case tracking-normal">(vs clôt. veille)</span>
+                      <span className="text-[9px] text-slate-500 normal-case tracking-normal">(vs clôt. veille)</span>
                     </span>
                   </th>
                   <th className="py-2 pr-3">Valeur</th>
@@ -1275,7 +1290,7 @@ export default function Bourse({
                   <th className="py-2 pr-3">
                     <span className="flex items-center gap-1">
                       Div. annuel
-                      <span className="text-[9px] text-slate-600 normal-case tracking-normal">(rdt · YoC)</span>
+                      <span className="text-[9px] text-slate-500 normal-case tracking-normal">(rdt · YoC)</span>
                     </span>
                   </th>
                   <th className="py-2"></th>
@@ -1310,7 +1325,7 @@ export default function Bourse({
                         <td className="py-2 pr-3">
                           <input type="number" step="0.01" value={editValues.current_price} onChange={(e) => setEditValues((v) => ({ ...v, current_price: e.target.value }))} className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60" />
                         </td>
-                        <td className="py-3 pr-3 text-slate-600 text-xs" colSpan={3}>Aperçu après enregistrement</td>
+                        <td className="py-3 pr-3 text-slate-500 text-xs" colSpan={3}>Aperçu après enregistrement</td>
                         <td className="py-2 pr-3">
                           <input type="number" step="0.01" placeholder="€ / action" value={editValues.annual_dividend} onChange={(e) => setEditValues((v) => ({ ...v, annual_dividend: e.target.value }))} className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60" />
                         </td>
@@ -1387,12 +1402,12 @@ export default function Bourse({
                             </div>
                           </div>
                         ) : (
-                          <span className="text-slate-600 text-xs">—</span>
+                          <span className="text-slate-500 text-xs">—</span>
                         )}
                       </td>
                       <td className="py-3 text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEdit(p)} className="text-slate-600 hover:text-amber-300 p-1"><Pencil size={14} /></button>
+                          <button onClick={() => startEdit(p)} className="text-slate-500 hover:text-amber-300 p-1"><Pencil size={14} /></button>
                           <IconTrash onClick={() => removePosition(p.id)} />
                         </div>
                       </td>
@@ -1406,7 +1421,7 @@ export default function Bourse({
 
         <AddPositionPanel open={showAdd} onClose={() => setShowAdd(false)} onSubmit={addPosition} />
 
-        <p className="text-micro text-slate-600 mt-4">
+        <p className="text-micro text-slate-500 mt-4">
           La variation journalière est calculée par rapport au cours de clôture de la veille, récupéré lors du dernier « Actualiser les cours ».
         </p>
       </CarteRepliable>

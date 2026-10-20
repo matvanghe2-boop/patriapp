@@ -47,7 +47,7 @@ function BenchmarkGauge({ label, value, target, unit = "", higherIsBetter = true
         <span className={`font-data tabular-nums ${good ? "text-emerald-400" : "text-amber-300"}`}>
           {value.toFixed(digits)}{unit}
         </span>
-        <span className="text-slate-600">vs {target}{unit} (marché)</span>
+        <span className="text-slate-500">vs {target}{unit} (marché)</span>
       </span>
     </div>
   );
@@ -165,7 +165,7 @@ function EnrichedHistoryTooltip({ active, payload, label, drawdownByDate, marker
         </div>
       )}
       {dd != null && dd < -0.05 && (
-        <div className="text-rose-400/90 font-data tabular-nums">Drawdown : {dd.toFixed(1)} %</div>
+        <div className="text-rose-400/90 font-data tabular-nums">Drawdown : {pctPlain(dd, 1)}</div>
       )}
       {marker && (
         <div className="pt-1.5 mt-1 border-t border-slate-800 space-y-0.5">
@@ -199,13 +199,13 @@ function BenchmarkCompareTooltip({ active, payload, label }) {
             <span className="text-slate-100">{typeof p.value === "number" ? p.value.toFixed(1) : p.value}</span>
             {typeof p.value === "number" && (
               <span className={p.value >= 100 ? "text-emerald-400" : "text-rose-400"}>
-                {p.value >= 100 ? "+" : ""}{(p.value - 100).toFixed(1)} %
+                {p.value >= 100 ? "+" : ""}{pctPlain((p.value - 100), 1)}
               </span>
             )}
           </span>
         </div>
       ))}
-      <div className="text-micro text-slate-600 pt-1">Base 100 au premier jour de la période affichée.</div>
+      <div className="text-micro text-slate-500 pt-1">Base 100 au premier jour de la période affichée.</div>
     </div>
   );
 }
@@ -437,7 +437,7 @@ export default function PerformanceTab({
                   >
                     <span className="text-slate-400">{formatDateShort(c.date)}</span>
                     <span className="flex items-center gap-2">
-                      <span className="text-slate-600 line-through">{eur(c.avant)}</span>
+                      <span className="text-slate-500 line-through">{eur(c.avant)}</span>
                       <span className="text-slate-200">{eur(c.apres)}</span>
                       <span className={c.ecart >= 0 ? "text-emerald-400" : "text-rose-400"}>
                         {c.ecart >= 0 ? "+" : "−"}
@@ -475,7 +475,7 @@ export default function PerformanceTab({
               <div key={e.date} className="flex items-center justify-between px-3 py-1.5">
                 <span className="font-data">{formatDateShort(e.date)}</span>
                 <span className="font-data ghost-blur text-slate-400">{eur(e.valeur)}</span>
-                <button onClick={() => deleteHistoryPoint(e.date)} className="text-slate-600 hover:text-rose-400 p-1">
+                <button onClick={() => deleteHistoryPoint(e.date)} className="text-slate-500 hover:text-rose-400 p-1">
                   <XIcon size={13} />
                 </button>
               </div>
@@ -629,7 +629,7 @@ export default function PerformanceTab({
                 ].map(([label, val]) => (
                   <div key={label} className="text-center">
                     <div className="text-micro uppercase tracking-wide text-slate-500">{label}</div>
-                    <div className={`font-data tabular-nums text-sm mt-0.5 ${val == null ? "text-slate-600" : val >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    <div className={`font-data tabular-nums text-sm mt-0.5 ${val == null ? "text-slate-500" : val >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                       {val != null ? pct(val) : "—"}
                     </div>
                   </div>
@@ -745,7 +745,7 @@ export default function PerformanceTab({
               <ChartLegendItem color="rgba(100,116,139,0.3)" label="Zone de drawdown" shape="bar" />
             </div>
             {operations.length === 0 && (
-              <p className="text-micro text-slate-600 mt-2">
+              <p className="text-micro text-slate-500 mt-2">
                 Les repères d'achat, de vente et de dividende apparaissent dès que des opérations sont
                 enregistrées dans l'onglet Opérations.
               </p>
@@ -852,7 +852,7 @@ export default function PerformanceTab({
             {/* Les indices hors zone euro sont comparés en base 100, donc en
                 variation : aucune conversion n'est nécessaire, mais la courbe
                 se lit du point de vue d'un investisseur en devise locale. */}
-            <p className="text-micro text-slate-600 mt-2">
+            <p className="text-micro text-slate-500 mt-2">
               Comparaison en base 100 : les indices cotés en dollars sont lus en devise locale,
               sans effet de change.
             </p>

@@ -24,7 +24,7 @@ function DebtGauge({ rate }) {
           style={{ width: `${Math.min(100, clamped * 1.8)}%` }}
         />
       </div>
-      <div className="flex justify-between text-[9px] text-slate-600">
+      <div className="flex justify-between text-[9px] text-slate-500">
         <span>0%</span>
         <span className="text-slate-500">Seuil HCSF 35%</span>
         <span>70%+</span>
@@ -431,7 +431,7 @@ export default function Immobilier({ immo, setImmo, livretsTotal, bourseTotal, p
           </span>
         </div>
         
-        <p className="text-micro text-slate-600 mt-3">
+        <p className="text-micro text-slate-500 mt-3">
           Norme HCSF : taux d'endettement plafonné à 35 % maximum. Les lignes en rouge dépassent ce seuil.
           L'assurance emprunteur est incluse dans la mensualité totale.
         </p>

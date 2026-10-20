@@ -88,7 +88,7 @@ describe("prochainesEcheances", () => {
     );
     expect(liste[0].atteint).toBe(true);
     expect(liste[0].urgence).toBe("ok");
-    expect(liste[0].detail).toBe("100 % atteint");
+    expect(liste[0].detail).toBe("100\u202f% atteint");
   });
 
   it("laisse un objectif non atteint dans son cran d'urgence", () => {
@@ -101,7 +101,7 @@ describe("prochainesEcheances", () => {
     );
     expect(liste[0].atteint).toBe(false);
     expect(liste[0].urgence).toBe("critique");
-    expect(liste[0].detail).toBe("40 % atteint");
+    expect(liste[0].detail).toBe("40\u202f% atteint");
   });
 
   it("ne rend rien sans source", () => {

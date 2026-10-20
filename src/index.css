@@ -74,9 +74,19 @@
  * dans les deux sens.
  *
  * Le SOMBRE est sur `:root` nu : c'est le thème historique de l'application,
- * et le seul qu'elle ait jamais eu. Ses 154 valeurs sont identiques au bit
- * près à la palette Tailwind d'origine — l'apparence sombre est donc
- * rigoureusement inchangée par l'arrivée du mode clair.
+ * et le seul qu'elle ait jamais eu. Ses valeurs sont celles de la palette
+ * Tailwind d'origine, À UNE EXCEPTION PRÈS : `slate-500`.
+ *
+ * `slate-500` est le gris des textes secondaires — sources, explications,
+ * libellés — utilisé plus de cinq cents fois. À sa valeur Tailwind
+ * (100 116 139), il ne faisait que 3,7:1 sur le fond des cartes, sous le
+ * seuil AA de 4,5:1 pour du petit texte ; `slate-600`, employé comme gris
+ * « encore plus discret », tombait à 2,4:1. Or ce sont précisément ces
+ * lignes qui disent d'où vient un chiffre : elles doivent se lire.
+ * `slate-500` monte donc à 122 137 160 (5:1) en sombre et descend à
+ * 86 100 122 (5,5:1 sur les cartes) en clair, où il était aussi juste ; et
+ * plus aucun texte n'emploie `slate-600`, réservé aux bordures et aux
+ * placeholders.
  *
  * SIX FAMILLES DESCENDENT D'UN CRAN SUPPLÉMENTAIRE EN CLAIR (emerald, rose,
  * teal, cyan, lime, sky) sur leurs nuances 300 et 400. Ce sont celles qui
@@ -96,7 +106,7 @@
   --c-slate-200: 226 232 240;
   --c-slate-300: 203 213 225;
   --c-slate-400: 148 163 184;
-  --c-slate-500: 100 116 139;
+  --c-slate-500: 122 137 160;
   --c-slate-600: 71 85 105;
   --c-slate-700: 51 65 85;
   --c-slate-800: 30 41 59;
@@ -256,7 +266,7 @@
     --c-slate-200: 30 41 59;
     --c-slate-300: 51 65 85;
     --c-slate-400: 71 85 105;
-    --c-slate-500: 100 116 139;
+    --c-slate-500: 86 100 122;
     --c-slate-600: 148 163 184;
     --c-slate-700: 203 213 225;
     --c-slate-800: 226 232 240;
@@ -416,7 +426,7 @@
   --c-slate-200: 30 41 59;
   --c-slate-300: 51 65 85;
   --c-slate-400: 71 85 105;
-  --c-slate-500: 100 116 139;
+  --c-slate-500: 86 100 122;
   --c-slate-600: 148 163 184;
   --c-slate-700: 203 213 225;
   --c-slate-800: 226 232 240;
@@ -575,7 +585,7 @@
   --c-slate-200: 226 232 240;
   --c-slate-300: 203 213 225;
   --c-slate-400: 148 163 184;
-  --c-slate-500: 100 116 139;
+  --c-slate-500: 122 137 160;
   --c-slate-600: 71 85 105;
   --c-slate-700: 51 65 85;
   --c-slate-800: 30 41 59;
@@ -2164,36 +2174,6 @@
   :root:not([data-theme="sombre"]) .coquille-zone {
     box-shadow: 0 1px 3px rgb(15 23 42 / 0.06), 0 20px 50px -40px rgb(15 23 42 / 0.35);
   }
-}
-
-/* ═══════════════════ BANDEAU DE DOMAINE ═══════════════════════════════════
- * Aucune page n'affichait son propre nom : le `<h1>` était `sr-only`. On
- * déduisait l'onglet courant de la couleur du fond et d'un bouton surligné
- * dans une barre latérale qui, sur mobile, n'est même pas à l'écran. C'est le
- * repère le plus élémentaire d'une application à six sections.
- * ═══════════════════════════════════════════════════════════════════════════ */
-.bandeau-domaine {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem 0.9rem;
-  flex-wrap: wrap;
-  padding-bottom: 0.55rem;
-  margin-bottom: 1rem;
-  border-bottom: 2px solid hsl(var(--teinte) / 0.5);
-}
-.bandeau-domaine h1 {
-  font-family: "Fraunces", serif;
-  font-optical-sizing: auto;
-  font-size: 1.375rem;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
-  color: rgb(var(--c-slate-50));
-  margin: 0;
-}
-.bandeau-domaine p {
-  font-size: 0.75rem;
-  color: rgb(var(--c-slate-500));
-  margin: 0;
 }
 
 /* ═══════════════════ TEXTURE DE FOND ══════════════════════════════════════

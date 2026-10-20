@@ -2,7 +2,7 @@ import { useMemo, useState, lazy, Suspense } from "react";
 import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark, Rocket } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES, SkeletonCard, SkeletonChart } from "./ui";
-import { projectCompound, eur, pct, compact, solveMonthlyForTarget, generateVolatileReturns, uid, todayIso } from "../lib/finance";
+import { projectCompound, eur, pct, compact, solveMonthlyForTarget, generateVolatileReturns, uid, todayIso, pctPlain } from "../lib/finance";
 import Immobilier from "./Immobilier";
 import ComparateurScenarios from "./ComparateurScenarios";
 import Decumulation from "./Decumulation";
@@ -386,7 +386,7 @@ export default function Simulation({
           {showInflation && (
             <div className="text-xs text-slate-400 mt-1 ghost-blur">
               Pouvoir d'achat réel : {eur(Math.round(final.total / Math.pow(1 + inflationRate / 100, sim.years)))}
-              <span className="text-micro text-slate-500 ml-1">(inflation {inflationRate.toFixed(1)}%)</span>
+              <span className="text-micro text-slate-500 ml-1">(inflation {pctPlain(inflationRate, 1)})</span>
             </div>
           )}
         </Card>
@@ -445,7 +445,7 @@ export default function Simulation({
                   <span className="text-slate-200 font-data">{targetYears} ans</span>, tu dois épargner{" "}
                   <span className="text-emerald-400 font-display">{eur(Math.round(requiredMonthly))}</span> par mois
                   <span className="text-xs text-slate-400 block mt-1">
-                    (réparti selon les taux actuels des livrets {livretsRate.toFixed(1)}% et Bourse {sim.bourse.rate}%)
+                    (réparti selon les taux actuels des livrets {pctPlain(livretsRate, 1)} et Bourse {pctPlain(Number(sim.bourse.rate), 1)})
                   </span>
                 </p>
               </div>
@@ -525,7 +525,7 @@ export default function Simulation({
           <LegendItem color="#94a3b8" label="Capital versé" dashed />
           {showInflation && <LegendItem color="#a78bfa" label="Valeur réelle" dashed />}
         </div>
-        <p className="font-data text-micro text-slate-600 mt-4">
+        <p className="font-data text-micro text-slate-500 mt-4">
           {showStress
             ? "Mode volatil : les rendements annuels de la poche Bourse sont basés sur une séquence de performances réelles du CAC 40/MSCI World (2018-2025), incluant krachs et reprises."
             : "Vf = M0·(1+t)^n + P·((1+t)^n-1)/t — appliquée séparément à chaque poche (Livrets, Bourse), puis sommée."}
@@ -552,11 +552,11 @@ export default function Simulation({
                 onClick={() => toggleCompare(s.id)}
               >
                 <span>{s.name}</span>
-                <span className="text-slate-600">·</span>
+                <span className="text-slate-500">·</span>
                 <span className="font-data tabular-nums ghost-blur">{eur(s.finalTotal)}</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); removeScenario(s.id); }}
-                  className="text-slate-600 hover:text-rose-400"
+                  className="text-slate-500 hover:text-rose-400"
                 >
                   <Trash2 size={11} />
                 </button>
@@ -590,7 +590,7 @@ export default function Simulation({
                       <td className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">
                         {eur((s.sim.livrets.monthly || 0) + (s.sim.bourse.monthly || 0))}
                       </td>
-                      <td data-label="Inflation" className="py-2 pr-4 font-data tabular-nums text-slate-300">{s.inflationRate.toFixed(1)} %</td>
+                      <td data-label="Inflation" className="py-2 pr-4 font-data tabular-nums text-slate-300">{pctPlain(s.inflationRate, 1)}</td>
                       <td data-label="Total versé" className="py-2 pr-4 font-data tabular-nums text-slate-300 ghost-blur">{eur(s.finalVersed)}</td>
                       <td data-label="Intérêts générés" className="py-2 pr-4 font-data tabular-nums text-emerald-400 ghost-blur">{eur(s.finalInterets)}</td>
                       <td data-label="Valeur finale" className="py-2 font-data tabular-nums text-amber-300 font-semibold ghost-blur">{eur(s.finalTotal)}</td>

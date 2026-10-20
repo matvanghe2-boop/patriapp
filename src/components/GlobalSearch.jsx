@@ -78,7 +78,7 @@ export default function GlobalSearch({
           className="bg-transparent text-xs text-slate-200 placeholder-slate-600 focus:outline-none w-full"
         />
         {query && (
-          <button onClick={() => setQuery("")} className="text-slate-600 hover:text-slate-300">
+          <button onClick={() => setQuery("")} className="text-slate-500 hover:text-slate-300">
             <X size={12} />
           </button>
         )}

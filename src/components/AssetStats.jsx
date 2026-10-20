@@ -185,7 +185,7 @@ export default function AssetStats({ bourse }) {
                     tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
-                    tickFormatter={(v) => `${v}%`}
+                    tickFormatter={(v) => pctPlain(v, Number.isInteger(v) ? 0 : 1)}
                   />
                   <ReferenceLine y={0} stroke="rgb(var(--c-slate-700))" />
                   <Tooltip content={<PerformanceTooltip />} cursor={{ fill: "rgba(148,163,184,0.08)" }} />

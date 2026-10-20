@@ -189,7 +189,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
           )}
 
           {reminders.length === 0 && alertes.length === 0 ? (
-            <p className="text-micro text-slate-600">Aucun rappel configuré.</p>
+            <p className="text-micro text-slate-500">Aucun rappel configuré.</p>
           ) : (
             <div className="space-y-1.5">
               {[...alertes, ...reminders].map((r) => {
@@ -203,7 +203,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
                   >
                     <span className="flex-1">
                       <span className={due ? "text-amber-200" : "text-slate-400"}>{r.label}</span>
-                      <span className="block text-micro text-slate-600">
+                      <span className="block text-micro text-slate-500">
                         {r.type === "bilan"
                           ? "Bilan mensuel — sous-onglet Projet"
                           : r.type === "alerte"
@@ -219,7 +219,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
                       </button>
                     )}
                     {r.type !== "alerte" && r.type !== "bilan" && (
-                      <button onClick={() => removeReminder(r.id)} title="Supprimer" className="text-slate-600 hover:text-rose-400">
+                      <button onClick={() => removeReminder(r.id)} title="Supprimer" className="text-slate-500 hover:text-rose-400">
                         <Trash2 size={13} />
                       </button>
                     )}

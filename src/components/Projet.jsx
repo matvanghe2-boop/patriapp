@@ -489,7 +489,7 @@ export default function Projet({
                 <span className="text-slate-400">{poste.poste}</span>
                 <span className="text-slate-200 tabular-nums">
                   {eur(poste.montant)}
-                  <span className="text-slate-600 text-xs ml-2">{pctPlain(poste.partPct)}</span>
+                  <span className="text-slate-500 text-xs ml-2">{pctPlain(poste.partPct)}</span>
                 </span>
               </div>
             ))}
@@ -570,7 +570,7 @@ export default function Projet({
       />
       </SectionRepliable>
 
-      <p className="text-xs text-slate-600 text-center pb-2">
+      <p className="text-xs text-slate-500 text-center pb-2">
         Simulations sous hypothèses explicites, à titre indicatif. Ce n&apos;est pas un conseil en investissement.
       </p>
     </div>

@@ -116,7 +116,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
             <button
               onClick={() => definirCibles({})}
               title="Effacer les poids cibles"
-              className="text-slate-600 hover:text-rose-400 p-1"
+              className="text-slate-500 hover:text-rose-400 p-1"
               aria-label="Effacer les poids cibles"
             >
               <RotateCcw size={13} aria-hidden="true" />
@@ -266,7 +266,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
                     <span className="text-micro text-slate-500 ml-2">{o.nom}</span>
                     <div className="text-micro text-slate-500 font-data tabular-nums mt-0.5">
                       actuel {pctPlain(o.poidsActuelPct, 1)}
-                      <span className="text-slate-600 mx-1">→</span>
+                      <span className="text-slate-500 mx-1">→</span>
                       cible {pctPlain(o.poidsCiblePct, 1)}
                     </div>
                   </div>
@@ -289,7 +289,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
 
                   <span className="shrink-0 w-[11rem] text-right">
                     {o.sens === "aucun" ? (
-                      <span className="text-micro text-slate-600">
+                      <span className="text-micro text-slate-500">
                         {o.negligeable ? "dans la tolérance" : "rien à faire"}
                       </span>
                     ) : (
@@ -324,7 +324,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
         )}
       </div>
 
-      <p className="flex items-start gap-1.5 text-micro text-slate-600 mt-3">
+      <p className="flex items-start gap-1.5 text-micro text-slate-500 mt-3">
         <Wallet size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
         Plan indicatif : les ordres sont à passer chez ton courtier, rien n'est exécuté ici. Les
         quantités sont théoriques — la plupart des courtiers n'acceptent pas les fractions de titre.

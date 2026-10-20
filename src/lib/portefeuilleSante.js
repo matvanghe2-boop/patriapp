@@ -1,4 +1,4 @@
-import { lireNombre, valeurPosition, tauxPosition } from "./finance";
+import { lireNombre, valeurPosition, tauxPosition, pctPlain } from "./finance";
 import { getSector } from "./sectors";
 
 /**
@@ -110,7 +110,7 @@ export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {
       libelle: "Concentration",
       note: concentration,
       constat: dominante
-        ? `${dominante.nom} pèse ${dominante.part.toFixed(0)} % du portefeuille.`
+        ? `${dominante.nom} pèse ${pctPlain(dominante.part, 0)} du portefeuille.`
         : null,
       seuil: dominante && dominante.part >= 40 ? "critique" : dominante && dominante.part >= 25 ? "attention" : "ok",
     },
@@ -119,7 +119,7 @@ export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {
       libelle: "Secteurs",
       note: secteurs,
       constat: secteurDominant
-        ? `${secteurDominant.nom} représente ${secteurDominant.part.toFixed(0)} % des lignes.`
+        ? `${secteurDominant.nom} représente ${pctPlain(secteurDominant.part, 0)} des lignes.`
         : null,
       seuil: secteurDominant && secteurDominant.part >= 50 ? "critique" : secteurDominant && secteurDominant.part >= 35 ? "attention" : "ok",
     },
@@ -129,10 +129,10 @@ export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {
       note: devises,
       constat:
         sansTaux > 0
-          ? `${((sansTaux / total) * 100).toFixed(0)} % du portefeuille est compté à parité faute de taux de change.`
+          ? `${pctPlain(((sansTaux / total) * 100), 0)} du portefeuille est compté à parité faute de taux de change.`
           : parDevise.size === 1
             ? "Tout est libellé en euros."
-            : `${(partEuro * 100).toFixed(0)} % en euros.`,
+            : `${pctPlain((partEuro * 100), 0)} en euros.`,
       seuil: sansTaux > 0 ? "critique" : partEuro < 0.3 ? "attention" : "ok",
     },
     {
@@ -142,7 +142,7 @@ export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {
       constat:
         frais == null
           ? "Aucun frottement mesuré : saisis tes ordres pour l'obtenir."
-          : `${(lireNombre(fraisAnnuelsPct) ?? 0).toFixed(2)} % de frottement annuel.`,
+          : `${pctPlain(lireNombre(fraisAnnuelsPct) ?? 0, 2)} de frottement annuel.`,
       seuil: frais == null ? "neutre" : frais < 60 ? "attention" : "ok",
     },
   ];

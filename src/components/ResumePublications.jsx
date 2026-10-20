@@ -95,7 +95,7 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
       {tenue.total > 0 && (
         <p className="text-micro text-slate-400 mt-1">
           Guidances tenues : <span className="text-slate-200">{tenue.tenues} sur {tenue.total}</span>
-          {tenue.taux != null && <span className="text-slate-600"> ({Math.round(tenue.taux)} %)</span>}
+          {tenue.taux != null && <span className="text-slate-500"> ({Math.round(tenue.taux)} %)</span>}
         </p>
       )}
 
@@ -149,7 +149,7 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
       )}
 
       {fil.length === 0 ? (
-        <p className="text-micro text-slate-600 mt-4">
+        <p className="text-micro text-slate-500 mt-4">
           Aucune publication résumée pour cette valeur.
         </p>
       ) : (
@@ -169,7 +169,7 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
                   )}
                   <button
                     onClick={() => setPublications((l) => retirerPublication(l, p.id))}
-                    className="text-slate-600 hover:text-rose-400"
+                    className="text-slate-500 hover:text-rose-400"
                     aria-label={`Supprimer le résumé du ${p.date}`}
                   >
                     <Trash2 size={12} aria-hidden="true" />
@@ -188,7 +188,7 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
                         {c.valeur}
                         {c.unite ? ` ${c.unite}` : ""}
                       </div>
-                      {c.periode && <div className="text-micro text-slate-600">{c.periode}</div>}
+                      {c.periode && <div className="text-micro text-slate-500">{c.periode}</div>}
                     </div>
                   ))}
                 </div>

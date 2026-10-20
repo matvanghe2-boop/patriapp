@@ -192,7 +192,7 @@ export default function ScenariosProjet({ scenarios = [], onChange, courant }) {
             </p>
           )}
 
-          <p className="text-xs text-slate-600 mt-2">
+          <p className="text-xs text-slate-500 mt-2">
             Comparaison à hypothèses figées : les scénarios enregistrés à des dates différentes
             reposent sur le patrimoine du jour de leur enregistrement.
           </p>
@@ -200,7 +200,7 @@ export default function ScenariosProjet({ scenarios = [], onChange, courant }) {
       )}
 
       {selection.length === 1 && (
-        <p className="text-xs text-slate-600 mt-3">
+        <p className="text-xs text-slate-500 mt-3">
           Sélectionne un second scénario pour afficher la comparaison.
         </p>
       )}

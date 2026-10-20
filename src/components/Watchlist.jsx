@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useId } from "react";
 import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown, Bell, BellRing, Check, X} from "lucide-react";
 import { CarteRepliable, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
 import AssetLogo from "./AssetLogo";
-import { eur, pct, uid, computeReturnMetrics, lireNombre } from "../lib/finance";
+import { eur, pct, uid, computeReturnMetrics, lireNombre, pctPlain } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import { creerAlerte, SENS, libelleSens } from "../lib/alertes";
@@ -13,7 +13,7 @@ function fmtPct(v) {
   return pct(v);
 }
 function cellClass(v) {
-  if (v == null) return "py-3 pr-3 font-data tabular-nums text-slate-600 text-xs";
+  if (v == null) return "py-3 pr-3 font-data tabular-nums text-slate-500 text-xs";
   return `py-3 pr-3 font-data tabular-nums text-xs ${v >= 0 ? "text-emerald-400" : "text-rose-400"}`;
 }
 
@@ -70,7 +70,7 @@ function SortButton({ sort, setSort }) {
 function DailyVariation({ ticker, dailyData }) {
   const d = dailyData?.[ticker];
   if (!d) {
-    return <span className="text-slate-600 text-xs font-data">—</span>;
+    return <span className="text-slate-500 text-xs font-data">—</span>;
   }
   const { changeAbs, changePct } = d;
   const pos = changeAbs >= 0;
@@ -79,7 +79,7 @@ function DailyVariation({ ticker, dailyData }) {
       {pos ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
       <span>
         {pos ? "+" : ""}{eur(changeAbs, 2)}
-        <span className="opacity-70 ml-1">({pos ? "+" : ""}{changePct.toFixed(2)}%)</span>
+        <span className="opacity-70 ml-1">({pos ? "+" : ""}{pctPlain(changePct, 2)})</span>
       </span>
     </div>
   );
@@ -134,7 +134,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
         <button
           onClick={supprimer}
           aria-label={`Supprimer l'alerte sur ${ligne.ticker}`}
-          className="text-slate-600 hover:text-rose-400"
+          className="text-slate-500 hover:text-rose-400"
         >
           <X size={12} aria-hidden="true" />
         </button>
@@ -177,7 +177,7 @@ function BoutonAlerte({ ligne, alerte, setAlertes }) {
       <button onClick={enregistrer} className="text-emerald-400 hover:text-emerald-300" aria-label="Enregistrer l'alerte">
         <Check size={12} aria-hidden="true" />
       </button>
-      <button onClick={() => setEdition(false)} className="text-slate-600 hover:text-slate-300" aria-label="Annuler">
+      <button onClick={() => setEdition(false)} className="text-slate-500 hover:text-slate-300" aria-label="Annuler">
         <X size={12} aria-hidden="true" />
       </button>
     </span>
@@ -371,7 +371,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                 <th className="py-2 pr-3">
                   <span className="flex items-center gap-1">
                     Var. J
-                    <span className="text-[9px] text-slate-600 normal-case tracking-normal">(vs clôt. veille)</span>
+                    <span className="text-[9px] text-slate-500 normal-case tracking-normal">(vs clôt. veille)</span>
                   </span>
                 </th>
                 <th className="py-2 pr-3">Objectif d'achat</th>
@@ -436,13 +436,13 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                     </td>
                     <td data-label="Écart" className="py-3 pr-3">
                       {!hasTarget || gap == null ? (
-                        <span className="text-xs text-slate-600">—</span>
+                        <span className="text-xs text-slate-500">—</span>
                       ) : reached ? (
                         <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
                           <Target size={12} /> Atteint
                         </span>
                       ) : (
-                        <span className="font-data tabular-nums text-slate-400 text-xs">+{gap.toFixed(1)} %</span>
+                        <span className="font-data tabular-nums text-slate-400 text-xs">+{pctPlain(gap, 1)}</span>
                       )}
                     </td>
                     <td data-label="YTD" className={cellClass(m?.ytd)}>{fmtPct(m?.ytd)}</td>
@@ -465,7 +465,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
 
       <AddWatchlistPanel open={showAdd} onClose={() => setShowAdd(false)} onSubmit={addItem} />
 
-      <p className="text-micro text-slate-600 mt-4">
+      <p className="text-micro text-slate-500 mt-4">
         YTD / 1 mois / 6 mois / 1 an / 5 ans sont calculés à partir des cours réels déjà constatés de chaque titre —
         aucune projection, uniquement de l'historique factuel. La variation journalière est calculée par rapport au
         cours de clôture de la veille.

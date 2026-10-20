@@ -344,7 +344,7 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
           <p className="text-sm text-slate-300">
             Glisse-dépose tes documents PDF ici (avis d'opéré, relevé de titres, relevé d'espèces, relevé de coupons/dividendes — Boursorama, Fortuneo, Bourse Direct)
           </p>
-          <p className="text-xs text-slate-600">ou clique pour sélectionner un fichier</p>
+          <p className="text-xs text-slate-500">ou clique pour sélectionner un fichier</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -380,7 +380,7 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
           <div className={`font-data text-xl font-bold ${kpis.tauxEffort < 0.5 ? "text-emerald-400" : "text-amber-400"}`}>
             {pctPlain(kpis.tauxEffort, 2)}
           </div>
-          <p className="text-micro text-slate-600 mt-0.5">Objectif pro : &lt; 0,5 %</p>
+          <p className="text-micro text-slate-500 mt-0.5">Objectif pro : &lt; 0,5 %</p>
         </Card>
         <Card>
           <CardLabel icon={Sparkles}>Plus-values réalisées</CardLabel>
@@ -393,7 +393,7 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
           <div className={`font-data text-xl font-bold ghost-blur ${kpis.plusValuesLatentes >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {eur(kpis.plusValuesLatentes, 2)}
           </div>
-          <p className="text-micro text-slate-600 mt-0.5">Rappel virtuel — onglet Bourse</p>
+          <p className="text-micro text-slate-500 mt-0.5">Rappel virtuel — onglet Bourse</p>
         </Card>
         <Card>
           <CardLabel icon={Coins}>Dividendes totaux</CardLabel>

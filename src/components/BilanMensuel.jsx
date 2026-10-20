@@ -71,7 +71,7 @@ export default function BilanMensuel({
         )}
       </div>
 
-      <p className="text-xs text-slate-600 mt-3">
+      <p className="text-xs text-slate-500 mt-3">
         Calculé dans ton navigateur, sans appel à un modèle. S&apos;affiche une fois par mois.
       </p>
     </Card>

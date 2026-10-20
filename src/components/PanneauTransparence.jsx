@@ -133,7 +133,7 @@ export default function PanneauTransparence({ contexte, montantsReels = false, o
           </table>
         </div>
 
-        <p className="text-xs text-slate-600 mt-4">
+        <p className="text-xs text-slate-500 mt-4">
           L&apos;assistant conversationnel n&apos;est pas encore branché : ce panneau montre dès
           maintenant ce qui partira le jour où il le sera.
         </p>

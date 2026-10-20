@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useId } from "react";
 import { PiggyBank, ShieldCheck, Banknote, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
-import { eur, uid, guessEnvelope, todayIso, lireNombre } from "../lib/finance";
+import { eur, uid, guessEnvelope, todayIso, lireNombre, pctPlain } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
 import RatesHub from "./RatesHub";
@@ -88,7 +88,7 @@ function SmartProgressBar({ value, max, goal, color = "bg-indigo-400" }) {
         )}
       </div>
       <div className="flex items-center justify-between text-micro text-slate-500 font-data">
-        <span>{pct.toFixed(0)}%</span>
+        <span>{pctPlain(pct, 0)}</span>
         <span className="ghost-blur">{eur(value, 0)} / {eur(max, 0)}</span>
       </div>
     </div>
@@ -121,12 +121,12 @@ function SaturationAlert({ livrets }) {
             <span className="text-slate-300">{l.name}</span>
             <span className={`font-data tabular-nums text-[12px] ${l.full ? "text-rose-400" : "text-amber-300"}`}>
               {l.full ? "Plafond atteint" : `${Math.round(l.ratio * 100)}% du plafond`}
-              <span className="text-slate-600 ml-1.5 ghost-blur">({eur(l.limit - l.balance, 0)} restants)</span>
+              <span className="text-slate-500 ml-1.5 ghost-blur">({eur(l.limit - l.balance, 0)} restants)</span>
             </span>
           </div>
         ))}
       </div>
-      <p className="text-micro text-slate-600 mt-2">
+      <p className="text-micro text-slate-500 mt-2">
         Envisage un autre support pour tes prochains versements sur ces comptes.
       </p>
     </Card>
@@ -159,12 +159,12 @@ function CompteCourant({ cash, setCash }) {
             />
             <span className="text-xs text-slate-500">€</span>
             <button onClick={save} className="text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold rounded-lg px-3 py-1">OK</button>
-            <button onClick={() => setEditing(false)} className="text-slate-600 hover:text-slate-300"><X size={14} /></button>
+            <button onClick={() => setEditing(false)} className="text-slate-500 hover:text-slate-300"><X size={14} /></button>
           </div>
         ) : (
           <div className="flex items-baseline gap-2">
             <span className="font-display text-xl text-slate-100 ghost-blur">{eur(cash)}</span>
-            <span className="text-micro text-slate-600">cash disponible</span>
+            <span className="text-micro text-slate-500">cash disponible</span>
           </div>
         )}
       </div>
@@ -223,7 +223,7 @@ function NextDepositAdvisor({ livrets }) {
           onChange={(e) => setAmount(lireNombre(e.target.value) ?? 0)}
           className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums focus:outline-none focus:border-indigo-400/60"
         />
-        <span className="text-xs text-slate-600">€</span>
+        <span className="text-xs text-slate-500">€</span>
       </div>
 
       {allocation.result.length === 0 ? (
@@ -235,7 +235,7 @@ function NextDepositAdvisor({ livrets }) {
               <span className="flex items-center gap-2">
                 <span className="text-micro text-indigo-300 bg-indigo-400/10 border border-indigo-400/20 rounded-full w-5 h-5 flex items-center justify-center shrink-0">{i + 1}</span>
                 <span className="text-slate-300">{l.name}</span>
-                <span className="text-micro text-amber-300/80">{(l.rate * 100).toFixed(2)} %</span>
+                <span className="text-micro text-amber-300/80">{pctPlain((l.rate * 100), 2)}</span>
               </span>
               <span className="font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.alloc, 0)}</span>
             </div>
@@ -247,7 +247,7 @@ function NextDepositAdvisor({ livrets }) {
           )}
         </div>
       )}
-      <p className="text-micro text-slate-600 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         Classement par taux net décroissant, dans la limite de la place restante sous chaque plafond.
       </p>
     </Card>
@@ -325,7 +325,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                   />
                 )}
               </div>
-              <div className="flex items-center justify-between text-micro text-slate-600 mt-1 font-data">
+              <div className="flex items-center justify-between text-micro text-slate-500 mt-1 font-data">
                 <span>0 €</span>
                 <span className="ghost-blur">{eur(livretsTotal)}</span>
               </div>
@@ -344,7 +344,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                   <div key={e.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${colors.bg}`}>
                     <span className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
                     <span className="flex-1 text-sm font-medium">{e.label}</span>
-                    <span className="text-micro opacity-60 font-data">{pct.toFixed(0)}%</span>
+                    <span className="text-micro opacity-60 font-data">{pctPlain(pct, 0)}</span>
                     <input
                       type="number"
                       value={e.amount}
@@ -451,16 +451,16 @@ function ArbitrageOptimizer({ livrets }) {
               <p className="text-sm text-slate-200 leading-relaxed">
                 En déplaçant{" "}
                 <span className="font-data font-semibold text-amber-300 ghost-blur">{eur(s.amount)}</span>{" "}
-                de ton <span className="text-slate-300">{s.from}</span> ({(s.fromRate * 100).toFixed(2)} %) vers{" "}
-                <span className="text-slate-300">{s.to}</span> ({(s.toRate * 100).toFixed(2)} %), tu gagnes{" "}
+                de ton <span className="text-slate-300">{s.from}</span> ({pctPlain((s.fromRate * 100), 2)}) vers{" "}
+                <span className="text-slate-300">{s.to}</span> ({pctPlain((s.toRate * 100), 2)}), tu gagnes{" "}
                 <span className="font-data font-semibold text-emerald-400 ghost-blur">+{eur(s.gainAnnuel)} / an</span>.
               </p>
-              <p className="text-micro text-slate-600 mt-1">{s.condition}</p>
+              <p className="text-micro text-slate-500 mt-1">{s.condition}</p>
             </div>
           </div>
         ))}
       </div>
-      <p className="text-micro text-slate-600 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         Les taux alternatifs sont indicatifs. Vérifie les conditions d'éligibilité auprès de ton établissement bancaire.
       </p>
     </Card>
@@ -525,13 +525,13 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
               onKeyDown={(e) => { if (e.key === "Enter") saveBalance(); if (e.key === "Escape") setEditingBalance(false); }}
             />
             <button onClick={saveBalance} className="text-indigo-300 hover:text-indigo-200"><Check size={13} /></button>
-            <button onClick={() => setEditingBalance(false)} className="text-slate-600 hover:text-slate-300"><X size={13} /></button>
+            <button onClick={() => setEditingBalance(false)} className="text-slate-500 hover:text-slate-300"><X size={13} /></button>
           </div>
         ) : (
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => nudge(-50)}
-              className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-rose-400 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-400 transition-opacity"
               title="−50 €"
             >
               <Minus size={12} />
@@ -542,11 +542,11 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
               title="Modifier le solde"
             >
               {eur(l.balance)}
-              <Pencil size={10} className="opacity-0 group-hover:opacity-100 text-slate-600" />
+              <Pencil size={10} className="opacity-0 group-hover:opacity-100 text-slate-500" />
             </button>
             <button
               onClick={() => nudge(50)}
-              className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-emerald-400 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-emerald-400 transition-opacity"
               title="+50 €"
             >
               <Plus size={12} />
@@ -554,7 +554,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
           </div>
         )}
       </td>
-      <td data-label="Taux net" className="py-3 pr-3 font-data tabular-nums text-amber-300/90">{(l.rate * 100).toFixed(2)} %</td>
+      <td data-label="Taux net" className="py-3 pr-3 font-data tabular-nums text-amber-300/90">{pctPlain((l.rate * 100), 2)}</td>
       <td data-label="Intérêts / an" className="py-3 pr-3 font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.balance * l.rate)}</td>
       <td data-label="Remplissage" className="py-3 pr-3 min-w-[160px]">
         {barMax ? (
@@ -564,7 +564,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
             color={barColor}
           />
         ) : (
-          <span className="text-micro text-slate-600">—</span>
+          <span className="text-micro text-slate-500">—</span>
         )}
         {/* Goal / limit labels */}
         <div className="flex items-center gap-2 mt-1">
@@ -574,7 +574,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
             </span>
           )}
           {hasLimit && !hasGoal && (
-            <span className="text-micro text-slate-600">
+            <span className="text-micro text-slate-500">
               Plafond légal : {eur(l.limit, 0)}
             </span>
           )}
@@ -593,12 +593,12 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
               onKeyDown={(e) => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") setShowGoalEdit(false); }}
             />
             <button onClick={saveGoal} className="text-micro bg-violet-500 hover:bg-violet-400 text-white rounded px-1.5 py-0.5">OK</button>
-            <button onClick={() => setShowGoalEdit(false)}><X size={11} className="text-slate-600" /></button>
+            <button onClick={() => setShowGoalEdit(false)}><X size={11} className="text-slate-500" /></button>
           </div>
         ) : (
           <button
             onClick={() => { setGoalDraft(l.goal ?? ""); setShowGoalEdit(true); }}
-            className="text-micro text-slate-600 hover:text-violet-400 border border-transparent hover:border-violet-400/30 rounded-full px-2 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+            className="text-micro text-slate-500 hover:text-violet-400 border border-transparent hover:border-violet-400/30 rounded-full px-2 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
           >
             <Target size={10} className="inline mr-1" />
             {hasGoal ? "Modifier objectif" : "Fixer objectif"}
@@ -691,14 +691,14 @@ export default function Livrets({
             {matelasMois == null ? (
               <>
                 <div className="font-display text-lg text-slate-500">—</div>
-                <div className="text-micro text-slate-600">
+                <div className="text-micro text-slate-500">
                   Renseigne tes dépenses mensuelles dans le Dashboard
                 </div>
               </>
             ) : (
               <>
                 <div className="font-display text-lg text-slate-50">{matelasMois.toFixed(1)} mois</div>
-                <div className="text-micro text-slate-600">de dépenses couvertes</div>
+                <div className="text-micro text-slate-500">de dépenses couvertes</div>
                 <MatelasTrendBadge matelasMois={matelasMois} />
               </>
             )}
@@ -707,12 +707,12 @@ export default function Livrets({
         <Card accent={CARD_THEMES.indigo}>
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total épargne sécurisée</div>
           <div className="font-display text-xl text-slate-50 ghost-blur">{eur(livretsTotal)}</div>
-          <div className="text-xs text-indigo-300/80 mt-0.5">Taux moyen {livretsAvgRate.toFixed(2)} %</div>
+          <div className="text-xs text-indigo-300/80 mt-0.5">Taux moyen {pctPlain(livretsAvgRate, 2)}</div>
         </Card>
         <Card accent={CARD_THEMES.indigo}>
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Intérêts estimés / an</div>
           <div className="font-display text-xl text-emerald-400 ghost-blur">{eur(totalInterets)}</div>
-          <div className="text-micro text-slate-600 mt-0.5 ghost-blur">soit {eur(totalInterets / 12)} / mois</div>
+          <div className="text-micro text-slate-500 mt-0.5 ghost-blur">soit {eur(totalInterets / 12)} / mois</div>
         </Card>
       </div>
 

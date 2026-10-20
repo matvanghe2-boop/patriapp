@@ -124,7 +124,7 @@ export default function Login() {
           </ul>
         </div>
 
-        <p className="relative text-micro text-slate-600">
+        <p className="relative text-micro text-slate-500">
           Aucune donnée patrimoniale n'est lisible sans tes identifiants.
         </p>
       </aside>
@@ -244,7 +244,7 @@ export default function Login() {
           )}
         </p>
 
-        <p className="text-center text-micro text-slate-600 mt-6">
+        <p className="text-center text-micro text-slate-500 mt-6">
           Tu resteras connecté(e) sur cet appareil tant que tu ne cliques pas sur « Se déconnecter ».
         </p>
       </div>

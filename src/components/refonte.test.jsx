@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { Card, BandeauDomaine, PastilleEtat } from "./ui";
+import { Card, PastilleEtat } from "./ui";
 import ModePresentation from "./ModePresentation";
 import FeuillePlus from "./FeuillePlus";
 import BottomNav from "./BottomNav";
@@ -40,24 +40,6 @@ describe("Card — trois rôles", () => {
   it("continue d'accepter un accent, comme les vingt appels existants", () => {
     const { container } = render(<Card accent="teinte-emerald carte-domaine">x</Card>);
     expect(container.firstChild.className).toContain("teinte-emerald");
-  });
-});
-
-describe("BandeauDomaine", () => {
-  it("rend le titre de page VISIBLE et non plus réservé aux lecteurs d'écran", () => {
-    // Le `<h1>` de chaque écran était `sr-only` : on déduisait l'onglet courant
-    // de la couleur du fond et d'un bouton surligné dans une barre latérale
-    // qui, sur mobile, n'est même pas affichée.
-    render(<BandeauDomaine titre="PEA & Bourse" sousTitre="portefeuille, performance" />);
-    const titre = screen.getByRole("heading", { level: 1 });
-    expect(titre).toHaveTextContent("PEA & Bourse");
-    expect(titre.className).not.toContain("sr-only");
-    expect(screen.getByText("portefeuille, performance")).toBeInTheDocument();
-  });
-
-  it("se passe de sous-titre", () => {
-    render(<BandeauDomaine titre="Dashboard" />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Dashboard");
   });
 });
 

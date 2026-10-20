@@ -4,6 +4,7 @@ import { CarteFocalisable, CardLabel, PastilleEtat } from "./ui";
 import EtatVide from "./EtatVide";
 import { AnneauProgression } from "./graphiques";
 import { santePortefeuille, expositionGeographique } from "../lib/portefeuilleSante";
+import { pctPlain } from "../lib/finance";
 
 /**
  * Santé du portefeuille et exposition géographique — onglet PEA & Bourse.
@@ -109,14 +110,14 @@ export default function SantePortefeuille({ positions = [] }) {
                     />
                   </span>
                   <span className="text-micro font-data tabular-nums text-slate-400 text-right">
-                    {p.part.toFixed(0)} %
+                    {pctPlain(p.part, 0)}
                   </span>
                 </div>
               ))}
             </div>
             {geo.partInconnue > 0 && (
               <p className="text-micro text-amber-300/90 mt-2">
-                {geo.partInconnue.toFixed(0)} % du portefeuille n'a pas de pays connu. Ces lignes sont
+                {pctPlain(geo.partInconnue, 0)} du portefeuille n'a pas de pays connu. Ces lignes sont
                 comptées à part, jamais réparties au prorata — l'inventer donnerait une carte fausse
                 que rien ne signalerait.
               </p>

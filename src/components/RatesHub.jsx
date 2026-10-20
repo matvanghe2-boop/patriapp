@@ -10,6 +10,7 @@ import {
   RATES_CATALOG, RATE_CATEGORIES, searchRates, groupByCategory,
   bestSavingsRate, nextUpcomingReview, findOfficialRateFor,
 } from "../../shared/ratesCatalog";
+import { pctPlain } from "../lib/finance";
 
 // Chaque catégorie de taux reprend une teinte de carte déjà utilisée
 // ailleurs dans l'app, pour ne pas introduire de nouvelle palette.
@@ -71,7 +72,7 @@ function KpiCard({ icon: Icon, theme, label, value, sub }) {
       <div className="min-w-0">
         <div className="text-micro text-slate-500 uppercase tracking-wider mb-0.5">{label}</div>
         <div className="font-display text-lg text-slate-50 truncate">{value}</div>
-        {sub && <div className="text-micro text-slate-600 truncate">{sub}</div>}
+        {sub && <div className="text-micro text-slate-500 truncate">{sub}</div>}
       </div>
     </Card>
   );
@@ -151,13 +152,13 @@ function RateCard({ rate, matches }) {
         <span className="text-xs text-slate-500">{rate.unit}</span>
       </div>
       {rate.netValue != null && (
-        <div className="text-micro text-slate-500 -mt-1.5">soit ≈ {rate.netValue.toFixed(2)} % net après flat tax</div>
+        <div className="text-micro text-slate-500 -mt-1.5">soit ≈ {pctPlain(rate.netValue, 2)} net après flat tax</div>
       )}
 
       {matches.map((m) => (
         <div key={m.livret.id} className="flex items-center justify-between text-xs bg-slate-950/50 border border-slate-800 rounded-lg px-2.5 py-1.5">
           <span className="text-slate-400 truncate">
-            Ton « {m.livret.name} » : <span className="font-data tabular-nums text-slate-200">{m.userRatePct.toFixed(2)} %</span>
+            Ton « {m.livret.name} » : <span className="font-data tabular-nums text-slate-200">{pctPlain(m.userRatePct, 2)}</span>
           </span>
           <ComparisonBadge diff={m.diff} />
         </div>
@@ -165,7 +166,7 @@ function RateCard({ rate, matches }) {
 
       <p className="text-micro text-slate-500 leading-relaxed">{rate.description}</p>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-600 pt-1 border-t border-slate-800/70">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-slate-500 pt-1 border-t border-slate-800/70">
         <span>Au {formatDateFr(rate.effectiveDate)}</span>
         {rate.plafond && <span>Plafond {rate.plafond.toLocaleString("fr-FR")} €</span>}
         {days != null && (
@@ -409,7 +410,7 @@ export default function RatesHub({ livrets = [] }) {
       )}
 
       {lastSync && (
-        <p className="text-micro text-slate-600">
+        <p className="text-micro text-slate-500">
           Dernière synchronisation : {lastSync.toLocaleTimeString("fr-FR")}
           {liveEnabled ? " · rafraîchissement live actif pour les séries disponibles" : " · rafraîchissement live non configuré (voir README)"}.
         </p>

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { createPortal } from "react-dom";
-import { eur, pct } from "../lib/finance";
+import { eur, pct, pctPlain } from "../lib/finance";
 import { useValeurAnimee } from "./ui";
 
 /**
@@ -81,7 +81,7 @@ export default function ModePresentation({ ouvert, onFermer, patrimoineNet, delt
       <div className="presentation-reperes">
         {Number.isFinite(tauxEpargne) && (
           <div className="presentation-repere">
-            <b className="ghost-blur">{tauxEpargne.toFixed(0)} %</b>
+            <b className="ghost-blur">{pctPlain(tauxEpargne, 0)}</b>
             <span>Taux d'épargne</span>
           </div>
         )}
@@ -93,7 +93,7 @@ export default function ModePresentation({ ouvert, onFermer, patrimoineNet, delt
         )}
       </div>
 
-      <p className="text-micro text-slate-600">Échap pour revenir</p>
+      <p className="text-micro text-slate-500">Échap pour revenir</p>
     </div>,
     document.body
   );

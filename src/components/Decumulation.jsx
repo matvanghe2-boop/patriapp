@@ -119,7 +119,7 @@ export default function Decumulation({ patrimoineNet = 0, livretsAvgRate = 0 }) 
         </p>
       )}
 
-      <p className="text-micro text-slate-600 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         Le rendement est supposé <strong>constant</strong>, ce qu'aucun marché ne fait. Cette
         projection donne un ordre de grandeur et une comparaison entre réglages, pas une prévision.
       </p>

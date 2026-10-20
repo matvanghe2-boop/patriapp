@@ -111,7 +111,7 @@ export default function ComparateurScenarios({ scenarios = [] }) {
                     </td>
                     <td className="col-nombre">
                       {c.meilleur ? (
-                        <span className="text-slate-600">réf.</span>
+                        <span className="text-slate-500">réf.</span>
                       ) : (
                         <Montant valeur={c.ecart} decimales={0} className="etat-critique" />
                       )}

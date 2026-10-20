@@ -58,7 +58,7 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                   </div>
                 ) : (
                   // Versements et retraits ne portent sur aucun titre.
-                  <span className="text-slate-600">—</span>
+                  <span className="text-slate-500">—</span>
                 )}
               </td>
               <td data-label="Type" className="py-2.5 px-1">
@@ -90,10 +90,10 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                 {op.type === "SPLIT" ? (
                   <span className="text-violet-300">×{op.ratio}</span>
                 ) : (
-                  op.quantity ?? <span className="text-slate-600">—</span>
+                  op.quantity ?? <span className="text-slate-500">—</span>
                 )}
               </td>
-              <td data-label="Cours" className="py-2.5 px-1 font-data tabular-nums text-slate-300 ghost-blur">{op.price != null ? eur(op.price, 2) : <span className="text-slate-600">—</span>}</td>
+              <td data-label="Cours" className="py-2.5 px-1 font-data tabular-nums text-slate-300 ghost-blur">{op.price != null ? eur(op.price, 2) : <span className="text-slate-500">—</span>}</td>
               <td data-label="Frais" className="py-2.5 px-1 font-data tabular-nums text-slate-500 ghost-blur">{eur(op.fees, 2)}</td>
               <td data-label="Montant net" className="py-2.5 px-1 font-data tabular-nums text-slate-100 ghost-blur">{eur(op.montantNet, 2)}</td>
               <td data-label="Plus-value réalisée" className="py-2.5 px-1 font-data tabular-nums ghost-blur">
@@ -102,21 +102,21 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
                     {eur(op.plusValueRealisee, 2)}
                   </span>
                 ) : (
-                  <span className="text-slate-600">—</span>
+                  <span className="text-slate-500">—</span>
                 )}
               </td>
               <td className="py-2.5 px-1">
                 <div className="flex items-center gap-1">
                   <button
                     onClick={(e) => { e.stopPropagation(); onEdit?.(op); }}
-                    className="text-slate-600 hover:text-cyan-300 transition-colors p-1"
+                    className="text-slate-500 hover:text-cyan-300 transition-colors p-1"
                     title="Modifier cette opération"
                   >
                     <Pencil size={13} />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete?.(op.id); }}
-                    className="text-slate-600 hover:text-rose-400 transition-colors p-1"
+                    className="text-slate-500 hover:text-rose-400 transition-colors p-1"
                     title="Supprimer cette opération"
                   >
                     <Trash2 size={13} />

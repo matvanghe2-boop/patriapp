@@ -134,7 +134,7 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal, re
         </div>
       )}
       {enveloppe === "PEA" && !bourse?.peaOuverture && (
-        <p className="text-micro text-slate-600 mt-1.5">
+        <p className="text-micro text-slate-500 mt-1.5">
           Date d'ouverture du PEA non renseignée : le calcul retient le régime le moins favorable.
         </p>
       )}
@@ -147,8 +147,8 @@ export default function FiscaliteSortie({ bourse, bourseGainAbs, bourseTotal, re
             prorata de la plus-value qu'il contient.
           </p>
           <p>
-            Prélèvements sociaux : {BAREMES_FISCAUX.prelevementsSociauxPct} % · PFU (impôt) :{" "}
-            {BAREMES_FISCAUX.pfuImpotPct} %.
+            Prélèvements sociaux : {pctPlain(BAREMES_FISCAUX.prelevementsSociauxPct, 1)} · PFU (impôt) :{" "}
+            {pctPlain(BAREMES_FISCAUX.pfuImpotPct, 1)}.
           </p>
           <p className="flex items-start gap-1.5">
             <Info size={11} className="shrink-0 mt-0.5" aria-hidden="true" />

@@ -62,7 +62,7 @@ function ToastItem({ toast, onDismiss }) {
       <button
         onClick={onDismiss}
         aria-label="Fermer la notification"
-        className="btn-flash text-slate-600 hover:text-slate-300 ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+        className="btn-flash text-slate-500 hover:text-slate-300 ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
       >
         <X size={14} aria-hidden="true" />
       </button>

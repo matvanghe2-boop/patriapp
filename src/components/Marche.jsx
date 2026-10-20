@@ -110,7 +110,7 @@ function FiftyTwoWeekGauge({ low, high, current, currency }) {
     <div>
       <div className="flex items-center justify-between text-micro text-slate-500 mb-1">
         <span className="font-data tabular-nums">{formatPrice(low, currency)}</span>
-        <span className="text-slate-600">Plus bas / plus haut sur 52 semaines</span>
+        <span className="text-slate-500">Plus bas / plus haut sur 52 semaines</span>
         <span className="font-data tabular-nums">{formatPrice(high, currency)}</span>
       </div>
       <div className="relative h-1.5 rounded-full bg-slate-800">
@@ -498,7 +498,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   <button
                     onClick={addToWatchlist}
                     disabled={isInWatchlist}
-                    className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:text-slate-600 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors"
+                    className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 disabled:text-slate-500 disabled:cursor-not-allowed border border-slate-700 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition-colors"
                   >
                     <Star size={13} /> {isInWatchlist ? "Dans la watchlist" : "Ajouter à la watchlist"}
                   </button>
@@ -542,7 +542,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               </div>
             </div>
 
-            <p className="text-micro text-slate-600 mb-2 flex items-center gap-1.5 flex-wrap">
+            <p className="text-micro text-slate-500 mb-2 flex items-center gap-1.5 flex-wrap">
               {seriesMeta?.firstTradeDate && <span>Première cotation connue : {formatFullDateTime(seriesMeta.firstTradeDate, false)}</span>}
               {totalReturnOnRange != null && (
                 <span>
@@ -582,7 +582,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   priceLines={priceLines}
                   onHoverBar={setHoverPoint}
                 />
-                <p className="text-micro text-slate-600 mt-2 flex items-center gap-1.5 flex-wrap">
+                <p className="text-micro text-slate-500 mt-2 flex items-center gap-1.5 flex-wrap">
                   <Info size={10} />
                   Molette = zoom sur le curseur · clic-glisser = déplacement dans le temps · double-clic = vue complète.
                   Volume coloré : <span className="text-emerald-400">vert</span> = clôture en hausse,{" "}
@@ -621,7 +621,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                     <div className="text-xs">
                       <span className="text-slate-500">Avis moyen des analystes : </span>
                       <span className={`font-semibold ${reco.tone}`}>{reco.label}</span>
-                      {profile.numberOfAnalystOpinions ? <span className="text-slate-600"> ({profile.numberOfAnalystOpinions} avis)</span> : null}
+                      {profile.numberOfAnalystOpinions ? <span className="text-slate-500"> ({profile.numberOfAnalystOpinions} avis)</span> : null}
                     </div>
                   )}
                   {upsidePct != null && (
@@ -663,7 +663,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                           <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
                             <div className="h-full rounded-full bg-violet-400" style={{ width: `${Math.min(100, s.weightPct)}%` }} />
                           </div>
-                          <span className="text-micro font-data tabular-nums text-slate-400 w-10 text-right">{s.weightPct.toFixed(1)}%</span>
+                          <span className="text-micro font-data tabular-nums text-slate-400 w-10 text-right">{pctPlain(s.weightPct, 1)}</span>
                         </div>
                       ))}
                     </div>
@@ -752,11 +752,11 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                 {profile.description ? (
                   <p className="text-sm text-slate-300 leading-relaxed">{profile.description}</p>
                 ) : isFund ? (
-                  <p className="text-sm text-slate-600 italic">
+                  <p className="text-sm text-slate-500 italic">
                     Pas de description longue disponible pour ce fonds — voir sa composition ci-dessus{profile.fundFamily ? ` (société de gestion : ${profile.fundFamily})` : ""}.
                   </p>
                 ) : (
-                  <p className="text-sm text-slate-600 italic">Aucune description disponible pour cette valeur.</p>
+                  <p className="text-sm text-slate-500 italic">Aucune description disponible pour cette valeur.</p>
                 )}
 
                 {profile.officers?.length > 0 && (
@@ -772,7 +772,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
                   </div>
                 )}
 
-                <p className="text-micro text-slate-600 flex items-start gap-1.5 pt-2 border-t border-slate-800">
+                <p className="text-micro text-slate-500 flex items-start gap-1.5 pt-2 border-t border-slate-800">
                   <Info size={12} className="shrink-0 mt-0.5" />
                   Données fournies à titre informatif (source : flux de marché grand public), avec un différé d'environ 15 minutes.
                   Elles ne constituent pas un conseil en investissement.

@@ -263,14 +263,14 @@ function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen, onDeclare
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           {note.ticker && (
-            <button onClick={() => onDeclareOperation(note)} title="Déclarer une opération" className="text-slate-600 hover:text-rose-300 p-1"><SendHorizonal size={14} /></button>
+            <button onClick={() => onDeclareOperation(note)} title="Déclarer une opération" className="text-slate-500 hover:text-rose-300 p-1"><SendHorizonal size={14} /></button>
           )}
           {note.archivee ? (
-            <button onClick={() => onReopen(note.id)} title="Ré-ouvrir la thèse" className="text-slate-600 hover:text-rose-300 p-1"><ArchiveRestore size={14} /></button>
+            <button onClick={() => onReopen(note.id)} title="Ré-ouvrir la thèse" className="text-slate-500 hover:text-rose-300 p-1"><ArchiveRestore size={14} /></button>
           ) : (
-            <button onClick={() => onClosePosition(note)} title="Clôturer / bilan post-mortem" className="text-slate-600 hover:text-rose-300 p-1"><ClipboardCheck size={14} /></button>
+            <button onClick={() => onClosePosition(note)} title="Clôturer / bilan post-mortem" className="text-slate-500 hover:text-rose-300 p-1"><ClipboardCheck size={14} /></button>
           )}
-          <button onClick={() => onEdit(note)} className="text-slate-600 hover:text-rose-300 p-1"><Pencil size={14} /></button>
+          <button onClick={() => onEdit(note)} className="text-slate-500 hover:text-rose-300 p-1"><Pencil size={14} /></button>
           <IconTrash onClick={() => onDelete(note.id)} />
         </div>
       </div>
@@ -291,7 +291,7 @@ function NoteCard({ note, onEdit, onDelete, onClosePosition, onReopen, onDeclare
 
       {note.objectif_cours != null && (
         <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-2">
-          <span className="text-slate-600">Objectif de cours :</span>
+          <span className="text-slate-500">Objectif de cours :</span>
           <span className="font-data font-semibold text-slate-200">{note.objectif_cours} €</span>
         </div>
       )}
@@ -372,23 +372,23 @@ function PerformanceTable({ notes, positions }) {
                   </span>
                 </td>
                 <td data-label="Cours actuel" className="py-2.5 px-1 font-data tabular-nums text-slate-200">
-                  {pos ? eur(pos.current_price) : <span className="text-slate-600">—</span>}
+                  {pos ? eur(pos.current_price) : <span className="text-slate-500">—</span>}
                 </td>
                 <td data-label="Objectif" className="py-2.5 px-1 font-data tabular-nums text-slate-400">
-                  {note.objectif_cours != null ? eur(note.objectif_cours) : <span className="text-slate-600">—</span>}
+                  {note.objectif_cours != null ? eur(note.objectif_cours) : <span className="text-slate-500">—</span>}
                 </td>
                 <td data-label="Écart" className="py-2.5 px-1 font-data tabular-nums">
                   {ecartObjectifPct != null ? (
                     <span className={ecartObjectifPct >= 0 ? "text-emerald-400" : "text-rose-400"}>{pct(ecartObjectifPct)}</span>
                   ) : (
-                    <span className="text-slate-600">—</span>
+                    <span className="text-slate-500">—</span>
                   )}
                 </td>
                 <td data-label="En portefeuille" className="py-2.5 px-1">
                   {pos ? (
                     <span className="text-micro text-emerald-400 font-medium">Oui · {pos.quantity} titres</span>
                   ) : (
-                    <span className="text-micro text-slate-600">Non détenu</span>
+                    <span className="text-micro text-slate-500">Non détenu</span>
                   )}
                 </td>
               </tr>
@@ -642,7 +642,7 @@ export default function StrategieLogs({
         {notes.length > 0 && (
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             <div className="flex items-center gap-1.5 flex-1 min-w-[160px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5">
-              <Search size={13} className="text-slate-600 shrink-0" />
+              <Search size={13} className="text-slate-500 shrink-0" />
               <input
                 type="text"
                 placeholder="Rechercher un ticker, un titre..."
@@ -652,7 +652,7 @@ export default function StrategieLogs({
               />
             </div>
             <div className="flex items-center gap-1.5">
-              <Filter size={13} className="text-slate-600" />
+              <Filter size={13} className="text-slate-500" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}

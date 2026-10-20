@@ -128,7 +128,7 @@ export default function StickySummaryHeader({ patrimoineNet, deltaPct, variation
               >
                 {perfPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 {pct(deltaPct)}
-                <span className="text-slate-600">30 j</span>
+                <span className="text-slate-500">30 j</span>
               </span>
             )}
 

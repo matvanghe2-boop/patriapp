@@ -1,4 +1,4 @@
-import { todayIso, valeurPosition } from "./finance";
+import { todayIso, valeurPosition, pctPlain } from "./finance";
 
 // Export "1 clic" du patrimoine, sans dépendance externe :
 // - Excel : table HTML servie avec l'extension .xls, qu'Excel/LibreOffice
@@ -38,7 +38,7 @@ function buildReportRows({
   rows.push([]);
   rows.push(["Livrets & Épargne", ""]);
   rows.push(["Support", "Capital", "Taux net", "Enveloppe"]);
-  (livrets || []).forEach((l) => rows.push([l.name, l.balance, `${(l.rate * 100).toFixed(2)} %`, l.envelope || ""]));
+  (livrets || []).forEach((l) => rows.push([l.name, l.balance, `${pctPlain((l.rate * 100), 2)}`, l.envelope || ""]));
   rows.push(["Compte courant", cash || 0, "", "Cash"]);
   rows.push([]);
   rows.push(["PEA & Bourse", ""]);

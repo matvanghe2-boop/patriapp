@@ -21,7 +21,7 @@ export function NavButton({ active, onClick, icon: Icon, label, disabled, theme 
       // n'avait aucun moyen de savoir où l'utilisateur se trouve.
       aria-current={current ? "page" : undefined}
       className={`btn-flash relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
-        ${disabled ? "text-slate-600 cursor-not-allowed" : active ? t.nav : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
+        ${disabled ? "text-slate-500 cursor-not-allowed" : active ? t.nav : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
       {active && <span aria-hidden="true" className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
       <Icon size={17} strokeWidth={2} aria-hidden="true" />
@@ -83,25 +83,6 @@ export function Card({ children, className = "", accent = "", role = "standard",
       <HaloTendance sens={tendance} />
       {tendance ? <span className="relative">{children}</span> : children}
     </div>
-  );
-}
-
-/**
- * Bandeau de domaine : le nom de la page, enfin visible.
- *
- * Le `<h1>` de chaque écran était `sr-only` — présent pour les lecteurs
- * d'écran, invisible à l'œil. On déduisait donc l'onglet courant de la couleur
- * du fond et d'un bouton surligné dans une barre latérale qui, sur mobile,
- * n'est même pas affichée. C'est le repère le plus élémentaire d'une
- * application à six sections, et il manquait.
- */
-export function BandeauDomaine({ titre, sousTitre, actions }) {
-  return (
-    <header className="bandeau-domaine">
-      <h1>{titre}</h1>
-      {sousTitre && <p>{sousTitre}</p>}
-      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
-    </header>
   );
 }
 
@@ -295,7 +276,10 @@ export function CarteRepliable({
 
   return (
     <div className={`rounded-2xl border bg-slate-900 transition-colors duration-300 ${accent || "border-slate-800"} ${className}`}>
-      <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-1">
+      {/* Replié, l'en-tête EST la carte : marges égales en haut et en bas.
+          Il gardait celles de la carte ouverte (20 px dessus, 4 dessous), et
+          le titre paraissait tomber au fond de son cadre. */}
+      <div className={`flex items-center justify-between gap-3 px-5 ${replie ? "py-4" : "pt-5 pb-1"}`}>
         {/* `group` + un titre qui s'éclaircit au survol : sans ce signal, rien
             ne distinguait une carte repliable d'une carte ordinaire, et on ne
             savait pas où cliquer. Le chevron seul était trop discret. */}
@@ -307,24 +291,42 @@ export function CarteRepliable({
           className="btn-flash group flex items-center gap-2 min-w-0 flex-1 text-left rounded -mx-1 px-1 py-0.5 hover:bg-slate-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
         >
           {Icon && <Icon size={13} className="text-slate-500 group-hover:text-slate-300 shrink-0 transition-colors" aria-hidden="true" />}
-          <span className="text-xs uppercase tracking-wider text-slate-500 group-hover:text-slate-200 truncate transition-colors">
-            {titre}
+          {/* Titre et résumé sur DEUX lignes. Côte à côte, dans une carte en
+              demi-largeur, ils se disputaient la place et finissaient tronqués
+              tous les deux : « PLUS-VALUE NETTE APRÈS IM… — 17… » ne disait
+              plus rien. Le résumé s'affiche aussi sur téléphone, où il
+              manquait le plus. */}
+          <span className="min-w-0 flex flex-col">
+            <span className="text-xs uppercase tracking-wider text-slate-500 group-hover:text-slate-200 truncate transition-colors">
+              {titre}
+            </span>
+            {replie && resume && (
+              // `ghost-blur` : un résumé porte souvent un montant (« 420 € par
+              // an »), qui échappait au mode Ghost.
+              <span className="text-micro text-slate-400 truncate mt-0.5 ghost-blur">
+                {/* Séparateur pour le nom accessible du bouton : sans lui, les
+                    deux lignes se lisaient d'un bloc, « Positions2 lignes ». */}
+                <span className="sr-only"> — </span>
+                {resume}
+              </span>
+            )}
           </span>
-          {replie && resume && (
-            <span className="text-micro text-slate-600 truncate hidden sm:inline">— {resume}</span>
-          )}
           {/* Même chevron pivotant que SectionRepliable : la rotation montre le
               sens de l'action, là où deux icônes échangées ne font que changer
               le symbole. */}
           <ChevronDown
             size={14}
             aria-hidden="true"
-            className={`text-slate-600 shrink-0 ml-auto transition-transform duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
+            className={`text-slate-500 shrink-0 ml-auto transition-transform duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
               replie ? "" : "rotate-180"
             }`}
           />
         </button>
-        {actions && <div className="shrink-0">{actions}</div>}
+        {/* Les actions agissent sur le contenu (« Modifier », « Détail ») :
+            repliée, la carte n'en a pas à montrer. Les garder affichait deux
+            chevrons côte à côte, et un « Modifier » qui éditait un formulaire
+            invisible. */}
+        {actions && !replie && <div className="shrink-0">{actions}</div>}
       </div>
 
       {/* Contenu DÉMONTÉ quand la carte est repliée, comme dans
@@ -464,7 +466,7 @@ export function IconTrash({ onClick, label = "Supprimer" }) {
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="btn-flash text-slate-600 hover:text-rose-400 transition-colors p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+      className="btn-flash text-slate-500 hover:text-rose-400 transition-colors p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
     >
       <Trash2 size={14} aria-hidden="true" />
     </button>
@@ -828,15 +830,19 @@ export function ChiffreCompteur({ valeur, format = (v) => String(Math.round(v)),
       {/* Le texte complet reste lisible par les lecteurs d'écran, qui n'ont
           rien à faire d'une pile de dix chiffres par colonne. */}
       <span className="sr-only">{texte}</span>
-      {[...texte].map((c, i) =>
-        /\d/.test(c) ? (
-          <RouleauChiffre key={i} chiffre={c} anime={anime} index={rang++} />
-        ) : (
-          <span key={i} aria-hidden="true">
-            {c}
-          </span>
-        )
-      )}
+      {/* Les rouleaux sont du vrai texte — dix chiffres empilés par colonne.
+          Sans `select-none`, sélectionner la valeur pour la copier collait
+          « 0123456789 0123456789… » ; seul le texte complet ci-dessus reste
+          sélectionnable, et c'est lui que le presse-papiers reçoit. */}
+      <span aria-hidden="true" className="select-none inline-flex items-baseline">
+        {[...texte].map((c, i) =>
+          /\d/.test(c) ? (
+            <RouleauChiffre key={i} chiffre={c} anime={anime} index={rang++} />
+          ) : (
+            <span key={i}>{c}</span>
+          )
+        )}
+      </span>
     </span>
   );
 }

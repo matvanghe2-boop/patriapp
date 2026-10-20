@@ -74,7 +74,7 @@ function LigneObjectif({ objectif, etat, onSupprimer, serie = [] }) {
                 <CalendarClock size={11} aria-hidden="true" />
                 <Montant valeur={objectif.cible} decimales={0} />
                 <span>pour {formatEcheance(objectif.echeance)}</span>
-                {moisRestants > 0 && <span className="text-slate-600">· dans {formaterDuree(moisRestants)}</span>}
+                {moisRestants > 0 && <span className="text-slate-500">· dans {formaterDuree(moisRestants)}</span>}
               </div>
             </div>
             <IconTrash onClick={onSupprimer} label={`Supprimer l'objectif ${objectif.libelle}`} />

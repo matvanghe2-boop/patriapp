@@ -3,6 +3,7 @@ import {
   CandlestickChart, LineChart as LineIcon, AreaChart as AreaIcon,
   ZoomIn, ZoomOut, RotateCcw, BarChart3, Activity,
 } from "lucide-react";
+import { pct } from "../lib/finance";
 
 /**
  * Graphique de cours "façon TradingView", dessiné en SVG à la main plutôt
@@ -692,20 +693,20 @@ export default function ProChart({
             <span className="text-slate-500">C <span className="text-slate-100 font-semibold">{fmtPrice(readout.close)}</span></span>
             {readoutChange && (
               <span style={{ color: readoutChange.abs >= 0 ? C_UP : C_DOWN }}>
-                {readoutChange.abs >= 0 ? "+" : ""}{fmtPrice(readoutChange.abs)} ({readoutChange.pct >= 0 ? "+" : ""}{readoutChange.pct.toFixed(2)} %)
+                {readoutChange.abs >= 0 ? "+" : ""}{fmtPrice(readoutChange.abs)} ({pct(readoutChange.pct, 2)})
               </span>
             )}
             {readout.volume != null && <span className="text-slate-500">Vol <span className="text-slate-300">{compactNum(readout.volume)}</span></span>}
             {windowChange != null && (
-              <span className="text-slate-600">
-                · vue : <span style={{ color: windowChange >= 0 ? C_UP : C_DOWN }}>{windowChange >= 0 ? "+" : ""}{windowChange.toFixed(2)} %</span>
+              <span className="text-slate-500">
+                · vue : <span style={{ color: windowChange >= 0 ? C_UP : C_DOWN }}>{pct(windowChange, 2)}</span>
               </span>
             )}
           </div>
         )}
 
         {n === 0 || !scale || !paths ? (
-          <div className="flex h-full items-center justify-center text-xs text-slate-600">
+          <div className="flex h-full items-center justify-center text-xs text-slate-500">
             Aucune donnée de cours à afficher sur cette période.
           </div>
         ) : (

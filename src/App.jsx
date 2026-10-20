@@ -15,7 +15,7 @@ import { useBilanRappel } from "./lib/useBilanRappel";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
 import { useConfirm } from "./lib/ConfirmContext";
-import { NavButton, SkeletonCard, BandeauDomaine } from "./components/ui";
+import { NavButton, SkeletonCard } from "./components/ui";
 import { theme } from "./lib/themes";
 import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
@@ -64,21 +64,6 @@ const TABS = [
   { id: "strategie", label: "Stratégie & Logs", shortLabel: "Stratégie", icon: NotebookPen, theme: "rose", Page: StrategieLogs },
   { id: "abonnements", label: "Abonnements", shortLabel: "Abos", icon: Repeat, theme: "cyan", Page: Abonnements },
 ];
-
-/**
- * Sous-titre de chaque section, affiché sous son nom dans le bandeau de
- * domaine. Une ligne qui dit à quoi sert la page — ce que le seul nom d'onglet
- * ne fait pas, « Stratégie & Logs » n'annonçant ni un journal de thèses ni une
- * timeline de jalons.
- */
-const TAB_SOUS_TITRES = {
-  dashboard: "vue consolidée, objectifs, allocation",
-  livrets: "supports garantis, plafonds, matelas de sécurité",
-  bourse: "portefeuille, performance, marché, screener",
-  simulation: "intérêts composés, crédit, projet immobilier",
-  strategie: "thèses d'investissement, opérations, jalons",
-  abonnements: "dépenses récurrentes et échéances de contrat",
-};
 
 const TAB_IDS = TABS.map((t) => t.id);
 
@@ -418,7 +403,7 @@ export default function App() {
             onClick={handleReset}
             aria-label="Réinitialiser toutes les données"
             title="Réinitialiser"
-            className="flex items-center gap-2 text-xs text-slate-600 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
+            className="flex items-center gap-2 text-xs text-slate-500 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
           >
             <RotateCcw size={15} aria-hidden="true" />
             <span className="hidden md:inline">Réinitialiser</span>
@@ -426,9 +411,15 @@ export default function App() {
           <span className="md:hidden">
             <GhostToggle ghostMode={ghostMode} setGhostMode={setGhostMode} />
           </span>
-          <p className="hidden md:block text-micro text-slate-600 leading-relaxed mt-1">
-            Données stockées sur cet appareil et synchronisées sur ton compte. Les cours de bourse
-            sont récupérés via un service externe.
+          {/* Ne promettre la synchronisation que si elle a lieu : en mode
+              local (Supabase absent, ou « Continuer sans compte »), rien ne
+              quitte ce navigateur, et le dire autrement laisserait croire à
+              une copie qui n'existe pas. */}
+          <p className="hidden md:block text-micro text-slate-500 leading-relaxed mt-1">
+            {user
+              ? "Données stockées sur cet appareil et synchronisées sur ton compte."
+              : "Données stockées uniquement dans ce navigateur : exporte une sauvegarde pour en garder une copie."}{" "}
+            Les cours de bourse sont récupérés via un service externe.
           </p>
         </div>
       </aside>
@@ -492,7 +483,10 @@ export default function App() {
             changement d'onglet. aria-live annonce le changement de section aux
             lecteurs d'écran, qui n'ont sinon aucun repère de navigation. */}
         <div key={tab} className={direction === "droite" ? "page-entre-droite" : "page-entre-gauche"}>
-          <BandeauDomaine titre={activeTab.label} sousTitre={TAB_SOUS_TITRES[tab]} />
+          {/* Pas de bandeau de titre ici : chaque page porte son propre <h1>,
+              visible, avec ses actions. Les deux s'empilaient et répétaient le
+              même nom en haut de l'écran, là où la place compte le plus sur
+              un téléphone. */}
           <Suspense fallback={<TabSkeleton />}>
             <activeTab.Page {...patrimoine} />
           </Suspense>

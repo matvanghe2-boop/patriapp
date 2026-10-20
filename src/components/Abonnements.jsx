@@ -172,7 +172,7 @@ function ContractsModule({ contracts, setContracts }) {
                     <td data-label="Fin d'engagement" className="py-2.5 px-1 font-data tabular-nums text-slate-300">{formatDateFr(c.date_fin)}</td>
                     <td data-label="Date limite de résiliation" className="py-2.5 px-1 font-data tabular-nums text-amber-300">
                       {deadline ? formatDateFr(deadline) : "—"}
-                      {c.preavis_jours > 0 && <span className="text-micro text-slate-600 block">préavis {c.preavis_jours} j</span>}
+                      {c.preavis_jours > 0 && <span className="text-micro text-slate-500 block">préavis {c.preavis_jours} j</span>}
                     </td>
                     <td data-label="Statut" className="py-2.5 px-1">
                       <span className={`flex items-center gap-1.5 w-fit text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${status.cls}`}>
@@ -375,7 +375,7 @@ function SubsModule({ subs, setSubs }) {
                           {soon && <CalendarClock size={11} />}
                           {formatDateFr(next)} {soon && `(${daysToNext === 0 ? "aujourd'hui" : `J-${daysToNext}`})`}
                         </span>
-                      ) : <span className="text-slate-600 text-xs">—</span>}
+                      ) : <span className="text-slate-500 text-xs">—</span>}
                     </td>
                     <td className="py-2.5 px-1">
                       <div className="flex items-center gap-1">

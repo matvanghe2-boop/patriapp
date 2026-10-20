@@ -4,7 +4,7 @@ import Modal from "./Modal";
 import Montant from "./Montant";
 import EtatVide from "./EtatVide";
 import { CalendrierAnnuel, CalendrierCompare, CourbeEvolution } from "./graphiques";
-import { eur, pct } from "../lib/finance";
+import { eur, pct, pctPlain } from "../lib/finance";
 import { construireRetrospective, anneesDisponibles, nomMois, joursDeLAnnee, semainesAgitees } from "../lib/retrospective";
 
 /**
@@ -193,7 +193,7 @@ export default function Retrospective({
               )}
               {bilan.tauxEpargneMoyen != null && (
                 <Fait icone={CalendarRange} label="Taux d'épargne moyen">
-                  <strong className="font-data">{bilan.tauxEpargneMoyen.toFixed(0)} %</strong>
+                  <strong className="font-data">{pctPlain(bilan.tauxEpargneMoyen, 0)}</strong>
                 </Fait>
               )}
             </section>

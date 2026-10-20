@@ -17,14 +17,40 @@ export const uid = () =>
 export const eur = (n, digits = 0) =>
   (n ?? 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: digits });
 
+/*
+ * Pourcentages À LA FRANÇAISE : virgule décimale, espace fine insécable avant
+ * le signe %. Les montants passaient déjà par `toLocaleString("fr-FR")` ; les
+ * pourcentages, eux, par `toFixed` — d'où « +10.6 % » affiché juste à côté de
+ * « 420,00 € » sur la même carte.
+ *
+ * `signDisplay: "exceptZero"` : une variation qui s'arrondit à zéro s'écrit
+ * « 0,0 % », pas « +0,0 % » ni « -0,0 % » — un signe sur un zéro affirme un
+ * sens qui n'existe pas.
+ */
+const ESPACE_FINE = "\u202f";
+const formatsPct = new Map();
+function formatPct(digits, signe) {
+  const cle = `${digits}:${signe}`;
+  if (!formatsPct.has(cle)) {
+    formatsPct.set(
+      cle,
+      new Intl.NumberFormat("fr-FR", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+        signDisplay: signe ? "exceptZero" : "auto",
+      })
+    );
+  }
+  return formatsPct.get(cle);
+}
+
 /** Pourcentage signé (+/-), utilisé pour des variations / gains. */
-export const pct = (n, digits = 1) => {
-  const v = Number.isFinite(n) ? n : 0;
-  return `${v > 0 ? "+" : ""}${v.toFixed(digits)} %`;
-};
+export const pct = (n, digits = 1) =>
+  `${formatPct(digits, true).format(Number.isFinite(n) ? n : 0)}${ESPACE_FINE}%`;
 
 /** Pourcentage simple, sans signe, pour des taux/ratios (ex: taux d'endettement). */
-export const pctPlain = (n, digits = 1) => `${(Number.isFinite(n) ? n : 0).toFixed(digits)} %`;
+export const pctPlain = (n, digits = 1) =>
+  `${formatPct(digits, false).format(Number.isFinite(n) ? n : 0)}${ESPACE_FINE}%`;
 
 /**
  * Lecture d'un nombre saisi par l'utilisateur.

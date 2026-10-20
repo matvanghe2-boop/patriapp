@@ -66,7 +66,7 @@ function ReglageCriteres({ criteres, onChange, onReinitialiser }) {
           <div key={c.cle} className="flex items-center justify-between gap-3 flex-wrap">
             <label htmlFor={`crit-${c.cle}`} className="text-xs text-slate-400 flex items-center gap-1.5 min-w-0">
               <span className="truncate">{def.libelle}</span>
-              <span className="text-slate-600" title={def.aide}>
+              <span className="text-slate-500" title={def.aide}>
                 <Info size={11} aria-hidden="true" />
               </span>
             </label>
@@ -84,7 +84,7 @@ function ReglageCriteres({ criteres, onChange, onReinitialiser }) {
                 }}
                 className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-data tabular-nums focus:outline-none focus:border-violet-400/60"
               />
-              <span className="text-micro text-slate-600 w-4">{def.unite}</span>
+              <span className="text-micro text-slate-500 w-4">{def.unite}</span>
             </div>
           </div>
         );
@@ -114,7 +114,7 @@ const TONS_SCORE = {
  */
 function BadgeScore({ score, nbNotes, detail }) {
   if (!Number.isFinite(score)) {
-    return <span className="text-micro text-slate-600 px-1.5">non noté</span>;
+    return <span className="text-micro text-slate-500 px-1.5">non noté</span>;
   }
   const q = qualifierScore(score);
   const explication = detail
@@ -230,7 +230,7 @@ function LigneResultat({ symbole, nom, secteur, evaluation, complement, action, 
       )}
 
       {evaluation?.nbIndetermines > 0 && (
-        <p className="text-micro text-slate-600 mt-1.5">
+        <p className="text-micro text-slate-500 mt-1.5">
           {evaluation.nbIndetermines} critère(s) non publié(s) pour ce titre — jugé sur {evaluation.fiabilite}.
         </p>
       )}
@@ -455,7 +455,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
 
   const BoutonSuivre = ({ titre }) =>
     dejaSuivi(titre.symbole) ? (
-      <span className="text-micro text-slate-600 px-2">déjà suivi</span>
+      <span className="text-micro text-slate-500 px-2">déjà suivi</span>
     ) : (
       <button
         onClick={() => ajouterAWatchlist(titre)}
@@ -570,7 +570,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                 Éligible PEA
               </label>
 
-              <span className="text-micro text-slate-600">
+              <span className="text-micro text-slate-500">
                 {universFiltre.length} sur {donnees.length} valeurs
               </span>
             </div>
@@ -587,7 +587,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
             servi par un job silencieusement cassé serait indiscernable d'un
             instantané frais. */}
         {genereLe && mode !== "portefeuille" && (
-          <p className="text-micro text-slate-600 mt-2">
+          <p className="text-micro text-slate-500 mt-2">
             Fondamentaux du{" "}
             {new Date(genereLe).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}, filtrés
             localement — aucun appel réseau.{" "}
@@ -597,7 +597,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
           </p>
         )}
         {chargeLe && mode === "portefeuille" && (
-          <p className="text-micro text-slate-600 mt-2">
+          <p className="text-micro text-slate-500 mt-2">
             Fondamentaux chargés à {chargeLe.toLocaleTimeString("fr-FR")} · mis en cache une heure côté serveur.
           </p>
         )}
@@ -744,7 +744,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                   score={titre ? (() => { const r = scoreComposite(titre, criteres); return <BadgeScore score={r.score} nbNotes={r.nbNotes} detail={r.detail} />; })() : null}
                   complement={
                     indisponible ? (
-                      <span className="text-micro text-slate-600">fondamentaux indisponibles</span>
+                      <span className="text-micro text-slate-500">fondamentaux indisponibles</span>
                     ) : (
                       <span className="text-micro font-data text-slate-400 ghost-blur">
                         {eur(position.quantity * position.current_price)}
@@ -804,7 +804,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
                 ))}
               </div>
             )}
-            <p className="text-micro text-slate-600 mt-3">
+            <p className="text-micro text-slate-500 mt-3">
               Suggestions classées par rentabilité des capitaux propres à l'intérieur de chaque secteur. Ce
               n'est pas une recommandation d'achat : la diversification sectorielle est un critère parmi d'autres.
             </p>
@@ -812,7 +812,7 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
         )}
 
         {indisponibles.length > 0 && mode === "marche" && (
-          <p className="text-micro text-slate-600 mt-3 pt-3 border-t border-slate-800">
+          <p className="text-micro text-slate-500 mt-3 pt-3 border-t border-slate-800">
             Non évalués faute de données : {indisponibles.map((t) => t.symbole).join(", ")}. Un titre absent
             d'un filtre pour cause de panne réseau ressemblerait sinon à un titre qui ne passe pas le filtre.
           </p>

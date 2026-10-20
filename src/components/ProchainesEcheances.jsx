@@ -88,7 +88,7 @@ export default function ProchainesEcheances({
         </ul>
       )}
 
-      <p className="text-micro text-slate-600 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         Six semaines d'horizon. Un préavis de résiliation est daté du dernier jour utile pour
         l'envoyer, pas de la fin du contrat — un contrat qui se termine dans deux mois avec trois
         mois de préavis est déjà reconduit.

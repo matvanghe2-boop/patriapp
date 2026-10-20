@@ -3,6 +3,7 @@ import { LineChart } from "lucide-react";
 import { Card, CardLabel } from "./ui";
 import { situerTaux, SERIES } from "../lib/histoireTaux";
 import { useMaintenant } from "../lib/useMaintenant";
+import { pctPlain } from "../lib/finance";
 
 /**
  * Histoire des taux réglementés — onglet Livrets & Épargne, sous-onglet Taux.
@@ -81,15 +82,15 @@ export default function HistoireTaux() {
           <circle cx={L} cy={y(courant)} r="3.5" fill="currentColor" />
         </svg>
 
-        <div className="flex justify-between text-micro text-slate-600 mt-1">
+        <div className="flex justify-between text-micro text-slate-500 mt-1">
           <span>{points[0].date.slice(0, 4)}</span>
           <span>aujourd'hui</span>
         </div>
       </div>
 
       <p className="text-corps text-slate-300 mt-3">
-        <b className="font-data">{courant.toFixed(2).replace(".", ",")} %</b> aujourd'hui, contre{" "}
-        <b className="font-data">{moyenne.toFixed(2).replace(".", ",")} %</b> de moyenne sur quinze ans.{" "}
+        <b className="font-data">{pctPlain(courant, 2)}</b> aujourd'hui, contre{" "}
+        <b className="font-data">{pctPlain(moyenne, 2)}</b> de moyenne sur quinze ans.{" "}
         <span className={haut ? "etat-attention" : bas ? "etat-ok" : "text-slate-400"}>
           {haut
             ? `Le ${libelle} est dans le haut de sa fourchette historique.`
@@ -99,7 +100,7 @@ export default function HistoireTaux() {
         </span>
       </p>
 
-      <p className="text-micro text-slate-600 mt-2">
+      <p className="text-micro text-slate-500 mt-2">
         Moyenne <strong>pondérée par la durée</strong> de chaque palier, et non moyenne des paliers :
         un taux qui a tenu deux ans ne pèse pas comme un autre qui a duré six mois. Les taux sont
         fixés par arrêté et saisis à la main — deux lignes à ajouter par an.

@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from "recharts";
 import { Card, CardLabel, EmptyState, CARD_THEMES } from "./ui";
-import { eur, pctPlain, compact, triPosition, lireNombre } from "../lib/finance";
+import { eur, pctPlain, compact, triPosition, lireNombre, pct } from "../lib/finance";
 import {
   totalAttendu, comparerAttenduPercu, rendementSurPrixDeRevient,
   percusParActif, serieAvecProjection, totalRetenueSource,
@@ -107,12 +107,12 @@ export default function SuiviDividendes({ bourse }) {
                 >
                   {bilan.realisationPct == null ? "—" : pctPlain(bilan.realisationPct, 0)}
                 </div>
-                <div className="text-micro text-slate-600">année à {pctPlain(bilan.avancementAnneePct, 0)}</div>
+                <div className="text-micro text-slate-500">année à {pctPlain(bilan.avancementAnneePct, 0)}</div>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                 <div className="text-micro text-slate-500 uppercase tracking-wide">Sur prix de revient</div>
                 <div className="font-data font-bold text-amber-300">{yoc == null ? "—" : pctPlain(yoc, 2)}</div>
-                <div className="text-micro text-slate-600">ne bouge pas avec le cours</div>
+                <div className="text-micro text-slate-500">ne bouge pas avec le cours</div>
               </div>
             </div>
 
@@ -235,7 +235,7 @@ export default function SuiviDividendes({ bourse }) {
             )}
 
             {projection.dernierProjete != null && (
-              <p className="text-micro text-slate-600 mt-2">
+              <p className="text-micro text-slate-500 mt-2">
                 Projection à croissance constante, à partir du dividende attendu sur douze mois. Elle
                 suppose que tu conserves tes lignes et que les entreprises maintiennent ce rythme —
                 ni l'un ni l'autre n'est garanti.
@@ -256,14 +256,14 @@ export default function SuiviDividendes({ bourse }) {
                       }`}
                     >
                       {s.croissancePct >= 0 ? <TrendingUp size={10} aria-hidden="true" /> : <TrendingDown size={10} aria-hidden="true" />}
-                      {s.annee} : {s.croissancePct >= 0 ? "+" : ""}{s.croissancePct.toFixed(1)} %
+                      {s.annee} : {pct(s.croissancePct, 1)}
                     </span>
                   ))}
               </div>
             )}
 
             {serie.some((s) => s.partielle) && (
-              <p className="text-micro text-slate-600 mt-2">
+              <p className="text-micro text-slate-500 mt-2">
                 L'année en cours apparaît en gris : elle est incomplète, et sa croissance n'est pas
                 calculée tant qu'elle n'est pas terminée.
               </p>
@@ -325,7 +325,7 @@ export default function SuiviDividendes({ bourse }) {
                   )}
                 </div>
                 <span className={`font-data tabular-nums text-sm font-semibold ${tri >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                  {tri >= 0 ? "+" : ""}{tri.toFixed(2)} % / an
+                  {pct(tri, 2)} / an
                 </span>
               </div>
             ))}
@@ -361,7 +361,7 @@ export default function SuiviDividendes({ bourse }) {
         )}
 
         {trisCalculables.length > 0 && (
-          <p className="text-micro text-slate-600 mt-3">
+          <p className="text-micro text-slate-500 mt-3">
             Le TRI tient compte des dates : deux lignes affichant « +30 % » n'ont rien à voir si
             l'une a mis six ans et l'autre six mois. Dividendes encaissés inclus.
           </p>

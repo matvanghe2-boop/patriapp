@@ -160,7 +160,7 @@ export default function TrajectoireObjectif({ serie = [], cible = 0, hauteur = 9
           <Tooltip content={<InfobulleTrajectoire />} cursor={{ stroke: "#475569", strokeDasharray: "3 3" }} />
         </ComposedChart>
       </ResponsiveContainer>
-      <p className="text-micro text-slate-600 mt-1 px-1">
+      <p className="text-micro text-slate-500 mt-1 px-1">
         Ligne pointillée : où il faudrait être. Zone colorée : {compact(cible)} visé à l&apos;échéance.
       </p>
     </div>

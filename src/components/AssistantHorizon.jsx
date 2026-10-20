@@ -102,7 +102,7 @@ export default function AssistantHorizon({ contexte, facteurBase100 = 0, montant
         {/* En mode montants réels, l'assistant répond déjà en euros : rappeler
             un taux de conversion de 1 pour 1 n'aiderait personne. */}
         {!montantsReels && facteurBase100 > 0 && (
-          <span className="text-xs text-slate-600">1 point = {eur(facteurBase100)}</span>
+          <span className="text-xs text-slate-500">1 point = {eur(facteurBase100)}</span>
         )}
       </div>
 
@@ -146,7 +146,7 @@ export default function AssistantHorizon({ contexte, facteurBase100 = 0, montant
               </p>
             )}
             {m.fournisseur && (
-              <p className="text-xs text-slate-600 mt-2">Réponse générée par {m.fournisseur}</p>
+              <p className="text-xs text-slate-500 mt-2">Réponse générée par {m.fournisseur}</p>
             )}
           </div>
         ))}
@@ -223,7 +223,7 @@ export default function AssistantHorizon({ contexte, facteurBase100 = 0, montant
         </div>
       )}
 
-      <p className="text-xs text-slate-600 mt-3">
+      <p className="text-xs text-slate-500 mt-3">
         Tous les chiffres proviennent du moteur de calcul, jamais du modèle. Le journal ci-dessus
         détaille chaque opération.
       </p>

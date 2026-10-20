@@ -39,8 +39,8 @@ describe("construireBilan", () => {
     const variation = constats.find((c) => c.cle === "variation");
     expect(variation.ton).toBe("positif");
     expect(variation.texte).toMatch(/progressé/);
-    // `pctPlain` du dépôt formate avec un point décimal, contrairement à `eur`.
-    expect(variation.texte).toMatch(/10\.0 %/);
+    // Virgule décimale et espace fine insécable, comme les montants.
+    expect(variation.texte).toMatch(/10,0\u202f%/);
   });
 
   it("chiffre aussi un recul", () => {
@@ -85,7 +85,7 @@ describe("construireBilan", () => {
 
   it("rapporte le taux d'épargne", () => {
     const { constats } = construireBilan({ tauxEpargnePct: 40, aujourdhui: AUJOURDHUI });
-    expect(constats.find((c) => c.cle === "epargne").texte).toMatch(/40\.0 %/);
+    expect(constats.find((c) => c.cle === "epargne").texte).toMatch(/40,0\u202f%/);
   });
 
   it("ne signale pas de revue de référence tant que l'échéance n'est pas atteinte", () => {

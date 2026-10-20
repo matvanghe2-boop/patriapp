@@ -1,4 +1,4 @@
-import { lireNombre, todayIso } from "./finance";
+import { lireNombre, todayIso, pctPlain } from "./finance";
 
 /**
  * Prochaines échéances — l'agrégation.
@@ -112,7 +112,7 @@ export function prochainesEcheances(
       jours,
       type: "objectif",
       libelle: `Échéance — ${o.libelle || "objectif"}`,
-      detail: `${pc.toFixed(0)} % atteint`,
+      detail: `${pctPlain(pc, 0)} atteint`,
       // Un objectif déjà atteint n'est plus une échéance à surveiller : il ne
       // reste dans la liste que pour être fêté, pas pour inquiéter.
       atteint: pc >= 100,

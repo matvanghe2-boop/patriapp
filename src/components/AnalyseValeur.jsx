@@ -3,6 +3,11 @@ import { Scale, Sparkles, AlertTriangle, Loader2, Info } from "lucide-react";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
 import { analyserValeur } from "../lib/api";
 import { fourchetteValorisation } from "../../shared/valorisation.js";
+import { pct, pctPlain } from "../lib/finance";
+
+/** Prix à la française : « 125,00 », pas « 125 » ni « 118.5 ». */
+const prix = (n) =>
+  Number.isFinite(n) ? n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
 
 /**
  * Trajectoire et valorisation d'une valeur.
@@ -37,7 +42,7 @@ function LigneMethode({ methode, devise }) {
     <li className="flex items-start justify-between gap-3 py-1.5 border-b border-slate-800/60 last:border-0">
       <span className="min-w-0">
         <span className="text-micro text-slate-300 block">{methode.libelle}</span>
-        <span className="text-micro text-slate-600 font-data">{methode.detail}</span>
+        <span className="text-micro text-slate-500 font-data">{methode.detail}</span>
         {methode.fiabilite === "prevision" && (
           <span className="text-micro text-amber-300/80 block">
             repose sur un bénéfice prévu, pas publié
@@ -46,12 +51,11 @@ function LigneMethode({ methode, devise }) {
       </span>
       <span className="text-right shrink-0">
         <span className="font-data tabular-nums text-slate-100 block">
-          {methode.prix} {devise}
+          {prix(methode.prix)} {devise}
         </span>
         {methode.ecartPct != null && (
           <span className={`text-micro font-data tabular-nums ${TON_ECART(methode.ecartPct)}`}>
-            {methode.ecartPct > 0 ? "+" : ""}
-            {methode.ecartPct} %
+            {pct(methode.ecartPct, 0)}
           </span>
         )}
       </span>
@@ -105,10 +109,10 @@ export default function AnalyseValeur({ symbole, devise = "€", donnees = null 
           <div className="flex items-baseline gap-2 mt-1 flex-wrap">
             <span className="text-micro text-slate-500">Fourchette calculée</span>
             <span className="font-data tabular-nums text-lg text-slate-100">
-              {valorisation.bas} – {valorisation.haut} {devise}
+              {prix(valorisation.bas)} – {prix(valorisation.haut)} {devise}
             </span>
-            <span className="text-micro text-slate-600">
-              cours actuel {valorisation.cours} {devise}
+            <span className="text-micro text-slate-500">
+              cours actuel {prix(valorisation.cours)} {devise}
             </span>
           </div>
 
@@ -124,7 +128,7 @@ export default function AnalyseValeur({ symbole, devise = "€", donnees = null 
           {valorisation.dispersionPct != null && valorisation.dispersionPct > 40 && (
             <p className="text-micro text-amber-300/90 mt-2 flex items-start gap-1.5">
               <AlertTriangle size={11} className="mt-0.5 shrink-0" aria-hidden="true" />
-              Les méthodes s&apos;écartent de {valorisation.dispersionPct} % entre elles : ce titre
+              Les méthodes s&apos;écartent de {pctPlain(valorisation.dispersionPct, 0)} entre elles : ce titre
               n&apos;a pas de valorisation consensuelle, la fourchette est à prendre avec prudence.
             </p>
           )}
@@ -133,13 +137,12 @@ export default function AnalyseValeur({ symbole, devise = "€", donnees = null 
             <p className="text-micro text-slate-500 mt-2 pt-2 border-t border-slate-800">
               Objectif moyen des analystes :{" "}
               <span className="font-data tabular-nums text-slate-300">
-                {valorisation.consensus.prix} {devise}
+                {prix(valorisation.consensus.prix)} {devise}
               </span>{" "}
               <span className={`font-data ${TON_ECART(valorisation.consensus.ecartPct)}`}>
-                ({valorisation.consensus.ecartPct > 0 ? "+" : ""}
-                {valorisation.consensus.ecartPct} %)
+                ({pct(valorisation.consensus.ecartPct, 0)})
               </span>
-              <span className="text-slate-600">
+              <span className="text-slate-500">
                 {" "}
                 — c&apos;est l&apos;avis d&apos;un groupe, pas un calcul : il reste hors de la
                 fourchette ci-dessus.
@@ -209,7 +212,7 @@ export default function AnalyseValeur({ symbole, devise = "€", donnees = null 
             </p>
           )}
 
-          <p className="text-micro text-slate-600 mt-3">
+          <p className="text-micro text-slate-500 mt-3">
             Analyse descriptive, sans recommandation d&apos;achat ni de vente. Les prix ci-dessus
             sont calculés à partir des ratios publiés, pas produits par le modèle.
           </p>

@@ -263,7 +263,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
                 {erreurMontant}
               </p>
             )}
-            <p className="text-micro text-slate-600 mt-1">
+            <p className="text-micro text-slate-500 mt-1">
               {values.type === "VERSEMENT"
                 ? "Argent qui ENTRE dans le portefeuille depuis ton compte courant."
                 : "Argent qui SORT du portefeuille vers ton compte courant."}{" "}

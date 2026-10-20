@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { fetchQuotes } from "../lib/api";
 import { INDEX_TABS, INDEX_CONSTITUENTS } from "../lib/indexConstituents";
+import { pctPlain } from "../lib/finance";
 
 function pctChange(q) {
   if (!q?.ok || !q.previousClose || !q.price) return null;
@@ -80,11 +81,11 @@ export default function IndicesWidget() {
             >
               <span className="text-xs font-medium text-slate-300">{t.label}</span>
               {pct == null ? (
-                <span className="text-micro text-slate-600">—</span>
+                <span className="text-micro text-slate-500">—</span>
               ) : (
                 <span className={`flex items-center gap-1 font-data text-sm font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
                   {up ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-                  {up ? "+" : ""}{pct.toFixed(2)}%
+                  {up ? "+" : ""}{pctPlain(pct, 2)}
                 </span>
               )}
             </button>
@@ -97,13 +98,13 @@ export default function IndicesWidget() {
           <div>
             <div className="text-micro uppercase tracking-wide text-emerald-400/80 mb-1.5">Meilleures perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>
             {moversLoading && !movers ? (
-              <p className="text-micro text-slate-600">Chargement…</p>
+              <p className="text-micro text-slate-500">Chargement…</p>
             ) : (
               <div className="space-y-1">
                 {(movers?.best || []).map((r) => (
                   <div key={r.symbol} className="flex items-center justify-between text-xs gap-2">
                     <span className="text-slate-300 truncate">{r.name}</span>
-                    <span className="text-emerald-400 font-data shrink-0">+{r.pct.toFixed(2)}%</span>
+                    <span className="text-emerald-400 font-data shrink-0">+{pctPlain(r.pct, 2)}</span>
                   </div>
                 ))}
               </div>
@@ -112,19 +113,19 @@ export default function IndicesWidget() {
           <div>
             <div className="text-micro uppercase tracking-wide text-rose-400/80 mb-1.5">Pires perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>
             {moversLoading && !movers ? (
-              <p className="text-micro text-slate-600">Chargement…</p>
+              <p className="text-micro text-slate-500">Chargement…</p>
             ) : (
               <div className="space-y-1">
                 {(movers?.worst || []).map((r) => (
                   <div key={r.symbol} className="flex items-center justify-between text-xs gap-2">
                     <span className="text-slate-300 truncate">{r.name}</span>
-                    <span className="text-rose-400 font-data shrink-0">{r.pct.toFixed(2)}%</span>
+                    <span className="text-rose-400 font-data shrink-0">{pctPlain(r.pct, 2)}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <p className="col-span-2 text-micro text-slate-600">
+          <p className="col-span-2 text-micro text-slate-500">
             Échantillon indicatif de grandes capitalisations de l'indice, pas la totalité des composants.
           </p>
         </div>

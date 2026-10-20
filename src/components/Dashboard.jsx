@@ -174,7 +174,7 @@ function OnboardingCard({ onLoadDemo }) {
       >
         <ArrowRight size={14} aria-hidden="true" /> Charger un jeu d'exemple
       </button>
-      <p className="text-micro text-slate-600 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         Le jeu d'exemple contient des chiffres inventés, à des fins de démonstration uniquement.
         Tu pourras tout effacer depuis « Réinitialiser », dans le menu.
       </p>
@@ -193,7 +193,7 @@ function ProfileFreshness({ updatedAt, history = [] }) {
 
   if (!updatedAt) {
     return (
-      <p className="text-micro text-slate-600 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         Renseigne ton revenu et tes dépenses : le taux d'épargne et le matelas de sécurité en
         dépendent.
       </p>
@@ -207,7 +207,7 @@ function ProfileFreshness({ updatedAt, history = [] }) {
   return (
     <div className="mt-3 pt-3 border-t border-slate-800">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className={`flex items-center gap-1.5 text-micro ${stale ? "text-amber-300" : "text-slate-600"}`}>
+        <span className={`flex items-center gap-1.5 text-micro ${stale ? "text-amber-300" : "text-slate-500"}`}>
           {stale ? <AlertCircle size={11} aria-hidden="true" /> : <Clock size={11} aria-hidden="true" />}
           {days === 0
             ? "Mis à jour aujourd'hui"
@@ -357,9 +357,9 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
           <div className="flex justify-between text-micro text-slate-500 mb-1">
             <span>Épargne sécurisée</span>
             <span>
-              <span className="text-slate-300 font-data">{currentLivretsPct.toFixed(0)}%</span>
-              <span className="text-slate-600 mx-1">→</span>
-              <span className="text-teal-400 font-data">{targetLivretsPct.toFixed(0)}%</span>
+              <span className="text-slate-300 font-data">{pctPlain(currentLivretsPct, 0)}</span>
+              <span className="text-slate-500 mx-1">→</span>
+              <span className="text-teal-400 font-data">{pctPlain(targetLivretsPct, 0)}</span>
             </span>
           </div>
           <div className="relative h-2 rounded-full bg-slate-800 overflow-visible">
@@ -378,9 +378,9 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
           <div className="flex justify-between text-micro text-slate-500 mb-1">
             <span>Bourse (PEA)</span>
             <span>
-              <span className="text-slate-300 font-data">{currentBoursePct.toFixed(0)}%</span>
-              <span className="text-slate-600 mx-1">→</span>
-              <span className="text-amber-400 font-data">{targetBoursePct.toFixed(0)}%</span>
+              <span className="text-slate-300 font-data">{pctPlain(currentBoursePct, 0)}</span>
+              <span className="text-slate-500 mx-1">→</span>
+              <span className="text-amber-400 font-data">{pctPlain(targetBoursePct, 0)}</span>
             </span>
           </div>
           <div className="relative h-2 rounded-full bg-slate-800 overflow-visible">
@@ -425,7 +425,7 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
             onChange={(e) => setDraft({ bourse: parseInt(e.target.value) })}
             className="w-full"
           />
-          <div className="flex justify-between text-micro text-slate-600 mt-1">
+          <div className="flex justify-between text-micro text-slate-500 mt-1">
             <span>100% Livrets</span>
             <span>100% Bourse</span>
           </div>
@@ -833,7 +833,7 @@ export default function Dashboard({
               onCommit={(v) => setProfile((p) => ({ ...p, monthly_income: v }))}
               className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
             />
-            <span className="text-xs text-slate-600">€/mois</span>
+            <span className="text-xs text-slate-500">€/mois</span>
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor="profil-depenses" className="text-xs text-slate-500">Dépenses</label>
@@ -844,7 +844,7 @@ export default function Dashboard({
               onCommit={(v) => setProfile((p) => ({ ...p, monthly_expenses: v }))}
               className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
             />
-            <span className="text-xs text-slate-600">€/mois</span>
+            <span className="text-xs text-slate-500">€/mois</span>
           </div>
         </div>
 
@@ -896,7 +896,7 @@ export default function Dashboard({
                 {eur(Math.abs(delta30j.abs))} sur 30 jours
               </span>
             ) : (
-              <span className="text-corps mt-1.5 text-slate-600 block">Pas encore d'historique</span>
+              <span className="text-corps mt-1.5 text-slate-500 block">Pas encore d'historique</span>
             )}
           </div>
 
@@ -904,7 +904,7 @@ export default function Dashboard({
             <div>
               <dt className="text-micro uppercase tracking-wider text-slate-500">Taux d'épargne</dt>
               <dd className="font-data tabular-nums text-chiffre text-slate-100 ghost-blur">
-                {Number.isFinite(tauxEpargne) ? `${tauxEpargne.toFixed(0)} %` : "—"}
+                {Number.isFinite(tauxEpargne) ? `${pctPlain(tauxEpargne, 0)}` : "—"}
               </dd>
             </div>
             <div>
@@ -960,7 +960,7 @@ export default function Dashboard({
             <div className="font-display text-xl text-slate-100 ghost-blur">{eur(epargneMensuelle)}</div>
             <div className="text-xs text-emerald-300/80 mt-1">{pct(tauxEpargne)} du revenu</div>
             {epargneMensuelle > 0 && (
-              <div className="text-micro text-slate-600 mt-1 ghost-blur">
+              <div className="text-micro text-slate-500 mt-1 ghost-blur">
                 Projection +{eur(epargneMensuelle * 6)} / 6 mois
               </div>
             )}
@@ -1026,7 +1026,7 @@ export default function Dashboard({
                     <span className="flex items-center gap-1.5 text-slate-300">
                       <Montant valeur={d.value} decimales={0} />
                       <span className="text-slate-500 font-data ghost-blur">
-                        · {totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(0) : 0} %
+                        · {pctPlain(totalAlloc > 0 ? (d.value / totalAlloc) * 100 : 0, 0)}
                       </span>
                     </span>
                   </div>
@@ -1049,7 +1049,7 @@ export default function Dashboard({
             <div className="mt-4 pt-4 border-t border-slate-800">
               <div className="flex items-center justify-between mb-2 text-xs text-slate-500 uppercase tracking-wider">
                 <span>{new Date().getFullYear()} jour par jour</span>
-                <span className="font-data normal-case tracking-normal text-slate-600">
+                <span className="font-data normal-case tracking-normal text-slate-500">
                   {joursAnnee.releves} relevés
                 </span>
               </div>
@@ -1085,7 +1085,7 @@ export default function Dashboard({
                   style={{ width: `${diversification.score}%` }}
                 />
               </div>
-              <p className="text-micro text-slate-600 mt-1.5">
+              <p className="text-micro text-slate-500 mt-1.5">
                 {diversification.score >= 66
                   ? "Bonne répartition entre tes classes d'actifs."
                   : diversification.score >= 33
@@ -1101,7 +1101,7 @@ export default function Dashboard({
             livretsTotal={livretsTotal}
             bourseTotal={bourseTotal}
           />
-          <p className="text-micro text-slate-600 mt-3">
+          <p className="text-micro text-slate-500 mt-3">
             Le sous-onglet « Immobilier &amp; Crédit » de Simulation te permet de planifier un futur
             achat sans modifier cette répartition.
           </p>

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { TrendingUp, Coins, ShoppingCart, TrendingDown, Repeat, Sparkles } from "lucide-react";
 import { Card, EmptyState } from "./ui";
-import { eur, todayIso } from "../lib/finance";
+import { eur, todayIso, pctPlain } from "../lib/finance";
 
 const MILESTONE_THRESHOLDS = [
   1000, 5000, 10000, 25000, 50000, 75000, 100000, 150000, 200000, 250000, 500000, 750000, 1000000,
@@ -171,7 +171,7 @@ export default function Timeline({ bourse, historyPast, patrimoineNet, epargneMe
           <p className="text-sm text-slate-300">
             💡 Ce mois-ci, ton effort d'épargne représente <span className="font-data font-semibold text-emerald-400">{eur(epargneMensuelle, 0)}</span>
             {tauxEpargne != null && (
-              <> soit <span className="font-data font-semibold text-emerald-400">{tauxEpargne.toFixed(0)}%</span> de tes revenus.</>
+              <> soit <span className="font-data font-semibold text-emerald-400">{pctPlain(tauxEpargne, 0)}</span> de tes revenus.</>
             )}
           </p>
         </Card>

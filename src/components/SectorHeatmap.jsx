@@ -3,7 +3,7 @@ import { LayoutGrid } from "lucide-react";
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
 import { CarteRepliable, EmptyState } from "./ui";
 import { eur, pctPlain } from "../lib/finance";
-import { getSector, SECTOR_HEX } from "../lib/sectors";
+import { getSector, SECTOR_HEX, NON_CLASSE } from "../lib/sectors";
 import AssetLogo from "./AssetLogo";
 
 /**
@@ -79,9 +79,9 @@ export default function SectorHeatmap({ positions = [], replie, onBasculer }) {
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             {sectorLegend.map((s) => (
               <div key={s.name} className="flex items-center gap-1.5 text-xs">
-                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: SECTOR_HEX[s.name] || SECTOR_HEX.Autre }} />
+                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: SECTOR_HEX[s.name] || SECTOR_HEX[NON_CLASSE] }} />
                 <span className="text-slate-400">{s.name}</span>
-                <span className="text-slate-600 font-data">{pctPlain(s.pct, 1)}</span>
+                <span className="text-slate-500 font-data">{pctPlain(s.pct, 1)}</span>
               </div>
             ))}
           </div>
@@ -110,10 +110,15 @@ function TreemapTooltip({ active, payload, total }) {
 // logo, le ticker, le poids et le nom du secteur à l'intérieur de la case
 // quand elle est assez grande pour l'accueillir.
 function TreemapTile(props) {
-  const { x, y, width, height, ticker, sector, pct } = props;
+  const { x, y, width, height, ticker, sector, pct, depth } = props;
   if (!width || !height || width <= 0 || height <= 0) return null;
+  // recharts dessine aussi le nœud RACINE, qui couvre tout le treemap et ne
+  // porte aucune ligne : il rendait un logo « ? » et un « 0,0 % » sous les
+  // vraies cases, visibles dans les interstices et lus par les lecteurs
+  // d'écran.
+  if (depth === 0 || !ticker) return null;
 
-  const fill = SECTOR_HEX[sector] || SECTOR_HEX.Autre;
+  const fill = SECTOR_HEX[sector] || SECTOR_HEX[NON_CLASSE];
   const showFull = width > 70 && height > 55;
   const showCompact = !showFull && width > 34 && height > 24;
 

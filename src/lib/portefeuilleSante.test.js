@@ -44,7 +44,7 @@ describe("santePortefeuille", () => {
     ]);
     const c = composantes.find((x) => x.cle === "concentration");
     expect(c.constat).toContain("AAA");
-    expect(c.constat).toContain("50 %");
+    expect(c.constat).toContain("50\u202f%");
     expect(c.seuil).toBe("critique");
   });
 

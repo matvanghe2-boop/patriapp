@@ -79,7 +79,7 @@ export default function RapprochementsAbonnements({ subs = [], contracts = [] })
         </>
       )}
 
-      <p className="text-micro text-slate-600 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         Deux abonnements d'une même catégorie ne font pas forcément double emploi — une assurance
         auto et une assurance habitation sont deux assurances légitimes. Ces signaux appellent une
         vérification, pas une résiliation.

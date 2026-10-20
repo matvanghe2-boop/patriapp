@@ -158,7 +158,7 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
         </div>
       )}
 
-      <p className="text-micro text-slate-600 mt-3">
+      <p className="text-micro text-slate-500 mt-3">
         Simulation indicative (frais non inclus). Le gain réalisé est calculé sur le PRU actuel de la ligne.
       </p>
     </Card>
