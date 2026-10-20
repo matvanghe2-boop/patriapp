@@ -12,9 +12,11 @@ import {
 } from "../lib/univers";
 import {
   RECETTES, CRITERES, SENS, recetteParId, appliquerRecette,
-  auditerPortefeuille, suggererDiversification, poidsSectoriels,
+  auditerPortefeuille, suggererDiversification,
   scoreComposite, qualifierScore, comparerTitres,
 } from "../../shared/screener";
+import { secteurDe } from "../lib/sectors";
+import { poidsParSecteur } from "../lib/exposition";
 
 const MODES = [
   { cle: "marche", label: "Marché", icon: Search, aide: "Filtrer un univers de titres" },
@@ -253,7 +255,7 @@ function LigneResultat({ symbole, nom, secteur, evaluation, complement, action, 
  * Les données arrivent de `/api/screen`, distinct de `/api/profile` : pas de
  * traduction, cache d'une heure, et un lot au lieu d'un titre.
  */
-export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenMarket }) {
+export default function Screener({ bourse, secteursManuels = {}, watchlist = [], setWatchlist, onOpenMarket }) {
   const positions = useMemo(() => bourse?.positions || [], [bourse]);
 
   const [mode, setMode] = useState("marche");
@@ -271,7 +273,27 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
   const [peaSeul, setPeaSeul] = useState(false);
   const [limite, setLimite] = useState(50);
 
-  const [donnees, setDonnees] = useState([]);
+  const [donneesBrutes, setDonnees] = useState([]);
+
+  /*
+   * Secteurs traduits dans le classement de l'application.
+   *
+   * Yahoo fournit ses propres secteurs, en anglais, quand l'onglet Analyse
+   * emploie le classement de l'application. Les suggestions de
+   * diversification raisonnaient donc dans un autre classement que la
+   * répartition affichée juste à côté : Vinci y restait « Industrials » alors
+   * que le portefeuille le range en « Utilities & infrastructures ». Le
+   * secteur Yahoo d'origine reste disponible sous `secteurYahoo`.
+   */
+  const donnees = useMemo(
+    () =>
+      donneesBrutes.map((t) => ({
+        ...t,
+        secteurYahoo: t.secteur ?? null,
+        secteur: secteurDe({ ticker: t.symbole, secteurYahoo: t.secteur }, secteursManuels),
+      })),
+    [donneesBrutes, secteursManuels]
+  );
   const [chargement, setChargement] = useState(false);
   const [progression, setProgression] = useState(null);
   const [erreur, setErreur] = useState("");
@@ -416,8 +438,11 @@ export default function Screener({ bourse, watchlist = [], setWatchlist, onOpenM
   );
 
   const poidsSecteurs = useMemo(
-    () => (mode === "diversifier" ? poidsSectoriels(positions, donnees) : {}),
-    [mode, positions, donnees]
+    // Même calcul que l'onglet Analyse — ETF décomposés, choix manuels
+    // compris — pour que « secteur absent » veuille dire la même chose aux
+    // deux endroits.
+    () => (mode === "diversifier" ? poidsParSecteur(positions, secteursManuels) : {}),
+    [mode, positions, secteursManuels]
   );
 
   const suggestions = useMemo(

@@ -2,8 +2,10 @@ import { useMemo } from "react";
 import { LayoutGrid } from "lucide-react";
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
 import { CarteRepliable, EmptyState } from "./ui";
-import { eur, pctPlain } from "../lib/finance";
-import { getSector, SECTOR_HEX, NON_CLASSE } from "../lib/sectors";
+import { eur, pctPlain, valeurPosition } from "../lib/finance";
+import { SECTOR_HEX, NON_CLASSE, SECTEURS_APP, secteurParDefaut } from "../lib/sectors";
+import { partsSectorielles } from "../lib/exposition";
+import { compositionDe } from "../lib/compositionEtf";
 import AssetLogo from "./AssetLogo";
 
 /**
@@ -11,41 +13,44 @@ import AssetLogo from "./AssetLogo";
  * jointives (aucun espacement), dimensionnées selon le poids réel de chaque
  * ligne dans le portefeuille. La couleur code le secteur (pas la
  * performance) — chaque case garde le nom du secteur affiché à l'intérieur.
+ *
+ * UN ETF AU CATALOGUE EST DÉCOUPÉ en autant de cases que son indice compte de
+ * secteurs. Rangé d'un bloc, un ETF monde formait une seule case grise « Non
+ * classé » de 84 % : la carte montrait l'inverse de la réalité, puisque c'est
+ * la ligne la plus diversifiée du portefeuille. Découpées, ses parts rejoignent
+ * les actions du même secteur, et la carte montre l'exposition réelle.
  */
-export default function SectorHeatmap({ positions = [], replie, onBasculer }) {
-  const { data, total, sectorTotals } = useMemo(() => {
-    const withValue = positions
-      .map((p) => ({ ...p, value: (p.quantity || 0) * (p.current_price || 0), sector: getSector(p.ticker) }))
-      .filter((p) => p.value > 0);
+export default function SectorHeatmap({ positions = [], secteursManuels = {}, setSecteursManuels, replie, onBasculer }) {
+  const { data, total, legende } = useMemo(() => {
+    const parts = partsSectorielles(positions, secteursManuels);
+    const total = parts.reduce((s, p) => s + p.valeur, 0);
 
-    const total = withValue.reduce((s, p) => s + p.value, 0);
-
-    const sectorTotals = new Map();
-    for (const p of withValue) sectorTotals.set(p.sector, (sectorTotals.get(p.sector) || 0) + p.value);
+    const parSecteur = new Map();
+    for (const p of parts) parSecteur.set(p.secteur, (parSecteur.get(p.secteur) || 0) + p.valeur);
 
     // Trié par secteur (les plus gros secteurs d'abord) puis par ligne, pour
     // que l'algorithme de treemap regroupe naturellement les cases d'un même
     // secteur les unes à côté des autres.
-    const data = withValue
-      .sort((a, b) => (sectorTotals.get(b.sector) - sectorTotals.get(a.sector)) || b.value - a.value)
+    const data = [...parts]
+      .sort((a, b) => parSecteur.get(b.secteur) - parSecteur.get(a.secteur) || b.valeur - a.valeur)
       .map((p) => ({
-        name: p.ticker,
-        value: p.value,
+        name: p.etf ? `${p.ticker} · ${p.secteur}` : p.ticker,
+        value: p.valeur,
         ticker: p.ticker,
-        sector: p.sector,
-        pct: total > 0 ? (p.value / total) * 100 : 0,
+        sector: p.secteur,
+        etf: p.etf,
+        pct: total > 0 ? (p.valeur / total) * 100 : 0,
       }));
 
-    return { data, total, sectorTotals };
-  }, [positions]);
+    // « Non classé » en dernier : ce n'est pas un secteur, c'est une absence.
+    const legende = [...parSecteur.entries()]
+      .sort(([a, va], [b, vb]) => (a === NON_CLASSE) - (b === NON_CLASSE) || vb - va)
+      .map(([name, value]) => ({ name, value, pct: total > 0 ? (value / total) * 100 : 0 }));
 
-  const sectorLegend = useMemo(
-    () =>
-      [...sectorTotals.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(([name, value]) => ({ name, value, pct: total > 0 ? (value / total) * 100 : 0 })),
-    [sectorTotals, total]
-  );
+    return { data, total, legende };
+  }, [positions, secteursManuels]);
+
+  const nbSecteurs = legende.filter((s) => s.name !== NON_CLASSE).length;
 
   return (
     <CarteRepliable
@@ -53,7 +58,7 @@ export default function SectorHeatmap({ positions = [], replie, onBasculer }) {
       icon={LayoutGrid}
       replie={replie}
       onBasculer={onBasculer}
-      resume={`${data.length} secteur(s)`}
+      resume={`${nbSecteurs} secteur(s)`}
     >
       {data.length === 0 ? (
         <EmptyState>Ajoute une position pour voir sa répartition sectorielle.</EmptyState>
@@ -77,7 +82,7 @@ export default function SectorHeatmap({ positions = [], replie, onBasculer }) {
 
           {/* Légende des secteurs */}
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-            {sectorLegend.map((s) => (
+            {legende.map((s) => (
               <div key={s.name} className="flex items-center gap-1.5 text-xs">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: SECTOR_HEX[s.name] || SECTOR_HEX[NON_CLASSE] }} />
                 <span className="text-slate-400">{s.name}</span>
@@ -85,9 +90,91 @@ export default function SectorHeatmap({ positions = [], replie, onBasculer }) {
               </div>
             ))}
           </div>
+
+          {setSecteursManuels && (
+            <ChoixSecteurs
+              positions={positions}
+              secteursManuels={secteursManuels}
+              setSecteursManuels={setSecteursManuels}
+            />
+          )}
         </div>
       )}
     </CarteRepliable>
+  );
+}
+
+/**
+ * Secteur de chaque ligne, modifiable.
+ *
+ * Le classement par défaut range une société d'après son activité principale,
+ * et le justifie dans le code. Mais une société présente dans plusieurs
+ * métiers se range de plusieurs façons défendables — Vinci est-il du BTP ou
+ * des concessions ? — et c'est à son détenteur de trancher. Son choix prime
+ * partout : santé, carte et suggestions du Screener.
+ */
+function ChoixSecteurs({ positions, secteursManuels, setSecteursManuels }) {
+  const lignes = useMemo(() => {
+    const vues = new Map();
+    for (const p of positions) {
+      const ticker = String(p.ticker || "").toUpperCase();
+      if (!ticker || vues.has(ticker) || !(valeurPosition(p) > 0)) continue;
+      vues.set(ticker, { ticker, nom: p.name || p.ticker, composition: compositionDe(ticker) });
+    }
+    return [...vues.values()];
+  }, [positions]);
+
+  const choisir = (ticker, secteur) =>
+    setSecteursManuels((m) => {
+      const suivant = { ...(m || {}) };
+      if (secteur) suivant[ticker] = secteur;
+      else delete suivant[ticker];
+      return suivant;
+    });
+
+  const nbModifies = lignes.filter((l) => secteursManuels?.[l.ticker]).length;
+
+  return (
+    <details className="group rounded-xl border border-slate-800 bg-slate-950/40">
+      <summary className="cursor-pointer list-none px-3 py-2 text-micro text-slate-400 hover:text-slate-200 flex items-center justify-between gap-2">
+        <span>Secteur de chaque ligne{nbModifies > 0 ? ` — ${nbModifies} choisi(s) à la main` : ""}</span>
+        <span aria-hidden="true" className="transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <ul className="divide-y divide-slate-800 border-t border-slate-800">
+        {lignes.map((l) => {
+          const manuel = secteursManuels?.[l.ticker] || "";
+          return (
+            <li key={l.ticker} className="flex items-center gap-3 px-3 py-2">
+              <span className="min-w-0 flex-1">
+                <span className="block font-data text-xs text-slate-200">{l.ticker}</span>
+                <span className="block text-micro text-slate-500 truncate">{l.nom}</span>
+              </span>
+              {l.composition ? (
+                <span className="text-micro text-slate-500 text-right">
+                  Décomposé selon l&apos;indice {l.composition.indice}
+                </span>
+              ) : (
+                <select
+                  value={manuel}
+                  onChange={(e) => choisir(l.ticker, e.target.value)}
+                  aria-label={`Secteur de ${l.ticker}`}
+                  className={`max-w-[13rem] bg-slate-950 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-violet-400/60 ${
+                    manuel ? "border-violet-400/50 text-violet-200" : "border-slate-700 text-slate-300"
+                  }`}
+                >
+                  <option value="">Par défaut : {secteurParDefaut(l.ticker)}</option>
+                  {SECTEURS_APP.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </details>
   );
 }
 
@@ -99,6 +186,11 @@ function TreemapTooltip({ active, payload, total }) {
     <div className="rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl">
       <p className="font-data font-semibold text-slate-100">{d.ticker}</p>
       <p className="text-slate-500">{d.sector}</p>
+      {d.etf && (
+        <p className="text-slate-500">
+          {pctPlain(d.etf.part * 100, 1)} de l&apos;indice {d.etf.indice}
+        </p>
+      )}
       <p className="text-slate-300 mt-1 ghost-blur">{eur(d.value, 0)}</p>
       <p className="text-slate-500">{pctPlain((d.value / total) * 100, 1)} du portefeuille</p>
     </div>

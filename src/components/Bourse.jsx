@@ -525,6 +525,8 @@ export default function Bourse({
   // Composition de l'écran : quels blocs sont repliés. Persisté, donc retrouvé
   // tel quel au rechargement et sur les autres appareils.
   widgetsReplies = {}, basculerWidget,
+  // Secteurs choisis à la main, partagés par Analyse et le Screener.
+  secteursManuels = {}, setSecteursManuels,
 }) {
   const { showToast } = useToast();
   const replie = (id) => Boolean(widgetsReplies?.[id]);
@@ -1461,7 +1463,7 @@ export default function Bourse({
       */}
       {subTab === "analyse" && (
       <>
-      <SantePortefeuille positions={bourse.positions} />
+      <SantePortefeuille positions={bourse.positions} secteursManuels={secteursManuels} />
 
       {/* Remplace le simulateur d'ordre : celui-ci ne traitait qu'une ligne à
           la fois, alors que vendre une position modifie le poids de toutes les
@@ -1520,6 +1522,8 @@ export default function Bourse({
 
       <SectorHeatmap
         positions={bourse.positions}
+        secteursManuels={secteursManuels}
+        setSecteursManuels={setSecteursManuels}
         replie={replie("heatmap")}
         onBasculer={basculer("heatmap")}
       />
@@ -1561,6 +1565,7 @@ export default function Bourse({
       {subTab === "screener" && (
         <Screener
           bourse={bourse}
+          secteursManuels={secteursManuels}
           watchlist={watchlist}
           setWatchlist={setWatchlist}
           onOpenMarket={openInMarche}

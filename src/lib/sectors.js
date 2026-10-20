@@ -99,9 +99,9 @@ const SECTOR_MAP = {
   "COV.PA": "Immobilier",
   "ICAD.PA": "Immobilier",
 
-  // Télécommunications
-  "ORA.PA": "Télécommunications",
-  "DTE.DE": "Télécommunications",
+  // Télécoms & médias
+  "ORA.PA": "Télécoms & médias",
+  "DTE.DE": "Télécoms & médias",
 
   // Services
   "EDEN.PA": "Services",
@@ -133,11 +133,56 @@ const SECTOR_MAP = {
   // Veolia : eau, déchets et services énergétiques aux collectivités et aux
   // industriels — la définition même d'une utility.
   "VIE.PA": "Utilities & infrastructures",
-  "SESG.PA": "Télécommunications",
+  "SESG.PA": "Télécoms & médias",
   "PHIA.AS": "Santé & pharmacie",
 };
 
 export const NON_CLASSE = "Non classé";
+
+/**
+ * Secteurs de Yahoo Finance → secteurs de l'application.
+ *
+ * Le Screener reçoit ses secteurs de Yahoo, en anglais, quand l'onglet
+ * Analyse emploie ce tableau-ci. Deux classements coexistaient donc : Vinci
+ * était « Utilities & infrastructures » dans Analyse et « Industrials » dans
+ * les suggestions de diversification, qui ne tenaient ainsi aucun compte des
+ * choix faits ici. Tout passe désormais par `secteurDe`.
+ */
+export const SECTEUR_YAHOO = {
+  Technology: "Technologie",
+  Healthcare: "Santé & pharmacie",
+  "Financial Services": "Finance",
+  Industrials: "Industrie",
+  "Basic Materials": "Matériaux",
+  Energy: "Énergie",
+  Utilities: "Utilities & infrastructures",
+  "Real Estate": "Immobilier",
+  "Communication Services": "Télécoms & médias",
+  "Consumer Cyclical": "Biens de consommation",
+  "Consumer Defensive": "Biens de consommation",
+};
+
+/**
+ * Secteur retenu pour un titre, du plus sûr au plus général :
+ *  1. le choix fait à la main pour cette ligne (« secteursManuels ») ;
+ *  2. le classement justifié de ce fichier ;
+ *  3. le secteur Yahoo, traduit ;
+ *  4. « Non classé ».
+ */
+export function secteurDe({ ticker, secteurYahoo } = {}, manuels = {}) {
+  const cle = String(ticker || "").toUpperCase();
+  return (
+    manuels?.[cle] ||
+    SECTOR_MAP[cle] ||
+    (secteurYahoo && SECTEUR_YAHOO[secteurYahoo]) ||
+    NON_CLASSE
+  );
+}
+
+/** Secteur par défaut, hors choix manuel — pour l'afficher à côté du sélecteur. */
+export function secteurParDefaut(ticker) {
+  return SECTOR_MAP[String(ticker || "").toUpperCase()] || NON_CLASSE;
+}
 
 export function getSector(ticker) {
   const key = String(ticker || "").toUpperCase();
@@ -155,7 +200,7 @@ export const SECTOR_COLORS = {
   "Finance": { bg: "bg-violet-500/20", border: "border-violet-500/40", text: "text-violet-300" },
   "Énergie": { bg: "bg-orange-500/20", border: "border-orange-500/40", text: "text-orange-300" },
   "Immobilier": { bg: "bg-sky-500/20", border: "border-sky-500/40", text: "text-sky-300" },
-  "Télécommunications": { bg: "bg-fuchsia-500/20", border: "border-fuchsia-500/40", text: "text-fuchsia-300" },
+  "Télécoms & médias": { bg: "bg-fuchsia-500/20", border: "border-fuchsia-500/40", text: "text-fuchsia-300" },
   "Matériaux": { bg: "bg-lime-500/20", border: "border-lime-500/40", text: "text-lime-300" },
   "Services": { bg: "bg-teal-500/20", border: "border-teal-500/40", text: "text-teal-300" },
   "Utilities & infrastructures": { bg: "bg-blue-500/20", border: "border-blue-500/40", text: "text-blue-300" },
@@ -172,9 +217,12 @@ export const SECTOR_HEX = {
   "Finance": "#6d28d9",
   "Énergie": "#c2410c",
   "Immobilier": "#0369a1",
-  "Télécommunications": "#a21caf",
+  "Télécoms & médias": "#a21caf",
   "Matériaux": "#4d7c0f",
   "Services": "#0f766e",
   "Utilities & infrastructures": "#1d4ed8",
   [NON_CLASSE]: "#334155",
 };
+
+/** Secteurs proposés au choix manuel, dans l'ordre d'affichage. */
+export const SECTEURS_APP = Object.keys(SECTOR_HEX).filter((s) => s !== NON_CLASSE);

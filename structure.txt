@@ -183,6 +183,7 @@ src/components/ScenariosProjet.jsx
 src/components/ScenariosProjet.test.jsx
 src/components/Screener.jsx
 src/components/SectorHeatmap.jsx
+src/components/SectorHeatmap.test.jsx
 src/components/Simulation.jsx
 src/components/StickySummaryHeader.jsx
 src/components/StrategieLogs.jsx
@@ -216,6 +217,7 @@ src/lib/calendrierManuel.test.js
 src/lib/cascade.js
 src/lib/cascade.test.js
 src/lib/compact.test.js
+src/lib/compositionEtf.js
 src/lib/decumulation.js
 src/lib/decumulation.test.js
 src/lib/devises.test.js
@@ -228,6 +230,8 @@ src/lib/echeances.test.js
 src/lib/exportOperations.js
 src/lib/exportOperations.test.js
 src/lib/exportReport.js
+src/lib/exposition.js
+src/lib/exposition.test.js
 src/lib/finance.js
 src/lib/finance.test.js
 src/lib/formatPct.test.js

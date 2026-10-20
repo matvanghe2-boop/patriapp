@@ -29,6 +29,9 @@ export const STORAGE_KEYS = [
   "matelasHistory", "objectifs", "alertesWatchlist", "widgetsReplies",
   // Ordre et visibilité des blocs du Dashboard (voir dispositionDashboard.js).
   "dispositionDashboard",
+  // Secteur choisi à la main pour une ligne, qui prime sur le classement
+  // par défaut (voir sectors.js, secteurDe).
+  "secteursManuels",
   // Préférences d'affichage (thème, accent, densité, retours) — voir
   // ApparenceContext. Persistées comme le reste : un réglage d'affichage suit
   // d'un appareil à l'autre.
@@ -174,6 +177,10 @@ export function PatrimoineProvider({ children }) {
    */
   const [widgetsReplies, setWidgetsReplies] = usePersistentState("widgetsReplies", {});
 
+  // Secteurs choisis à la main, par ticker : { "AI.PA": "Industrie" }. Une
+  // seule clé pour toute l'app — Analyse et Screener lisent la même.
+  const [secteursManuels, setSecteursManuels] = usePersistentState("secteursManuels", {});
+
   /** Bascule le repli d'un widget, sans avoir à recomposer l'objet à l'appel. */
   const basculerWidget = useCallback(
     (id) => setWidgetsReplies((w) => ({ ...(w || {}), [id]: !w?.[id] })),
@@ -299,6 +306,7 @@ export function PatrimoineProvider({ children }) {
       lastSnapshotDate, setLastSnapshotDate,
       objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
       widgetsReplies, setWidgetsReplies, basculerWidget,
+      secteursManuels, setSecteursManuels,
       horizonScenarios, setHorizonScenarios,
       horizonReglages, setHorizonReglages,
       horizonDernierBilan, setHorizonDernierBilan,
@@ -318,6 +326,7 @@ export function PatrimoineProvider({ children }) {
       lastSnapshotDate, setLastSnapshotDate,
       objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
       widgetsReplies, setWidgetsReplies, basculerWidget,
+      secteursManuels, setSecteursManuels,
       horizonScenarios, setHorizonScenarios,
       horizonReglages, setHorizonReglages,
       horizonDernierBilan, setHorizonDernierBilan,

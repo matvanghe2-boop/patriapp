@@ -4,7 +4,9 @@ import { CarteFocalisable, CardLabel, PastilleEtat } from "./ui";
 import EtatVide from "./EtatVide";
 import { AnneauProgression } from "./graphiques";
 import { santePortefeuille, expositionGeographique } from "../lib/portefeuilleSante";
-import { pctPlain } from "../lib/finance";
+import { pctPlain, valeurPosition } from "../lib/finance";
+import { compositionDe } from "../lib/compositionEtf";
+import { PAYS_AGREGE } from "../lib/exposition";
 
 /**
  * Santé du portefeuille et exposition géographique — onglet PEA & Bourse.
@@ -18,10 +20,47 @@ import { pctPlain } from "../lib/finance";
  * deux angles : où le portefeuille est-il concentré sans qu'on le voie ?
  */
 
-const COULEURS_PAYS = ["#a78bfa", "#818cf8", "#22d3ee", "#34d399", "#fbbf24", "#fb7185"];
+const COULEURS_PAYS = ["#a78bfa", "#818cf8", "#22d3ee", "#34d399", "#fbbf24", "#64748b"];
 
-export default function SantePortefeuille({ positions = [] }) {
-  const sante = useMemo(() => santePortefeuille(positions), [positions]);
+/**
+ * Les cinq premiers pays, puis une ligne « Autres » qui regroupe le reste ET
+ * le bloc que la fiche d'un indice ne détaille pas. Ce bloc (« Autres pays
+ * développés », 12 % d'un MSCI World) se classait sinon deuxième, entre les
+ * États-Unis et le Japon, comme s'il s'agissait d'un pays.
+ */
+function lignesPays(pays) {
+  const detailles = pays.filter((p) => !p.agrege);
+  const tete = detailles.slice(0, 5);
+  const reste = [...detailles.slice(5), ...pays.filter((p) => p.agrege)];
+  if (reste.length === 0) return tete;
+  return [
+    ...tete,
+    {
+      nom: "Autres",
+      valeur: reste.reduce((s, p) => s + p.valeur, 0),
+      part: reste.reduce((s, p) => s + p.part, 0),
+    },
+  ];
+}
+
+/** « 30 septembre 2026 », pour dater la fiche d'un indice. */
+const dateLongue = (iso) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
+export default function SantePortefeuille({ positions = [], secteursManuels = {} }) {
+  const sante = useMemo(
+    () => santePortefeuille(positions, { secteursManuels }),
+    [positions, secteursManuels]
+  );
+  // Indices au catalogue réellement présents, pour en citer la source et l'âge.
+  const indices = useMemo(() => {
+    const vus = new Map();
+    for (const p of positions) {
+      const c = compositionDe(p.ticker);
+      if (c && valeurPosition(p) > 0) vus.set(c.indice, c);
+    }
+    return [...vus.values()];
+  }, [positions]);
   const geo = useMemo(() => expositionGeographique(positions), [positions]);
 
   if (sante.score == null) {
@@ -94,13 +133,13 @@ export default function SantePortefeuille({ positions = [] }) {
         <CardLabel icon={Globe2}>Exposition par pays</CardLabel>
         {geo.pays.length === 0 ? (
           <p className="text-micro text-slate-500 mt-1">
-            Le pays de chaque ligne est renseigné en consultant sa fiche dans l'onglet Marché. Aucune
-            ligne n'en porte encore.
+            Aucun pays connu : ces lignes sont des fonds hors catalogue, que l&apos;application ne
+            décompose pas au jugé.
           </p>
         ) : (
           <>
             <div className="flex flex-col gap-1.5 mt-2">
-              {geo.pays.slice(0, 5).map((p, i) => (
+              {lignesPays(geo.pays).map((p, i) => (
                 <div key={p.nom} className="grid grid-cols-[6rem_1fr_2.6rem] gap-2 items-center">
                   <span className="text-micro text-slate-400 truncate">{p.nom}</span>
                   <span className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
@@ -115,13 +154,39 @@ export default function SantePortefeuille({ positions = [] }) {
                 </div>
               ))}
             </div>
-            {geo.partInconnue > 0 && (
-              <p className="text-micro text-amber-300/90 mt-2">
-                {pctPlain(geo.partInconnue, 0)} du portefeuille n'a pas de pays connu. Ces lignes sont
-                comptées à part, jamais réparties au prorata — l'inventer donnerait une carte fausse
-                que rien ne signalerait.
-              </p>
-            )}
+            {/* D'où viennent ces pays : dit à l'écran, parce qu'une carte
+                dont on ignore la fabrication se lit comme une certitude. */}
+            <div className="flex flex-col gap-1 mt-2">
+              {indices.map((c) => (
+                <p key={c.indice} className="text-micro text-slate-500">
+                  ETF décomposés selon l&apos;indice {c.indice} :{" "}
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={c.source}
+                    className="underline hover:text-slate-300"
+                  >
+                    fiche de l&apos;indice au {dateLongue(c.date)}
+                  </a>
+                  .{c.pays?.[PAYS_AGREGE] != null && " Les pays qu'elle ne détaille pas restent regroupés."}
+                </p>
+              ))}
+              {geo.partCotation > 0 && (
+                <p className="text-micro text-slate-500">
+                  {pctPlain(geo.partCotation, 0)} du portefeuille est situé d&apos;après sa place de
+                  cotation — juste dans l&apos;immense majorité des cas, pas toujours : une société
+                  étrangère peut être cotée à Paris.
+                </p>
+              )}
+              {geo.partInconnue > 0 && (
+                <p className="text-micro text-amber-300/90">
+                  {pctPlain(geo.partInconnue, 0)} du portefeuille n&apos;a pas de pays connu (fonds hors
+                  catalogue). Ces lignes sont comptées à part, jamais réparties au prorata —
+                  l&apos;inventer donnerait une carte fausse que rien ne signalerait.
+                </p>
+              )}
+            </div>
           </>
         )}
       </div>

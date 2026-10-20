@@ -1,5 +1,7 @@
 import { lireNombre, valeurPosition, tauxPosition, pctPlain } from "./finance";
-import { getSector } from "./sectors";
+import { NON_CLASSE } from "./sectors";
+import { compositionDe } from "./compositionEtf";
+import { valeurParSecteur, partsGeographiques, PAYS_AGREGE } from "./exposition";
 
 /**
  * Santé du portefeuille — quatre risques, mesurés séparément.
@@ -38,25 +40,19 @@ export function scoreRepartition(parts) {
   return Math.max(0, Math.min(100, ((1 - hhi) / (1 - plancher)) * 100));
 }
 
-/** Part de la plus grosse ligne, en pourcentage. */
-function partDominante(entrees) {
-  const total = entrees.reduce((s, e) => s + e.valeur, 0);
-  if (total <= 0) return null;
-  const max = entrees.reduce((m, e) => (e.valeur > m.valeur ? e : m), entrees[0]);
-  return { nom: max.nom, part: (max.valeur / total) * 100 };
-}
-
 /**
  * @returns {{score: number|null, composantes: object[]}}
  */
-export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {}) {
+export function santePortefeuille(positions = [], { fraisAnnuelsPct = null, secteursManuels = {} } = {}) {
   const lignes = (positions || [])
     .map((p) => ({
       nom: p.name || p.ticker,
       ticker: p.ticker,
       valeur: valeurPosition(p),
       devise: p.currency || "EUR",
-      secteur: getSector(p.ticker) || p.secteur || "Non classé",
+      // ETF dont l'indice est au catalogue : déjà réparti sur des centaines
+      // de sociétés, il n'est pas une concentration.
+      diversifie: Boolean(compositionDe(p.ticker)),
     }))
     .filter((l) => l.valeur > 0);
 
@@ -65,16 +61,38 @@ export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {
   const total = lignes.reduce((s, l) => s + l.valeur, 0);
 
   // ── Concentration ────────────────────────────────────────────────────────
-  const concentration = scoreRepartition(lignes.map((l) => l.valeur));
-  const dominante = partDominante(lignes);
+  //
+  // Un ETF monde pesant 84 % du portefeuille était signalé « critique » comme
+  // s'il s'agissait d'une seule action. Or il porte plus d'un millier de
+  // sociétés : c'est l'inverse d'une concentration.
+  //
+  // La note se mesure donc sur les lignes DIRECTES, puis sa pénalité est
+  // ramenée à leur poids : 90 % d'ETF monde et 10 % d'une seule action donnent
+  // 90, et non 0 — perdre cette action coûterait 10 %, pas tout. Sans ETF, la
+  // note est exactement celle d'avant.
+  const directes = lignes.filter((l) => !l.diversifie);
+  const valeurDirecte = directes.reduce((s, l) => s + l.valeur, 0);
+  const partDiversifiee = total > 0 ? ((total - valeurDirecte) / total) * 100 : 0;
+  const noteDirecte = directes.length ? scoreRepartition(directes.map((l) => l.valeur)) : 100;
+  const concentration = 100 - (100 - noteDirecte) * (valeurDirecte / total);
+  const plusGrosse = directes.reduce((m, l) => (!m || l.valeur > m.valeur ? l : m), null);
+  const dominante = plusGrosse ? { nom: plusGrosse.nom, part: (plusGrosse.valeur / total) * 100 } : null;
 
   // ── Secteurs ─────────────────────────────────────────────────────────────
-  const parSecteur = new Map();
-  for (const l of lignes) parSecteur.set(l.secteur, (parSecteur.get(l.secteur) || 0) + l.valeur);
-  const secteurs = scoreRepartition([...parSecteur.values()]);
-  const secteurDominant = partDominante(
-    [...parSecteur.entries()].map(([nom, valeur]) => ({ nom, valeur }))
-  );
+  //
+  // ETF décomposés selon leur indice, et « Non classé » MIS À PART : une
+  // absence d'information n'est pas un secteur. Compté comme tel, un ETF non
+  // décomposé passait pour le secteur dominant et faisait chuter la note.
+  const parSecteur = valeurParSecteur(positions, secteursManuels);
+  const classes = parSecteur.filter(([nom]) => nom !== NON_CLASSE);
+  const valeurClassee = classes.reduce((s, [, v]) => s + v, 0);
+  const valeurNonClassee = parSecteur.find(([nom]) => nom === NON_CLASSE)?.[1] || 0;
+  const partNonClassee = total > 0 ? (valeurNonClassee / total) * 100 : 0;
+  const secteurs = classes.length ? scoreRepartition(classes.map(([, v]) => v)) : null;
+  const secteurDominant =
+    classes.length && valeurClassee > 0
+      ? { nom: classes[0][0], part: (classes[0][1] / valeurClassee) * 100 }
+      : null;
 
   // ── Devises ──────────────────────────────────────────────────────────────
   //
@@ -109,19 +127,32 @@ export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {
       cle: "concentration",
       libelle: "Concentration",
       note: concentration,
-      constat: dominante
-        ? `${dominante.nom} pèse ${pctPlain(dominante.part, 0)} du portefeuille.`
-        : null,
+      constat: !dominante
+        ? "Tout le portefeuille est en ETF diversifiés."
+        : partDiversifiee > 0
+          ? `${dominante.nom} pèse ${pctPlain(dominante.part, 0)} du portefeuille ; les ETF diversifiés (${pctPlain(partDiversifiee, 0)}) comptent comme déjà répartis.`
+          : `${dominante.nom} pèse ${pctPlain(dominante.part, 0)} du portefeuille.`,
       seuil: dominante && dominante.part >= 40 ? "critique" : dominante && dominante.part >= 25 ? "attention" : "ok",
     },
     {
       cle: "secteurs",
       libelle: "Secteurs",
       note: secteurs,
-      constat: secteurDominant
-        ? `${secteurDominant.nom} représente ${pctPlain(secteurDominant.part, 0)} des lignes.`
-        : null,
-      seuil: secteurDominant && secteurDominant.part >= 50 ? "critique" : secteurDominant && secteurDominant.part >= 35 ? "attention" : "ok",
+      // Part rapportée à la valeur CLASSÉE quand il existe du non classé :
+      // c'est sur elle que la note est calculée, et un seuil mesuré sur une
+      // autre base contredirait la note affichée à côté.
+      constat: !secteurDominant
+        ? "Aucune ligne n'a de secteur connu : choisis-le dans la répartition sectorielle."
+        : partNonClassee > 0
+          ? `${secteurDominant.nom} représente ${pctPlain(secteurDominant.part, 0)} de la part classée ; ${pctPlain(partNonClassee, 0)} non classé, hors de ce calcul.`
+          : `${secteurDominant.nom} représente ${pctPlain(secteurDominant.part, 0)} du portefeuille.`,
+      seuil: !secteurDominant
+        ? "neutre"
+        : secteurDominant.part >= 50
+          ? "critique"
+          : secteurDominant.part >= 35
+            ? "attention"
+            : "ok",
     },
     {
       cle: "devises",
@@ -152,7 +183,7 @@ export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {
     ? mesurees.reduce((s, c) => s + c.note, 0) / mesurees.length
     : null;
 
-  return { score, composantes, total, lignes };
+  return { score, composantes, total, lignes, partDiversifiee, partNonClassee };
 }
 
 /**
@@ -162,36 +193,38 @@ export function santePortefeuille(positions = [], { fraisAnnuelsPct = null } = {
  * la première question d'un portefeuille censé être diversifié. Un PEA « bien
  * réparti » peut être français à 80 %.
  *
- * Le pays vient de la fiche entreprise, mémorisée sur la position au fil des
- * consultations. Une ligne dont le pays est inconnu est comptée à part et
- * JAMAIS répartie au prorata : l'inventer donnerait une carte fausse dont rien
- * ne signalerait l'approximation.
+ * Le pays vient, dans l'ordre : de la fiche de l'indice pour un ETF au
+ * catalogue, du pays enregistré sur la ligne, puis de la place de cotation
+ * (voir exposition.js). La carte restait sinon toujours vide : elle promettait
+ * un pays « renseigné en consultant la fiche dans Marché », mais rien ne
+ * l'enregistrait jamais.
+ *
+ * Une ligne dont le pays reste inconnu — un fonds hors catalogue — est comptée
+ * à part et JAMAIS répartie au prorata : l'inventer donnerait une carte fausse
+ * dont rien ne signalerait l'approximation.
  */
 export function expositionGeographique(positions = []) {
-  const parPays = new Map();
-  let inconnu = 0;
-  let total = 0;
-
-  for (const p of positions || []) {
-    const v = valeurPosition(p);
-    if (v <= 0) continue;
-    total += v;
-    const pays = p.pays || p.country || null;
-    if (!pays) {
-      inconnu += v;
-      continue;
-    }
-    parPays.set(pays, (parPays.get(pays) || 0) + v);
-  }
-
+  const { parts, inconnu, total } = partsGeographiques(positions);
   if (total <= 0) return { pays: [], inconnu: 0, total: 0 };
+
+  const parPays = new Map();
+  let parCotation = 0;
+  let parIndice = 0;
+  for (const part of parts) {
+    parPays.set(part.pays, (parPays.get(part.pays) || 0) + part.valeur);
+    if (part.origine === "cotation") parCotation += part.valeur;
+    if (part.origine === "indice") parIndice += part.valeur;
+  }
 
   return {
     total,
     inconnu,
     partInconnue: (inconnu / total) * 100,
+    // Part dont le pays est DÉDUIT de la place de cotation : à dire à l'écran.
+    partCotation: (parCotation / total) * 100,
+    partIndice: (parIndice / total) * 100,
     pays: [...parPays.entries()]
-      .map(([nom, valeur]) => ({ nom, valeur, part: (valeur / total) * 100 }))
+      .map(([nom, valeur]) => ({ nom, valeur, part: (valeur / total) * 100, agrege: nom === PAYS_AGREGE }))
       .sort((a, b) => b.valeur - a.valeur),
   };
 }
