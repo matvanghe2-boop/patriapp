@@ -11,7 +11,7 @@ import {
   computeSharpeRatio, computeBestWorst, computeAlphaBeta, computeContribution,
   computeRollingPerformance, computeFeeEfficiency, computeTSR, filterHistoryByRange,
   MIN_DAYS_FOR_ANNUALIZATION, MIN_POINTS_FOR_STATS, computeInvestedCapital, investedCapitalAsOf,
-  formatDateShort, seriesIndisponibles,
+  formatDateShort, seriesIndisponibles, avecIndicePerformance,
 } from "../lib/finance";
 import { BENCHMARKS, CLES_INDICE } from "../lib/benchmarks";
 import { useToast } from "../lib/ToastContext";
@@ -245,6 +245,23 @@ export default function PerformanceTab({
   }, [bourseHistory, bourse]);
 
   const rangedHistory = useMemo(() => filterHistoryByRange(history, perfRange), [history, perfRange]);
+
+  /*
+   * Même historique, mais la `valeur` y est remplacée par l'indice de
+   * performance neutralisé des versements et retraits.
+   *
+   * C'est lui qu'il faut aux graphiques qui parlent de PERFORMANCE — base 100
+   * face aux indices, surperformance, drawdown. Tracés sur la valeur brute,
+   * ils lisaient un versement de 2 000 € comme un bond de +14 % et une
+   * surperformance soudaine. La courbe de valeur, elle, garde les euros : elle
+   * montre ce que vaut le portefeuille, versements compris, à côté du capital
+   * investi qui les rend visibles.
+   */
+  const historyPerf = useMemo(
+    () => avecIndicePerformance(history).map((h) => ({ ...h, valeur: h.indice })),
+    [history]
+  );
+  const rangedPerf = useMemo(() => filterHistoryByRange(historyPerf, perfRange), [historyPerf, perfRange]);
   // Suppression annulable, comme partout ailleurs dans l'app, plutôt qu'un
   // `window.confirm` natif : boîte système grise au milieu d'une interface
   // sombre, bloquante, et non testable.
@@ -259,8 +276,8 @@ export default function PerformanceTab({
   const twr = useMemo(() => computeTWR(history), [history]);
   const xirr = useMemo(() => computeXIRR(history), [history]);
   const volatility = useMemo(() => computeVolatility(history), [history]);
-  const maxDD = useMemo(() => computeMaxDrawdown(history), [history]);
-  const drawdownSeries = useMemo(() => computeDrawdownSeries(rangedHistory), [rangedHistory]);
+  const maxDD = useMemo(() => computeMaxDrawdown(historyPerf), [historyPerf]);
+  const drawdownSeries = useMemo(() => computeDrawdownSeries(rangedPerf), [rangedPerf]);
   const drawdownByDate = useMemo(() => Object.fromEntries(drawdownSeries.map((d) => [d.date, d.ddPct])), [drawdownSeries]);
   const sharpe = useMemo(() => computeSharpeRatio(history), [history]);
   const bestWorst = useMemo(() => computeBestWorst(history), [history]);
@@ -286,8 +303,8 @@ export default function PerformanceTab({
   );
 
   const base100Data = useMemo(
-    () => rebaseTo100(rangedHistory, ["valeur", ...benchAffichables.map((s) => ALL_BENCHMARK_KEYS[s])]),
-    [rangedHistory, benchAffichables]
+    () => rebaseTo100(rangedPerf, ["valeur", ...benchAffichables.map((s) => ALL_BENCHMARK_KEYS[s])]),
+    [rangedPerf, benchAffichables]
   );
 
   // Écart de surperformance vs le premier indice sélectionné, pour l'affichage en zone colorée

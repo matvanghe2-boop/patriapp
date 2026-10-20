@@ -837,6 +837,70 @@ export function operationsAfterBaseline(operations, baseline) {
 }
 
 /**
+ * Opérations GELÉES par la ligne de base (déjà comptées dans son socle) et
+ * datées APRÈS `date`.
+ *
+ * C'est le chaînon qui manquait pour regarder le passé. La ligne de base fige
+ * l'état du jour où elle est posée — et elle est reposée à CHAQUE retouche
+ * manuelle d'une position. Tout consommateur qui l'appliquait telle quelle à
+ * une date antérieure prêtait au passé l'argent et les titres d'aujourd'hui.
+ *
+ * Cas rapporté : versement de 2 000 € saisi dans Opérations, puis ajout de
+ * lignes à la main. L'ajout a reposé la ligne de base, le versement est passé
+ * dans le socle, et la courbe « Capital investi » est devenue plate : le
+ * versement a été compté comme +2 000 € de PERFORMANCE le jour de son
+ * arrivée (meilleur jour +14,5 %, TWR à +40 %/an). Le recalcul des relevés,
+ * lui, ajoutait ces 2 000 € à des relevés antérieurs au versement.
+ *
+ * Défaire ces opérations-là, et seulement celles-là, rend l'état exact de
+ * l'époque : le socle les contient, il suffit de les en retirer.
+ */
+export function operationsGeleesApres(bourse, date) {
+  const baseline = bourse?.ledgerBaseline;
+  if (!baseline || !date) return [];
+  const gelees = new Set(baseline.operationIds || []);
+  return (bourse?.operations || []).filter((op) => op?.date && gelees.has(op.id) && op.date > date);
+}
+
+/**
+ * Socle de la ligne de base ramené à `date` : poche cash et quantités par
+ * titre, les opérations gelées postérieures étant défaites.
+ *
+ * Seules les QUANTITÉS sont défaites, pas le PRU : reconstituer un prix de
+ * revient à rebours supposerait de savoir quels lots une vente a soldés, et la
+ * valorisation d'une journée passée n'en a pas besoin (quantité × clôture).
+ * Une quantité qui deviendrait négative est ramenée à zéro : ce serait le
+ * signe d'un journal antérieur au socle et incomplet, et un nombre de titres
+ * négatif fausserait la valorisation bien plus qu'un zéro.
+ */
+export function socleAuJour(bourse, date) {
+  const baseline = bourse?.ledgerBaseline;
+  if (!baseline) return { lots: {}, cash: bourse?.cash_pocket || 0 };
+  const aDefaire = chronologicalOperations(operationsGeleesApres(bourse, date)).reverse();
+
+  const lots = {};
+  for (const [ticker, lot] of Object.entries(baseline.lots || {})) lots[ticker] = { ...lot };
+  let cash = baseline.cashOpening || 0;
+
+  for (const op of aDefaire) {
+    cash -= operationCashDelta(op);
+    const ticker = normalizeTicker(op.asset);
+    if (!ticker) continue;
+    const q = Number(op.quantity) || 0;
+    if (op.type === "ACHAT") {
+      if (lots[ticker]) lots[ticker].quantity = Math.max(0, lots[ticker].quantity - q);
+    } else if (op.type === "VENTE") {
+      // Titre soldé depuis : il n'a plus de lot dans le socle, on le recrée.
+      lots[ticker] = lots[ticker] || { quantity: 0, pru: 0, totalBuyFees: 0 };
+      lots[ticker].quantity += q;
+    } else if (op.type === "SPLIT" && lots[ticker]) {
+      lots[ticker].quantity /= ratioSplit(op);
+    }
+  }
+  return { lots, cash };
+}
+
+/**
  * Reconstruit les positions en rejouant le journal d'opérations dans l'ordre
  * chronologique, par-dessus les positions de la ligne de base.
  *
@@ -1008,12 +1072,34 @@ export function computeInvestedCapital(bourse) {
   // Avant toute écriture au grand livre, l'ancrage est le total versé saisi à
   // la main : la courbe est donc correcte dès le premier affichage, sans
   // attendre qu'une opération vienne créer la ligne de base.
-  const opening = baseline
-    ? baseline.investedOpening || 0
-    : Number(bourse?.peaVersements) ||
+  if (!baseline) {
+    const opening =
+      Number(bourse?.peaVersements) ||
       (bourse?.positions || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.pru) || 0), 0) +
         (bourse?.cash_pocket || 0);
-  return { opening, series: computeCumulativeContributions(replayable) };
+    return { opening, series: computeCumulativeContributions(replayable) };
+  }
+
+  /*
+   * Les versements GELÉS dans la ligne de base restent des flux datés.
+   *
+   * L'ancrage `investedOpening` les contient déjà tous. On le ramène donc à
+   * ce qu'il valait avant eux, et on rejoue TOUS les versements — gelés
+   * compris — à leur date. Le total d'aujourd'hui est inchangé ; ce qui
+   * change, c'est que la courbe monte le jour du versement au lieu d'être
+   * plate depuis toujours. Sans ça, chaque retouche manuelle d'une position
+   * effaçait les versements de la courbe, et le TWR les lisait comme de la
+   * performance (voir `operationsGeleesApres`).
+   */
+  const gelees = new Set(baseline.operationIds || []);
+  const fluxGeles = (bourse?.operations || [])
+    .filter((op) => gelees.has(op.id) && op.date && (op.type === "VERSEMENT" || op.type === "RETRAIT"))
+    .reduce((s, op) => s + operationCashDelta(op), 0);
+  return {
+    opening: (baseline.investedOpening || 0) - fluxGeles,
+    // Gelées + rejouables = tout le journal.
+    series: computeCumulativeContributions(bourse?.operations || []),
+  };
 }
 
 /** Valeur de la courbe « Capital investi » à une date donnée. */
@@ -1319,6 +1405,35 @@ export function computeDailyReturns(history) {
     if (Number.isFinite(r)) out.push({ date: cur.date, r: r * 100 });
   }
   return out;
+}
+
+/**
+ * Ajoute à chaque relevé un `indice` de performance : 100 au premier point,
+ * puis composé des rendements quotidiens NEUTRALISÉS des flux.
+ *
+ * Les indicateurs chiffrés (TWR, meilleur jour, volatilité…) neutralisaient
+ * déjà les versements ; les GRAPHIQUES, eux, traçaient la valeur brute.
+ * Rebasée à 100, une valeur brute fait d'un versement de 2 000 € sur
+ * 14 000 € un bond de +14 % de « Mon portefeuille » face aux indices, une
+ * surperformance soudaine, et la fin d'un drawdown qui n'a jamais été
+ * rattrapé. L'indice monte et descend avec le marché, pas avec les apports.
+ *
+ * Un relevé inexploitable (valeur nulle) garde l'indice précédent plutôt que
+ * de le faire retomber à zéro.
+ */
+export function avecIndicePerformance(history = []) {
+  let indice = null;
+  return (history || []).map((cur, i) => {
+    const prev = history[i - 1];
+    if (indice == null) {
+      if (cur?.valeur) indice = 100;
+    } else if (prev?.valeur && cur?.valeur) {
+      const flux = (cur.capital ?? prev.capital ?? 0) - (prev.capital ?? 0);
+      const r = (cur.valeur - flux - prev.valeur) / prev.valeur;
+      if (Number.isFinite(r)) indice *= 1 + r;
+    }
+    return { ...cur, indice };
+  });
 }
 
 /** Écart-type (population) d'une liste de nombres. */

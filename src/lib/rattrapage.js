@@ -7,6 +7,7 @@ import {
   investedCapitalAsOf,
   valeurPosition,
   todayIso,
+  socleAuJour,
 } from "./finance";
 
 /**
@@ -146,9 +147,17 @@ export function reconstituer({ bourse, dates = [], clotures = {}, indices = {} }
     // État du portefeuille CE JOUR-LÀ : le journal est daté, il suffit de le
     // rejouer jusqu'à la date voulue. Achats, ventes et divisions y sont donc
     // pris en compte exactement comme ils l'ont été à l'époque.
+    //
+    // Le SOCLE aussi doit être celui de ce jour-là. La ligne de base fige
+    // l'état du jour où elle est posée, et elle est reposée à chaque retouche
+    // manuelle d'une position : appliquée telle quelle, elle prêtait au passé
+    // le cash et les titres d'aujourd'hui. Un versement suivi d'un ajout de
+    // ligne gonflait ainsi de 2 000 € tous les relevés antérieurs au
+    // versement. `socleAuJour` défait les opérations gelées postérieures.
+    const socle = socleAuJour({ ...bourse, ledgerBaseline: baseline }, date);
     const jusquIci = rejouables.filter((op) => op.date && op.date <= date);
-    const positions = rebuildPositionsFromOperations(jusquIci, bourse.positions, baseline.lots);
-    const cash = (baseline.cashOpening || 0) + totalCashDelta(jusquIci);
+    const positions = rebuildPositionsFromOperations(jusquIci, bourse.positions, socle.lots);
+    const cash = socle.cash + totalCashDelta(jusquIci);
 
     // Une ligne dont le cours du jour manque rend le relevé INCOMPLET : mieux
     // vaut sauter la journée que de la valoriser avec un cours d'un autre jour
