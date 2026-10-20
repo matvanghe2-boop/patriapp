@@ -80,8 +80,33 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
     const dedupeKey = order.transactionId || generateOperationHash(order);
     const alreadyExists = operations.some((op) => (op.transactionId || generateOperationHash(op)) === dedupeKey);
     if (alreadyExists) {
-      setFeedback({ type: "error", message: `Ordre déjà comptabilisé (${order.asset}, ${order.date}) — import ignoré.` });
+      setFeedback({ type: "error", message: `Ordre déjà comptabilisé (${order.asset || order.type}, ${order.date}) — import ignoré.` });
       return false;
+    }
+
+    /*
+     * Versement et retrait : traités AVANT tout ce qui suppose un titre.
+     *
+     * Le formulaire les envoie avec `asset: null` — ils ne portent sur aucune
+     * ligne. Ils tombaient pourtant dans la branche des ordres et butaient sur
+     * `order.asset.toUpperCase()` : l'exception partait dans le gestionnaire
+     * d'événement, le formulaire restait ouvert, aucun message ne s'affichait
+     * et rien n'était enregistré. C'est le « rien ne se passe » signalé, sur
+     * un versement de 2 000 € depuis le compte courant. Et sans l'exception,
+     * l'ordre aurait été traité comme une VENTE, rejetée faute de titres.
+     */
+    if (order.type === "VERSEMENT" || order.type === "RETRAIT") {
+      const montant = Math.abs(Number(order.amount) || 0);
+      const newOperation = sanitizeOperation({
+        id: uid(), ...order, asset: null, amount: montant, montantNet: montant,
+        quantity: null, price: null, fees: 0, plusValueRealisee: null,
+      });
+      setBourse((b) => applyLedger(b, [newOperation, ...(b.operations || [])]));
+      setFeedback({
+        type: "success",
+        message: `${order.type === "VERSEMENT" ? "Versement" : "Retrait"} enregistré : ${order.type === "VERSEMENT" ? "+" : "−"}${eur(montant, 2)} sur la poche cash.`,
+      });
+      return true;
     }
 
     // Dividende / coupon perçu : crédite la poche de cash (via applyLedger),

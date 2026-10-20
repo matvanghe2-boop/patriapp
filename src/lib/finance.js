@@ -582,9 +582,23 @@ export function sanitizeOperation(order) {
   };
 }
 
-export function generateOperationHash({ date, asset, type, quantity, price }) {
+/**
+ * Empreinte de dédoublonnage d'une opération sans identifiant de transaction.
+ *
+ * Le MONTANT y entre pour les écritures qui n'ont ni quantité ni prix —
+ * versement, retrait, dividende. Sans lui, leur empreinte se réduisait à
+ * « date + type » (+ titre pour un dividende) : un second versement le même
+ * jour, même d'un autre montant, était rejeté comme « déjà comptabilisé ».
+ * Les ordres d'achat et de vente gardent leur empreinte d'origine, qu'un
+ * import de relevé recalcule à l'identique.
+ */
+export function generateOperationHash({ date, asset, type, quantity, price, amount, montantNet }) {
   const norm = (s) => String(s ?? "").trim().toUpperCase().replace(/\s+/g, "");
-  return `${norm(date)}_${norm(asset)}_${norm(type)}_${norm(quantity)}_${norm(price)}`;
+  const base = `${norm(date)}_${norm(asset)}_${norm(type)}_${norm(quantity)}_${norm(price)}`;
+  const sansPrix = ["VERSEMENT", "RETRAIT", "DIVIDENDE"].includes(norm(type));
+  if (!sansPrix) return base;
+  const montant = Math.abs(lireNombre(amount ?? montantNet) ?? 0);
+  return `${base}_${montant}`;
 }
 
 /**

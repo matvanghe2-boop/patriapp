@@ -28,6 +28,9 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
     date: todayIso(),
   };
   const [values, setValues] = useState(blank);
+  // Montant de versement illisible : le dire, au lieu d'abandonner la
+  // validation sans un mot — c'était l'autre façon dont « rien ne se passait ».
+  const [erreurMontant, setErreurMontant] = useState(null);
 
   /**
    * Pré-remplissage à l'ouverture, décidé PENDANT LE RENDU.
@@ -46,6 +49,7 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
   const [signaturePrecedente, setSignaturePrecedente] = useState(signature);
   if (signature !== signaturePrecedente) {
     setSignaturePrecedente(signature);
+    setErreurMontant(null);
     if (open) {
       setValues({
         ...blank,
@@ -75,8 +79,15 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
   const submit = (e) => {
     e.preventDefault();
     if (isMouvementCash) {
+      // `lireNombre` refuse « 2 000 » par principe (il ne devine pas une
+      // saisie à moitié lisible) : on ne l'assouplit pas pour ce seul champ,
+      // on dit plutôt quoi écrire.
       const montant = lireNombre(values.amount);
-      if (!Number.isFinite(montant) || montant <= 0) return;
+      if (!Number.isFinite(montant) || montant <= 0) {
+        setErreurMontant("Montant illisible : écris-le sans espace, par exemple 2000 ou 2000,50.");
+        return;
+      }
+      setErreurMontant(null);
       onSubmit({
         ...(preset?.id ? { id: preset.id } : {}),
         type: values.type,
@@ -235,11 +246,23 @@ export default function OperationForm({ open, onClose, onSubmit, positions = [],
               required
               type="text"
               inputMode="decimal"
-              placeholder="1 000"
+              // Sans espace : l'ancienne indication « 1 000 » suggérait
+              // justement une forme que le champ refuse.
+              placeholder="1000"
+              aria-invalid={erreurMontant ? "true" : undefined}
+              aria-describedby={erreurMontant ? `${idsChamps}-erreur-montant` : undefined}
               value={values.amount}
-              onChange={(e) => setValues((v) => ({ ...v, amount: e.target.value }))}
+              onChange={(e) => {
+                setErreurMontant(null);
+                setValues((v) => ({ ...v, amount: e.target.value }));
+              }}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60"
             />
+            {erreurMontant && (
+              <p id={`${idsChamps}-erreur-montant`} role="alert" className="text-micro text-rose-400 mt-1">
+                {erreurMontant}
+              </p>
+            )}
             <p className="text-micro text-slate-600 mt-1">
               {values.type === "VERSEMENT"
                 ? "Argent qui ENTRE dans le portefeuille depuis ton compte courant."

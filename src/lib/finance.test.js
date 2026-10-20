@@ -300,6 +300,16 @@ describe("generateOperationHash / sanitizeOperation", () => {
     expect(a).not.toBe(b);
   });
 
+  it("distingue deux versements du même jour par leur montant", () => {
+    // Sans montant, l'empreinte se réduisait à date + type : le second
+    // versement de la journée était rejeté comme doublon.
+    const a = generateOperationHash({ date: "2026-01-01", asset: null, type: "VERSEMENT", amount: 2000 });
+    const b = generateOperationHash({ date: "2026-01-01", asset: null, type: "VERSEMENT", amount: 500 });
+    expect(a).not.toBe(b);
+    // Un montant en texte ou en montantNet reste le même versement.
+    expect(generateOperationHash({ date: "2026-01-01", type: "VERSEMENT", montantNet: "2000" })).toBe(a);
+  });
+
   it("ne persiste pas le nom du courtier", () => {
     const clean = sanitizeOperation({
       id: "1", date: "2026-01-01", asset: "AI", type: "ACHAT", quantity: 1, price: 10,
