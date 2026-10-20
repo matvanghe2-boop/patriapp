@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useCallback } from "react";
 import { usePersistentState } from "./storage";
-import { weightedAverageRate, upsertByDate, todayIso, valeurPosition, coutPosition } from "./finance";
+import { weightedAverageRate, upsertByDate, todayIso, valeurPosition, coutPosition, rebaselineLedger } from "./finance";
+import { historiqueExemple, operationsExemple, objectifExemple } from "./jeuExemple";
 
 /**
  * Propriétaire unique de l'état patrimonial.
@@ -73,6 +74,10 @@ export const DEMO_DATASET = {
   bourse: {
     envelope: "PEA",
     cash_pocket: 500,
+    // Total versé, cohérent avec les « Versements cumulés » du Dashboard :
+    // sans lui, la jauge de plafond affichait « 0 € versés » à côté d'un
+    // journal de douze versements.
+    peaVersements: 15500,
     positions: [
       { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
       { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },
@@ -252,11 +257,21 @@ export function PatrimoineProvider({ children }) {
   );
 
   const loadDemoData = useCallback(() => {
+    const aujourdhui = todayIso();
     setProfile(DEMO_DATASET.profile);
     setLivrets(DEMO_DATASET.livrets);
-    setBourse(DEMO_DATASET.bourse);
+    // Le journal d'exemple est GELÉ dans la ligne de base : positions et poche
+    // cash restent celles du jeu, et les opérations ne servent que de passé
+    // daté — versements pour la cascade, marqueurs pour la courbe. Sans ce
+    // gel, le rejeu du journal recalculerait les positions à partir de zéro.
+    setBourse(rebaselineLedger({ ...DEMO_DATASET.bourse, operations: operationsExemple(aujourdhui) }));
     setEnveloppes(DEMO_DATASET.enveloppes);
-  }, [setProfile, setLivrets, setBourse, setEnveloppes]);
+    // Un an de relevés : sans eux, la courbe, la cascade mensuelle et la
+    // trajectoire des objectifs restaient vides dans la démonstration.
+    setHistoryPast(historiqueExemple(aujourdhui));
+    // N'écrase pas un objectif déjà saisi.
+    setObjectifs((o) => (Array.isArray(o) && o.length ? o : [objectifExemple(aujourdhui)]));
+  }, [setProfile, setLivrets, setBourse, setEnveloppes, setHistoryPast, setObjectifs]);
 
   /**
    * L'objet de contexte doit garder son identité tant qu'aucune donnée n'a

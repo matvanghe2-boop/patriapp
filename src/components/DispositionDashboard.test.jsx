@@ -63,4 +63,21 @@ describe("Dashboard personnalisable", () => {
     await userEvent.click(screen.getByRole("button", { name: /Disposition d'origine/ }));
     expect(ordreAffiche()).toEqual(["Patrimoine net", "Objectifs", "Passifs"]);
   });
+
+  it("enregistre le retour à l'origine avec un NOUVEL objet", async () => {
+    // `usePersistentState` n'écrit pas une valeur identique à celle du
+    // montage : remettre la constante elle-même ne s'enregistrait pas.
+    let recu;
+    render(
+      <PersonnaliserDashboard
+        open
+        onClose={() => {}}
+        disposition={{ ordre: ["passifs"], masques: ["vedette"] }}
+        setDisposition={(v) => (recu = v)}
+      />
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Disposition d'origine/ }));
+    expect(recu).not.toBe(DISPOSITION_DEFAUT);
+    expect(recu).toEqual({ ordre: [...DISPOSITION_DEFAUT.ordre], masques: [] });
+  });
 });

@@ -236,6 +236,8 @@ src/lib/histoireTaux.js
 src/lib/histoireTaux.test.js
 src/lib/horizonClient.js
 src/lib/indexConstituents.js
+src/lib/jeuExemple.js
+src/lib/jeuExemple.test.js
 src/lib/ledger.test.js
 src/lib/lireNombre.test.js
 src/lib/marqueursCourbe.js

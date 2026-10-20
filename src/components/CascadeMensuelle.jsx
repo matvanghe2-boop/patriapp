@@ -101,12 +101,11 @@ export default function CascadeMensuelle({ historique = [], operations = [], hau
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={barres} margin={{ top: 8, right: 4, bottom: 4, left: 4 }}>
             <XAxis
-              dataKey="libelle"
+              dataKey="court"
               tick={{ fill: "#64748b", fontSize: 10 }}
               axisLine={false}
               tickLine={false}
               interval={0}
-              tickFormatter={(v) => (v.length > 12 ? `${v.slice(0, 11)}…` : v)}
             />
             <YAxis
               tick={{ fill: "#475569", fontSize: 10 }}

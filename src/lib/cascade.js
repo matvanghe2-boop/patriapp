@@ -1,4 +1,4 @@
-import { operationCashDelta } from "./finance";
+import { operationCashDelta, valeurReleve } from "./finance";
 
 /**
  * Décomposition mensuelle du patrimoine, en cascade.
@@ -39,8 +39,8 @@ function valeursParMois(historique = []) {
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 
   for (const p of tries) {
-    const v = Number(p.valeur ?? p.net ?? p.total);
-    if (Number.isFinite(v)) parMois.set(moisDe(p.date), v);
+    const v = valeurReleve(p);
+    if (v != null) parMois.set(moisDe(p.date), v);
   }
   return { parMois, tries };
 }
@@ -132,12 +132,14 @@ export function cascadeMensuelle({ historique = [], operations = [], mois = 6 } 
 export function barresCascade(moisDecompose) {
   if (!moisDecompose) return [];
   const etapes = [
-    { cle: "debut", libelle: "Début de mois", valeur: moisDecompose.debut, type: "total" },
-    { cle: "versements", libelle: "Versements nets", valeur: moisDecompose.versements, type: "flux" },
-    { cle: "plusValues", libelle: "Plus-values", valeur: moisDecompose.plusValues, type: "marche" },
-    { cle: "dividendes", libelle: "Dividendes", valeur: moisDecompose.dividendes, type: "marche" },
-    { cle: "frais", libelle: "Frais", valeur: moisDecompose.frais, type: "cout" },
-    { cle: "fin", libelle: "Fin de mois", valeur: moisDecompose.fin, type: "total" },
+    // `court` sert à l'axe, où « Début de mois » finissait tronqué en
+    // « Début de mo… » ; `libelle` reste complet dans l'infobulle.
+    { cle: "debut", libelle: "Début de mois", court: "Début", valeur: moisDecompose.debut, type: "total" },
+    { cle: "versements", libelle: "Versements nets", court: "Versements", valeur: moisDecompose.versements, type: "flux" },
+    { cle: "plusValues", libelle: "Plus-values", court: "Marché", valeur: moisDecompose.plusValues, type: "marche" },
+    { cle: "dividendes", libelle: "Dividendes", court: "Dividendes", valeur: moisDecompose.dividendes, type: "marche" },
+    { cle: "frais", libelle: "Frais", court: "Frais", valeur: moisDecompose.frais, type: "cout" },
+    { cle: "fin", libelle: "Fin de mois", court: "Fin", valeur: moisDecompose.fin, type: "total" },
   ];
 
   let curseur = 0;

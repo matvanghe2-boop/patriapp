@@ -160,6 +160,21 @@ describe("serieTrajectoire", () => {
     expect(s.find((p) => p.mois === "2026-04").reel).toBe(42000);
   });
 
+  it("lit les relevés tels que l'application les enregistre ({ date, value })", () => {
+    // `historyPast` stocke `value`. La trajectoire ne lisait que `valeur` :
+    // elle ignorait tous les vrais relevés, sans qu'aucun test ne le voie.
+    const s = serieTrajectoire(objectif, {
+      aujourdhui: "2026-05-10",
+      patrimoineActuel: 50000,
+      historique: [
+        { id: "a", label: "28 févr.", date: "2026-02-28", value: 31000 },
+        { id: "b", label: "30 avr.", date: "2026-04-30", value: 43000 },
+      ],
+    });
+    expect(s.find((p) => p.mois === "2026-02").reel).toBe(31000);
+    expect(s.find((p) => p.mois === "2026-04").reel).toBe(43000);
+  });
+
   it("calcule l'écart qui colore la zone avance/retard", () => {
     const s = serieTrajectoire(objectif, { aujourdhui: "2026-07-01", patrimoineActuel: 70000 });
     const juillet = s.find((p) => p.mois === "2026-07");

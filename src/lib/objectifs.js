@@ -1,4 +1,4 @@
-import { todayIso, projectMonthly } from "./finance";
+import { todayIso, projectMonthly, valeurReleve } from "./finance";
 
 /**
  * Objectifs de patrimoine datés — « 150 000 € pour janvier 2032 ».
@@ -212,8 +212,8 @@ export function serieTrajectoire(objectif, { historique = [], patrimoineActuel =
   for (const point of historique) {
     if (!point?.date) continue;
     const mois = String(point.date).slice(0, 7);
-    const valeur = Number(point.valeur ?? point.net ?? point.total);
-    if (Number.isFinite(valeur)) parMois.set(mois, valeur);
+    const valeur = valeurReleve(point);
+    if (valeur != null) parMois.set(mois, valeur);
   }
 
   const depart = new Date(`${objectif.departDate}T12:00:00Z`);

@@ -57,6 +57,23 @@ export const pct = (n, digits = 1) =>
 export const nombre = (n, digits = 1) =>
   Number.isFinite(n) ? formatPct(digits, false).format(n) : "—";
 
+/**
+ * Valeur d'un relevé de patrimoine, quelle que soit la forme sous laquelle il
+ * a été écrit.
+ *
+ * `historyPast` stocke `{ date, value }` (voir useDailySnapshot). La cascade
+ * mensuelle et la trajectoire des objectifs lisaient `valeur`, `net` ou
+ * `total` — jamais `value` : elles ignoraient donc TOUS les vrais relevés.
+ * La cascade restait sur « il faut deux relevés mensuels », la trajectoire
+ * sans sa courbe réelle ; leurs tests passaient, parce qu'ils fabriquaient
+ * leurs relevés avec la clé que le code attendait, pas avec celle que
+ * l'application écrit.
+ */
+export function valeurReleve(point) {
+  const v = Number(point?.value ?? point?.valeur ?? point?.net ?? point?.total);
+  return Number.isFinite(v) ? v : null;
+}
+
 /** Pourcentage simple, sans signe, pour des taux/ratios (ex: taux d'endettement). */
 export const pctPlain = (n, digits = 1) =>
   `${formatPct(digits, false).format(Number.isFinite(n) ? n : 0)}${ESPACE_FINE}%`;

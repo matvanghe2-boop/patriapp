@@ -177,7 +177,8 @@ function OnboardingCard({ onLoadDemo }) {
         <ArrowRight size={14} aria-hidden="true" /> Charger un jeu d'exemple
       </button>
       <p className="text-micro text-slate-500 mt-3">
-        Le jeu d'exemple contient des chiffres inventés, à des fins de démonstration uniquement.
+        Le jeu d'exemple contient un an d'historique et des chiffres inventés, à des fins de
+        démonstration uniquement.
         Tu pourras tout effacer depuis « Réinitialiser », dans le menu.
       </p>
     </Card>

@@ -97,8 +97,12 @@ export function PersonnaliserDashboard({ open, onClose, disposition, setDisposit
         </ol>
 
         <div className="flex items-center justify-between mt-4">
+          {/* Une COPIE, pas la constante : `usePersistentState` n'écrit pas
+              une valeur identique (même objet) à celle du montage. Remettre
+              la constante elle-même s'affichait, mais ne s'enregistrait pas —
+              et l'ancienne disposition revenait au rechargement. */}
           <button
-            onClick={() => setDisposition(DISPOSITION_DEFAUT)}
+            onClick={() => setDisposition({ ordre: [...DISPOSITION_DEFAUT.ordre], masques: [] })}
             disabled={estParDefaut(disposition)}
             className="flex items-center gap-1.5 text-micro text-slate-400 hover:text-slate-100 disabled:opacity-40 disabled:pointer-events-none"
           >

@@ -1168,7 +1168,12 @@ export default function Bourse({
       </div>
       {/* Deux colonnes au-delà de 1 280 px : les blocs de contexte tiennent à
           côté du flux principal au lieu de rallonger le défilement. */}
-      <div className="mt-6 flex flex-col gap-4 colonnes-larges grille-cartes">
+      {/* Pas de `grille-cartes` ici : son `align-items: start` vise une
+          GRILLE (hauteur propre de chaque carte). Sous 1 280 px ce conteneur
+          est une colonne flex, où la même règle porte sur la LARGEUR — les
+          deux cartes, repliées, se réduisaient à la largeur de leur titre.
+          Au-delà, `colonnes-larges` applique déjà `align-items: start`. */}
+      <div className="mt-6 flex flex-col gap-4 colonnes-larges">
         <PeaFiscalWidget
           bourse={bourse}
           setBourse={setBourse}

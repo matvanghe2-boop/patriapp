@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { cascadeMensuelle, barresCascade } from "./cascade";
 
+// La forme EXACTE qu'écrit l'application (useDailySnapshot) : `value`, et non
+// `valeur`. Ces tests fabriquaient leurs relevés avec la clé que le code
+// attendait ; ils passaient pendant que la cascade ignorait tous les vrais
+// relevés et restait bloquée sur « il faut deux relevés mensuels ».
 const HISTORIQUE = [
-  { date: "2026-06-30", valeur: 50000 },
-  { date: "2026-07-31", valeur: 56000 },
+  { id: "a", label: "30 juin", date: "2026-06-30", value: 50000 },
+  { id: "b", label: "31 juil.", date: "2026-07-31", value: 56000 },
 ];
 
 describe("cascadeMensuelle", () => {
@@ -71,14 +75,14 @@ describe("cascadeMensuelle", () => {
   it("n'invente pas de mois sans point de départ", () => {
     // Sans relevé précédent, on ignore d'où l'on part : il n'y a pas d'écart
     // à décomposer.
-    expect(cascadeMensuelle({ historique: [{ date: "2026-07-31", valeur: 50000 }] })).toEqual([]);
+    expect(cascadeMensuelle({ historique: [{ date: "2026-07-31", value: 50000 }] })).toEqual([]);
     expect(cascadeMensuelle({ historique: [] })).toEqual([]);
   });
 
   it("borne le nombre de mois renvoyés", () => {
     const longue = [];
     for (let i = 0; i < 12; i++) {
-      longue.push({ date: `2026-${String(i + 1).padStart(2, "0")}-28`, valeur: 10000 + i * 500 });
+      longue.push({ date: `2026-${String(i + 1).padStart(2, "0")}-28`, value: 10000 + i * 500 });
     }
     expect(cascadeMensuelle({ historique: longue, mois: 3 })).toHaveLength(3);
   });
