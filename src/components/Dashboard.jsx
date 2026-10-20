@@ -1,7 +1,7 @@
 import { useState, useMemo, useId } from "react";
 import {
   ResponsiveContainer, Tooltip,
-  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
+  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceDot,
 } from "recharts";
 import {
   TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight,
@@ -22,6 +22,7 @@ import ProchainesEcheances from "./ProchainesEcheances";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { AnneauRepartition, CalendrierAnnuel, CourbeEvolution } from "./graphiques";
+import { serieSparkline, marqueursOperations, decrireOperation, NATURES_MARQUEUR } from "../lib/marqueursCourbe";
 import { FileDown, FileSpreadsheet, PieChart as PieIcon } from "lucide-react";
 
 function formatDateFr(iso) {
@@ -441,11 +442,15 @@ function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
 }
 
 // ─── Custom tooltip for chart with projection ─────────────────────────────────
-function ChartTooltip({ active, payload, label }) {
+// L'abscisse de la courbe est une clé d'indice (voir `chartData`) : le libellé
+// lisible se relit donc sur le point lui-même, pas sur `label`.
+function ChartTooltip({ active, payload, marqueursParCle }) {
   if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload;
+  const marqueur = marqueursParCle?.[point?.cle];
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
-      <div className="text-slate-400 mb-1">{label}</div>
+      <div className="text-slate-400 mb-1">{point?.label}</div>
       {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2 font-data tabular-nums">
           <span className="w-2 h-2 rounded-full" style={{ background: p.color || p.stroke }} />
@@ -455,7 +460,49 @@ function ChartTooltip({ active, payload, label }) {
           </span>
         </div>
       ))}
+      {marqueur && (
+        <div className="pt-1.5 mt-1.5 border-t border-slate-800 space-y-0.5">
+          {marqueur.natures.map(({ nature, ops }) =>
+            ops.map((op, i) => (
+              <div key={`${nature}-${i}`} className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: NATURES_MARQUEUR[nature].couleur }} />
+                <span className="text-slate-300 ghost-blur">{decrireOperation(op)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * Pastilles d'opérations posées sur la courbe du patrimoine net.
+ *
+ * Même dessin que sur la courbe du portefeuille (onglet Performance) : une
+ * pastille par nature, EMPILÉES vers le haut quand un même relevé en reçoit
+ * plusieurs — un versement suivi d'un achat le même jour est le cas le plus
+ * courant, et deux pastilles superposées n'en laisseraient voir qu'une.
+ *
+ * Le `<title>` donne l'infobulle native au survol de la pastille elle-même ;
+ * l'infobulle du graphique reprend le même détail pour qui survole la courbe.
+ */
+function PastilleOperations({ cx, cy, marqueur }) {
+  if (cx == null || cy == null || !marqueur) return null;
+  return (
+    <g>
+      {marqueur.natures.map(({ nature, ops }, i) => {
+        const { couleur } = NATURES_MARQUEUR[nature];
+        const y = cy - i * 11;
+        return (
+          <g key={nature}>
+            <circle cx={cx} cy={y} r={6} fill={couleur} fillOpacity={0.22} />
+            <circle cx={cx} cy={y} r={3.4} fill={couleur} stroke="#020617" strokeWidth={1.4} />
+            <title>{`${formatDateFr(marqueur.date)} — ${ops.map(decrireOperation).join(" · ")}`}</title>
+          </g>
+        );
+      })}
+    </g>
   );
 }
 
@@ -601,8 +648,37 @@ export default function Dashboard({
       histData[histData.length - 1].projection = Math.round(patrimoineNet);
     }
 
-    return [...histData, ...projectionPoints];
+    // Clé d'abscisse UNIQUE par point. Les libellés du relevé quotidien
+    // (« 5 mars ») n'ont pas d'année : sur la vue ALL, deux points finissent
+    // par porter le même, et recharts ne sait alors plus sur lequel poser un
+    // repère — une pastille d'achat de cette année atterrissait sur le
+    // relevé de l'an dernier. L'axe affiche toujours le libellé.
+    return [...histData, ...projectionPoints].map((p, i) => ({ ...p, cle: `p${i}` }));
   }, [historyPast, patrimoineNet, epargneMensuelle, timeFilter, blendedRatePct]);
+
+  const libelleParCle = useMemo(
+    () => Object.fromEntries(chartData.map((p) => [p.cle, p.label])),
+    [chartData]
+  );
+  const cleAujourdhui = chartData.find((p) => p.label === "Aujourd'hui")?.cle;
+
+  /**
+   * Achats, ventes, dividendes, versements et retraits posés sur la courbe.
+   *
+   * Ils viennent du journal de la poche bourse, mais se lisent ici sur le
+   * patrimoine NET : c'est là qu'un versement se voit le mieux — la courbe
+   * monte sans que le marché y soit pour rien. Le rattachement au dernier
+   * relevé connu et l'exclusion des ajustements de solde sont dans
+   * `marqueursOperations`.
+   */
+  const marqueurs = useMemo(
+    () => marqueursOperations(bourse?.operations || [], chartData, "value"),
+    [bourse?.operations, chartData]
+  );
+  const marqueursParCle = useMemo(
+    () => Object.fromEntries(marqueurs.map((m) => [m.point.cle, m])),
+    [marqueurs]
+  );
 
   // Allocation data — répartition par enveloppe fiscale (PEA/CTO/AV/PER/Livret/Cash)
   const allocationData = useMemo(() => {
@@ -652,12 +728,17 @@ export default function Dashboard({
    * des trous. Elle donne la DIRECTION d'un coup d'œil ; la lecture précise
    * revient au graphique complet, plus bas sur la page.
    */
+  // C'est la mini-courbe de la carte du patrimoine net : elle y était déjà, en
+  // fond. Une seconde sparkline à côté du montant aurait redit la même chose.
+  // Elle suit désormais la règle commune des trois points (`serieSparkline`) :
+  // à deux relevés, en janvier, elle traçait un segment qui passait pour une
+  // tendance. Les relevés sans valeur ne sont plus comptés à zéro.
   const serieAnnee = useMemo(
     () =>
-      (historyPast || [])
-        .filter((p) => String(p.date || "").startsWith(String(new Date().getFullYear())))
-        .sort((a, b) => (a.date < b.date ? -1 : 1))
-        .map((p) => Number(p.value) || 0),
+      serieSparkline(
+        (historyPast || []).filter((p) => String(p.date || "").startsWith(String(new Date().getFullYear()))),
+        "value"
+      ),
     [historyPast]
   );
 
@@ -792,7 +873,7 @@ export default function Dashboard({
         rôle du graphique complet, plus bas sur la page.
       */}
       <Card role="vedette" accent="teinte-emerald" className="relative overflow-hidden">
-        {serieAnnee.length >= 2 && (
+        {serieAnnee.length > 0 && (
           <div className="absolute inset-x-0 bottom-0 h-3/5 opacity-60 pointer-events-none" aria-hidden="true">
             <CourbeEvolution
               valeurs={serieAnnee}
@@ -1065,11 +1146,16 @@ export default function Dashboard({
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="rgb(var(--c-slate-800))" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <XAxis
+                  dataKey="cle" tickFormatter={(c) => libelleParCle[c] ?? ""}
+                  tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd"
+                />
                 <YAxis tickFormatter={compact} tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }} axisLine={false} tickLine={false} width={46} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip marqueursParCle={marqueursParCle} />} />
                 {/* Vertical reference line at "Aujourd'hui" */}
-                <ReferenceLine x="Aujourd'hui" stroke="#475569" strokeDasharray="3 3" label={{ value: "Auj.", fill: "#475569", fontSize: 10 }} />
+                {cleAujourdhui && (
+                  <ReferenceLine x={cleAujourdhui} stroke="#475569" strokeDasharray="3 3" label={{ value: "Auj.", fill: "#475569", fontSize: 10 }} />
+                )}
                 {/*
                   JALONS. La courbe montrait une trajectoire sans destination :
                   on voyait monter, sans savoir vers quoi. Chaque objectif daté
@@ -1114,9 +1200,32 @@ export default function Dashboard({
                   strokeOpacity={0.55}
                   connectNulls={true}
                 />
+                {marqueurs.map((m) => (
+                  <ReferenceDot
+                    key={m.point.cle}
+                    x={m.point.cle}
+                    y={m.valeur}
+                    isFront
+                    shape={<PastilleOperations marqueur={m} />}
+                  />
+                ))}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
+          {/* Légende limitée aux natures présentes sur la période : cinq
+              pastilles dont trois sans objet encombreraient la carte. */}
+          {marqueurs.length > 0 && (
+            <div className="flex items-center gap-3 mt-2 flex-wrap text-micro text-slate-500">
+              {Object.entries(NATURES_MARQUEUR)
+                .filter(([nature]) => marqueurs.some((m) => m.natures.some((n) => n.nature === nature)))
+                .map(([nature, { couleur, libelle }]) => (
+                  <span key={nature} className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full" style={{ background: couleur }} />
+                    {libelle}
+                  </span>
+                ))}
+            </div>
+          )}
 
           <AddPanel
             open={showAddHistory}

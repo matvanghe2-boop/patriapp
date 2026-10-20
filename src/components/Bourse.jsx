@@ -5,6 +5,7 @@ import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, Pa
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
 import { Sparkline } from "./graphiques";
+import { serieSparkline } from "../lib/marqueursCourbe";
 import OngletsGlissants from "./OngletsGlissants";
 import EtatVide from "./EtatVide";
 import { useTirerPourRafraichir, IndicateurRafraichissement, useBalayageSuppression } from "./gestes";
@@ -982,6 +983,21 @@ export default function Bourse({
   const hasEnoughHistory = bourseHistory.length >= 2;
   const hasEnoughBase100 = base100Data.length >= 2;
 
+  /*
+   * Mini-courbe de la carte « Valeur du portefeuille ».
+   *
+   * `valeur` du relevé quotidien est la même grandeur que `bourseTotal`
+   * (positions + poche cash) : la courbe prolonge bien le chiffre affiché.
+   *
+   * Les deux autres cartes de synthèse n'en ont PAS, faute de série qui leur
+   * corresponde. La plus-value latente affichée se mesure contre le prix de
+   * revient (PRU) ; l'historique ne connaît que le capital VERSÉ, qui n'est
+   * pas la même base — en tirer une courbe aurait montré l'évolution d'un
+   * autre chiffre que celui écrit au-dessus. La poche cash, elle, n'est pas
+   * historisée du tout.
+   */
+  const serieValeur = useMemo(() => serieSparkline(bourseHistory, "valeur"), [bourseHistory]);
+
   // ─── Sorted positions ───────────────────────────────────────────────────────
   const sortedPositions = useMemo(() => {
     const positions = [...bourse.positions];
@@ -1080,8 +1096,21 @@ export default function Bourse({
             elle ne porte jamais l'information à elle seule. */}
         <Card accent={CARD_THEMES.violet} tendance={variationJour.exploitable ? Math.sign(variationJour.montant) : 0}>
           <CardLabel>Valeur du portefeuille</CardLabel>
-          <div className="font-display text-xl text-slate-100 ghost-blur">
-            <ChiffreCompteur valeur={bourseTotal} format={(v) => eur(v)} />
+          <div className="flex items-end justify-between gap-3">
+            <div className="font-display text-xl text-slate-100 ghost-blur">
+              <ChiffreCompteur valeur={bourseTotal} format={(v) => eur(v)} />
+            </div>
+            {/* La couleur suit le sens de la PÉRIODE, pas celui de la séance
+                donné juste en dessous : les deux peuvent diverger, et c'est
+                justement ce que la courbe apprend en plus. */}
+            {serieValeur.length > 0 && (
+              <Sparkline
+                valeurs={serieValeur}
+                className={`w-20 h-7 shrink-0 ghost-blur ${
+                  serieValeur.at(-1) >= serieValeur[0] ? "text-emerald-400/70" : "text-rose-400/70"
+                }`}
+              />
+            )}
           </div>
           {/* Le POURCENTAGE d'abord, le montant à côté : c'est l'ordre de
               lecture naturel d'une variation de séance, et le pourcentage est

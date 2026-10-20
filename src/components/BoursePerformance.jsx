@@ -16,6 +16,7 @@ import {
 import { BENCHMARKS, CLES_INDICE } from "../lib/benchmarks";
 import { useToast } from "../lib/ToastContext";
 import SuiviDividendes from "./SuiviDividendes";
+import { NATURES_MARQUEUR } from "../lib/marqueursCourbe";
 
 /**
  * Onglet « Performance » de PEA & Bourse.
@@ -88,10 +89,12 @@ function RangeSelector({ range, setRange }) {
 
 // ─── Repères d'opérations sur la courbe de valeur ────────────────────────
 // Code couleur demandé : achat en vert, vente en rouge, dividende en bleu.
+// Couleurs lues dans `src/lib/marqueursCourbe.js`, que partage la courbe du
+// patrimoine net (Dashboard) : deux copies finiraient par diverger.
 const OP_MARKERS = {
-  ACHAT: { color: "#22c55e", label: "Achat", verb: "Achat" },
-  VENTE: { color: "#ef4444", label: "Vente", verb: "Vente" },
-  DIVIDENDE: { color: "#3b82f6", label: "Dividende", verb: "Dividende" },
+  ACHAT: { color: NATURES_MARQUEUR.ACHAT.couleur, label: "Achat", verb: "Achat" },
+  VENTE: { color: NATURES_MARQUEUR.VENTE.couleur, label: "Vente", verb: "Vente" },
+  DIVIDENDE: { color: NATURES_MARQUEUR.DIVIDENDE.couleur, label: "Dividende", verb: "Dividende" },
 };
 const OP_MARKER_ORDER = ["ACHAT", "VENTE", "DIVIDENDE"];
 

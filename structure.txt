@@ -155,6 +155,7 @@ src/components/OperationForm.jsx
 src/components/OperationForm.test.jsx
 src/components/OperationList.jsx
 src/components/Operations.jsx
+src/components/Operations.test.jsx
 src/components/OrderSimulator.jsx
 src/components/PaletteCommandes.jsx
 src/components/PanneauTransparence.jsx
@@ -232,6 +233,8 @@ src/lib/horizonClient.js
 src/lib/indexConstituents.js
 src/lib/ledger.test.js
 src/lib/lireNombre.test.js
+src/lib/marqueursCourbe.js
+src/lib/marqueursCourbe.test.js
 src/lib/netWorth.test.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
