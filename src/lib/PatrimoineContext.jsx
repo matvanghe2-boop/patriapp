@@ -32,6 +32,10 @@ export const STORAGE_KEYS = [
   // Secteur choisi à la main pour une ligne, qui prime sur le classement
   // par défaut (voir sectors.js, secteurDe).
   "secteursManuels",
+  // ETF de référence de la comparaison « le même argent » (Performance).
+  "etfComparaison",
+  // Dernier record de patrimoine annoncé et objectifs déjà salués.
+  "recordsAnnonces",
   // Préférences d'affichage (thème, accent, densité, retours) — voir
   // ApparenceContext. Persistées comme le reste : un réglage d'affichage suit
   // d'un appareil à l'autre.

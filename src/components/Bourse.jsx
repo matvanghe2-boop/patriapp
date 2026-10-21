@@ -5,6 +5,7 @@ import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, Pa
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
 import CorrelationsLignes from "./CorrelationsLignes";
+import FicheLigne from "./FicheLigne";
 import { Sparkline } from "./graphiques";
 import { serieSparkline } from "../lib/marqueursCourbe";
 import OngletsGlissants from "./OngletsGlissants";
@@ -537,6 +538,8 @@ export default function Bourse({
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
   const [panicPosition, setPanicPosition] = useState(null);
+  // Fiche par ligne : l'identifiant de la position ouverte, ou null.
+  const [ficheOuverte, setFicheOuverte] = useState(null);
   const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "analyse" | "performance" | "marche" | "screener" | "calendrier"
   // Requête d'ouverture d'une fiche dans l'onglet Marché depuis le tableau de
   // positions ou la watchlist. Le "ts" force le rechargement dans <Marche>
@@ -902,11 +905,28 @@ export default function Bourse({
        * montage de l'onglet, et il tient déjà les cotations en main — les
        * jeter pour les redemander plus tard n'avait aucun sens.
        */
-      if (Object.keys(veilleMap).length > 0) {
+      /*
+       * Le COURS aussi, et pas seulement la veille.
+       *
+       * Seule la clôture de la veille était écrite ici : la variation du jour
+       * rapprochait donc la veille fraîche d'un cours resté à la dernière
+       * pression du bouton — parfois vieux de plusieurs jours. Le chiffre
+       * affiché sous la valeur du portefeuille, et le briefing du Dashboard,
+       * n'étaient alors la variation de rien. Ce relevé tient les cotations
+       * du jour : il les écrit.
+       */
+      if (Object.keys(veilleMap).length > 0 || Object.keys(priceMap).length > 0) {
         setBourse((b) => ({
           ...b,
+          ...(tickers.some((t) => priceMap[t] != null) ? { pricesUpdatedAt: new Date().toISOString() } : {}),
           positions: b.positions.map((p) =>
-            veilleMap[p.ticker] != null ? { ...p, previousClose: veilleMap[p.ticker] } : p
+            veilleMap[p.ticker] != null || priceMap[p.ticker] != null
+              ? {
+                  ...p,
+                  ...(veilleMap[p.ticker] != null ? { previousClose: veilleMap[p.ticker] } : {}),
+                  ...(priceMap[p.ticker] != null ? { current_price: priceMap[p.ticker] } : {}),
+                }
+              : p
           ),
         }));
       }
@@ -1449,9 +1469,9 @@ export default function Bourse({
                       <td data-label="Actif" className="py-3 pr-3">
                         <button
                           type="button"
-                          onClick={() => openInMarche(p.ticker)}
+                          onClick={() => setFicheOuverte(p.id)}
                           data-voyageur={marcheRequest?.symbol === p.ticker.toUpperCase() ? "" : undefined}
-                          title="Voir la fiche complète dans l'onglet Marché"
+                          title="Ouvrir la fiche de la ligne : courbe, dividendes, thèse, opérations"
                           className="flex items-center gap-2 text-left group/ticker"
                         >
                           <AssetLogo ticker={p.ticker} size="xs" />
@@ -1692,6 +1712,20 @@ export default function Bourse({
 
       {subTab === "calendrier" && (
         <FinancialCalendar positions={bourse.positions} watchlist={watchlist} />
+      )}
+
+      {ficheOuverte && bourse.positions.some((p) => p.id === ficheOuverte) && (
+        <FicheLigne
+          position={bourse.positions.find((p) => p.id === ficheOuverte)}
+          onClose={() => setFicheOuverte(null)}
+          bourse={bourse}
+          strategyNotes={strategyNotes}
+          secteursManuels={secteursManuels}
+          onOuvrirMarche={(ticker) => {
+            setFicheOuverte(null);
+            openInMarche(ticker);
+          }}
+        />
       )}
 
       {panicPosition && (

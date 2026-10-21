@@ -1,4 +1,5 @@
 import { dividendeAttendu } from "../../shared/dividendes.js";
+import { interetsQuinzaines } from "./livretsMouvements";
 
 /**
  * Revenus passifs, indépendance financière et calendrier des revenus.
@@ -85,7 +86,9 @@ export function independanceFinanciere({
  *   l'actualisation des cours). Une ligne sans calendrier connu n'est PAS
  *   répartie au jugé : son montant est compté à part, « mois inconnu ».
  * - Intérêts des livrets : crédités en une fois au 31 décembre — c'est là
- *   qu'ils sont placés, pas lissés sur l'année.
+ *   qu'ils sont placés, pas lissés sur l'année. Leur montant est celui de
+ *   l'année, calculé à la quinzaine comme la banque : taux officiels
+ *   successifs, dates de valeur des mouvements enregistrés.
  */
 export function calendrierRevenus({ positions = [], enveloppe = "PEA", livrets = [], aujourdhui } = {}) {
   const depart = new Date(`${aujourdhui}T12:00:00Z`);
@@ -122,9 +125,12 @@ export function calendrierRevenus({ positions = [], enveloppe = "PEA", livrets =
     }
   }
 
-  const interets = interetsLivrets(livrets);
   const decembre = mois.find((m) => m.numero === 12);
-  if (decembre && interets > 0) decembre.interets = interets;
+  if (decembre) {
+    const annee = Number(decembre.cle.slice(0, 4));
+    const interets = (livrets || []).reduce((s, l) => s + interetsQuinzaines(l, annee, { aujourdhui }).total, 0);
+    if (interets > 0) decembre.interets = interets;
+  }
 
   const total = mois.reduce((s, m) => s + m.dividendes + m.interets, 0);
   return { mois, inconnu, lignesInconnues, total };

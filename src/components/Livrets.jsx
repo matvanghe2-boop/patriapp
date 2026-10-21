@@ -6,6 +6,8 @@ import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
 import RatesHub from "./RatesHub";
 import EtatVide from "./EtatVide";
+import MouvementsLivrets from "./MouvementsLivrets";
+import { ajouterMouvement, retirerMouvement, interetsQuinzaines } from "../lib/livretsMouvements";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
 const MARKET_ALTERNATIVES = [
@@ -468,7 +470,7 @@ function ArbitrageOptimizer({ livrets }) {
 }
 
 // ─── Livret row with smart progress bar ──────────────────────────────────────
-function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
+function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) {
   const [showGoalEdit, setShowGoalEdit] = useState(false);
   const [goalDraft, setGoalDraft] = useState(l.goal ?? "");
   const [editingBalance, setEditingBalance] = useState(false);
@@ -502,7 +504,10 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance }) {
     if (Number.isFinite(v) && v >= 0) onUpdateBalance(l.id, v);
     setEditingBalance(false);
   };
-  const nudge = (delta) => onUpdateBalance(l.id, Math.max(0, l.balance + delta));
+  // ±50 : un vrai dépôt ou retrait daté du jour, plus une simple retouche du
+  // solde — c'est ce qui construit l'historique du livret sans saisie.
+  const nudge = (delta) =>
+    onMouvement(l.id, { date: todayIso(), nature: delta > 0 ? "depot" : "retrait", montant: Math.abs(delta) });
 
   return (
     <tr className="group">
@@ -638,7 +643,24 @@ export default function Livrets({
     });
   };
   const updateGoal = (id, goal) => setLivrets((l) => l.map((x) => x.id === id ? { ...x, goal } : x));
-  const updateBalance = (id, balance) => setLivrets((l) => l.map((x) => x.id === id ? { ...x, balance } : x));
+  /*
+   * Corriger le solde au crayon enregistre un AJUSTEMENT daté : le solde
+   * change comme avant, mais l'écart est gardé, et le passé reste
+   * reconstituable. Ce n'est ni un dépôt ni un retrait — on recale sur le
+   * relevé de la banque.
+   */
+  const updateBalance = (id, balance) =>
+    setLivrets((l) =>
+      l.map((x) =>
+        x.id === id
+          ? ajouterMouvement(x, { id: uid(), date: todayIso(), nature: "ajustement", montant: balance - (Number(x.balance) || 0) })
+          : x
+      )
+    );
+  const enregistrerMouvement = (id, mouvement) =>
+    setLivrets((l) => l.map((x) => (x.id === id ? ajouterMouvement(x, { id: uid(), ...mouvement }) : x)));
+  const supprimerMouvement = (id, idMouvement) =>
+    setLivrets((l) => l.map((x) => (x.id === id ? retirerMouvement(x, idMouvement) : x)));
 
   const totalInterets = livrets.reduce((s, l) => s + l.balance * l.rate, 0);
 
@@ -713,6 +735,18 @@ export default function Livrets({
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Intérêts estimés / an</div>
           <div className="font-display text-xl text-emerald-400 ghost-blur">{eur(totalInterets)}</div>
           <div className="text-micro text-slate-500 mt-0.5 ghost-blur">soit {eur(totalInterets / 12)} / mois</div>
+          {/* Au taux du jour, le total ignore les changements de taux et les
+              dates de valeur. L'année en cours, calculée comme la banque, se
+              lit juste en dessous. */}
+          <div className="text-micro text-slate-500 mt-0.5 ghost-blur">
+            {todayIso().slice(0, 4)}, à la quinzaine :{" "}
+            {eur(
+              livrets.reduce(
+                (s, l) => s + interetsQuinzaines(l, Number(todayIso().slice(0, 4)), { aujourdhui: todayIso() }).total,
+                0
+              )
+            )}
+          </div>
         </Card>
       </div>
 
@@ -722,7 +756,7 @@ export default function Livrets({
       {/* Alerte de saturation des plafonds */}
       <SaturationAlert livrets={livrets} />
 
-      {/* Livrets table */}
+      {/* Livrets table — la carte des mouvements suit juste après. */}
       <Card accent={CARD_THEMES.indigo}>
         <div className="flex items-center justify-between mb-3">
           <CardLabel icon={PiggyBank}>Comptes &amp; supports</CardLabel>
@@ -754,7 +788,7 @@ export default function Livrets({
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {livrets.map((l) => (
-                  <LivretRow key={l.id} l={l} onRemove={removeLivret} onUpdateGoal={updateGoal} onUpdateBalance={updateBalance} />
+                  <LivretRow key={l.id} l={l} onRemove={removeLivret} onUpdateGoal={updateGoal} onUpdateBalance={updateBalance} onMouvement={enregistrerMouvement} />
                 ))}
               </tbody>
             </table>
@@ -774,6 +808,15 @@ export default function Livrets({
           ]}
         />
       </Card>
+
+      {/* Mouvements datés et intérêts à la quinzaine. */}
+      {livrets.length > 0 && (
+        <MouvementsLivrets
+          livrets={livrets}
+          onMouvement={enregistrerMouvement}
+          onRetirerMouvement={supprimerMouvement}
+        />
+      )}
 
       {/* Simulateur : où placer mon prochain versement */}
       <NextDepositAdvisor livrets={livrets} />

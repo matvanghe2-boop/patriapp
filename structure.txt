@@ -125,6 +125,7 @@ src/components/BilanMensuel.test.jsx
 src/components/BottomNav.jsx
 src/components/Bourse.jsx
 src/components/BoursePerformance.jsx
+src/components/BriefingDuJour.jsx
 src/components/CalendrierRevenus.jsx
 src/components/CarteRepliable.test.jsx
 src/components/CascadeMensuelle.jsx
@@ -142,6 +143,8 @@ src/components/EtatSourceMarche.jsx
 src/components/EtatVide.jsx
 src/components/FeuillePlus.jsx
 src/components/FicheFinanciere.jsx
+src/components/FicheLigne.jsx
+src/components/FicheLigne.test.jsx
 src/components/FinancialCalendar.jsx
 src/components/FinancialCalendar.test.jsx
 src/components/FiscaliteSortie.jsx
@@ -158,8 +161,11 @@ src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
 src/components/ModePresentation.jsx
 src/components/Montant.jsx
+src/components/MouvementsLivrets.jsx
+src/components/MouvementsLivrets.test.jsx
 src/components/Notifications.jsx
 src/components/Objectifs.jsx
+src/components/Objectifs.test.jsx
 src/components/OngletsGlissants.jsx
 src/components/OperationForm.jsx
 src/components/OperationForm.test.jsx
@@ -224,6 +230,8 @@ src/lib/apparence.test.jsx
 src/lib/authErrors.js
 src/lib/authErrors.test.js
 src/lib/benchmarks.js
+src/lib/briefing.js
+src/lib/briefing.test.js
 src/lib/calendrierManuel.js
 src/lib/calendrierManuel.test.js
 src/lib/cascade.js
@@ -260,11 +268,15 @@ src/lib/jeuExemple.js
 src/lib/jeuExemple.test.js
 src/lib/ledger.test.js
 src/lib/lireNombre.test.js
+src/lib/livretsMouvements.js
+src/lib/livretsMouvements.test.js
 src/lib/marqueursCourbe.js
 src/lib/marqueursCourbe.test.js
 src/lib/netWorth.test.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
+src/lib/patrimoineParPoche.js
+src/lib/patrimoineParPoche.test.js
 src/lib/performanceComparee.js
 src/lib/performanceComparee.test.js
 src/lib/portefeuilleSante.js
@@ -273,6 +285,8 @@ src/lib/publications.js
 src/lib/publications.test.js
 src/lib/rattrapage.js
 src/lib/rattrapage.test.js
+src/lib/records.js
+src/lib/records.test.js
 src/lib/retrospective.js
 src/lib/retrospective.test.js
 src/lib/revenusPassifs.js

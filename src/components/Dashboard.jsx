@@ -1,4 +1,4 @@
-import { useState, useMemo, useId } from "react";
+import { useState, useMemo, useId, useEffect } from "react";
 import {
   ResponsiveContainer, Tooltip,
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceDot,
@@ -21,6 +21,7 @@ import CascadeMensuelle from "./CascadeMensuelle";
 import RevenusPassifs from "./RevenusPassifs";
 import CalendrierRevenus from "./CalendrierRevenus";
 import OriginePatrimoine from "./OriginePatrimoine";
+import BriefingDuJour from "./BriefingDuJour";
 import ProchainesEcheances from "./ProchainesEcheances";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
@@ -29,6 +30,8 @@ import { serieSparkline, marqueursOperations, decrireOperation, NATURES_MARQUEUR
 import { FileDown, FileSpreadsheet, PieChart as PieIcon, SlidersHorizontal } from "lucide-react";
 import { Disposition, Bloc, PersonnaliserDashboard } from "./DispositionDashboard";
 import { DISPOSITION_DEFAUT } from "../lib/dispositionDashboard";
+import { decouperParPoche, COULEURS_POCHES } from "../lib/patrimoineParPoche";
+import { recordAAnnoncer, objectifsAAnnoncer, plusHautHistorique } from "../lib/records";
 
 function formatDateFr(iso) {
   if (!iso) return "—";
@@ -528,6 +531,9 @@ export default function Dashboard({
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
   const [timeFilter, setTimeFilter] = useState("ALL");
+  // « total » : la courbe du patrimoine net ; « poches » : la même, découpée
+  // en bourse, livrets suivis et reste.
+  const [vueCourbe, setVueCourbe] = useState("total");
   const { showToast } = useToast();
 
   // Allocation cible — passe par l'état persistant, et donc par la
@@ -540,6 +546,54 @@ export default function Dashboard({
   // choisie sur l'ordinateur se retrouve sur le téléphone.
   const [disposition, setDisposition] = usePersistentState("dispositionDashboard", DISPOSITION_DEFAUT);
   const [personnalisation, setPersonnalisation] = useState(false);
+
+  /*
+   * Records et objectifs atteints, annoncés au moment où ils arrivent.
+   * Le dernier record annoncé et les objectifs déjà salués sont gardés : un
+   * même événement n'est dit qu'une fois, sur tous les appareils.
+   *
+   * Au tout premier passage, ce qui est DÉJÀ acquis est enregistré sans
+   * message : sinon, la mise en ligne de cette fonction aurait salué d'un
+   * coup des objectifs atteints depuis des mois.
+   */
+  const [recordsAnnonces, setRecordsAnnonces] = usePersistentState("recordsAnnonces", null);
+  useEffect(() => {
+    if (isEmpty || !Number.isFinite(patrimoineNet) || patrimoineNet <= 0) return;
+    const aujourdhui = todayIso();
+    if (!recordsAnnonces) {
+      const haut = plusHautHistorique(historyPast, aujourdhui);
+      // Initialise la mémoire des annonces à partir des données déjà chargées ;
+      // aucune boucle possible : l'état n'est plus nul ensuite.
+      setRecordsAnnonces({
+        // `silencieux` : enregistré sans être annoncé, le briefing ne le
+        // présente donc pas comme un record du jour.
+        record: { valeur: Math.round(Math.max(patrimoineNet, haut?.valeur ?? 0)), date: aujourdhui, silencieux: true },
+        objectifs: objectifsAAnnoncer(objectifs, patrimoineNet, []).map((o) => o.id),
+      });
+      return;
+    }
+    const record = recordAAnnoncer({
+      historique: historyPast,
+      patrimoineActuel: patrimoineNet,
+      dernierAnnonce: recordsAnnonces.record,
+      aujourdhui,
+    });
+    const atteints = objectifsAAnnoncer(objectifs, patrimoineNet, recordsAnnonces.objectifs);
+    if (!record && atteints.length === 0) return;
+    if (record) {
+      showToast({
+        message: `Nouveau record de patrimoine : ${eur(record.valeur)}. Le précédent, ${eur(record.precedent.valeur)}, datait du ${new Date(`${record.precedent.date}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.`,
+      });
+    }
+    for (const o of atteints) {
+      showToast({ message: `Objectif « ${o.libelle || "sans nom"} » atteint : ${eur(o.cible)}.` });
+    }
+    setRecordsAnnonces((r) => ({
+      record: record ? { valeur: Math.round(record.valeur), date: aujourdhui } : r?.record ?? null,
+      objectifs: [...(r?.objectifs || []), ...atteints.map((o) => o.id)],
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patrimoineNet, historyPast, objectifs, isEmpty]);
 
   const addDette = (v) => setDettes((d) => [...d, { id: uid(), name: v.name, amount: v.amount }]);
 
@@ -691,6 +745,25 @@ export default function Dashboard({
     [marqueurs]
   );
 
+  const decoupage = useMemo(
+    () =>
+      vueCourbe === "poches"
+        ? decouperParPoche(chartData, {
+            bourseHistory,
+            livrets,
+            aDesPositions: (bourse?.positions || []).length > 0,
+          })
+        : null,
+    [vueCourbe, chartData, bourseHistory, livrets, bourse?.positions]
+  );
+  const enPoches = vueCourbe === "poches" && decoupage != null;
+  const pointRecord = useMemo(() => {
+    const reels = chartData.filter((p) => Number.isFinite(p.value));
+    if (reels.length < 7) return null;
+    return reels.reduce((m, p) => (p.value > m.value ? p : m), reels[0]);
+  }, [chartData]);
+  const donneesCourbe = enPoches ? decoupage.points : chartData;
+
   // Allocation data — répartition par enveloppe fiscale (PEA/CTO/AV/PER/Livret/Cash)
   const allocationData = useMemo(() => {
     const byEnvelope = {};
@@ -831,6 +904,20 @@ export default function Dashboard({
           message d'accueil reste hors de la disposition : il disparaît de
           lui-même dès la première saisie. */}
       <Disposition disposition={disposition}>
+      <Bloc id="briefing">
+        <BriefingDuJour
+          bourse={bourse}
+          objectifs={objectifs}
+          patrimoineNet={patrimoineNet}
+          epargneMensuelle={epargneMensuelle}
+          tauxAnnuelPct={blendedRatePct}
+          recordDuJour={
+            recordsAnnonces?.record?.date === todayIso() && !recordsAnnonces.record.silencieux
+              ? recordsAnnonces.record.valeur
+              : null
+          }
+        />
+      </Bloc>
 
       {/* Actions prioritaires cross-onglets */}
       <Bloc id="actions">
@@ -1156,18 +1243,48 @@ export default function Dashboard({
         <Card accent={CARD_THEMES.emerald}>
           <div className="flex items-center justify-between mb-1">
             <CardLabel>Évolution du patrimoine net</CardLabel>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <div className="flex rounded-lg border border-slate-800 overflow-hidden" role="group" aria-label="Affichage de la courbe">
+                {[
+                  ["total", "Total"],
+                  ["poches", "Par poche"],
+                ].map(([cle, libelle]) => (
+                  <button
+                    key={cle}
+                    onClick={() => setVueCourbe(cle)}
+                    aria-pressed={vueCourbe === cle}
+                    className={`text-micro px-2 py-1 transition-colors ${
+                      vueCourbe === cle ? "bg-emerald-500/15 text-emerald-300" : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    {libelle}
+                  </button>
+                ))}
+              </div>
               <TimeFilterBar active={timeFilter} onChange={setTimeFilter} />
               <GhostButton theme="emerald" onClick={() => setShowAddHistory((s) => !s)}>Ajouter</GhostButton>
             </div>
           </div>
 
           {/* Legend for projection */}
-          <div className="flex items-center gap-4 mb-2">
-            <div className="flex items-center gap-1.5 text-micro text-slate-500">
-              <div className="w-6 h-0.5 bg-emerald-400 rounded" />
-              Historique
-            </div>
+          <div className="flex items-center gap-x-4 gap-y-1 mb-2 flex-wrap">
+            {enPoches ? (
+              [
+                ["Bourse", COULEURS_POCHES.bourse],
+                ...decoupage.poches.map((p) => [p.libelle, p.couleur]),
+                ["Autres", COULEURS_POCHES.autres],
+              ].map(([libelle, couleur]) => (
+                <div key={libelle} className="flex items-center gap-1.5 text-micro text-slate-500">
+                  <span className="w-2.5 h-2.5 rounded-sm" style={{ background: couleur }} />
+                  {libelle}
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center gap-1.5 text-micro text-slate-500">
+                <div className="w-6 h-0.5 bg-emerald-400 rounded" />
+                Historique
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-micro text-slate-500">
               <div className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400/50" />
               <span>
@@ -1179,7 +1296,7 @@ export default function Dashboard({
 
           <div className="h-52 mt-1">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ left: -10, right: 5, top: 5 }}>
+              <ComposedChart data={donneesCourbe} margin={{ left: -10, right: 5, top: 5 }}>
                 <defs>
                   <linearGradient id="netWorthFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
@@ -1218,8 +1335,29 @@ export default function Dashboard({
                     label={{ value: j.libelle, fill: j.atteint ? "#34d399" : "#fbbf24", fontSize: 9, position: "insideTopLeft" }}
                   />
                 ))}
+                {/* Par poche : aires EMPILÉES, dont le sommet est le total. */}
+                {enPoches &&
+                  [
+                    ["poche_bourse", "Bourse", COULEURS_POCHES.bourse],
+                    ...decoupage.poches.map((p) => [p.cle, p.libelle, p.couleur]),
+                    ["poche_autres", "Autres", COULEURS_POCHES.autres],
+                  ].map(([cle, nom, couleur]) => (
+                    <Area
+                      key={cle}
+                      type="monotone"
+                      dataKey={cle}
+                      name={nom}
+                      stackId="poches"
+                      stroke={couleur}
+                      fill={couleur}
+                      fillOpacity={0.35}
+                      strokeWidth={1}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                    />
+                  ))}
                 {/* Historical area */}
-                <Area
+                {!enPoches && <Area
                   type="monotone"
                   dataKey="value"
                   name="Patrimoine net"
@@ -1232,7 +1370,7 @@ export default function Dashboard({
                   // mesurée s'arrête et où la projection commence.
                   dot={<PointFinal serie={chartData} />}
                   activeDot={{ r: 4 }}
-                />
+                />}
                 {/* Projection dashed line */}
                 <Line
                   type="monotone"
@@ -1245,6 +1383,21 @@ export default function Dashboard({
                   strokeOpacity={0.55}
                   connectNulls={true}
                 />
+                {/* Le plus haut de la période affichée : un repère, pas une
+                    fanfare. Il n'apparaît qu'avec assez de relevés pour qu'un
+                    « record » veuille dire quelque chose. */}
+                {pointRecord && (
+                  <ReferenceDot
+                    x={pointRecord.cle}
+                    y={pointRecord.value}
+                    r={4}
+                    fill="#fbbf24"
+                    stroke="rgb(var(--c-slate-950))"
+                    strokeWidth={1.5}
+                    isFront
+                    label={{ value: "Record", position: "top", fill: "#fbbf24", fontSize: 9 }}
+                  />
+                )}
                 {marqueurs.map((m) => (
                   <ReferenceDot
                     key={m.point.cle}
@@ -1257,6 +1410,19 @@ export default function Dashboard({
               </ComposedChart>
             </ResponsiveContainer>
           </div>
+          {vueCourbe === "poches" && !decoupage && (
+            <p className="text-micro text-amber-300/90 mt-2">
+              La bourse ne peut pas être isolée : il manque l&apos;historique du portefeuille. Actualise les cours de
+              temps en temps pour qu&apos;il se construise.
+            </p>
+          )}
+          {enPoches && (
+            <p className="text-micro text-slate-500 mt-2">
+              Bourse mesurée par l&apos;historique du portefeuille ; livrets tracés à partir de leur premier mouvement
+              enregistré ; « Autres » regroupe le reste (livrets non suivis, compte courant, moins les dettes).
+              {decoupage.residuNegatif && " Sur quelques relevés anciens, les poches mesurées dépassent le total : « Autres » y est ramené à zéro."}
+            </p>
+          )}
           {/* Légende limitée aux natures présentes sur la période : cinq
               pastilles dont trois sans objet encombreraient la carte. */}
           {marqueurs.length > 0 && (
@@ -1296,7 +1462,7 @@ export default function Dashboard({
           Placée avant les objectifs, parce qu'elle explique la variation que
           les objectifs se contentent de mesurer. */}
       <Bloc id="origine">
-        <OriginePatrimoine historique={historyPast} bourseHistory={bourseHistory} bourse={bourse} />
+        <OriginePatrimoine historique={historyPast} bourseHistory={bourseHistory} bourse={bourse} livrets={livrets} />
       </Bloc>
       <Bloc id="cascade">
       <CascadeMensuelle

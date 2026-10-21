@@ -3,6 +3,7 @@ import { Layers } from "lucide-react";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
 import { eur, pctPlain, todayIso } from "../lib/finance";
 import { origineDuPatrimoine, regulariteVersements } from "../lib/cascade";
+import { depotsNets, aDesMouvements } from "../lib/livretsMouvements";
 
 /**
  * D'où vient ton patrimoine : ton épargne, ou le marché ?
@@ -16,7 +17,7 @@ import { origineDuPatrimoine, regulariteVersements } from "../lib/cascade";
 const dateLongue = (iso) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
-export default function OriginePatrimoine({ historique = [], bourseHistory = [], bourse }) {
+export default function OriginePatrimoine({ historique = [], bourseHistory = [], bourse, livrets = [] }) {
   const aDesPositions = (bourse?.positions || []).length > 0;
   const origine = useMemo(
     () => origineDuPatrimoine({ historique, bourseHistory, aDesPositions }),
@@ -71,6 +72,17 @@ export default function OriginePatrimoine({ historique = [], bourseHistory = [],
             </div>
           )}
 
+          {/* Les livrets suivis par mouvements disent quelle part de
+              l'épargne y est allée — le reste n'est connu qu'en résidu. */}
+          {livrets.some(aDesMouvements) && (
+            <p className="text-micro text-slate-400 mt-2">
+              Dont{" "}
+              <span className="font-data tabular-nums ghost-blur">
+                {eur(depotsNets(livrets, origine.depuis, origine.jusquau))}
+              </span>{" "}
+              déposés sur tes livrets suivis par mouvements.
+            </p>
+          )}
           <p className="text-micro text-slate-500 mt-2">
             Le marché est mesuré sur ton portefeuille (plus-values, dividendes, frais) ; l&apos;épargne est
             tout le reste — versements, dépôts sur les livrets et leurs intérêts.
