@@ -4,13 +4,15 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES, ChiffreCompteur } from "./ui";
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
+import CorrelationsLignes from "./CorrelationsLignes";
 import { Sparkline } from "./graphiques";
 import { serieSparkline } from "../lib/marqueursCourbe";
 import OngletsGlissants from "./OngletsGlissants";
 import EtatVide from "./EtatVide";
 import { useTirerPourRafraichir, IndicateurRafraichissement, useBalayageSuppression } from "./gestes";
 import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux, lireNombre, variationDuJour } from "../lib/finance";
-import { searchSecurity, fetchQuotes, fetchTauxChange, fetchHistory } from "../lib/api";
+import { searchSecurity, fetchQuotes, fetchTauxChange, fetchHistory, fetchScreen } from "../lib/api";
+import { majDividendeAuto, repartitionMensuelle } from "../lib/dividendesAuto";
 import {
   plagePour,
   joursManquants,
@@ -610,7 +612,13 @@ export default function Bourse({
         ...b,
         positions: [
           ...b.positions,
-          { id: uid(), ticker: v.ticker, name: v.name, quantity: v.quantity, pru: v.pru, current_price: v.current_price, type: v.type, annual_dividend: v.annual_dividend || 0, currency: v.currency || "EUR" },
+          {
+            id: uid(), ticker: v.ticker, name: v.name, quantity: v.quantity, pru: v.pru, current_price: v.current_price, type: v.type, annual_dividend: v.annual_dividend || 0, currency: v.currency || "EUR",
+            // Un dividende saisi à l'ajout est un choix : la valeur automatique
+            // ne le remplacera pas. Laissé vide, il sera rempli au prochain
+            // « Actualiser les cours ».
+            ...(v.annual_dividend > 0 ? { dividendeSource: "manuel" } : {}),
+          },
         ],
       })
     );
@@ -650,11 +658,55 @@ export default function Bourse({
       rebaselineLedger({
         ...b,
         positions: b.positions.map((p) =>
-          p.id === id ? { ...p, quantity: lireNombre(editValues.quantity) ?? 0, pru: lireNombre(editValues.pru) ?? 0, current_price: lireNombre(editValues.current_price) ?? 0, annual_dividend: lireNombre(editValues.annual_dividend) ?? 0 } : p
+          p.id === id
+            ? {
+                ...p,
+                quantity: lireNombre(editValues.quantity) ?? 0,
+                pru: lireNombre(editValues.pru) ?? 0,
+                current_price: lireNombre(editValues.current_price) ?? 0,
+                annual_dividend: lireNombre(editValues.annual_dividend) ?? 0,
+                // Corriger le dividende à la main le soustrait au remplissage
+                // automatique ; le laisser tel quel ne change pas sa source.
+                ...((lireNombre(editValues.annual_dividend) ?? 0) !== (Number(p.annual_dividend) || 0)
+                  ? { dividendeSource: "manuel" }
+                  : {}),
+              }
+            : p
         ),
       })
     );
     setEditingId(null);
+  };
+
+  /**
+   * Dividende par action et calendrier de détachement, depuis la source de
+   * marché. Ne remplace jamais une saisie manuelle (voir dividendesAuto.js).
+   * Deux appels pour tout le portefeuille, quelle que soit sa taille : les
+   * ratios (dividende annoncé) et deux ans d'historique mensuel avec les
+   * détachements, qui disent EN QUEL MOIS le dividende tombe.
+   */
+  const completerDividendes = async (symboles) => {
+    const aujourdhui = todayIso();
+    const [ratios, historiques] = await Promise.all([
+      fetchScreen(symboles).catch(() => []),
+      fetchHistory(symboles, "2y", "1mo", { dividendes: true }).catch(() => []),
+    ]);
+    const ratiosPar = new Map((ratios || []).map((r) => [String(r.symbole || "").toUpperCase(), r]));
+    const moisPar = new Map(
+      (historiques || [])
+        .filter((h) => h?.ok && Array.isArray(h.dividendes))
+        .map((h) => [String(h.symbol).toUpperCase(), repartitionMensuelle(h.dividendes, aujourdhui)])
+    );
+    if (ratiosPar.size === 0 && moisPar.size === 0) return;
+    setBourse((b) => ({
+      ...b,
+      positions: b.positions.map((p) => {
+        const cle = String(p.ticker || "").toUpperCase();
+        const maj = majDividendeAuto(p, ratiosPar.get(cle), aujourdhui);
+        const mois = moisPar.has(cle) ? { dividendeMois: moisPar.get(cle) } : null;
+        return maj || mois ? { ...p, ...(maj || {}), ...(mois || {}) } : p;
+      }),
+    }));
   };
 
   const refreshPrices = async () => {
@@ -753,6 +805,9 @@ export default function Bourse({
       // Mettre à jour les données persistées (fusionner avec les existantes)
       setDailyData((prev) => ({ ...prev, ...newDailyData }));
       setSeriesCours(serieParTicker);
+      // Dividendes : lancés APRÈS les cours et sans les attendre — un échec
+      // ici ne doit jamais faire échouer l'actualisation.
+      completerDividendes(symbols);
       const failed = quotes.filter((q) => !q.ok).length;
       setRefreshMsg(failed > 0 ? `${failed} cours sur ${quotes.length} n'ont pas pu être actualisés.` : "Tous les cours ont été actualisés.");
     } catch {
@@ -1208,7 +1263,7 @@ export default function Bourse({
       >
         {bourse.positions.length === 0 || dividendSummary.totalAnnualDividend === 0 ? (
           <EmptyState>
-            Renseigne le dividende annuel par action de tes lignes (via le crayon d'édition) pour voir ton rendement et tes revenus estimés.
+            Le dividende de chaque ligne se remplit au prochain « Actualiser les cours », depuis la source de marché. Une ligne qui ne verse rien (ETF capitalisant, société sans dividende) reste à zéro ; le crayon permet de corriger une valeur.
           </EmptyState>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-1">
@@ -1399,7 +1454,19 @@ export default function Bourse({
                       <td data-label="Dividendes" className="py-3 pr-3">
                         {p.annual_dividend > 0 ? (
                           <div className="font-data tabular-nums">
-                            <div className="text-emerald-400 ghost-blur">{eur(p.annual_dividend * p.quantity, 2)}</div>
+                            <div
+                              className="text-emerald-400 ghost-blur"
+                              title={
+                                p.dividendeSource === "auto"
+                                  ? `Dividende annoncé par la source de marché, vérifié le ${p.dividendeMajLe || "—"}. Le crayon permet de le corriger.`
+                                  : "Dividende saisi à la main."
+                              }
+                            >
+                              {eur(p.annual_dividend * p.quantity, 2)}
+                              {p.dividendeSource === "auto" && (
+                                <span className="ml-1 text-[9px] uppercase tracking-wide text-slate-500">auto</span>
+                              )}
+                            </div>
                             <div className="text-micro text-slate-500 flex items-center gap-1">
                               <span>{pctPlain(p.current_price > 0 ? (p.annual_dividend / p.current_price) * 100 : 0, 2)} rdt</span>
                               {p.pru > 0 && (
@@ -1526,6 +1593,15 @@ export default function Bourse({
         setSecteursManuels={setSecteursManuels}
         replie={replie("heatmap")}
         onBasculer={basculer("heatmap")}
+      />
+
+      {/* Après la répartition par secteur, ce qui la nuance : deux secteurs
+          différents peuvent quand même bouger ensemble. Un seul appel pour
+          tout le portefeuille, et aucun tant que la carte est repliée. */}
+      <CorrelationsLignes
+        positions={bourse.positions}
+        replie={replie("correlations")}
+        onBasculer={basculer("correlations")}
       />
 
       </>

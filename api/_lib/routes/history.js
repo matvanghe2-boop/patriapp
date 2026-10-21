@@ -31,6 +31,20 @@ function defaultIntervalFor(range) {
 // dans la journée : deux durées de cache distinctes.
 const cacheMsFor = (interval) => (INTRADAY_INTERVALS.includes(interval) ? 60_000 : 15 * 60_000);
 
+/**
+ * Détachements de dividendes renvoyés par Yahoo (`events.dividends`), triés
+ * par date. Le montant est par action, dans la devise de cotation ; la date
+ * est celle du DÉTACHEMENT — le versement suit de quelques jours.
+ */
+export function extraireDividendes(result) {
+  const brut = result?.events?.dividends;
+  if (!brut || typeof brut !== "object") return [];
+  return Object.values(brut)
+    .filter((d) => Number.isFinite(d?.date) && Number.isFinite(d?.amount) && d.amount > 0)
+    .map((d) => ({ date: new Date(d.date * 1000).toISOString().slice(0, 10), montant: d.amount }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
 async function handler(req, res) {
   const symbols = parseSymbols(req.query.symbols);
   if (symbols.length === 0) {
@@ -41,14 +55,17 @@ async function handler(req, res) {
     ? req.query.interval
     : defaultIntervalFor(range);
   const isIntraday = INTRADAY_INTERVALS.includes(interval);
+  // Détachements de dividendes, sur demande seulement : ils servent au
+  // calendrier des revenus, pas aux graphiques, qui n'ont pas à les payer.
+  const avecDividendes = req.query.dividendes === "1" && !isIntraday;
 
   const results = await Promise.all(
     symbols.map(async (symbol) => {
       try {
-        return await cached(`history:${symbol}:${range}:${interval}`, cacheMsFor(interval), async () => {
+        return await cached(`history:${symbol}:${range}:${interval}:${avecDividendes ? "div" : ""}`, cacheMsFor(interval), async () => {
           const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
             symbol
-          )}?range=${range}&interval=${interval}&includePrePost=false`;
+          )}?range=${range}&interval=${interval}&includePrePost=false${avecDividendes ? "&events=div" : ""}`;
           const data = await fetchJson(url, { timeoutMs: 12_000 });
           const result = data?.chart?.result?.[0];
           if (!result) {
@@ -88,6 +105,7 @@ async function handler(req, res) {
             interval,
             isIntraday,
             series,
+            ...(avecDividendes ? { dividendes: extraireDividendes(result) } : {}),
             currency: meta.currency || null,
             exchangeName: meta.exchangeName || null,
             firstTradeDate: meta.firstTradeDate

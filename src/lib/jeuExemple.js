@@ -31,20 +31,75 @@ const decaler = (iso, jours) => {
 const libelle = (iso) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 
-/** Un relevé de patrimoine net par semaine, sur l'année écoulée. */
-export function historiqueExemple(aujourdhui = todayIso()) {
+/*
+ * Les deux historiques du jeu sont construits à partir des MÊMES composantes,
+ * pour que leurs écarts racontent une histoire cohérente :
+ *
+ *   patrimoine = livrets + valeur du portefeuille
+ *   valeur du portefeuille = capital investi + gain
+ *
+ * Le capital monte de 300 € à chaque versement du journal, les livrets de
+ * dépôts réguliers et de leurs intérêts au 31 décembre, et le gain suit le
+ * marché. La cascade retrouve donc, mois après mois, une épargne et une part
+ * du marché plausibles — et les deux séries aboutissent aux soldes du jeu
+ * (22 000 € de livrets, 15 500 € investis, 1 593 € de plus-value).
+ */
+const CAPITAL_FINAL = 15500;
+const GAIN_FINAL = 1593;
+const LIVRETS_FINAL = 22000;
+const INTERETS_ANNUELS = 7000 * 0.017 + 15000 * 0.025; // Livret A + fonds euros
+const DEPOT_HEBDO = 75;
+
+function composantes(aujourdhui) {
+  const versements = operationsExemple(aujourdhui)
+    .filter((op) => op.type === "VERSEMENT")
+    .map((op) => op.date);
+  const capitalDepart = CAPITAL_FINAL - 300 * versements.length;
+  const dateDepart = decaler(aujourdhui, -7 * SEMAINES);
+  const premierJanvier = `${aujourdhui.slice(0, 4)}-01-01`;
+  const interetsDansLaFenetre = premierJanvier > dateDepart;
+  const livretsDepart = LIVRETS_FINAL - DEPOT_HEBDO * (SEMAINES - 1) - (interetsDansLaFenetre ? INTERETS_ANNUELS : 0);
+
   const points = [];
   for (let s = 0; s < SEMAINES; s++) {
     const date = decaler(aujourdhui, -7 * (SEMAINES - s));
-    const valeur =
-      29000 + // point de départ, il y a un an
-      150 * s + // l'épargne, environ 650 € par mois
-      20 * s + // la tendance du marché
-      450 * Math.sin(s / 4.5) + // des cycles de quelques semaines
-      200 * Math.sin(s / 1.7); // et le bruit d'une semaine sur l'autre
-    points.push({ id: `exemple-${date}`, label: libelle(date), date, value: Math.round(valeur) });
+    const capital = capitalDepart + 300 * versements.filter((v) => v <= date).length;
+    const gain =
+      600 + // plus-value déjà acquise il y a un an
+      (GAIN_FINAL - 600) * (s / (SEMAINES - 1)) + // la tendance du marché
+      // Des cycles de quelques semaines et le bruit d'une semaine sur
+      // l'autre, comptés à REBOURS depuis la fin : ils s'annulent au dernier
+      // relevé, qui tombe donc sur le gain du jour sans saut inexpliqué.
+      350 * Math.sin((SEMAINES - 1 - s) / 4.5) +
+      120 * Math.sin((SEMAINES - 1 - s) / 1.7);
+    const livrets =
+      livretsDepart + DEPOT_HEBDO * s + (interetsDansLaFenetre && date >= premierJanvier ? INTERETS_ANNUELS : 0);
+    points.push({ date, capital, valeur: capital + gain, livrets });
   }
   return points;
+}
+
+/** Un relevé de patrimoine net par semaine, sur l'année écoulée. */
+export function historiqueExemple(aujourdhui = todayIso()) {
+  return composantes(aujourdhui).map((p) => ({
+    id: `exemple-${p.date}`,
+    label: libelle(p.date),
+    date: p.date,
+    value: Math.round(p.livrets + p.valeur),
+  }));
+}
+
+/**
+ * Historique du portefeuille — valeur et capital investi — aux mêmes dates.
+ * C'est lui qui permet de séparer le marché de l'épargne ; sans lui, la
+ * cascade du jeu refuserait, à juste titre, de décomposer quoi que ce soit.
+ */
+export function portefeuilleExemple(aujourdhui = todayIso()) {
+  return composantes(aujourdhui).map((p) => ({
+    date: p.date,
+    valeur: Math.round(p.valeur),
+    capital: Math.round(p.capital),
+  }));
 }
 
 /**

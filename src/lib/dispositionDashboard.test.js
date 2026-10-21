@@ -39,7 +39,8 @@ describe("disposition du Dashboard", () => {
     const ancienne = { ordre: IDS.filter((id) => id !== "cascade"), masques: [] };
     const ordre = ordreEffectif(ancienne);
     expect(ordre).toContain("cascade");
-    expect(ordre.indexOf("cascade")).toBe(ordre.indexOf("allocation") + 1);
+    const predecesseur = IDS[IDS.indexOf("cascade") - 1];
+    expect(ordre.indexOf("cascade")).toBe(ordre.indexOf(predecesseur) + 1);
   });
 
   it("ignore un identifiant inconnu ou dupliqué", () => {

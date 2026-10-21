@@ -44,6 +44,7 @@ api/_lib/yahooFondamentaux.js
 api/advisor.js
 api/calendar.test.js
 api/health.test.js
+api/history.test.js
 api/market.js
 api/parse-pdf.js
 api/rates.test.js
@@ -91,6 +92,8 @@ shared/horizon.test.js
 shared/horizonOutils.js
 shared/orchestrateur.js
 shared/orchestrateur.test.js
+shared/perHistorique.js
+shared/perHistorique.test.js
 shared/ratesCatalog.js
 shared/ratesCatalog.test.js
 shared/ratiosHistoriques.js
@@ -122,10 +125,13 @@ src/components/BilanMensuel.test.jsx
 src/components/BottomNav.jsx
 src/components/Bourse.jsx
 src/components/BoursePerformance.jsx
+src/components/CalendrierRevenus.jsx
 src/components/CarteRepliable.test.jsx
 src/components/CascadeMensuelle.jsx
 src/components/ChartFocusModal.jsx
 src/components/ComparateurScenarios.jsx
+src/components/CorrelationsLignes.jsx
+src/components/CoutDesFrais.jsx
 src/components/Dashboard.jsx
 src/components/Decumulation.jsx
 src/components/DispositionDashboard.jsx
@@ -146,6 +152,7 @@ src/components/IndicesWidget.jsx
 src/components/Livrets.jsx
 src/components/Login.jsx
 src/components/Marche.jsx
+src/components/MemeArgentEtf.jsx
 src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
 src/components/ModePresentation.jsx
@@ -159,9 +166,11 @@ src/components/OperationList.jsx
 src/components/Operations.jsx
 src/components/Operations.test.jsx
 src/components/OrderSimulator.jsx
+src/components/OriginePatrimoine.jsx
 src/components/PaletteCommandes.jsx
 src/components/PanneauTransparence.jsx
 src/components/PanneauTransparence.test.jsx
+src/components/PerHistorique.jsx
 src/components/PortefeuilleRepli.test.jsx
 src/components/ProChart.jsx
 src/components/ProChart.test.jsx
@@ -175,9 +184,11 @@ src/components/Reequilibrage.jsx
 src/components/ReglagesApparence.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
+src/components/RendementsMensuels.jsx
 src/components/ReparationJournal.jsx
 src/components/ResumePublications.jsx
 src/components/Retrospective.jsx
+src/components/RevenusPassifs.jsx
 src/components/SantePortefeuille.jsx
 src/components/ScenariosProjet.jsx
 src/components/ScenariosProjet.test.jsx
@@ -218,11 +229,15 @@ src/lib/cascade.js
 src/lib/cascade.test.js
 src/lib/compact.test.js
 src/lib/compositionEtf.js
+src/lib/correlations.js
+src/lib/correlations.test.js
 src/lib/decumulation.js
 src/lib/decumulation.test.js
 src/lib/devises.test.js
 src/lib/dispositionDashboard.js
 src/lib/dispositionDashboard.test.js
+src/lib/dividendesAuto.js
+src/lib/dividendesAuto.test.js
 src/lib/doublonsAbonnements.js
 src/lib/doublonsAbonnements.test.js
 src/lib/echeances.js
@@ -249,6 +264,8 @@ src/lib/marqueursCourbe.test.js
 src/lib/netWorth.test.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
+src/lib/performanceComparee.js
+src/lib/performanceComparee.test.js
 src/lib/portefeuilleSante.js
 src/lib/portefeuilleSante.test.js
 src/lib/publications.js
@@ -257,6 +274,8 @@ src/lib/rattrapage.js
 src/lib/rattrapage.test.js
 src/lib/retrospective.js
 src/lib/retrospective.test.js
+src/lib/revenusPassifs.js
+src/lib/revenusPassifs.test.js
 src/lib/sectors.js
 src/lib/sectors.test.js
 src/lib/splits.test.js

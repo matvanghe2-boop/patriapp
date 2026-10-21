@@ -18,6 +18,9 @@ import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
 import Objectifs from "./Objectifs";
 import CascadeMensuelle from "./CascadeMensuelle";
+import RevenusPassifs from "./RevenusPassifs";
+import CalendrierRevenus from "./CalendrierRevenus";
+import OriginePatrimoine from "./OriginePatrimoine";
 import ProchainesEcheances from "./ProchainesEcheances";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
@@ -998,6 +1001,17 @@ export default function Dashboard({
       </div>
       </Bloc>
 
+      <Bloc id="independance">
+        <RevenusPassifs
+          bourse={bourse}
+          livrets={livrets}
+          profile={profile}
+          livretsTotal={livretsTotal}
+          bourseTotal={bourseTotal}
+          epargneMensuelle={epargneMensuelle}
+          tauxAnnuelPct={blendedRatePct}
+        />
+      </Bloc>
       <Bloc id="allocation">
       {/* Allocation + historique */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1281,10 +1295,21 @@ export default function Dashboard({
       {/* Décomposition du mois : versements, marché, dividendes, frais.
           Placée avant les objectifs, parce qu'elle explique la variation que
           les objectifs se contentent de mesurer. */}
+      <Bloc id="origine">
+        <OriginePatrimoine historique={historyPast} bourseHistory={bourseHistory} bourse={bourse} />
+      </Bloc>
       <Bloc id="cascade">
-      <CascadeMensuelle historique={historyPast} operations={bourse?.operations || []} />
+      <CascadeMensuelle
+        historique={historyPast}
+        operations={bourse?.operations || []}
+        bourseHistory={bourseHistory}
+        aDesPositions={(bourse?.positions || []).length > 0}
+      />
       </Bloc>
 
+      <Bloc id="revenus">
+        <CalendrierRevenus bourse={bourse} livrets={livrets} />
+      </Bloc>
       <Bloc id="objectifs">
       <Objectifs
         objectifs={objectifs}

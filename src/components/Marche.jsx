@@ -14,6 +14,7 @@ import ProChart from "./ProChart";
 import { pct, pctPlain, nombre } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchCompanyProfile, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
+import { ratiosParExercice, moyenneRatio } from "../../shared/ratiosHistoriques";
 
 const AUTO_REFRESH_MS = 15 * 60 * 1000;
 
@@ -157,6 +158,9 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
 
   const [symbol, setSymbol] = usePersistentState("marcheLastSymbol", null);
   const [profile, setProfile] = useState(null);
+  // Fiche financière du titre affiché, remontée par <FicheFinanciere> : c'est
+  // elle qui fournit le PER moyen historique à l'analyse de valorisation.
+  const [ficheFinanciere, setFicheFinanciere] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
 
@@ -681,7 +685,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
           {/* États financiers détaillés : ratios complets, quatre exercices
               publiés et consensus d'analystes. Chargés à part de la fiche
               entreprise, qui vient d'un endpoint distinct. */}
-          <FicheFinanciere symbole={symbol} devise={profile?.currency} />
+          <FicheFinanciere symbole={symbol} devise={profile?.currency} onFiche={setFicheFinanciere} />
 
           {/* Trajectoire et valorisation — APRÈS les graphiques et les états
               financiers : c'est une lecture de ce qui précède, pas un
@@ -698,7 +702,13 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               donnees={{
                 cours: profile.currentPrice,
                 per: profile.peRatio,
-                perMoyenHistorique: null,
+                // Moyenne des PER de fin d'exercice, celle qu'affiche la
+                // fiche ci-dessus (« contre X de moyenne sur N exercices »).
+                // Ignorée tant que la fiche chargée est celle d'un autre titre.
+                perMoyenHistorique:
+                  ficheFinanciere?.symbole === symbol
+                    ? moyenneRatio(ratiosParExercice(ficheFinanciere.historique || []), "per")
+                    : null,
                 perAttendu: profile.forwardPE,
                 rendementPct: profile.dividendYield != null ? profile.dividendYield * 100 : null,
                 // Pas d historique de rendement non plus : la methode « retour au

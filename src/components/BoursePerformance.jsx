@@ -17,6 +17,9 @@ import {
 import { BENCHMARKS, CLES_INDICE } from "../lib/benchmarks";
 import { useToast } from "../lib/ToastContext";
 import SuiviDividendes from "./SuiviDividendes";
+import MemeArgentEtf from "./MemeArgentEtf";
+import RendementsMensuels from "./RendementsMensuels";
+import CoutDesFrais from "./CoutDesFrais";
 import { NATURES_MARQUEUR } from "../lib/marqueursCourbe";
 
 /**
@@ -917,6 +920,14 @@ export default function PerformanceTab({
           )}
         </>
       )}
+
+      {/* Trois lectures qui manquaient : face à une alternative honnête (le
+          même argent dans un ETF, aux mêmes dates), mois par mois, et au prix
+          des frais. Calculées sur l'historique complet, pas sur la plage
+          choisie plus haut : elles répondent à « depuis le début ». */}
+      <MemeArgentEtf history={history} />
+      <RendementsMensuels history={history} />
+      <CoutDesFrais operations={operations} rendementAnnuelPct={twr?.reliable ? twr.annualizedPct : null} />
 
       {/* Dividendes réellement encaissés confrontés aux attendus, et TRI par
           ligne. Placé ici plutôt que dans Portefeuille : ce sont des mesures de

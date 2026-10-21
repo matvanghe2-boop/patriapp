@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { historiqueExemple, operationsExemple, objectifExemple } from "./jeuExemple";
+import { historiqueExemple, portefeuilleExemple, operationsExemple, objectifExemple } from "./jeuExemple";
 import { cascadeMensuelle } from "./cascade";
 import { serieTrajectoire } from "./objectifs";
 import { applyOperationsToBourse, rebaselineLedger } from "./finance";
@@ -20,14 +20,24 @@ describe("jeu d'exemple", () => {
     expect(historiqueExemple(AUJOURDHUI)).toEqual(historiqueExemple(AUJOURDHUI));
   });
 
+  it("aboutit aux soldes du jeu : 15 500 € investis, 1 593 € de plus-value", () => {
+    const dernier = portefeuilleExemple(AUJOURDHUI).at(-1);
+    expect(dernier.capital).toBe(15500);
+    // Les oscillations s'annulent au dernier relevé : pas de saut entre lui
+    // et le relevé du jour.
+    expect(dernier.valeur - dernier.capital).toBe(1593);
+  });
+
   it("nourrit la cascade et la trajectoire, qui restaient vides", () => {
     const historique = historiqueExemple(AUJOURDHUI);
     const operations = operationsExemple(AUJOURDHUI);
-    const mois = cascadeMensuelle({ historique, operations, mois: 6 });
+    const bourseHistory = portefeuilleExemple(AUJOURDHUI);
+    const mois = cascadeMensuelle({ historique, operations, bourseHistory, mois: 6 });
     expect(mois.length).toBeGreaterThanOrEqual(5);
-    // Chaque mois porte son versement de 300 € : la cascade le sépare bien
-    // de la performance.
-    expect(mois.every((m) => m.versements === 300)).toBe(true);
+    // Les deux historiques couvrent chaque mois : tout se décompose, et
+    // l'épargne (dépôts des livrets + versement de 300 €) reste positive.
+    expect(mois.every((m) => m.complet && m.epargne > 0)).toBe(true);
+    expect(mois.every((m) => m.debut + m.epargne + m.marche === m.fin)).toBe(true);
 
     const serie = serieTrajectoire(objectifExemple(AUJOURDHUI), {
       historique,

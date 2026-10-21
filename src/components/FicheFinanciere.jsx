@@ -9,6 +9,7 @@ import { Card, CardLabel, EmptyState, SkeletonCard, CARD_THEMES } from "./ui";
 import { pctPlain, compact, pct, nombre } from "../lib/finance";
 import { fetchFundamentals } from "../lib/api";
 import { syntheseRatios } from "../../shared/ratiosHistoriques";
+import PerHistorique from "./PerHistorique";
 
 /**
  * Fiche financière d'un titre : ratios complets, historique annuel et
@@ -268,7 +269,13 @@ function BlocConsensus({ consensus, cours, devise }) {
   );
 }
 
-export default function FicheFinanciere({ symbole, devise }) {
+/**
+ * `onFiche` remonte la fiche chargée : l'analyse de valorisation, plus bas
+ * dans Marché, en tire le PER moyen historique. Elle recevait `null` faute
+ * d'y avoir accès, et sa méthode la plus solide — le retour au PER moyen du
+ * titre — restait éteinte alors que la fiche le calculait déjà.
+ */
+export default function FicheFinanciere({ symbole, devise, onFiche }) {
   const [fiche, setFiche] = useState(null);
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState("");
@@ -283,11 +290,15 @@ export default function FicheFinanciere({ symbole, devise }) {
     setChargement(true);
     setErreur("");
     fetchFundamentals(symbole)
-      .then((f) => { if (!annule) setFiche(f); })
+      .then((f) => {
+        if (annule) return;
+        setFiche(f);
+        onFiche?.(f ? { ...f, symbole } : null);
+      })
       .catch((e) => { if (!annule) { setErreur(e.message || "Fiche indisponible."); setFiche(null); } })
       .finally(() => { if (!annule) setChargement(false); });
     return () => { annule = true; };
-  }, [symbole]);
+  }, [symbole, onFiche]);
 
   if (chargement) return <SkeletonCard lines={6} />;
 
@@ -391,6 +402,8 @@ export default function FicheFinanciere({ symbole, devise }) {
           detteSurFondsPropresPct: fiche.detteSurFondsPropresPct,
         }}
       />
+
+      <PerHistorique symbole={symbole} historique={historique} />
 
       <BlocConsensus consensus={fiche.consensus} cours={fiche.cours} devise={dev} />
 

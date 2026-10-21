@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useCallback } from "react";
 import { usePersistentState } from "./storage";
 import { weightedAverageRate, upsertByDate, todayIso, valeurPosition, coutPosition, rebaselineLedger } from "./finance";
-import { historiqueExemple, operationsExemple, objectifExemple } from "./jeuExemple";
+import { historiqueExemple, portefeuilleExemple, operationsExemple, objectifExemple } from "./jeuExemple";
 
 /**
  * Propriétaire unique de l'état patrimonial.
@@ -83,7 +83,9 @@ export const DEMO_DATASET = {
     peaVersements: 15500,
     positions: [
       { id: "cw8", ticker: "CW8.PA", name: "Amundi MSCI World", quantity: 30, pru: 420.0, current_price: 465.5, type: "ETF" },
-      { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action" },
+      // Un dividende et son mois de détachement, pour que le calendrier des
+      // revenus et la couverture des dépenses aient quelque chose à montrer.
+      { id: "ai", ticker: "AI.PA", name: "Air Liquide", quantity: 15, pru: 160.0, current_price: 175.2, type: "Action", annual_dividend: 3.3, dividendeMois: { 5: 1 } },
     ],
     operations: [],
   },
@@ -276,9 +278,12 @@ export function PatrimoineProvider({ children }) {
     // Un an de relevés : sans eux, la courbe, la cascade mensuelle et la
     // trajectoire des objectifs restaient vides dans la démonstration.
     setHistoryPast(historiqueExemple(aujourdhui));
+    // Historique du portefeuille aux mêmes dates : c'est lui qui sépare le
+    // marché de l'épargne dans la cascade, et qui nourrit l'onglet Performance.
+    setBourseHistory(portefeuilleExemple(aujourdhui));
     // N'écrase pas un objectif déjà saisi.
     setObjectifs((o) => (Array.isArray(o) && o.length ? o : [objectifExemple(aujourdhui)]));
-  }, [setProfile, setLivrets, setBourse, setEnveloppes, setHistoryPast, setObjectifs]);
+  }, [setProfile, setLivrets, setBourse, setEnveloppes, setHistoryPast, setBourseHistory, setObjectifs]);
 
   /**
    * L'objet de contexte doit garder son identité tant qu'aucune donnée n'a

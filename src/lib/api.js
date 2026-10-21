@@ -104,9 +104,16 @@ export async function parseOperationPdf(file) {
  * automatiquement du range côté serveur (intraday précis sur 1d/5d/1mo, hebdo au-delà de 5 ans).
  * Renvoie : [{ symbol, ok, interval, isIntraday, series: [{date, open, high, low, close, adjClose, volume}], firstTradeDate, currency } | { symbol, ok:false, error }]
  */
-export async function fetchHistory(symbols, range = "6mo", interval = null) {
+export async function fetchHistory(symbols, range = "6mo", interval = null, { dividendes = false } = {}) {
   if (!symbols || symbols.length === 0) return [];
-  const res = await fetch(marche("history", { symbols: symbols.join(","), range, ...(interval ? { interval } : {}) }));
+  const res = await fetch(
+    marche("history", {
+      symbols: symbols.join(","),
+      range,
+      ...(interval ? { interval } : {}),
+      ...(dividendes ? { dividendes: "1" } : {}),
+    })
+  );
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Historique indisponible");

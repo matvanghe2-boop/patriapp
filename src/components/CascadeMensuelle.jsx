@@ -8,9 +8,13 @@ import { cascadeMensuelle, barresCascade } from "../lib/cascade";
  * Décomposition mensuelle du patrimoine, en cascade.
  *
  * « Mon patrimoine a monté de 4 200 € ce mois-ci » ne dit pas l'essentiel :
- * est-ce parce qu'on a versé 4 000 €, ou parce que le marché a travaillé ?
+ * est-ce parce qu'on a épargné 4 000 €, ou parce que le marché a travaillé ?
  * Les deux produisent exactement la même courbe et n'ont rien à voir — l'un
  * est de l'épargne, l'autre de la performance.
+ *
+ * Le marché est mesuré sur l'historique du portefeuille, l'épargne est le
+ * reste (voir cascade.js) : un dépôt sur un livret n'est plus pris pour une
+ * plus-value.
  *
  * Les barres sont empilées sur une base invisible, de sorte que chacune
  * démarre là où la précédente s'arrête. Les deux totaux — début et fin —
@@ -23,6 +27,7 @@ const COULEURS = {
   flux: "#38bdf8",
   marche: "#34d399",
   cout: "#fb7185",
+  neutre: "#94a3b8",
 };
 
 function Infobulle({ active, payload }) {
@@ -41,10 +46,16 @@ function Infobulle({ active, payload }) {
   );
 }
 
-export default function CascadeMensuelle({ historique = [], operations = [], hauteur = 220 }) {
+export default function CascadeMensuelle({
+  historique = [],
+  operations = [],
+  bourseHistory = [],
+  aDesPositions = true,
+  hauteur = 220,
+}) {
   const mois = useMemo(
-    () => cascadeMensuelle({ historique, operations, mois: 6 }),
-    [historique, operations]
+    () => cascadeMensuelle({ historique, operations, bourseHistory, aDesPositions, mois: 6 }),
+    [historique, operations, bourseHistory, aDesPositions]
   );
   const [index, setIndex] = useState(null);
 
@@ -91,10 +102,29 @@ export default function CascadeMensuelle({ historique = [], operations = [], hau
 
       <p className="text-micro text-slate-500 mt-1">
         {choisi.variation >= 0 ? "Hausse" : "Baisse"} de{" "}
-        <span className="font-data text-slate-300">{eur(Math.abs(choisi.variation))}</span> sur le
-        mois, dont{" "}
-        <span className="font-data text-sky-300">{eur(Math.abs(choisi.versements))}</span>{" "}
-        {choisi.versements >= 0 ? "apportés" : "retirés"} — ce n&apos;est pas de la performance.
+        <span className="font-data text-slate-300 ghost-blur">{eur(Math.abs(choisi.variation))}</span> sur le
+        mois
+        {choisi.complet ? (
+          <>
+            {" "}: <span className="font-data text-sky-300 ghost-blur">{eur(choisi.epargne)}</span> d&apos;épargne
+            nette,{" "}
+            {choisi.marche >= 0 ? (
+              <>
+                et <span className="font-data text-emerald-300 ghost-blur">{eur(choisi.marche)}</span> venus du marché.
+              </>
+            ) : (
+              <>
+                et un marché qui en a repris{" "}
+                <span className="font-data text-rose-300 ghost-blur">{eur(Math.abs(choisi.marche))}</span>.
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            . L&apos;historique du portefeuille ne couvre pas ce mois : la part du marché ne peut pas être
+            isolée. Actualiser les cours régulièrement la rend mesurable.
+          </>
+        )}
       </p>
 
       <div style={{ height: hauteur }} className="mt-2">
@@ -129,7 +159,7 @@ export default function CascadeMensuelle({ historique = [], operations = [], hau
 
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
         {[
-          ["flux", "Versements"],
+          ["flux", "Épargne nette (versements, livrets…)"],
           ["marche", "Marché et dividendes"],
           ["cout", "Frais"],
         ].map(([type, libelle]) => (
