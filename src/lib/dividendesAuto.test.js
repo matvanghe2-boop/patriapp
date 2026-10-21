@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { dividendeModifiableAuto, majDividendeAuto, repartitionMensuelle } from "./dividendesAuto";
+import {
+  dividendeModifiableAuto,
+  majDividendeAuto,
+  repartitionMensuelle,
+  dividendesAVerifier,
+} from "./dividendesAuto";
 
 const AUJ = "2026-10-21";
 
@@ -12,11 +17,15 @@ describe("dividende par action automatique", () => {
     });
   });
 
-  it("n'écrase jamais une saisie manuelle", () => {
+  it("met à jour une saisie d'avant le remplissage automatique", () => {
+    // Le défaut rapporté : un portefeuille déjà renseigné à la main ne se
+    // mettait jamais à jour, ses valeurs étant prises pour des choix.
+    expect(dividendeModifiableAuto({ annual_dividend: 2.5 })).toBe(true);
+    expect(majDividendeAuto({ annual_dividend: 2.5 }, { dividendeParAction: 3.3 }, AUJ).annual_dividend).toBe(3.3);
+  });
+
+  it("n'écrase jamais une valeur corrigée à la main", () => {
     expect(majDividendeAuto({ annual_dividend: 3, dividendeSource: "manuel" }, { dividendeParAction: 3.3 }, AUJ)).toBeNull();
-    // Saisie d'avant cette fonction : sans source, mais renseignée.
-    expect(dividendeModifiableAuto({ annual_dividend: 2.5 })).toBe(false);
-    expect(majDividendeAuto({ annual_dividend: 2.5 }, { dividendeParAction: 3.3 }, AUJ)).toBeNull();
   });
 
   it("met à jour une valeur déjà automatique", () => {
@@ -35,6 +44,19 @@ describe("dividende par action automatique", () => {
   it("ne touche à rien quand la source a échoué", () => {
     expect(majDividendeAuto({}, { ok: false }, AUJ)).toBeNull();
     expect(majDividendeAuto({}, null, AUJ)).toBeNull();
+  });
+});
+
+describe("dividendesAVerifier", () => {
+  it("vérifie une ligne jamais vérifiée, ou vérifiée il y a plus d'une semaine", () => {
+    expect(dividendesAVerifier([{ quantity: 10 }], AUJ)).toBe(true);
+    expect(dividendesAVerifier([{ quantity: 10, dividendeVerifieLe: "2026-10-10" }], AUJ)).toBe(true);
+  });
+
+  it("ne réinterroge pas la source chaque jour", () => {
+    expect(dividendesAVerifier([{ quantity: 10, dividendeVerifieLe: "2026-10-18" }], AUJ)).toBe(false);
+    // Une ligne soldée ne compte pas.
+    expect(dividendesAVerifier([{ quantity: 0 }], AUJ)).toBe(false);
   });
 });
 

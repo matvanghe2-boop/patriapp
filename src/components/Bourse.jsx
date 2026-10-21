@@ -12,7 +12,7 @@ import EtatVide from "./EtatVide";
 import { useTirerPourRafraichir, IndicateurRafraichissement, useBalayageSuppression } from "./gestes";
 import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux, lireNombre, variationDuJour } from "../lib/finance";
 import { searchSecurity, fetchQuotes, fetchTauxChange, fetchHistory, fetchScreen } from "../lib/api";
-import { majDividendeAuto, repartitionMensuelle } from "../lib/dividendesAuto";
+import { majDividendeAuto, repartitionMensuelle, dividendesAVerifier } from "../lib/dividendesAuto";
 import {
   plagePour,
   joursManquants,
@@ -666,16 +666,26 @@ export default function Bourse({
                 current_price: lireNombre(editValues.current_price) ?? 0,
                 annual_dividend: lireNombre(editValues.annual_dividend) ?? 0,
                 // Corriger le dividende à la main le soustrait au remplissage
-                // automatique ; le laisser tel quel ne change pas sa source.
-                ...((lireNombre(editValues.annual_dividend) ?? 0) !== (Number(p.annual_dividend) || 0)
-                  ? { dividendeSource: "manuel" }
-                  : {}),
+                // automatique ; le laisser tel quel ne change pas sa source ;
+                // VIDER le champ le rend au marché, qui le remplira à la
+                // prochaine vérification.
+                ...(String(editValues.annual_dividend ?? "").trim() === ""
+                  ? { dividendeSource: "auto", dividendeVerifieLe: null }
+                  : (lireNombre(editValues.annual_dividend) ?? 0) !== (Number(p.annual_dividend) || 0)
+                    ? { dividendeSource: "manuel" }
+                    : {}),
               }
             : p
         ),
       })
     );
     setEditingId(null);
+    // Champ vidé : la valeur du marché est récupérée tout de suite, plutôt
+    // qu'à la prochaine vérification hebdomadaire.
+    if (String(editValues.annual_dividend ?? "").trim() === "") {
+      const cible = bourse.positions.find((p) => p.id === id);
+      if (cible?.ticker) completerDividendes([cible.ticker]);
+    }
   };
 
   /**
@@ -698,15 +708,40 @@ export default function Bourse({
         .map((h) => [String(h.symbol).toUpperCase(), repartitionMensuelle(h.dividendes, aujourdhui)])
     );
     if (ratiosPar.size === 0 && moisPar.size === 0) return;
+
+    // Ce qui va changer, pour le dire : un remplissage silencieux ne se
+    // distinguait pas d'un remplissage qui ne marche pas.
+    const changes = (bourse.positions || [])
+      .map((p) => {
+        const maj = majDividendeAuto(p, ratiosPar.get(String(p.ticker || "").toUpperCase()), aujourdhui);
+        return maj && "annual_dividend" in maj && Number(maj.annual_dividend) !== Number(p.annual_dividend || 0)
+          ? `${p.ticker} ${eur(maj.annual_dividend, 2)}`
+          : null;
+      })
+      .filter(Boolean);
+
+    const avant = bourse;
     setBourse((b) => ({
       ...b,
       positions: b.positions.map((p) => {
         const cle = String(p.ticker || "").toUpperCase();
-        const maj = majDividendeAuto(p, ratiosPar.get(cle), aujourdhui);
+        const ratio = ratiosPar.get(cle);
+        const maj = majDividendeAuto(p, ratio, aujourdhui);
         const mois = moisPar.has(cle) ? { dividendeMois: moisPar.get(cle) } : null;
-        return maj || mois ? { ...p, ...(maj || {}), ...(mois || {}) } : p;
+        // Ligne vérifiée dès que la source a répondu pour elle, même si sa
+        // valeur est manuelle ou inchangée : c'est ce qui évite de la
+        // réinterroger à chaque ouverture de l'onglet.
+        const verifie = (ratio && ratio.ok !== false) || mois ? { dividendeVerifieLe: aujourdhui } : null;
+        return maj || mois || verifie ? { ...p, ...(maj || {}), ...(mois || {}), ...(verifie || {}) } : p;
       }),
     }));
+
+    if (changes.length > 0) {
+      showToast({
+        message: `Dividende par action mis à jour : ${changes.join(", ")}.`,
+        onUndo: () => setBourse(avant),
+      });
+    }
   };
 
   const refreshPrices = async () => {
@@ -1048,6 +1083,13 @@ export default function Bourse({
     rattraperHistorique().finally(() => {
       if (!hasToday || veilleManquante) captureSnapshot(true);
     });
+    // Dividendes : vérifiés tout seuls, comme les cours, et non plus
+    // seulement sur « Actualiser les cours » — qu'on ne presse presque jamais
+    // puisque les cours, eux, s'actualisent déjà à l'ouverture. Une fois par
+    // semaine au plus : un dividende change une ou deux fois par an.
+    if (dividendesAVerifier(bourse.positions, todayIso())) {
+      completerDividendes([...new Set(bourse.positions.map((p) => p.ticker).filter(Boolean))]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1390,7 +1432,7 @@ export default function Bourse({
                         </td>
                         <td className="py-3 pr-3 text-slate-500 text-xs" colSpan={3}>Aperçu après enregistrement</td>
                         <td className="py-2 pr-3">
-                          <input type="number" step="0.01" placeholder="€ / action" value={editValues.annual_dividend} onChange={(e) => setEditValues((v) => ({ ...v, annual_dividend: e.target.value }))} className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60" />
+                          <input type="number" step="0.01" placeholder="vide = auto" title="Dividende annuel par action. Vide : la valeur du marché, mise à jour chaque semaine." value={editValues.annual_dividend} onChange={(e) => setEditValues((v) => ({ ...v, annual_dividend: e.target.value }))} className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data focus:outline-none focus:border-amber-400/60" />
                         </td>
                         <td className="py-3 text-right">
                           <div className="flex items-center justify-end gap-1">

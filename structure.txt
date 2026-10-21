@@ -136,6 +136,7 @@ src/components/Dashboard.jsx
 src/components/Decumulation.jsx
 src/components/DispositionDashboard.jsx
 src/components/DispositionDashboard.test.jsx
+src/components/DividendesAuto.test.jsx
 src/components/ErrorBoundary.jsx
 src/components/EtatSourceMarche.jsx
 src/components/EtatVide.jsx

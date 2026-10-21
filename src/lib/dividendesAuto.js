@@ -3,23 +3,30 @@
  *
  * Le dividende annuel par action se saisissait à la main, ligne par ligne,
  * via le crayon : tant qu'on ne l'avait pas fait, la carte « Revenus de
- * dividendes estimés » restait vide. La source de marché le connaît pourtant
- * — c'est le même chiffre que celui affiché dans la fiche de chaque titre.
+ * dividendes estimés » restait vide, et une fois fait, il vieillissait sans
+ * que rien ne le signale. La source de marché le connaît pourtant — c'est le
+ * même chiffre que celui affiché dans la fiche de chaque titre.
  *
- * RÈGLE DE PRIORITÉ : une saisie manuelle n'est JAMAIS écrasée. La valeur
- * automatique ne remplit qu'une ligne vide, ou une ligne déjà remplie
- * automatiquement. Une saisie à la main d'avant cette fonction (dividende
- * renseigné, sans source) est traitée comme manuelle : on ne sait pas d'où
- * elle vient, donc on n'y touche pas.
+ * RÈGLE DE PRIORITÉ : seule une valeur EXPLICITEMENT corrigée à la main
+ * (`dividendeSource: "manuel"`, posé quand on change le chiffre au crayon)
+ * est protégée. Toute autre valeur suit le marché — y compris celles saisies
+ * avant l'arrivée du remplissage automatique.
+ *
+ * La première version protégeait aussi ces anciennes saisies, faute de savoir
+ * d'où elles venaient. Résultat : un portefeuille déjà renseigné ne se mettait
+ * JAMAIS à jour, ce qui est exactement le cas qu'il fallait servir. Elles
+ * avaient été tapées parce qu'il n'existait pas d'autre moyen, pas pour
+ * contredire le marché.
  *
  * Module pur : aucune requête, aucune dépendance React.
  */
 
+/** Intervalle entre deux vérifications automatiques, en jours. */
+export const JOURS_ENTRE_VERIFICATIONS = 7;
+
 /** La ligne accepte-t-elle une valeur automatique ? */
 export function dividendeModifiableAuto(position) {
-  if (position?.dividendeSource === "manuel") return false;
-  if (position?.dividendeSource === "auto") return true;
-  return !(Number(position?.annual_dividend) > 0);
+  return position?.dividendeSource !== "manuel";
 }
 
 /**
@@ -39,6 +46,21 @@ export function majDividendeAuto(position, ratios, aujourdhui) {
     return { dividendeMajLe: aujourdhui };
   }
   return { annual_dividend: valeur, dividendeSource: "auto", dividendeMajLe: aujourdhui };
+}
+
+/**
+ * Faut-il interroger la source ? Oui dès qu'une ligne détenue n'a jamais été
+ * vérifiée, ou ne l'a pas été depuis une semaine. Un dividende change une ou
+ * deux fois par an : le revérifier à chaque ouverture de l'onglet coûterait
+ * deux appels réseau pour rien.
+ */
+export function dividendesAVerifier(positions = [], aujourdhui, jours = JOURS_ENTRE_VERIFICATIONS) {
+  const limite = new Date(`${aujourdhui}T12:00:00Z`);
+  limite.setUTCDate(limite.getUTCDate() - jours);
+  const limiteIso = limite.toISOString().slice(0, 10);
+  return (positions || []).some(
+    (p) => Number(p?.quantity) > 0 && (!p.dividendeVerifieLe || p.dividendeVerifieLe <= limiteIso)
+  );
 }
 
 /**
