@@ -43,12 +43,46 @@ export function seriePerMensuelle(clotures = [], historique = []) {
     const bpa = retenu.DilutedEPS;
     sortie.push({
       date: c.date,
+      cours: c.close,
       per: bpa > 0 ? c.close / bpa : null,
       bpa,
       exercice: retenu.exercice,
     });
   }
   return sortie;
+}
+
+/**
+ * Le cours face à la valeur que ses bénéfices justifient au PER moyen.
+ *
+ * `justifiee` = BPA du dernier exercice clos × PER moyen observé : une marche
+ * d'escalier qui monte avec les bénéfices. Le cours au-dessus, le marché paie
+ * plus cher que d'habitude ; en dessous, moins cher.
+ *
+ * Prolongement par le CONSENSUS : aux dates de clôture des deux exercices que
+ * les analystes chiffrent, le BPA attendu × le même PER moyen. Rien au-delà :
+ * la source n'en publie pas, et l'extrapoler serait inventer.
+ *
+ * @param {Array} serie  sortie de `seriePerMensuelle`
+ * @param {number} perMoyen
+ * @param {Array<{exercice: string, bpaEstime: number}>} consensus
+ */
+export function serieCoursBenefices(serie = [], perMoyen, consensus = []) {
+  if (!(perMoyen > 0) || !serie?.length) return [];
+  const points = serie.map((p) => ({
+    date: p.date,
+    cours: p.cours,
+    justifiee: p.bpa > 0 ? p.bpa * perMoyen : null,
+  }));
+  const dernier = points[points.length - 1];
+  const futurs = (consensus || [])
+    .filter((c) => c?.exercice && c.exercice > dernier.date && c.bpaEstime > 0)
+    .sort((a, b) => (a.exercice < b.exercice ? -1 : 1))
+    .map((c) => ({ date: c.exercice, attendue: c.bpaEstime * perMoyen }));
+  if (futurs.length === 0) return points;
+  // Le dernier point réel porte aussi la série « attendue », pour que la
+  // ligne pointillée parte du présent au lieu de flotter.
+  return [...points.slice(0, -1), { ...dernier, attendue: dernier.justifiee }, ...futurs];
 }
 
 /**

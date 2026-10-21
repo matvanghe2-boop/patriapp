@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { seriePerMensuelle, lirePerHistorique } from "./perHistorique.js";
+import { seriePerMensuelle, lirePerHistorique, serieCoursBenefices } from "./perHistorique.js";
 
 const HISTORIQUE = [
   { exercice: "2023-12-31", DilutedEPS: 5 },
@@ -17,8 +17,8 @@ describe("seriePerMensuelle", () => {
       HISTORIQUE
     );
     expect(serie).toEqual([
-      { date: "2024-06-01", per: 20, bpa: 5, exercice: "2023-12-31" },
-      { date: "2025-03-01", per: 20, bpa: 6, exercice: "2024-12-31" },
+      { date: "2024-06-01", cours: 100, per: 20, bpa: 5, exercice: "2023-12-31" },
+      { date: "2025-03-01", cours: 120, per: 20, bpa: 6, exercice: "2024-12-31" },
     ]);
   });
 
@@ -47,5 +47,34 @@ describe("lirePerHistorique", () => {
 
   it("refuse de conclure sur moins de six mois", () => {
     expect(lirePerHistorique(serie.slice(0, 5))).toBeNull();
+  });
+});
+
+describe("serieCoursBenefices", () => {
+  const serie = [
+    { date: "2025-06-01", cours: 100, bpa: 5 },
+    { date: "2026-09-01", cours: 130, bpa: 6 },
+  ];
+
+  it("trace la valeur justifiée par les bénéfices au PER moyen", () => {
+    const s = serieCoursBenefices(serie, 20);
+    expect(s.map((p) => p.justifiee)).toEqual([100, 120]);
+  });
+
+  it("prolonge avec le consensus à partir du présent, et seulement les exercices futurs", () => {
+    const s = serieCoursBenefices(serie, 20, [
+      { exercice: "2026-12-31", bpaEstime: 6.5 },
+      { exercice: "2027-12-31", bpaEstime: 7 },
+      { exercice: "2025-12-31", bpaEstime: 99 },
+    ]);
+    expect(s.at(-3)).toMatchObject({ date: "2026-09-01", attendue: 120 });
+    expect(s.slice(-2)).toEqual([
+      { date: "2026-12-31", attendue: 130 },
+      { date: "2027-12-31", attendue: 140 },
+    ]);
+  });
+
+  it("ne trace rien sans PER moyen", () => {
+    expect(serieCoursBenefices(serie, null)).toEqual([]);
   });
 });

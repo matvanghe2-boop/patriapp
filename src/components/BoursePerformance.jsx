@@ -20,6 +20,7 @@ import SuiviDividendes from "./SuiviDividendes";
 import MemeArgentEtf from "./MemeArgentEtf";
 import RendementsMensuels from "./RendementsMensuels";
 import CoutDesFrais from "./CoutDesFrais";
+import MesDecisions from "./MesDecisions";
 import { NATURES_MARQUEUR } from "../lib/marqueursCourbe";
 
 /**
@@ -928,6 +929,10 @@ export default function PerformanceTab({
       <MemeArgentEtf history={history} />
       <RendementsMensuels history={history} />
       <CoutDesFrais operations={operations} rendementAnnuelPct={twr?.reliable ? twr.annualizedPct : null} />
+
+      {/* Mes décisions relues avec le recul : ce que les ventes ont fait
+          gagner ou manquer, et où les achats tombaient dans leur fourchette. */}
+      <MesDecisions bourse={bourse} />
 
       {/* Dividendes réellement encaissés confrontés aux attendus, et TRI par
           ligne. Placé ici plutôt que dans Portefeuille : ce sont des mesures de

@@ -17,14 +17,26 @@
  * chargement, mises en cache une heure côté serveur.
  */
 
+/**
+ * Composition OFFICIELLE du CAC 40 depuis la revue du 22 décembre 2025
+ * (entrée d'Eiffage, sortie d'Edenred ; Euronext avait remplacé
+ * Teleperformance en septembre). Les quarante symboles ont été vérifiés contre
+ * l'API. La liste précédente en comptait quarante-deux, dont des sortants, et
+ * l'API n'en lisant que quarante, les deux derniers disparaissaient sans bruit.
+ *
+ * À revoir après chaque revue trimestrielle d'Euronext (troisième vendredi de
+ * mars, juin, septembre et décembre) : `COMPOSITION_CAC40_AU` est affichée
+ * sous la carte du CAC 40, pour que son âge se voie.
+ */
+export const COMPOSITION_CAC40_AU = "2025-12-22";
+
 export const INDEX_CONSTITUENTS = {
   cac40: [
-    "AC.PA", "AI.PA", "AIR.PA", "ALO.PA", "MT.AS", "CS.PA", "BNP.PA", "EN.PA",
-    "CAP.PA", "CA.PA", "ACA.PA", "BN.PA", "DSY.PA", "EDEN.PA", "ENGI.PA", "EL.PA",
-    "ERF.PA", "RMS.PA", "KER.PA", "LR.PA", "OR.PA", "MC.PA", "ML.PA", "ORA.PA",
-    "RI.PA", "PUB.PA", "RNO.PA", "SAF.PA", "SGO.PA", "SAN.PA", "SU.PA", "GLE.PA",
-    "STLAP.PA", "STMPA.PA", "TE.PA", "HO.PA", "TTE.PA", "VIE.PA", "DG.PA", "VIV.PA",
-    "SW.PA", "BVI.PA",
+    "AC.PA", "AI.PA", "AIR.PA", "MT.AS", "CS.PA", "BNP.PA", "EN.PA", "BVI.PA",
+    "CAP.PA", "CA.PA", "ACA.PA", "BN.PA", "DSY.PA", "FGR.PA", "ENGI.PA", "EL.PA",
+    "ERF.PA", "ENX.PA", "RMS.PA", "KER.PA", "LR.PA", "OR.PA", "MC.PA", "ML.PA",
+    "ORA.PA", "RI.PA", "PUB.PA", "RNO.PA", "SAF.PA", "SGO.PA", "SAN.PA", "SU.PA",
+    "GLE.PA", "STLAP.PA", "STMPA.PA", "HO.PA", "TTE.PA", "URW.PA", "VIE.PA", "DG.PA",
   ],
   sp500: [
     "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "AVGO", "TSLA", "BRK-B", "JPM",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   BarChart3, Scale, Coins, ShieldCheck, TrendingUp, Users, Info, AlertTriangle, History,
 } from "lucide-react";
@@ -7,9 +7,13 @@ import {
 } from "recharts";
 import { Card, CardLabel, EmptyState, SkeletonCard, CARD_THEMES } from "./ui";
 import { pctPlain, compact, pct, nombre } from "../lib/finance";
-import { fetchFundamentals } from "../lib/api";
+import { fetchFundamentals, fetchTauxChange } from "../lib/api";
 import { syntheseRatios } from "../../shared/ratiosHistoriques";
+import { devisesNecessaires, facteurConversion } from "../lib/deviseComptes";
+import { deviseCapitalisation } from "../lib/pairs";
 import PerHistorique from "./PerHistorique";
+import DividendesLongTerme from "./DividendesLongTerme";
+import { RachatsActions, NotePiotroski, SurprisesResultats } from "./SanteComptes";
 
 /**
  * Fiche financière d'un titre : ratios complets, historique annuel et
@@ -225,7 +229,7 @@ function TableauExercices({ historique }) {
 }
 
 /** Consensus d'analystes et PER estimés qui en découlent. */
-function BlocConsensus({ consensus, cours, devise }) {
+function BlocConsensus({ consensus, cours, devise, sansSurprises }) {
   const exercices = [consensus?.anneeEnCours, consensus?.anneeSuivante].filter(Boolean);
   if (exercices.length === 0) return null;
 
@@ -264,6 +268,8 @@ function BlocConsensus({ consensus, cours, devise }) {
         Le consensus s'arrête à l'exercice suivant : la source ne publie pas au-delà. Une troisième
         année ne pourrait qu'être extrapolée, ce qui reviendrait à afficher une invention à côté de
         données réelles.
+        {sansSurprises &&
+          " L'écart entre prévisions et résultats publiés n'est pas suivi par la source pour cette société — c'est le cas de la plupart des sociétés françaises, qui publient par semestre."}
       </p>
     </Card>
   );
@@ -279,6 +285,10 @@ export default function FicheFinanciere({ symbole, devise, onFiche }) {
   const [fiche, setFiche] = useState(null);
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState("");
+  // Taux de change du titre chargé, quand ses comptes ne sont pas publiés dans
+  // sa monnaie de cotation. Rattachés au symbole : ceux du titre précédent ne
+  // doivent jamais servir au suivant.
+  const [taux, setTaux] = useState(null);
 
   useEffect(() => {
     if (!symbole) return;
@@ -292,13 +302,77 @@ export default function FicheFinanciere({ symbole, devise, onFiche }) {
     fetchFundamentals(symbole)
       .then((f) => {
         if (annule) return;
-        setFiche(f);
-        onFiche?.(f ? { ...f, symbole } : null);
+        // Le symbole voyage AVEC la fiche : c'est ce qui permet de ne jamais
+        // présenter la fiche d'un titre sous le nom du suivant.
+        setFiche(f ? { ...f, symbole } : null);
       })
       .catch((e) => { if (!annule) { setErreur(e.message || "Fiche indisponible."); setFiche(null); } })
       .finally(() => { if (!annule) setChargement(false); });
     return () => { annule = true; };
-  }, [symbole, onFiche]);
+  }, [symbole]);
+
+  const devisesTaux = useMemo(
+    () => [
+      ...new Set([
+        ...devisesNecessaires(fiche?.deviseComptes, fiche?.devise),
+        ...devisesNecessaires(fiche?.deviseComptes, deviseCapitalisation(fiche?.devise)),
+      ]),
+    ],
+    [fiche]
+  );
+
+  useEffect(() => {
+    if (!fiche || devisesTaux.length === 0) return undefined;
+    let annule = false;
+    fetchTauxChange(devisesTaux)
+      .then((liste) => {
+        if (!annule) setTaux({ symbole: fiche.symbole, versEuro: Object.fromEntries(liste.filter((t) => t.ok).map((t) => [t.devise, t.versEuro])) });
+      })
+      .catch(() => {
+        if (!annule) setTaux({ symbole: fiche.symbole, versEuro: {} });
+      });
+    return () => {
+      annule = true;
+    };
+  }, [fiche, devisesTaux]);
+
+  // `undefined` : taux attendus ; `null` : conversion nécessaire mais
+  // impossible ; un nombre : facteur à appliquer.
+  const tauxDuTitre = devisesTaux.length === 0 ? {} : taux?.symbole === fiche?.symbole ? taux.versEuro : undefined;
+  const facteurBpa = tauxDuTitre === undefined ? undefined : facteurConversion(fiche?.deviseComptes, fiche?.devise, tauxDuTitre);
+  const facteurCap =
+    tauxDuTitre === undefined ? undefined : facteurConversion(fiche?.deviseComptes, deviseCapitalisation(fiche?.devise), tauxDuTitre);
+
+  /*
+   * Historique et consensus ramenés dans la monnaie de COTATION.
+   *
+   * Le PER divise un cours par un bénéfice par action : les deux doivent être
+   * dans la même monnaie. Tant que le taux n'est pas connu — ou s'il ne peut
+   * pas l'être —, le BPA est retiré plutôt que laissé faux : les cartes qui en
+   * dépendent disparaissent au lieu d'afficher un PER en euros par dollar.
+   */
+  const historiqueCote = useMemo(
+    () =>
+      (fiche?.historique || []).map((e) => {
+        if (!Number.isFinite(e.DilutedEPS)) return e;
+        if (facteurBpa == null) return { ...e, DilutedEPS: null };
+        return { ...e, DilutedEPS: e.DilutedEPS * facteurBpa };
+      }),
+    [fiche, facteurBpa]
+  );
+  const consensusCote = useMemo(() => {
+    const c = fiche?.consensus;
+    if (!c) return c;
+    const conv = (e) => (e && facteurBpa != null ? { ...e, bpaEstime: e.bpaEstime * facteurBpa } : null);
+    return { anneeEnCours: conv(c.anneeEnCours), anneeSuivante: conv(c.anneeSuivante) };
+  }, [fiche, facteurBpa]);
+
+  // Remontée vers Marché, une fois l'historique converti : l'analyse de
+  // valorisation en tire le PER moyen, qui doit être le même qu'ici.
+  useEffect(() => {
+    if (facteurBpa === undefined && fiche) return;
+    onFiche?.(fiche ? { ...fiche, historique: historiqueCote, consensus: consensusCote } : null);
+  }, [fiche, historiqueCote, consensusCote, facteurBpa, onFiche]);
 
   if (chargement) return <SkeletonCard lines={6} />;
 
@@ -316,8 +390,9 @@ export default function FicheFinanciere({ symbole, devise, onFiche }) {
 
   if (!fiche) return null;
 
-  const historique = fiche.historique || [];
+  const historique = historiqueCote;
   const dev = fiche.devise || devise;
+  const conversionImpossible = facteurBpa === null && fiche.deviseComptes;
 
   return (
     <div className="flex flex-col gap-4">
@@ -403,9 +478,41 @@ export default function FicheFinanciere({ symbole, devise, onFiche }) {
         }}
       />
 
-      <PerHistorique symbole={symbole} historique={historique} />
+      {conversionImpossible && (
+        <p className="text-micro text-amber-300/90 flex items-start gap-1.5">
+          <AlertTriangle size={12} className="shrink-0 mt-0.5" aria-hidden="true" />
+          Comptes publiés en {fiche.deviseComptes}, cours en {dev} : le taux de change est indisponible, les PER calculés
+          sur l&apos;historique sont masqués plutôt que faussés.
+        </p>
+      )}
 
-      <BlocConsensus consensus={fiche.consensus} cours={fiche.cours} devise={dev} />
+      <PerHistorique
+        symbole={symbole}
+        historique={historique}
+        devise={dev}
+        consensus={[consensusCote?.anneeEnCours, consensusCote?.anneeSuivante].filter(Boolean)}
+      />
+
+      <DividendesLongTerme symbole={symbole} devise={dev} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RachatsActions
+          historique={historique}
+          capitalisation={fiche.capitalisation}
+          facteurComptes={facteurCap}
+          deviseComptes={fiche.deviseComptes}
+        />
+        <NotePiotroski historique={historique} secteur={fiche.secteur} />
+      </div>
+
+      <BlocConsensus
+        consensus={consensusCote}
+        cours={fiche.cours}
+        devise={dev}
+        sansSurprises={!fiche.surprises?.length}
+      />
+
+      <SurprisesResultats surprises={fiche.surprises} deviseComptes={fiche.deviseComptes || dev} />
 
       <Card accent={CARD_THEMES.violet}>
         <CardLabel icon={BarChart3}>

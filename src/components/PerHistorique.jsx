@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { History } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from "recharts";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
-import { nombre, pctPlain } from "../lib/finance";
+import { nombre, pctPlain, pct } from "../lib/finance";
 import { fetchHistory } from "../lib/api";
-import { seriePerMensuelle, lirePerHistorique } from "../../shared/perHistorique.js";
+import { seriePerMensuelle, lirePerHistorique, serieCoursBenefices } from "../../shared/perHistorique.js";
 
 /**
  * PER mois par mois, sur l'historique des exercices publiés.
@@ -31,9 +31,32 @@ function Infobulle({ active, payload }) {
   );
 }
 
-export default function PerHistorique({ symbole, historique = [] }) {
+function InfobulleCours({ active, payload, devise }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0]?.payload;
+  if (!p) return null;
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-950/95 px-2.5 py-2 text-micro shadow-xl">
+      <div className="text-slate-300">{moisCourt(p.date)}</div>
+      {p.cours != null && <div className="font-data tabular-nums text-cyan-300">Cours {nombre(p.cours, 2)} {devise}</div>}
+      {p.justifiee != null && <div className="font-data tabular-nums text-violet-300">Justifié par les bénéfices {nombre(p.justifiee, 2)} {devise}</div>}
+      {p.cours == null && p.attendue != null && (
+        <div className="font-data tabular-nums text-amber-300">Selon le consensus {nombre(p.attendue, 2)} {devise}</div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * `consensus` : exercices chiffrés par les analystes, BPA déjà ramené dans la
+ * monnaie de cotation par la fiche. `devise` : celle du cours.
+ */
+export default function PerHistorique({ symbole, historique = [], consensus = [], devise = "" }) {
   const [clotures, setClotures] = useState(null);
   const [erreur, setErreur] = useState("");
+  // « per » : le PER mois par mois ; « cours » : le cours face à ce que ses
+  // bénéfices justifient au PER moyen. Même donnée, deux questions.
+  const [vue, setVue] = useState("per");
 
   const avecBpa = historique.some((e) => Number.isFinite(e?.DilutedEPS));
 
@@ -61,12 +84,37 @@ export default function PerHistorique({ symbole, historique = [] }) {
 
   const serie = useMemo(() => seriePerMensuelle(clotures || [], historique), [clotures, historique]);
   const lecture = useMemo(() => lirePerHistorique(serie), [serie]);
+  const serieCours = useMemo(() => serieCoursBenefices(serie, lecture?.moyenne, consensus), [serie, lecture, consensus]);
+  const dernierCours = [...serieCours].reverse().find((p) => p.cours != null);
+  const dernierAttendu = serieCours.at(-1)?.cours == null ? serieCours.at(-1) : null;
 
   if (!avecBpa) return null;
 
   return (
     <Card accent={CARD_THEMES.violet}>
-      <CardLabel icon={History}>PER dans le temps</CardLabel>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <CardLabel icon={History}>{vue === "per" ? "PER dans le temps" : "Cours et bénéfices"}</CardLabel>
+        {lecture && (
+          <div className="flex items-center gap-1 rounded-lg border border-slate-800 p-0.5 bg-slate-950/60" role="group" aria-label="Vue du graphique">
+            {[
+              { cle: "per", libelle: "PER" },
+              { cle: "cours", libelle: "Cours et bénéfices" },
+            ].map((v) => (
+              <button
+                key={v.cle}
+                type="button"
+                onClick={() => setVue(v.cle)}
+                aria-pressed={vue === v.cle}
+                className={`text-micro font-medium px-2.5 py-1 rounded-md transition-colors ${
+                  vue === v.cle ? "bg-violet-500/20 text-violet-300 border border-violet-500/40" : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {v.libelle}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {erreur ? (
         <p className="text-micro text-amber-300/90 mt-1">{erreur}</p>
@@ -76,6 +124,81 @@ export default function PerHistorique({ symbole, historique = [] }) {
         <p className="text-micro text-slate-500 mt-1">
           Pas assez de mois couverts par un exercice bénéficiaire pour tracer un historique.
         </p>
+      ) : vue === "cours" ? (
+        <>
+          {dernierCours?.justifiee != null && (
+            <p className="text-sm text-slate-300 mt-1">
+              Au PER moyen de <span className="font-data">{nombre(lecture.moyenne, 1)}</span>, les bénéfices justifient un cours de{" "}
+              <span className="font-data text-violet-300">
+                {nombre(dernierCours.justifiee, 2)} {devise}
+              </span>{" "}
+              ; le titre cote{" "}
+              <span className="font-data text-cyan-300">
+                {nombre(dernierCours.cours, 2)} {devise}
+              </span>{" "}
+              (
+              <span className={`font-data ${dernierCours.cours > dernierCours.justifiee ? "text-rose-400" : "text-emerald-400"}`}>
+                {pct((dernierCours.cours / dernierCours.justifiee - 1) * 100, 0)}
+              </span>
+              ).
+            </p>
+          )}
+          {dernierAttendu && (
+            <p className="text-micro text-slate-500 mt-0.5">
+              Avec le bénéfice attendu par les analystes pour l&apos;exercice {dernierAttendu.date.slice(0, 4)}, ce même PER donnerait{" "}
+              <span className="font-data text-amber-300">
+                {nombre(dernierAttendu.attendue, 2)} {devise}
+              </span>
+              .
+            </p>
+          )}
+
+          <div style={{ height: 220 }} className="mt-3">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={serieCours} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke="rgb(var(--c-slate-800))" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={moisCourt}
+                  tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  minTickGap={28}
+                />
+                <YAxis
+                  tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={40}
+                  tickFormatter={(v) => nombre(v, 0)}
+                  domain={["auto", "auto"]}
+                />
+                <Line type="monotone" dataKey="cours" name="Cours" stroke="#22d3ee" strokeWidth={1.8} dot={false} isAnimationActive={false} />
+                {/* En escalier : le bénéfice change une fois par exercice. */}
+                <Line type="stepAfter" dataKey="justifiee" name="Justifié" stroke="#a78bfa" strokeWidth={2} dot={false} isAnimationActive={false} />
+                <Line
+                  type="linear"
+                  dataKey="attendue"
+                  name="Consensus"
+                  stroke="#fbbf24"
+                  strokeWidth={1.8}
+                  strokeDasharray="5 4"
+                  dot={{ r: 3 }}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+                <Tooltip content={<InfobulleCours devise={devise} />} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
+          <p className="text-micro text-slate-500 mt-2">
+            <span className="text-cyan-300">Cours</span> de clôture du mois ;{" "}
+            <span className="text-violet-300">valeur justifiée</span> = bénéfice par action du dernier exercice clos × PER
+            moyen du titre ; <span className="text-amber-300">pointillés</span> = le même calcul avec le bénéfice attendu par
+            le consensus, sur les deux exercices qu&apos;il chiffre et pas au-delà.
+          </p>
+        </>
       ) : (
         <>
           <p className="text-sm text-slate-300 mt-1">

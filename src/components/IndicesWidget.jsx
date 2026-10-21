@@ -3,6 +3,7 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { fetchQuotes } from "../lib/api";
 import { INDEX_TABS, INDEX_CONSTITUENTS } from "../lib/indexConstituents";
 import { pctPlain } from "../lib/finance";
+import CarteCac40 from "./CarteCac40";
 
 function pctChange(q) {
   if (!q?.ok || !q.previousClose || !q.price) return null;
@@ -14,7 +15,11 @@ function shortLabel(name, symbol) {
   return name.length > 22 ? `${name.slice(0, 20)}…` : name;
 }
 
-export default function IndicesWidget() {
+/**
+ * `onOuvrir` ouvre une valeur dans Marché ; `tickersDetenus` entoure les
+ * lignes du portefeuille sur la carte du CAC 40.
+ */
+export default function IndicesWidget({ onOuvrir, tickersDetenus = [] }) {
   const [active, setActive] = useState("cac40");
   const [indexQuotes, setIndexQuotes] = useState({});
   const [moversByIndex, setMoversByIndex] = useState({});
@@ -58,7 +63,9 @@ export default function IndicesWidget() {
   const openTab = (key) => {
     setActive(key);
     setOpenPanel(true);
-    loadMovers(key);
+    // Le CAC 40 a sa carte complète, qui charge ses propres cours : la liste
+    // des extrêmes n'y servirait plus.
+    if (key !== "cac40") loadMovers(key);
   };
 
   const movers = moversByIndex[active];
@@ -93,7 +100,13 @@ export default function IndicesWidget() {
         })}
       </div>
 
-      {openPanel && (
+      {openPanel && active === "cac40" && (
+        <div className="mt-3 pt-3 border-t border-slate-800">
+          <CarteCac40 onOuvrir={onOuvrir} tickersDetenus={tickersDetenus} />
+        </div>
+      )}
+
+      {openPanel && active !== "cac40" && (
         <div className="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-4">
           <div>
             <div className="text-micro uppercase tracking-wide text-emerald-400/80 mb-1.5">Meilleures perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>

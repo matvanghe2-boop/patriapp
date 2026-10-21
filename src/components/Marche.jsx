@@ -7,6 +7,8 @@ import {
 import { Card, CardLabel, EmptyState, CARD_THEMES, SkeletonChart } from "./ui";
 import FicheFinanciere from "./FicheFinanciere";
 import AnalyseValeur from "./AnalyseValeur";
+import ComparaisonPairs from "./ComparaisonPairs";
+import ThermometreMarche from "./ThermometreMarche";
 import AssetLogo from "./AssetLogo";
 import IndicesWidget from "./IndicesWidget";
 import ChartFocusModal from "./ChartFocusModal";
@@ -147,7 +149,8 @@ const RECO_LABELS = {
   sell: { label: "Vente", tone: "text-rose-400" },
 };
 
-export default function Marche({ watchlist, setWatchlist, openRequest }) {
+export default function Marche({ watchlist, setWatchlist, openRequest, positions = [] }) {
+  const tickersDetenus = useMemo(() => positions.filter((p) => Number(p?.quantity) > 0).map((p) => p.ticker), [positions]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -377,7 +380,8 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
 
   return (
     <div className="relative space-y-6">
-      <IndicesWidget />
+      <IndicesWidget onOuvrir={pickSymbol} tickersDetenus={tickersDetenus} />
+      <ThermometreMarche />
 
       <Card accent={CARD_THEMES.violet}>
         <div className="relative" ref={searchBoxRef}>
@@ -686,6 +690,10 @@ export default function Marche({ watchlist, setWatchlist, openRequest }) {
               publiés et consensus d'analystes. Chargés à part de la fiche
               entreprise, qui vient d'un endpoint distinct. */}
           <FicheFinanciere symbole={symbol} devise={profile?.currency} onFiche={setFicheFinanciere} />
+
+          {/* Les mêmes ratios, replacés parmi les concurrents de l'industrie.
+              Rien pour un fonds : il n'a pas d'industrie. */}
+          {!isFund && <ComparaisonPairs symbole={symbol} fiche={ficheFinanciere} onOuvrir={pickSymbol} />}
 
           {/* Trajectoire et valorisation — APRÈS les graphiques et les états
               financiers : c'est une lecture de ce qui précède, pas un

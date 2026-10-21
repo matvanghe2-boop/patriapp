@@ -78,6 +78,21 @@ const SERIES_ANNUELLES = [
   // ce qui fausserait toute société ayant racheté ses titres.
   "annualDilutedEPS",
   "annualBasicAverageShares",
+  // Note de Piotroski : bilan et flux de deux exercices consécutifs. Mesuré
+  // sur Air Liquide, Schneider, TotalEnergies, LVMH, Vusion et Apple : les six
+  // séries reviennent remplies pour les quatre exercices.
+  "annualTotalAssets",
+  "annualOperatingCashFlow",
+  "annualLongTermDebt",
+  "annualCurrentAssets",
+  "annualCurrentLiabilities",
+  "annualGrossProfit",
+  // Rachats et dilution. Le nombre d'actions EN FIN D'EXERCICE, pas le nombre
+  // moyen : ce dernier tombe de 634 à 577 millions chez Air Liquide en 2025,
+  // sans rachat correspondant — une donnée source erronée.
+  "annualOrdinarySharesNumber",
+  "annualRepurchaseOfCapitalStock",
+  "annualCashDividendsPaid",
 ];
 
 /**
@@ -201,6 +216,36 @@ export function extraireConsensus(earningsTrend) {
 }
 
 /**
+ * Bénéfices publiés face aux prévisions, trimestre par trimestre.
+ *
+ * Seules les lignes portant les DEUX chiffres sont gardées : Yahoo renvoie
+ * pour Air Liquide des trimestres avec une estimation et sans résultat
+ * publié, qui ne mesurent rien. Mesuré : la série est remplie pour les
+ * sociétés qui publient chaque trimestre (TotalEnergies, Apple), vide pour
+ * la plupart des sociétés françaises, qui publient par semestre.
+ *
+ * La date de PUBLICATION n'est pas fournie, seulement la fin du trimestre :
+ * la réaction du cours au lendemain de l'annonce ne peut donc pas être
+ * mesurée, et n'est pas devinée.
+ */
+export function extraireSurprises(earningsHistory) {
+  return (earningsHistory?.history || [])
+    .map((h) => ({
+      finTrimestre: h?.quarter?.fmt || null,
+      bpaEstime: brut(h?.epsEstimate),
+      bpaPublie: brut(h?.epsActual),
+    }))
+    .filter((h) => h.finTrimestre && h.bpaEstime != null && h.bpaPublie != null)
+    .map((h) => ({
+      ...h,
+      // Recalculé plutôt que lu : `surprisePercent` manque parfois alors que
+      // les deux chiffres sont là, et son signe dépend du signe de l'estimation.
+      surprisePct: h.bpaEstime !== 0 ? ((h.bpaPublie - h.bpaEstime) / Math.abs(h.bpaEstime)) * 100 : null,
+    }))
+    .sort((a, b) => (a.finTrimestre < b.finTrimestre ? -1 : 1));
+}
+
+/**
  * Ratios instantanés d'un titre, normalisés.
  *
  * Tous les pourcentages sortent en points (13.09 pour 13,09 %) : Yahoo mélange
@@ -216,6 +261,10 @@ export function extraireRatios({ financialData, defaultKeyStatistics, summaryDet
   return {
     nom: price?.longName || price?.shortName || null,
     devise: price?.currency || sd?.currency || null,
+    // Devise des COMPTES, qui n'est pas toujours celle de la cotation :
+    // STMicroelectronics cote en euros et publie en dollars. Rapporter des
+    // rachats en dollars à une capitalisation en euros fausserait le rendement.
+    deviseComptes: fd.financialCurrency || null,
     secteur: assetProfile?.sector || summaryProfile?.sector || null,
     industrie: assetProfile?.industry || summaryProfile?.industry || null,
     pays: assetProfile?.country || summaryProfile?.country || null,
@@ -274,7 +323,7 @@ export function positionDansFourchette({ cours, plusBas52s, plusHaut52s }) {
 }
 
 const MODULES_RATIOS = ["price", "summaryDetail", "financialData", "defaultKeyStatistics", "assetProfile", "summaryProfile"];
-const MODULES_COMPLETS = [...MODULES_RATIOS, "earningsTrend"];
+const MODULES_COMPLETS = [...MODULES_RATIOS, "earningsTrend", "earningsHistory"];
 
 /** Ratios seuls — utilisé par le screener, qui en interroge des dizaines. */
 export async function ratiosTitre(symbol) {
@@ -302,5 +351,6 @@ export async function ficheComplete(symbol) {
     positionFourchettePct: positionDansFourchette(ratios),
     historique: historiqueValorise,
     consensus: extraireConsensus(resultat.earningsTrend),
+    surprises: extraireSurprises(resultat.earningsHistory),
   };
 }

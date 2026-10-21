@@ -127,9 +127,11 @@ src/components/Bourse.jsx
 src/components/BoursePerformance.jsx
 src/components/BriefingDuJour.jsx
 src/components/CalendrierRevenus.jsx
+src/components/CarteCac40.jsx
 src/components/CarteRepliable.test.jsx
 src/components/CascadeMensuelle.jsx
 src/components/ChartFocusModal.jsx
+src/components/ComparaisonPairs.jsx
 src/components/ComparateurScenarios.jsx
 src/components/CorrelationsLignes.jsx
 src/components/CoutDesFrais.jsx
@@ -138,11 +140,13 @@ src/components/Decumulation.jsx
 src/components/DispositionDashboard.jsx
 src/components/DispositionDashboard.test.jsx
 src/components/DividendesAuto.test.jsx
+src/components/DividendesLongTerme.jsx
 src/components/ErrorBoundary.jsx
 src/components/EtatSourceMarche.jsx
 src/components/EtatVide.jsx
 src/components/FeuillePlus.jsx
 src/components/FicheFinanciere.jsx
+src/components/FicheFinanciere.test.jsx
 src/components/FicheLigne.jsx
 src/components/FicheLigne.test.jsx
 src/components/FinancialCalendar.jsx
@@ -157,6 +161,7 @@ src/components/Livrets.jsx
 src/components/Login.jsx
 src/components/Marche.jsx
 src/components/MemeArgentEtf.jsx
+src/components/MesDecisions.jsx
 src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
 src/components/ModePresentation.jsx
@@ -196,6 +201,7 @@ src/components/ReparationJournal.jsx
 src/components/ResumePublications.jsx
 src/components/Retrospective.jsx
 src/components/RevenusPassifs.jsx
+src/components/SanteComptes.jsx
 src/components/SantePortefeuille.jsx
 src/components/ScenariosProjet.jsx
 src/components/ScenariosProjet.test.jsx
@@ -207,6 +213,7 @@ src/components/StickySummaryHeader.jsx
 src/components/StrategieLogs.jsx
 src/components/SuiviDividendes.jsx
 src/components/SyncIndicator.jsx
+src/components/ThermometreMarche.jsx
 src/components/Timeline.jsx
 src/components/TrajectoireObjectif.jsx
 src/components/Watchlist.jsx
@@ -222,8 +229,10 @@ src/lib/AuthContext.jsx
 src/lib/ConfirmContext.jsx
 src/lib/PatrimoineContext.jsx
 src/lib/ToastContext.jsx
+src/lib/actionnariat.js
 src/lib/alertes.js
 src/lib/alertes.test.js
+src/lib/analyseTitre.test.js
 src/lib/api.js
 src/lib/api.test.js
 src/lib/apparence.test.jsx
@@ -240,8 +249,11 @@ src/lib/compact.test.js
 src/lib/compositionEtf.js
 src/lib/correlations.js
 src/lib/correlations.test.js
+src/lib/decisions.js
+src/lib/decisions.test.js
 src/lib/decumulation.js
 src/lib/decumulation.test.js
+src/lib/deviseComptes.js
 src/lib/devises.test.js
 src/lib/dispositionDashboard.js
 src/lib/dispositionDashboard.test.js
@@ -262,6 +274,7 @@ src/lib/formatPct.test.js
 src/lib/haptique.js
 src/lib/histoireTaux.js
 src/lib/histoireTaux.test.js
+src/lib/historiqueDividendes.js
 src/lib/horizonClient.js
 src/lib/indexConstituents.js
 src/lib/jeuExemple.js
@@ -275,10 +288,13 @@ src/lib/marqueursCourbe.test.js
 src/lib/netWorth.test.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
+src/lib/pairs.js
+src/lib/pairs.test.js
 src/lib/patrimoineParPoche.js
 src/lib/patrimoineParPoche.test.js
 src/lib/performanceComparee.js
 src/lib/performanceComparee.test.js
+src/lib/piotroski.js
 src/lib/portefeuilleSante.js
 src/lib/portefeuilleSante.test.js
 src/lib/publications.js
@@ -300,6 +316,8 @@ src/lib/styleGraphique.js
 src/lib/supabaseClient.js
 src/lib/syncStatus.js
 src/lib/themes.js
+src/lib/thermometre.js
+src/lib/thermometre.test.js
 src/lib/tri.test.js
 src/lib/univers.js
 src/lib/useAlertesWatchlist.js
