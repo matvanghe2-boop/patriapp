@@ -87,8 +87,25 @@ function Chargement({ erreur }) {
 
 const RAISONS = {
   "sans-cours": "cours actuel inconnu",
-  incoherent: "prix éloigné du cours de la semaine : division d'actions non enregistrée ?",
+  incoherent: "prix hors de la fourchette de sa semaine : saisie erronée ou division d'actions non enregistrée ?",
 };
+
+/** Les achats laissés de côté, et pourquoi — jamais en silence. */
+function AchatsEcartes({ achats }) {
+  const raisons = [
+    achats.nbHistoriqueCourt > 0 &&
+      `${achats.nbHistoriqueCourt} sans six mois de cotation avant ${achats.nbHistoriqueCourt > 1 ? "eux" : "lui"}`,
+    achats.nbIncoherents > 0 &&
+      `${achats.nbIncoherents} à un prix hors de la fourchette des cours de ${achats.nbIncoherents > 1 ? "leur" : "sa"} semaine (saisie erronée ou division d'actions non enregistrée ?)`,
+  ].filter(Boolean);
+  if (raisons.length === 0) return null;
+  const n = achats.nbHistoriqueCourt + achats.nbIncoherents;
+  return (
+    <p className="text-micro text-amber-300/90 mt-2">
+      {n} achat{n > 1 ? "s" : ""} laissé{n > 1 ? "s" : ""} de côté : {raisons.join(" ; ")}.
+    </p>
+  );
+}
 
 function CarteVentes({ ventes, erreur }) {
   return (
@@ -167,9 +184,10 @@ function CarteAchats({ achats, erreur }) {
       {!achats ? (
         <Chargement erreur={erreur} />
       ) : achats.nbLus === 0 ? (
-        <p className="text-micro text-slate-500 mt-1">
-          Pas assez d&apos;historique de cours avant tes achats pour les situer (il faut six mois de cotation avant chacun).
-        </p>
+        <>
+          <p className="text-micro text-slate-500 mt-1">Aucun achat n&apos;a pu être situé dans sa fourchette annuelle.</p>
+          <AchatsEcartes achats={achats} />
+        </>
       ) : (
         <>
           <p className="text-sm text-slate-300 mt-1">
@@ -222,6 +240,7 @@ function CarteAchats({ achats, erreur }) {
             {nombre(TIERS.bas, 0)} %, tiers haut au-delà de {nombre(TIERS.haut, 0)} %. Moyennes pondérées par le montant investi.
             Cours moyen du mois = moyenne des clôtures hebdomadaires.
           </p>
+          <AchatsEcartes achats={achats} />
         </>
       )}
     </Card>

@@ -148,7 +148,7 @@ export default function ComparaisonPairs({ symbole, fiche, onOuvrir }) {
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs text-slate-200 truncate">{p.nom || p.symbole}</span>
                   <span className="block text-micro text-slate-500 font-data">
-                    {compact(p.capitalisationEuro)} € · PER {fmt(p.per > 0 ? p.per : null, "×")} · marge op. {fmt(p.margeOperationnellePct, "%")}
+                    {compact(p.capitalisationEuro)} · PER {fmt(p.per > 0 ? p.per : null, "×")} · marge op. {fmt(p.margeOperationnellePct, "%")}
                   </span>
                 </span>
               </button>

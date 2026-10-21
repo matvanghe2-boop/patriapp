@@ -84,7 +84,13 @@ export default function PerHistorique({ symbole, historique = [], consensus = []
 
   const serie = useMemo(() => seriePerMensuelle(clotures || [], historique), [clotures, historique]);
   const lecture = useMemo(() => lirePerHistorique(serie), [serie]);
-  const serieCours = useMemo(() => serieCoursBenefices(serie, lecture?.moyenne, consensus), [serie, lecture, consensus]);
+  // Horodatage numérique : les points du consensus tombent à des fins
+  // d'exercice, à deux et quatorze mois du dernier cours. Sur un axe par
+  // catégories, ils s'espaçaient comme deux mois consécutifs.
+  const serieCours = useMemo(
+    () => serieCoursBenefices(serie, lecture?.moyenne, consensus).map((p) => ({ ...p, t: Date.parse(`${p.date}T12:00:00Z`) })),
+    [serie, lecture, consensus]
+  );
   const dernierCours = [...serieCours].reverse().find((p) => p.cours != null);
   const dernierAttendu = serieCours.at(-1)?.cours == null ? serieCours.at(-1) : null;
 
@@ -158,8 +164,11 @@ export default function PerHistorique({ symbole, historique = [], consensus = []
               <ComposedChart data={serieCours} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke="rgb(var(--c-slate-800))" strokeDasharray="3 3" vertical={false} />
                 <XAxis
-                  dataKey="date"
-                  tickFormatter={moisCourt}
+                  dataKey="t"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  tickFormatter={(t) => moisCourt(new Date(t).toISOString().slice(0, 10))}
                   tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}

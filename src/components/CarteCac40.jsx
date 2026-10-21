@@ -31,11 +31,7 @@ export function couleurVariation(variationPct) {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-const nomCourt = (nom = "") =>
-  nom
-    .replace(/\s+(S\.?A\.?|SE|SA|N\.?V\.?|Société Anonyme|Societe Anonyme)\.?$/i, "")
-    .replace(/^L'/, "")
-    .trim();
+const nomCourt = (nom = "") => nom.replace(/\s+(S\.?A\.?|SE|SA|N\.?V\.?|Société Anonyme|Societe Anonyme)\.?$/i, "").trim();
 
 export default function CarteCac40({ onOuvrir, tickersDetenus = [], hauteur = 320 }) {
   const [cotations, setCotations] = useState(null);
@@ -142,7 +138,7 @@ function Infobulle({ active, payload }) {
         {d.ticker} · {d.secteur}
       </p>
       <p className={`font-data mt-1 ${d.variation >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{d.variation != null ? pct(d.variation, 2) : "—"}</p>
-      <p className="text-slate-500">Capitalisation {compact(d.value)} €</p>
+      <p className="text-slate-500">Capitalisation {compact(d.value)}</p>
     </div>
   );
 }

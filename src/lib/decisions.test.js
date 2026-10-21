@@ -86,15 +86,27 @@ describe("qualiteAchats", () => {
     const series = semaines(Array.from({ length: 53 }, (_, i) => (i < 40 ? 100 : 120)));
     const r = qualiteAchats({
       operations: [
-        { id: "a", type: "ACHAT", date: "2025-12-29", asset: "X", quantity: 10, price: 114 },
-        { id: "b", type: "ACHAT", date: "2025-12-01", asset: "X", quantity: 1, price: 126 },
+        { id: "a", type: "ACHAT", date: "2025-12-29", asset: "X", quantity: 10, price: 117 },
+        { id: "b", type: "ACHAT", date: "2025-12-01", asset: "X", quantity: 1, price: 123 },
       ],
       historiques: new Map([["X", { series }]]),
     });
     expect(r.nbLus).toBe(2);
-    // Décembre 2025 : quatre semaines à 120 (et une au 29 décembre, à 120).
-    expect(r.achats.find((a) => a.id === "a").ecartMoisPct).toBeCloseTo(-5);
-    expect(r.ecartMoisMoyenPct).toBeCloseTo((-5 * 1140 + 5 * 126) / 1266);
+    // Décembre 2025 : cinq semaines, toutes à 120.
+    expect(r.achats.find((a) => a.id === "a").ecartMoisPct).toBeCloseTo(-2.5);
+    expect(r.ecartMoisMoyenPct).toBeCloseTo((-2.5 * 1170 + 2.5 * 123) / 1293);
+  });
+
+  it("écarte un prix hors de la fourchette de sa semaine, même proche de la clôture", () => {
+    // Le cas du jeu d'exemple : 440 € saisis quand le titre cotait autour de 600 €.
+    const series = semaines(Array.from({ length: 53 }, () => 600));
+    const r = qualiteAchats({
+      operations: [{ id: "a", type: "ACHAT", date: "2025-12-29", asset: "CW8.PA", quantity: 5, price: 440 }],
+      historiques: new Map([["CW8.PA", { series }]]),
+    });
+    expect(r.achats[0].statut).toBe("incoherent");
+    expect(r.nbIncoherents).toBe(1);
+    expect(r.nbLus).toBe(0);
   });
 });
 

@@ -15,8 +15,14 @@
 
 const normaliser = (s) => String(s ?? "").trim().toUpperCase();
 
-/** Écart maximal toléré entre le prix d'une opération et le cours de sa semaine. */
-const TOLERANCE_PRIX = { bas: 0.65, haut: 1.5 };
+/**
+ * Marge autour de la fourchette de la semaine (plus bas – plus haut) : un
+ * ordre réellement passé ne peut pas en sortir, à l'arrondi près. Une marge
+ * large (±35 % autour de la clôture) laissait passer un prix saisi à la main
+ * à 440 € quand le titre cotait 600 € toute la semaine — et l'achat
+ * ressortait « au plus bas de l'année, 30 % sous la moyenne du mois ».
+ */
+const MARGE_FOURCHETTE = 0.03;
 
 /** Seuils de lecture d'un achat dans sa fourchette sur 52 semaines. */
 export const TIERS = { bas: 100 / 3, haut: 200 / 3 };
@@ -43,8 +49,9 @@ function semaineDe(series, date) {
 
 function prixCoherent(prixAjuste, barre) {
   if (!barre) return true; // rien pour contrôler : on fait confiance au journal
-  const ref = barre.close;
-  return prixAjuste >= ref * TOLERANCE_PRIX.bas && prixAjuste <= ref * TOLERANCE_PRIX.haut;
+  const bas = Number.isFinite(barre.low) ? barre.low : barre.close;
+  const haut = Number.isFinite(barre.high) ? barre.high : barre.close;
+  return prixAjuste >= bas * (1 - MARGE_FOURCHETTE) && prixAjuste <= haut * (1 + MARGE_FOURCHETTE);
 }
 
 /** Taux vers l'euro d'une devise de cotation, pence compris. */
@@ -172,6 +179,8 @@ export function qualiteAchats({ operations = [], historiques = new Map() } = {})
   return {
     achats,
     nbLus: lus.length,
+    nbHistoriqueCourt: achats.filter((a) => a.statut === "historique-court").length,
+    nbIncoherents: achats.filter((a) => a.statut === "incoherent").length,
     repartition: {
       bas: lus.filter((a) => a.tiers === "bas").length,
       milieu: lus.filter((a) => a.tiers === "milieu").length,

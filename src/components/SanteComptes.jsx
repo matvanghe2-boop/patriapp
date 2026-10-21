@@ -1,6 +1,6 @@
 import { Repeat, ShieldCheck, Crosshair, Check, X, Minus } from "lucide-react";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
-import { nombre, pct, pctPlain, compact } from "../lib/finance";
+import { nombre, pct, pctPlain } from "../lib/finance";
 import { evolutionNombreActions, rendementActionnaire } from "../lib/actionnariat";
 import { notePiotroski, lectureNote } from "../lib/piotroski";
 
@@ -12,6 +12,10 @@ import { notePiotroski, lectureNote } from "../lib/piotroski";
  */
 
 const TONS = { favorable: "text-emerald-400", defavorable: "text-rose-400", neutre: "text-slate-300" };
+
+/** Un nombre d'actions, pas un montant : « 2,48 milliards », « 16,4 millions ». */
+const nombreActions = (n) =>
+  n >= 1e9 ? `${nombre(n / 1e9, 2)} milliards` : n >= 1e6 ? `${nombre(n / 1e6, n < 1e8 ? 1 : 0)} millions` : nombre(n, 0);
 
 // ─── Rachats d'actions et dilution ─────────────────────────────────────────
 
@@ -36,7 +40,7 @@ export function RachatsActions({ historique = [], capitalisation, facteurComptes
       {evolution && (
         <>
           <p className="text-sm text-slate-300 mt-1">
-            {compact(evolution.debut.nombre)} → {compact(evolution.fin.nombre)} actions entre {evolution.debut.exercice} et{" "}
+            {nombreActions(evolution.debut.nombre)} → {nombreActions(evolution.fin.nombre)} d&apos;actions entre {evolution.debut.exercice} et{" "}
             {evolution.fin.exercice} :{" "}
             <span className={`font-data ${evolution.sens === "rachats" ? "text-emerald-400" : evolution.sens === "dilution" ? "text-rose-400" : "text-slate-200"}`}>
               {pct(evolution.variationPct, 1)}
