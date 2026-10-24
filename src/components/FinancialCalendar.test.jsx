@@ -136,6 +136,16 @@ describe("FinancialCalendar", () => {
     expect(fetchCalendarEvents).not.toHaveBeenCalled();
   });
 
+  it("dit quand Yahoo n'a pas répondu, au lieu de paraître complet", async () => {
+    // Le serveur rend alors les seuls communiqués français, ligne « ok » :
+    // sans message, l'absence des dividendes passait inaperçue.
+    fetchCalendarEvents.mockResolvedValue([
+      { symbol: "AI.PA", ok: true, partiel: true, events: [] },
+    ]);
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={[]} catalogueReference={{}} />);
+    expect(await screen.findByText(/Yahoo n'a pas répondu.*1 valeur/)).toBeInTheDocument();
+  });
+
   it("nomme ses sources et dit qu'aucune date n'est inventée", async () => {
     rendre(<FinancialCalendar positions={POSITIONS} watchlist={[]} catalogueReference={{}} />);
     expect(await screen.findByText(/info-financiere\.gouv\.fr.*aucune n'est inventée/i)).toBeInTheDocument();

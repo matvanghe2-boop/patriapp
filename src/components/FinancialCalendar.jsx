@@ -801,7 +801,19 @@ export default function FinancialCalendar({
       );
       setEvents(merged);
       const failed = results.filter((r) => !r.ok).length;
-      if (failed > 0) setError(`${failed} valeur(s) sur ${results.length} sans calendrier disponible.`);
+      // Quand Yahoo ne répond pas, le serveur rend quand même les communiqués
+      // français : la ligne est « ok », mais sans dividendes ni estimations.
+      // Sans ce message, le calendrier paraissait complet alors qu'il ne
+      // l'était pas.
+      const partiels = results.filter((r) => r.ok && r.partiel).length;
+      const messages = [];
+      if (failed > 0) messages.push(`${failed} valeur(s) sur ${results.length} sans calendrier disponible.`);
+      if (partiels > 0) {
+        messages.push(
+          `Yahoo n'a pas répondu : dividendes et dates de résultats estimées manquent pour ${partiels} valeur(s). Réessaie « Actualiser » dans quelques minutes.`
+        );
+      }
+      if (messages.length > 0) setError(messages.join(" "));
       setLastSync(new Date());
     } catch {
       setError("Calendrier indisponible — vérifie ta connexion internet.");

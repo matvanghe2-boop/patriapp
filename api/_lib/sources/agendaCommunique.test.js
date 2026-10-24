@@ -180,6 +180,49 @@ describe("lireAgenda — phrases au futur", () => {
     });
   });
 
+  it("écarte la date d'arrêté des positions (Schneider, T3 2026)", () => {
+    // Le 11 mai passait pour un second détachement : c'était le seul mot de
+    // dividende connu avant lui.
+    const texte =
+      "VI. CALENDRIER DU DI IDENDE AU I RE DE L'E ERCICE 0 Date de détachement du coupon : 10 mai 2027 " +
+      "Date d'arrêté des positions : 11 mai 2027 Date de mise en paiement : 12 mai 2027 Information financière";
+    expect(
+      lireAgenda(texte, { publieLe: "2026-10-16", aujourdhui: AUJOURDHUI }).map((e) => [e.date, e.label])
+    ).toEqual([
+      ["2027-05-10", "Détachement du dividende"],
+      ["2027-05-12", "Mise en paiement du dividende"],
+    ]);
+  });
+
+  it("lit « sera détaché » et « mis en paiement », accents compris", () => {
+    const texte = "Le dividende sera détaché le 10 mai 2027 et mis en paiement le 12 mai 2027.";
+    expect(lireAgenda(texte, { aujourdhui: AUJOURDHUI }).map((e) => [e.date, e.label])).toEqual([
+      ["2027-05-10", "Détachement du dividende"],
+      ["2027-05-12", "Mise en paiement du dividende"],
+    ]);
+    // `\b` ne voit pas de frontière après « é » : cette forme n'était jamais lue.
+    expect(
+      lireAgenda("Le solde du dividende sera versé le 14 mai 2027.", { aujourdhui: AUJOURDHUI })
+    ).toMatchObject([{ date: "2027-05-14", type: "Dividende", label: "Mise en paiement du dividende" }]);
+  });
+
+  it("lit le calendrier de dividende en anglais, sans la record date", () => {
+    const texte = "Ex-dividend date: May 10, 2027; record date: May 11, 2027; payment date: May 12, 2027.";
+    expect(lireAgenda(texte, { aujourdhui: AUJOURDHUI }).map((e) => [e.date, e.label])).toEqual([
+      ["2027-05-10", "Détachement du dividende"],
+      ["2027-05-12", "Mise en paiement du dividende"],
+    ]);
+  });
+
+  it("écarte aussi la date d'arrêté dans un encadré d'agenda", () => {
+    const texte =
+      "Agenda financier • Détachement du dividende : 10 mai 2027 • Date d'arrêté des positions : 11 mai 2027 • Paiement : 12 mai 2027";
+    expect(lireAgenda(texte, { aujourdhui: AUJOURDHUI }).map((e) => [e.date, e.type])).toEqual([
+      ["2027-05-10", "Dividende"],
+      ["2027-05-12", "Dividende"],
+    ]);
+  });
+
   it("distingue détachement et mise en paiement dans la même phrase", () => {
     const texte =
       "Le détachement du dividende interviendra le 8 juin 2027 et la mise en paiement le 10 juin 2027.";

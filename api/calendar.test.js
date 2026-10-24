@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { eventsFromRow, eventsFromDetail } from "./_lib/routes/calendar.js";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { eventsFromRow, eventsFromDetail, handler } from "./_lib/routes/calendar.js";
 
 // Yahoo renvoie ses dates en epoch secondes ; ces helpers construisent des
 // jeux de données au même format que la réponse réelle.
@@ -120,5 +120,51 @@ describe("eventsFromDetail", () => {
   it("tolère une absence totale de détail", () => {
     expect(eventsFromDetail(null, "X", "X")).toEqual([]);
     expect(eventsFromDetail({}, "X", "X")).toEqual([]);
+  });
+});
+
+describe("route calendrier quand Yahoo ne répond pas", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("rend les communiqués français, marqués partiels, et interdit le cache CDN", async () => {
+    const recemment = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    const json = (corps) => ({ ok: true, status: 200, headers: new Headers(), json: async () => corps });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        if (String(url).includes("info-financiere.gouv.fr")) {
+          return json({
+            results: [
+              {
+                informationdeposee_inf_dat_emt: recemment,
+                informationdeposee_inf_tit_inf: "Chiffre d'affaires du 3ème trimestre",
+                informationdeposee_inf_lng_inf: "Français",
+                sous_type_d_information: "Information financière trimestrielle",
+                identificationsociete_iso_nom_soc: "VUSIONGROUP",
+                url_de_recuperation: "https://fr.ftp.opendatasoft.com/datadila/INFOFI/ACT/2026/10/FCACT0TEST_20261020.pdf",
+              },
+            ],
+          });
+        }
+        throw new Error("Yahoo injoignable");
+      })
+    );
+
+    const entetes = {};
+    let corps;
+    const res = {
+      setHeader: (k, v) => (entetes[k] = v),
+      status: () => res,
+      json: (j) => ((corps = j), res),
+    };
+    await handler({ query: { symbols: "VUTEST.PA,AAPL" } }, res);
+
+    const [francaise, americaine] = corps;
+    expect(francaise).toMatchObject({ symbol: "VUTEST.PA", ok: true, partiel: true });
+    expect(francaise.events.some((e) => e.type === "Chiffre d'affaires" && e.fournisseur === "info-financiere")).toBe(true);
+    // Sans source de repli, la ligne reste en échec, avec la cause.
+    expect(americaine).toMatchObject({ symbol: "AAPL", ok: false });
+    // Une réponse amputée gardée en cache resterait affichée après le retour de Yahoo.
+    expect(entetes["Cache-Control"]).toBe("no-store");
   });
 });

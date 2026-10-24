@@ -391,13 +391,19 @@ async function handler(req, res) {
     // répond 200 avec des lignes en échec pour que l'UI affiche le reste du
     // portefeuille plutôt qu'une page d'erreur.
     invalidateYahooSession();
+    // Réponse amputée : le CDN ne doit pas la garder. Avec le cache normal
+    // (15 min, plus une heure servie en arrière-plan), le calendrier restait
+    // incomplet plus d'une heure après le retour de Yahoo.
+    res.setHeader("Cache-Control", "no-store");
     // L'information réglementée ne dépend pas de Yahoo : une panne de
-    // celui-ci ne doit pas vider le calendrier des valeurs françaises.
+    // celui-ci ne doit pas vider le calendrier des valeurs françaises. Mais
+    // la ligne est marquée `partiel` — dividendes et estimations manquent, et
+    // l'interface doit le dire au lieu de paraître complète.
     const dilaParSymbole = parTicker(await promesseInfoFinanciere);
     return res.status(200).json(
       symbols.map((symbol) =>
         dilaParSymbole[symbol]
-          ? { symbol, ok: true, events: fusionnerEvenements([dilaParSymbole[symbol]]) }
+          ? { symbol, ok: true, partiel: true, events: fusionnerEvenements([dilaParSymbole[symbol]]) }
           : { symbol, ok: false, error: err.message, events: [] }
       )
     );

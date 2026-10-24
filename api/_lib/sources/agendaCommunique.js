@@ -148,8 +148,42 @@ const VERBES_ACTIFS =
   /\b(?:publiera|présentera|organisera|(?<!se )tiendra|communiquera|annoncera|will (?:publish|report|release|announce|present|hold|host))\b/gi;
 const VERBES_PASSIFS =
   /\b(?:(?:sera|seront) (?:publi|communiqu|présent|annonc|diffus|dévoil)\w*|se (?:tiendra|tiendront|réunira|réuniront)|aura lieu|auront lieu|will be (?:published|released|reported|announced|presented|held)|will take place)\b/gi;
-const MOTS_DIVIDENDE =
-  /\b(?:date de détachement|détachement(?: du (?:coupon|dividende|solde|acompte))?|ex-dividend(?:e| date)?|ex-date|mise en paiement|(?:sera|seront) (?:mis|mise|versé|versée|payé|payée)s? en paiement|(?:sera|seront) (?:versé|versée|payé|payée)s?|payment date|will be paid)\b/gi;
+/**
+ * Mots qui datent un dividende. Trois familles : le détachement, le
+ * paiement, et la date d'arrêté des positions (« record date »), qu'on
+ * reconnaît pour mieux l'ÉCARTER — Schneider écrit « Date de détachement du
+ * coupon : 10 mai 2027 Date d'arrêté des positions : 11 mai 2027 », et le
+ * 11 mai passait pour un second détachement, le seul mot connu avant lui.
+ *
+ * Bornes en lookaround et non `\b` : celui-ci ne voit aucune frontière après
+ * une lettre accentuée, et « sera versé le » n'était jamais reconnu.
+ */
+const MOTS_DIVIDENDE = new RegExp(
+  "(?<![a-zà-ÿ])(?:" +
+    [
+      "date de détachement",
+      "détachement(?: du (?:coupon|dividende|solde|acompte))?",
+      "détachée?s?",
+      "ex-dividend(?:e)?(?: date)?",
+      "ex-date",
+      "mis(?:es?)? en paiement",
+      "date de paiement",
+      "(?:sera|seront) (?:versée?s?|payée?s?)",
+      "versement du (?:dividende|solde|coupon|acompte)",
+      "payable",
+      "payment date",
+      "will be paid",
+      "paid on",
+      "date d'arrêté(?: des positions)?",
+      "arrêté des positions",
+      "record date",
+      "date d'enregistrement",
+    ].join("|") +
+    ")(?![a-zà-ÿ])",
+  "gi"
+);
+const DIVIDENDE_ENREGISTREMENT = /arrêté|record date|enregistrement/i;
+const DIVIDENDE_PAIEMENT = /paiement|payment|paid|payable|versé|versement|payé/i;
 
 /** Portée, en caractères, entre un verbe d'annonce et sa date. */
 const PORTEE_VERBE = 130;
@@ -242,7 +276,9 @@ export function typerLibelle(libelle = "") {
     return "Assemblée Générale";
   }
   if (
-    /détachement|ex-dividend|ex-date|mise en paiement|paiement du (?:dividende|solde|coupon)|dividend payment|acompte sur dividende/i.test(
+    // « Paiement : 12 mai 2027 » en tête de ligne, dans un encadré d'agenda,
+    // désigne le dividende : rien d'autre ne se paie à l'actionnaire.
+    /détachement|ex-dividend|ex-date|mise en paiement|paiement du (?:dividende|solde|coupon)|^(?:date de )?(?:paiement|versement)(?![a-zà-ÿ])|dividend payment|acompte sur dividende/i.test(
       t
     )
   ) {
@@ -395,6 +431,9 @@ function lireEncadres(texte) {
         libelleAvant ? (lignes[lignes.length - 1] || "").replace(MOTIF_SEANCE, "") : lignes[0]
       );
       if (!estLisible(libelle)) return;
+      // Même règle que dans les phrases : la date d'arrêté des positions
+      // n'est pas un rendez-vous de l'actionnaire.
+      if (/^(?:date d'arrêté|arrêté des positions|record date|date d'enregistrement)/i.test(libelle)) return;
       sortie.push({ date, type: typerLibelle(libelle), label: libelle, origine: "agenda" });
     });
   });
@@ -442,8 +481,11 @@ function lirePhrases(texte) {
     let type;
     let label;
     if (plusProche === dividende) {
+      // La date d'arrêté des positions ne concerne pas l'actionnaire : il a
+      // droit au dividende s'il détient le titre la veille du détachement.
+      if (DIVIDENDE_ENREGISTREMENT.test(dividende[0])) continue;
       type = "Dividende";
-      label = /paiement|payment|paid|versé|payé/i.test(dividende[0])
+      label = DIVIDENDE_PAIEMENT.test(dividende[0])
         ? "Mise en paiement du dividende"
         : "Détachement du dividende";
     } else if (plusProche === actif) {

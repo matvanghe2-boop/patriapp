@@ -99,6 +99,8 @@ Le calendrier couvre le portefeuille et la watchlist : résultats, dividendes, c
 
 Quand la société annonce sa date, l'estimation Yahoo qui tombait à quelques jours de là disparaît, au lieu de rester affichée à côté de la vraie.
 
+Quand Yahoo ne répond pas, les communiqués français restent affichés, mais le calendrier le **dit** (« dividendes et dates de résultats estimées manquent ») et cette réponse incomplète n'est pas mise en cache : le prochain « Actualiser » repart des sources.
+
 Mesuré le 24 octobre 2026 sur 37 valeurs du SBF 120 hors CAC 40 et de small caps :
 
 | | Yahoo seul | Avec info-financiere |
