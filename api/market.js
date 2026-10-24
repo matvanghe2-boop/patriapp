@@ -38,8 +38,9 @@ import * as screen from "./_lib/routes/screen.js";
 import * as fundamentals from "./_lib/routes/fundamentals.js";
 import * as rates from "./_lib/routes/rates.js";
 import * as health from "./_lib/routes/health.js";
+import * as communique from "./_lib/routes/communique.js";
 
-const ROUTES = { quote, search, history, calendar, profile, fx, screen, fundamentals, rates, health };
+const ROUTES = { quote, search, history, calendar, profile, fx, screen, fundamentals, rates, health, communique };
 
 export const ACTIONS = Object.keys(ROUTES);
 

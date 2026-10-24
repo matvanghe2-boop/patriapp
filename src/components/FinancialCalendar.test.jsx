@@ -3,7 +3,14 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const fetchCalendarEvents = vi.fn();
-vi.mock("../lib/api", () => ({ fetchCalendarEvents: (...a) => fetchCalendarEvents(...a) }));
+const fetchCommunique = vi.fn();
+// Les aides pures du module (estCommuniqueDepose) restent les vraies : seuls
+// les appels réseau sont simulés.
+vi.mock("../lib/api", async (importOriginal) => ({
+  ...(await importOriginal()),
+  fetchCalendarEvents: (...a) => fetchCalendarEvents(...a),
+  fetchCommunique: (...a) => fetchCommunique(...a),
+}));
 
 import { ToastProvider } from "../lib/ToastContext";
 import FinancialCalendar from "./FinancialCalendar";
@@ -33,6 +40,7 @@ function mockEvents(events) {
 beforeEach(() => {
   fetchCalendarEvents.mockReset();
   fetchCalendarEvents.mockResolvedValue([]);
+  fetchCommunique.mockReset();
 });
 
 describe("FinancialCalendar", () => {
@@ -128,6 +136,54 @@ describe("FinancialCalendar", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("27,00 Md€")).toBeInTheDocument();
     expect(within(dialog).getByText(/Chiffre d'affaires/)).toBeInTheDocument();
+  });
+
+  it("charge le communiqué déposé dans la fiche, prêt à être résumé", async () => {
+    const user = userEvent.setup();
+    const lien = "https://fr.ftp.opendatasoft.com/datadila/INFOFI/ACT/2026/10/FCACT081907_20261020.pdf";
+    mockEvents([
+      {
+        ticker: "VU.PA",
+        name: "Vusion",
+        type: "Communication",
+        date: futureIso(25),
+        label: "Capital Markets Day à Paris",
+        fournisseur: "info-financiere",
+        statut: "confirme",
+        lien,
+        annonceLe: "2026-10-20",
+      },
+    ]);
+    fetchCommunique.mockResolvedValue({ url: lien, texte: "Chiffre d'affaires du 3ème trimestre 2026 : 312,4 M€.", tronque: false });
+
+    rendre(<FinancialCalendar positions={[{ ticker: "VU.PA", name: "Vusion" }]} watchlist={[]} catalogueReference={{}} />);
+    await user_clickTimeline();
+    await user.click(await screen.findByRole("button", { name: /Capital Markets Day/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    // Le texte arrive sans clic : il suffit d'ouvrir la fiche.
+    expect(await within(dialog).findByText(/312,4 M€/)).toBeInTheDocument();
+    expect(fetchCommunique).toHaveBeenCalledWith(lien);
+    // Pour une date à venir, on lit le communiqué qui l'ANNONCE — et on le dit.
+    expect(within(dialog).getByText(/qui annonce cette date/)).toBeInTheDocument();
+    // Le résumé part de ce document, sans formulaire intermédiaire.
+    expect(within(dialog).getByRole("button", { name: "Résumer ce communiqué" })).toBeInTheDocument();
+  });
+
+  it("ne propose pas de résumer par lien une page qu'aucun serveur ne lit", async () => {
+    // Le lien d'agenda d'une société (catalogue de référence) est une page
+    // web : le résumé par lien échouait à chaque fois.
+    const user = userEvent.setup();
+    mockEvents([
+      { ticker: "AI.PA", name: "Air Liquide", type: "Résultats", date: futureIso(5), label: "Résultats annuels", lien: "https://www.airliquide.com/investors/events-calendar" },
+    ]);
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={[]} catalogueReference={{}} />);
+    await user_clickTimeline();
+    await user.click(await screen.findByRole("button", { name: /Air Liquide/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("button", { name: "Résumer ce communiqué" })).not.toBeInTheDocument();
+    expect(fetchCommunique).not.toHaveBeenCalled();
   });
 
   it("invite à remplir portefeuille ou watchlist quand les deux sont vides", async () => {

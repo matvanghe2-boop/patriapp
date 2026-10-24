@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { FileText, AlertTriangle, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
-import { resumerPublication } from "../lib/api";
+import { resumerPublication, estCommuniqueDepose } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
 import { todayIso } from "../lib/finance";
@@ -39,6 +39,13 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
   const [erreur, setErreur] = useState("");
   const [ouvert, setOuvert] = useState(false);
 
+  // Seuls les documents que le serveur sait lire se résument par leur lien :
+  // un communiqué déposé (DILA) ou un dépôt SEC. Le lien d'agenda d'une
+  // société (catalogue de référence) mène à une page web qu'il refuse — le
+  // bouton échouait à chaque fois.
+  const lienResumable =
+    estCommuniqueDepose(lienDocument) || /^https:\/\/(?:www\.)?sec\.gov\//.test(lienDocument || "") ? lienDocument : null;
+
   const fil = useMemo(() => publicationsDe(publications, ticker), [publications, ticker]);
   const tenue = useMemo(
     () => tenueDesGuidances(historiqueGuidances(publications, ticker)),
@@ -50,7 +57,7 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
     setErreur("");
     try {
       const corps = depuisLien
-        ? { symbole: ticker, url: lienDocument }
+        ? { symbole: ticker, url: lienResumable }
         : { symbole: ticker, texte: texte.trim() };
       if (!depuisLien && !corps.texte) {
         setErreur("Colle le texte du communiqué.");
@@ -100,12 +107,29 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
       )}
 
       {!ouvert ? (
-        <button
-          onClick={() => setOuvert(true)}
-          className="btn-flash text-xs text-cyan-300 hover:text-cyan-200 border border-slate-700 hover:border-cyan-500/40 rounded-lg px-3 py-1.5 mt-3"
-        >
-          Résumer une publication
-        </button>
+        <>
+          {/* Le document est déjà connu : le résumer est l'action principale,
+              sans passer par le formulaire de texte à coller. */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {lienResumable && (
+              <button
+                onClick={() => lancer({ depuisLien: true })}
+                disabled={enCours}
+                className="btn-flash flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+              >
+                {enCours && <Loader2 size={13} className="animate-spin" />}
+                Résumer ce communiqué
+              </button>
+            )}
+            <button
+              onClick={() => setOuvert(true)}
+              className="btn-flash text-xs text-cyan-300 hover:text-cyan-200 border border-slate-700 hover:border-cyan-500/40 rounded-lg px-3 py-1.5"
+            >
+              {lienResumable ? "Coller un autre texte" : "Résumer une publication"}
+            </button>
+          </div>
+          {erreur && <p className="text-micro text-amber-300 mt-2">{erreur}</p>}
+        </>
       ) : (
         <div className="mt-3">
           <p className="text-micro text-slate-500 mb-1.5">
@@ -128,7 +152,7 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
               {enCours && <Loader2 size={13} className="animate-spin" />}
               Résumer ce texte
             </button>
-            {lienDocument && (
+            {lienResumable && (
               <button
                 onClick={() => lancer({ depuisLien: true })}
                 disabled={enCours}

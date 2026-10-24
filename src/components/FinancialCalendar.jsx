@@ -3,7 +3,7 @@ import {
   CalendarDays, List, ChevronLeft, ChevronRight, RefreshCw, CircleDollarSign,
   FileBarChart, Users, X, Briefcase, Eye, Megaphone, BarChart3,
 } from "lucide-react";
-import { fetchCalendarEvents } from "../lib/api";
+import { fetchCalendarEvents, estCommuniqueDepose } from "../lib/api";
 import { todayIso, nombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { evenementsManuels, creerDateManuelle, retirerDateManuelle, TYPES_MANUELS } from "../lib/calendrierManuel";
@@ -11,6 +11,7 @@ import { evenementsReference, VERIFIE_LE, CALENDRIER_REFERENCE } from "../../sha
 import { SkeletonChart } from "./ui";
 import Modal from "./Modal";
 import ResumePublications from "./ResumePublications";
+import CommuniqueDepose from "./CommuniqueDepose";
 
 // ─── Types d'événements ─────────────────────────────────────────────────────
 // Code couleur demandé : vert pour les dividendes, bleu pour tout ce qui
@@ -297,7 +298,9 @@ function EventModal({ ev, onClose }) {
             </p>
           )}
 
-          {ev.lien && (
+          {/* Un communiqué déposé s'affiche plus bas, avec son propre lien ;
+              les autres documents (SEC, agenda d'une société) gardent le leur. */}
+          {ev.lien && !estCommuniqueDepose(ev.lien) && (
             <a
               href={ev.lien}
               target="_blank"
@@ -342,11 +345,20 @@ function EventModal({ ev, onClose }) {
           </div>
         </div>
 
+        {/* Le communiqué lui-même, chargé à l'ouverture : on lit ce que la
+            société a annoncé sans quitter la fiche, puis on le résume. */}
+        {estCommuniqueDepose(ev.lien) && (
+          <div className="mt-2">
+            <CommuniqueDepose url={ev.lien} date={ev.date} annonceLe={ev.annonceLe} />
+          </div>
+        )}
+
         {/* Résumé de la publication, accessible depuis l'événement lui-même —
             c'est là qu'on se pose la question « qu'est-ce qu'ils ont annoncé ? ».
             N'apparaît que pour les événements qui PORTENT un contenu : une
-            date ex-dividende n'a rien à résumer. */}
-        {["Résultats", "Communication", "Chiffre d'affaires"].includes(ev.type) && (
+            date ex-dividende n'a rien à résumer, sauf si un communiqué déposé
+            l'accompagne. */}
+        {(["Résultats", "Communication", "Chiffre d'affaires"].includes(ev.type) || estCommuniqueDepose(ev.lien)) && (
           <div className="mt-3">
             <ResumePublications ticker={ev.ticker} nom={ev.name} lienDocument={ev.lien || null} />
           </div>

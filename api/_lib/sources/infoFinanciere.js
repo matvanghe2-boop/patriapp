@@ -382,6 +382,53 @@ async function lireDepots(mnemo, depuis) {
 }
 
 /**
+ * Retire en-têtes et pieds de page, que l'extraction répète à chaque page.
+ *
+ * Le communiqué de Vusion du 20 octobre en comptait six lignes, six fois :
+ * raison sociale, capital, RCS, téléphone… Le texte affiché commençait par
+ * là, et le résumé les lisait autant de fois. Une ligne vue au moins trois
+ * fois et assez longue pour ne pas être un intitulé de tableau (« Variation
+ * (en %) ») est tenue pour un en-tête ; les filets (« __________ ») aussi.
+ */
+function sansEntetesRepetes(texte) {
+  const lignes = texte.split("\n");
+  const occurrences = new Map();
+  for (const l of lignes) {
+    const cle = l.trim();
+    if (cle) occurrences.set(cle, (occurrences.get(cle) || 0) + 1);
+  }
+  return lignes
+    .filter((l) => {
+      const cle = l.trim();
+      if (/^[_\-–—=.\s]{4,}$/.test(cle)) return false;
+      return !(cle.length >= 18 && occurrences.get(cle) >= 3);
+    })
+    .join("\n");
+}
+
+/**
+ * Texte d'un PDF rendu lisible à l'écran.
+ *
+ * L'extraction rend une ligne par ligne de MISE EN PAGE : une phrase coupée
+ * en trois au fil des colonnes, des exposants séparés de leur nombre
+ * (« 3\nème »). On ne garde un retour à la ligne qu'après une fin de phrase,
+ * et devant une puce ; tous les autres redeviennent des espaces.
+ */
+export function texteLisiblePdf(brut = "") {
+  const FIN = "\u0000";
+  return sansEntetesRepetes(String(brut).normalize("NFC").replace(/\r/g, ""))
+    .replace(/(\d)\s*\n\s*(er|re|ème|eme|e|nd|st|rd|th)\b/g, "$1$2")
+    .replace(/[ \t\u00a0\u202f]+/g, " ")
+    .replace(/([.!?:])[ ]*\n/g, `$1${FIN}`)
+    .replace(/\s*\n\s*/g, " ")
+    .replaceAll(FIN, "\n")
+    .replace(/[ ]*([•▪►■●])[ ]*/g, "\n$1 ")
+    .replace(/[ ]*\n[ ]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
  * Texte d'un document déposé (PDF).
  *
  * Exporté pour le résumé de publication, qui lit les mêmes documents. Les

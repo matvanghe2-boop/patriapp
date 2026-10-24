@@ -132,13 +132,15 @@ Le calendrier permet donc aussi de les **saisir à la main**, avec le lien vers 
 
 Le détail d'un événement de résultats propose de résumer la publication avec le fournisseur de modèle déjà configuré (Gemini par défaut).
 
+**Le communiqué est lu dans la fiche même.** Pour une valeur française, ouvrir un événement charge le texte du communiqué déposé sur info-financiere.gouv.fr (`/api/market?action=communique`), débarrassé des en-têtes et pieds de page répétés à chaque page ; pour une date à venir, c'est le communiqué qui l'**annonce**, et la fiche le dit. Le bouton « Résumer ce communiqué » part directement de ce document. La lecture du texte ne demande pas de compte — c'est un document public, et seul l'entrepôt de la DILA est accepté — mais le résumé, qui coûte un appel de modèle, en demande toujours un.
+
 **Aucun chiffre n'est pris au mot.** Tout nombre avancé par le modèle est confronté au texte source ; ceux qui ne s'y retrouvent pas sont **retirés et comptés**, et le résumé est alors marqué « incertain » plutôt que réparé en silence. Un modèle qui « arrondit » 4 732 M€ en 4,7 Md€ produit une valeur absente du communiqué : indiscernable d'une invention, donc traitée comme telle. La consigne lui interdit explicitement de calculer, d'arrondir ou de convertir.
 
 La **guidance** est comparée à la précédente sur le milieu de fourchette (relevée, maintenue, abaissée), et l'historique permet de dire si l'entreprise a **tenu ses promesses passées** — les exercices sans réalisé connu sont ignorés plutôt que comptés comme manqués.
 
 **Confidentialité** : la route `/api/resume` ne reçoit qu'un symbole et du texte **déjà public**. Jamais un montant, jamais une quantité, jamais un nom de compte. Elle exige un jeton de session, comme l'assistant, parce que son abus coûte le quota du fournisseur de modèle.
 
-Deux façons de fournir le texte : un lien vers un document **de la SEC** (liste blanche stricte — récupérer une URL arbitraire ferait de la fonction un relais vers le réseau interne de l'hébergeur), ou le **texte collé**, seule voie possible pour les sociétés européennes et qui ne scrape rien. Sans fournisseur de modèle configuré, l'écran affiche le lien et le texte brut, sans résumé.
+Deux façons de fournir le texte : un lien vers un document **de la SEC ou d'info-financiere.gouv.fr** (liste blanche stricte — récupérer une URL arbitraire ferait de la fonction un relais vers le réseau interne de l'hébergeur), ou le **texte collé**, qui reste la voie pour les autres sociétés européennes et ne scrape rien. Sans fournisseur de modèle configuré, l'écran affiche le lien et le texte brut, sans résumé.
 
 Ton neutre : aucune recommandation d'achat, de vente ou de conservation, aucune cible de cours.
 

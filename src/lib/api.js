@@ -75,6 +75,22 @@ export async function fetchCalendarEvents(symbols) {
 }
 
 /**
+ * Texte d'un communiqué déposé sur info-financiere.gouv.fr, extrait du PDF
+ * par le serveur. Public et sans compte : c'est le texte que la société a
+ * publié. Renvoie { url, texte, tronque }.
+ */
+export async function fetchCommunique(url) {
+  const res = await fetch(marche("communique", { url }));
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || "Communiqué indisponible");
+  return body;
+}
+
+/** Le lien pointe-t-il vers un communiqué que le serveur sait lire ? */
+export const estCommuniqueDepose = (url) =>
+  typeof url === "string" && url.startsWith("https://fr.ftp.opendatasoft.com/datadila/INFOFI/");
+
+/**
  * Envoie un avis d'opéré (PDF) au parseur serveur et récupère l'ordre
  * standardisé qu'il en a extrait. Le fichier est encodé en base64 côté
  * client — aucune donnée binaire brute n'est postée directement.
