@@ -1,4 +1,25 @@
 import "@testing-library/jest-dom/vitest";
+import { configure } from "@testing-library/react";
+
+/**
+ * Délai d'attente des requêtes asynchrones de Testing Library (`findBy…`,
+ * `waitFor`) : cinq secondes au lieu d'une.
+ *
+ * Une seconde suffit quand un fichier tourne seul, pas quand toute la suite
+ * se partage la machine. `FicheFinanciere.test.jsx` l'a montré : le bouton
+ * « Cours et bénéfices » n'apparaît qu'au bout de quatre étapes asynchrones
+ * (fiche, taux de change, montage de l'historique, dix ans de cours
+ * mensuels). Le test passait seul et sur la CI, et échouait à chaque passage
+ * complet sur un poste chargé.
+ *
+ * Le délai était jusqu'ici relevé appel par appel — cinq secondes sur un test
+ * de ce fichier, trente dans `DividendesAuto` et `PortefeuilleRepli` — et le
+ * test voisin, oublié, tombait. Le relever ici couvre tous les tests, y
+ * compris ceux à venir. Comme pour `testTimeout` (voir `vite.config.js`), il
+ * ne masque rien : un élément présent est trouvé aussitôt, un élément absent
+ * fait toujours échouer le test, cinq secondes plus tard au lieu d'une.
+ */
+configure({ asyncUtilTimeout: 5000 });
 
 // jsdom n'implémente pas matchMedia, utilisé par certains composants
 // (recharts, media queries Tailwind interrogées en JS).

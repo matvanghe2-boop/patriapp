@@ -66,8 +66,8 @@ describe("FicheFinanciere — comptes publiés dans une autre monnaie", () => {
     // BPA 2025 : 6 $ × 0,5 = 3 € ; cours 55 à 59 € → PER entre 18 et 20.
     // Sans conversion, il aurait été entre 9 et 10.
     // Quatre étapes asynchrones s'enchaînent (fiche, taux, cours mensuels) :
-    // un délai plus large que la seconde par défaut, pour la machine chargée.
-    const ligne = await screen.findByText(/PER d'aujourd'hui/, {}, { timeout: 5000 });
+    // le délai d'attente est relevé pour toute la suite, dans `src/test/setup.js`.
+    const ligne = await screen.findByText(/PER d'aujourd'hui/);
     const per = Number(ligne.textContent.match(/(\d+),(\d)/).slice(1).join("."));
     expect(per).toBeGreaterThan(17);
     expect(per).toBeLessThan(21);
