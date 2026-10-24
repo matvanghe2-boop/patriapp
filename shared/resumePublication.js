@@ -203,9 +203,22 @@ RÉPONDS EN JSON STRICT, sans texte autour :
   "chiffres": [{"libelle":"Chiffre d'affaires","valeur":0,"unite":"M€","periode":"T3 2026"}],
   "guidance": {"texte":"ce que l'entreprise annonce pour la suite","bas":null,"haut":null,"unite":"%"},
   "trajectoire": "ce qui explique l'évolution, en langage simple",
-  "risques": ["point d'attention 1", "point d'attention 2"]
+  "risques": ["point d'attention 1", "point d'attention 2"],
+  "indicateurs": {
+    "periode": "période des chiffres principaux, ex. T3 2026, S1 2026, 9 mois 2026, exercice 2026",
+    "croissanceCaPct": {"valeur": null, "base": "publiée, organique, à changes constants ou à périmètre constant"},
+    "margeEbitdaPct": null,
+    "margeOperationnellePct": null,
+    "margeNettePct": null,
+    "variationResultatNetPct": null,
+    "freeCashFlow": {"valeur": null, "unite": "M€"},
+    "levierDetteNetteEbitda": null,
+    "guidanceStatut": "relevée, confirmée, abaissée, suspendue ou non communiquée"
+  }
 }
-Mets "chiffres" à [] si le texte n'en contient aucun, et "guidance" à null si l'entreprise n'en donne pas.`;
+Mets "chiffres" à [] si le texte n'en contient aucun, et "guidance" à null si l'entreprise n'en donne pas.
+
+INDICATEURS : remplis un indicateur UNIQUEMENT si le texte en donne la valeur exacte, recopiée telle quelle ; sinon null. Ne déduis aucune marge du chiffre d'affaires et du résultat, ne calcule aucune variation. Une baisse s'écrit avec un signe moins (-3,2). Si le texte donne plusieurs croissances, prends celle que la société met en avant et indique sa base. La marge opérationnelle couvre EBIT, EBITA, résultat opérationnel courant.`;
 
 /**
  * Assemble le résultat final : le résumé du modèle, amputé des chiffres qui

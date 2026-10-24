@@ -3,7 +3,18 @@ import { exigerUtilisateur } from "./_lib/auth.js";
 import { construireChaine } from "../shared/adaptateursLLM.js";
 import { PROMPT_RESUME, construireResume, verifierChiffres } from "../shared/resumePublication.js";
 import { PROMPT_ANALYSE, fourchetteValorisation } from "../shared/valorisation.js";
-import { urlDocumentAutorisee, texteDocument } from "./_lib/sources/infoFinanciere.js";
+import { urlDocumentAutorisee, texteDocument, texteLisiblePdf } from "./_lib/sources/infoFinanciere.js";
+import { ficheComplete } from "./_lib/yahooFondamentaux.js";
+import { isValidSymbol } from "./_lib/yahoo.js";
+import {
+  contexteHistorique,
+  verifierIndicateurs,
+  evaluerCriteres,
+  precautionDePeriode,
+  PROMPT_INTERPRETATION,
+  donneesInterpretation,
+  construireInterpretation,
+} from "../shared/interpretationResultats.js";
 
 /**
  * Résumé d'une publication d'entreprise — POST /api/resume
@@ -81,7 +92,9 @@ async function recupererTexte(url, env = process.env) {
   // avec ses bornes de taille et de pages.
   if (urlDocumentAutorisee(url)) {
     try {
-      return await texteDocument(url);
+      // Sans les en-têtes répétés à chaque page : le modèle lisait sinon six
+      // fois la raison sociale et le capital social de la société.
+      return texteLisiblePdf(await texteDocument(url));
     } catch (err) {
       throw httpError(502, `Document indisponible (${err.message}).`);
     }
@@ -198,6 +211,7 @@ async function analyser(req, res) {
 }
 
 async function handler(req, res) {
+  const debut = Date.now();
   await exigerUtilisateur(req);
 
   if (req.body?.mode === "analyse") return analyser(req, res);
@@ -206,6 +220,10 @@ async function handler(req, res) {
   if (typeof symbole !== "string" || !symbole.trim()) {
     throw httpError(400, "Symbole manquant.");
   }
+
+  // L'historique de la société (la fiche de Marché) se charge pendant que le
+  // modèle lit le communiqué : il servira à situer les chiffres publiés.
+  const promesseFiche = chargerFiche(symbole.trim());
 
   let source = typeof texte === "string" ? texte.trim() : "";
   let lien = null;
@@ -232,7 +250,10 @@ async function handler(req, res) {
     // matière brute, et l'interface affiche le lien et le texte.
     return res.status(200).json({
       disponible: false,
-      motif: "Aucun fournisseur de modèle configuré.",
+      // Le message dit quoi faire : c'est le propriétaire de l'application
+      // qui le lit, et la seule action possible est côté hébergeur.
+      motif:
+        "Aucun fournisseur de modèle configuré : ajoute une clé GEMINI_API_KEY (gratuite) ou GROQ_API_KEY dans les variables d'environnement Vercel, puis redéploie.",
       lien,
       texteSource,
       tronque,
@@ -267,7 +288,100 @@ async function handler(req, res) {
   }
 
   const resume = construireResume({ reponseModele, texteSource, lien, guidancePrecedente });
-  return res.status(200).json({ disponible: true, symbole: symbole.trim(), tronque, ...resume });
+
+  // Indicateurs normalisés : même contrôle que les chiffres du résumé. Un
+  // indicateur introuvable dans le texte est écarté ET rend le résumé
+  // incertain — le modèle a recopié de travers au moins une fois.
+  const { valides: indicateurs, rejetes: indicateursRejetes } = verifierIndicateurs(
+    reponseModele?.indicateurs,
+    texteSource
+  );
+  resume.indicateurs = indicateurs;
+  if (indicateursRejetes.length > 0) {
+    resume.fiable = false;
+    resume.chiffresRejetes = [
+      ...resume.chiffresRejetes,
+      ...indicateursRejetes.map((r) => ({ libelle: r.cle, valeur: r.valeur, motif: "absent du texte source" })),
+    ];
+  }
+
+  // La grille : les indicateurs publiés face à l'historique de la société.
+  const contexte = contexteHistorique(await promesseFiche);
+  const criteres = evaluerCriteres({
+    indicateurs,
+    contexte,
+    evolutionGuidance: resume.evolutionGuidance,
+    tenue: lireTenue(req.body?.tenue),
+  });
+
+  // La lecture rédigée est un complément : passé le budget de temps, la
+  // grille part seule plutôt que de risquer l'arrêt de la fonction sans
+  // réponse du tout.
+  const interpretation =
+    Date.now() - debut < BUDGET_INTERPRETATION_MS
+      ? await interpreterPublication({ adaptateurs, symbole: symbole.trim(), resume, contexte, criteres, texteSource })
+      : null;
+
+  return res.status(200).json({
+    disponible: true,
+    symbole: symbole.trim(),
+    tronque,
+    ...resume,
+    criteres,
+    precaution: precautionDePeriode(indicateurs.periode),
+    interpretation,
+    contexte: contexte
+      ? { periode: contexte.periode, nbExercices: contexte.nbExercices, secteur: contexte.secteur }
+      : null,
+  });
+}
+
+/**
+ * Au-delà de ce délai écoulé depuis le début de la requête, la lecture
+ * rédigée n'est pas demandée : un second appel de modèle pourrait dépasser
+ * les 60 s de la fonction.
+ */
+const BUDGET_INTERPRETATION_MS = 30_000;
+
+/** Fiche financière de Marché, sans jamais faire échouer le résumé. */
+async function chargerFiche(symbole) {
+  if (!isValidSymbol(symbole)) return null;
+  try {
+    return await cached(`fund:${symbole}`, 15 * 60_000, () => ficheComplete(symbole));
+  } catch {
+    return null;
+  }
+}
+
+/** Le décompte des promesses tenues vient du client : on n'en garde que des entiers plausibles. */
+export function lireTenue(brut) {
+  const tenues = Number(brut?.tenues);
+  const total = Number(brut?.total);
+  if (!Number.isInteger(tenues) || !Number.isInteger(total) || total <= 0 || tenues < 0 || tenues > total || total > 200) {
+    return null;
+  }
+  return { tenues, total };
+}
+
+/**
+ * Lecture rédigée de la publication, à partir de la grille déjà calculée.
+ * Exportée pour être testée avec des adaptateurs simulés.
+ */
+export async function interpreterPublication({ adaptateurs, symbole, resume, contexte, criteres, texteSource }) {
+  const donnees = donneesInterpretation({ symbole, resume, criteres, contexte });
+  for (const adaptateur of adaptateurs) {
+    try {
+      const sortie = await adaptateur.envoyer({
+        systeme: PROMPT_INTERPRETATION,
+        messages: [{ role: "utilisateur", contenu: `Publication de ${symbole} à interpréter :\n\n${donnees}` }],
+      });
+      const lecture = construireInterpretation(lireJsonModele(sortie?.contenu), { texteSource, donnees });
+      if (lecture) return lecture;
+    } catch {
+      /* fournisseur suivant */
+    }
+  }
+  return null;
 }
 
 /** Un résumé complet dépasse les 10 s par défaut, comme l'assistant. */

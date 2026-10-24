@@ -135,6 +135,22 @@ Le détail d'un événement de résultats propose de résumer la publication ave
 
 **Le communiqué est lu dans la fiche même.** Pour une valeur française, ouvrir un événement charge le texte du communiqué déposé sur info-financiere.gouv.fr (`/api/market?action=communique`), débarrassé des en-têtes et pieds de page répétés à chaque page ; pour une date à venir, c'est le communiqué qui l'**annonce**, et la fiche le dit. Le bouton « Résumer ce communiqué » part directement de ce document. La lecture du texte ne demande pas de compte — c'est un document public, et seul l'entrepôt de la DILA est accepté — mais le résumé, qui coûte un appel de modèle, en demande toujours un.
 
+**Les chiffres publiés sont remis dans l'historique de la société.** Un résumé ne dit pas si des résultats sont bons : une croissance de 5 % est excellente pour une société qui en faisait 2, inquiétante pour une qui en faisait 25. Chaque résumé est donc suivi d'une **grille de critères calculée par le code** (`shared/interpretationResultats.js`), jamais par le modèle :
+
+| Critère | Comparé à | Verdict |
+| --- | --- | --- |
+| Croissance du chiffre d'affaires | médiane des croissances annuelles passées | ±3 points : accélération, tendance, ralentissement ; recul si négative |
+| Marges (EBITDA, opérationnelle, nette) | la **même** marge, en médiane sur les exercices passés (12 derniers mois pour l'opérationnelle) | ±1 point : amélioration, stable, dégradation |
+| Résultat net, free cash-flow | leur signe | hausse ou baisse, trésorerie générée ou consommée |
+| Endettement (dette nette / EBITDA) | repères usuels des prêteurs | ≤ 1 faible, ≤ 2,5 modéré, au-delà élevé |
+| Perspectives | la guidance précédente, sinon le mot du communiqué | relevée, maintenue ou confirmée, abaissée ou suspendue |
+| Promesses tenues | les guidances des publications déjà résumées | ≥ 75 % tenues ou ≤ 40 %, à partir de deux précédents |
+| Valorisation | médiane des PER passés, sur trois exercices bénéficiaires au moins | ±20 % |
+
+L'historique est celui de la fiche Marché (comptes annuels, consensus). La référence est une **médiane**, pas une moyenne : les ratios d'une petite valeur sont heurtés — la conversion en trésorerie de Vusion va de −1 393 % à 202 % selon l'exercice — et une seule année aberrante suffit à fausser une moyenne. Ce qui ne peut pas être jugé est affiché comme tel, jamais compté neutre ; un trimestre ou un semestre comparé à des exercices complets porte une mise en garde sur la saisonnalité.
+
+Le modèle intervient deux fois, chaque fois sous contrôle : il **extrait** du communiqué des indicateurs normalisés (croissance, marges, free cash-flow, levier, statut de la guidance), recopiés tels quels et confrontés au texte — un indicateur introuvable est écarté et rend le résumé incertain ; puis il **rédige l'interprétation** (lecture d'ensemble, points solides, points de vigilance, à surveiller) à partir de la grille, sans pouvoir contredire un verdict ni citer un chiffre absent du communiqué et de l'historique. Si le temps manque pour ce second appel, la grille part seule.
+
 **Aucun chiffre n'est pris au mot.** Tout nombre avancé par le modèle est confronté au texte source ; ceux qui ne s'y retrouvent pas sont **retirés et comptés**, et le résumé est alors marqué « incertain » plutôt que réparé en silence. Un modèle qui « arrondit » 4 732 M€ en 4,7 Md€ produit une valeur absente du communiqué : indiscernable d'une invention, donc traitée comme telle. La consigne lui interdit explicitement de calculer, d'arrondir ou de convertir.
 
 La **guidance** est comparée à la précédente sur le milieu de fourchette (relevée, maintenue, abaissée), et l'historique permet de dire si l'entreprise a **tenu ses promesses passées** — les exercices sans réalisé connu sont ignorés plutôt que comptés comme manqués.

@@ -96,6 +96,8 @@ shared/eligibilitePea.test.js
 shared/horizon.js
 shared/horizon.test.js
 shared/horizonOutils.js
+shared/interpretationResultats.js
+shared/interpretationResultats.test.js
 shared/orchestrateur.js
 shared/orchestrateur.test.js
 shared/perHistorique.js
@@ -164,6 +166,8 @@ src/components/GlobalSearch.jsx
 src/components/HistoireTaux.jsx
 src/components/Immobilier.jsx
 src/components/IndicesWidget.jsx
+src/components/LecturePublication.jsx
+src/components/LecturePublication.test.jsx
 src/components/Livrets.jsx
 src/components/Login.jsx
 src/components/Marche.jsx

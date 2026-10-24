@@ -4,6 +4,7 @@ import { Card, CardLabel, CARD_THEMES } from "./ui";
 import { resumerPublication, estCommuniqueDepose } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
+import LecturePublication from "./LecturePublication";
 import { todayIso } from "../lib/finance";
 import { tenueDesGuidances } from "../../shared/resumePublication.js";
 import {
@@ -65,7 +66,12 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
       }
 
       const precedente = guidancePrecedente(publications, ticker, todayIso());
-      const r = await resumerPublication({ ...corps, guidancePrecedente: precedente });
+      const r = await resumerPublication({
+        ...corps,
+        guidancePrecedente: precedente,
+        // Le serveur juge la crédibilité de la société sur ce décompte.
+        tenue: tenue.total > 0 ? { tenues: tenue.tenues, total: tenue.total } : null,
+      });
 
       if (!r.disponible) {
         setErreur(
@@ -226,6 +232,15 @@ export default function ResumePublications({ ticker, nom, lienDocument = null })
                   dans le texte source et ont été retirés.
                 </p>
               )}
+
+              {/* Grille de critères calculée, puis interprétation rédigée :
+                  les chiffres publiés remis dans l'historique de la société. */}
+              <LecturePublication
+                criteres={p.criteres || []}
+                interpretation={p.interpretation || null}
+                contexte={p.contexte || null}
+                precaution={p.precaution || null}
+              />
 
               {p.guidance && (
                 <p className="text-micro mt-2">

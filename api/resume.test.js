@@ -1,5 +1,48 @@
 import { describe, it, expect } from "vitest";
-import { urlAutorisee, texteLisible, lireJsonModele } from "./resume.js";
+import { urlAutorisee, texteLisible, lireJsonModele, lireTenue, interpreterPublication } from "./resume.js";
+
+describe("interpreterPublication", () => {
+  const entree = {
+    symbole: "VU.PA",
+    resume: { resume: "Forte croissance au T3.", chiffres: [], indicateurs: { periode: "T3 2026" } },
+    contexte: null,
+    criteres: [{ libelle: "Croissance du chiffre d'affaires", verdict: "favorable", constat: "+24 % contre 19 % en médiane." }],
+    texteSource: "Chiffre d'affaires du 3ème trimestre de 433 M€ (+24%).",
+  };
+  const repondant = (contenu) => ({ envoyer: async () => ({ type: "texte", contenu }) });
+
+  it("passe au fournisseur suivant quand le premier échoue", async () => {
+    const enPanne = { envoyer: async () => { throw new Error("429"); } };
+    const lecture = await interpreterPublication({
+      ...entree,
+      adaptateurs: [enPanne, repondant('{"lecture":"La croissance de 24 % accélère.","forces":["433 M€"],"vigilance":[],"aSurveiller":[]}')],
+    });
+    expect(lecture).toMatchObject({ lecture: "La croissance de 24 % accélère.", fiable: true });
+  });
+
+  it("transmet la grille au modèle : il commente des verdicts, il ne les produit pas", async () => {
+    let recu = "";
+    await interpreterPublication({
+      ...entree,
+      adaptateurs: [{ envoyer: async ({ messages }) => ((recu = messages[0].contenu), { contenu: "{}" }) }],
+    });
+    expect(recu).toContain("+24 % contre 19 % en médiane.");
+    expect(recu).toContain('"verdict": "favorable"');
+  });
+
+  it("rend null quand aucun fournisseur ne livre une lecture exploitable", async () => {
+    expect(await interpreterPublication({ ...entree, adaptateurs: [repondant("pas du JSON")] })).toBeNull();
+  });
+});
+
+describe("lireTenue", () => {
+  it("ne garde que des décomptes cohérents", () => {
+    expect(lireTenue({ tenues: 3, total: 4 })).toEqual({ tenues: 3, total: 4 });
+    expect(lireTenue({ tenues: 5, total: 4 })).toBeNull();
+    expect(lireTenue({ tenues: "3", total: "x" })).toBeNull();
+    expect(lireTenue(null)).toBeNull();
+  });
+});
 
 describe("urlAutorisee", () => {
   it("accepte un document de la SEC", () => {

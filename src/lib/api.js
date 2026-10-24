@@ -254,7 +254,7 @@ export async function fetchEtatSource() {
  * document de la SEC. Jamais un montant, jamais une quantité, jamais un nom
  * de compte.
  */
-export async function resumerPublication({ symbole, texte, url, guidancePrecedente = null }) {
+export async function resumerPublication({ symbole, texte, url, guidancePrecedente = null, tenue = null }) {
   const { supabase, isSupabaseConfigured } = await import("./supabaseClient");
   let jeton = null;
   if (isSupabaseConfigured) {
@@ -268,7 +268,10 @@ export async function resumerPublication({ symbole, texte, url, guidancePreceden
       "Content-Type": "application/json",
       ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
     },
-    body: JSON.stringify({ symbole, texte, url, guidancePrecedente }),
+    // `tenue` : combien de guidances passées la société a tenues, d'après les
+    // résumés déjà faits. Un décompte de publications publiques, pas une
+    // donnée de portefeuille.
+    body: JSON.stringify({ symbole, texte, url, guidancePrecedente, tenue }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || "Résumé impossible pour le moment.");
