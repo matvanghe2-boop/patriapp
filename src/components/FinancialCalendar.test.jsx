@@ -38,6 +38,9 @@ function mockEvents(events) {
 }
 
 beforeEach(() => {
+  // Le calendrier garde sa dernière synchronisation d'une visite à l'autre :
+  // sans remise à zéro, un test verrait les événements du précédent.
+  localStorage.clear();
   fetchCalendarEvents.mockReset();
   fetchCalendarEvents.mockResolvedValue([]);
   fetchCommunique.mockReset();
@@ -184,6 +187,92 @@ describe("FinancialCalendar", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).queryByRole("button", { name: "Résumer ce communiqué" })).not.toBeInTheDocument();
     expect(fetchCommunique).not.toHaveBeenCalled();
+  });
+
+  it("affiche le dernier calendrier connu dès l'ouverture, sans attendre la synchronisation", async () => {
+    // Au rechargement, on ne voyait que le catalogue et les saisies manuelles
+    // (8 événements) jusqu'à la fin de la synchronisation (52).
+    localStorage.setItem(
+      "patrimoine:calendrierCacheApi",
+      JSON.stringify({
+        majLe: "2026-10-24T09:30:00.000Z",
+        evenements: [{ ticker: "AI.PA", name: "Air Liquide", type: "Résultats", date: futureIso(5), label: "Résultats du T3" }],
+      })
+    );
+    fetchCalendarEvents.mockReturnValue(new Promise(() => {})); // la synchro ne finit jamais
+    rendre(<FinancialCalendar positions={POSITIONS} watchlist={[]} catalogueReference={{}} />);
+    await user_clickTimeline();
+    expect(await screen.findByRole("button", { name: /Résultats du T3/ })).toBeInTheDocument();
+    expect(screen.getByText(/Affichage de la synchro du .*actualisation en cours/)).toBeInTheDocument();
+  });
+
+  it("n'efface pas la liste des rappels pendant la synchronisation", async () => {
+    // Elle était réécrite à l'ouverture avec le seul catalogue : les rappels
+    // perdaient tous les dividendes et résultats venus des API.
+    const rappels = [{ ticker: "AI.PA", type: "Dividende", date: futureIso(1), label: "Date ex-dividende" }];
+    localStorage.setItem("patrimoine:calendrierEvenements", JSON.stringify(rappels));
+    fetchCalendarEvents.mockReturnValue(new Promise(() => {}));
+    rendre(
+      <FinancialCalendar
+        positions={POSITIONS}
+        watchlist={[]}
+        catalogueReference={{ "AI.PA": { nom: "Air Liquide", source: "https://x", evenements: [{ date: futureIso(9), type: "Résultats", label: "Agenda" }] } }}
+      />
+    );
+    await vi.waitFor(() => expect(fetchCalendarEvents).toHaveBeenCalled());
+    expect(JSON.parse(localStorage.getItem("patrimoine:calendrierEvenements"))).toEqual(rappels);
+  });
+
+  it("garde le communiqué déposé quand la date du catalogue prime (Vinci, 22 octobre)", async () => {
+    const user = userEvent.setup();
+    const pdf = "https://fr.ftp.opendatasoft.com/datadila/INFOFI/ECO/2026/10/FCECO0VINCI_20261022.pdf";
+    const jour = futureIso(3);
+    mockEvents([
+      { ticker: "DG.PA", name: "Vinci", type: "Chiffre d'affaires", date: jour, label: "VINCI - 9M 2026", fournisseur: "info-financiere", statut: "confirme", lien: pdf },
+    ]);
+    fetchCommunique.mockResolvedValue({ url: pdf, texte: "Chiffre d'affaires de 9 mois en hausse.", tronque: false });
+    rendre(
+      <FinancialCalendar
+        positions={[{ ticker: "DG.PA", name: "Vinci" }]}
+        watchlist={[]}
+        catalogueReference={{
+          "DG.PA": { nom: "Vinci", source: "https://www.vinci.com/agenda", evenements: [{ date: jour, type: "Chiffre d'affaires", label: "Chiffre d'affaires du 3e trimestre 2026" }] },
+        }}
+      />
+    );
+    await user_clickTimeline();
+    await user.click(await screen.findByRole("button", { name: /Chiffre d'affaires du 3e trimestre 2026/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    // Le libellé vient de l'agenda, le texte du dépôt réglementaire.
+    expect(await within(dialog).findByText(/Chiffre d'affaires de 9 mois en hausse/)).toBeInTheDocument();
+    expect(fetchCommunique).toHaveBeenCalledWith(pdf);
+    expect(within(dialog).getByText("Agenda de la société + info-financiere.gouv.fr")).toBeInTheDocument();
+  });
+
+  it("cherche le communiqué d'une publication passée qui n'en porte pas (Vinci, S1)", async () => {
+    // Date de résultats venue de Yahoo, sans document : le communiqué déposé
+    // le même jour s'intitulait « Excellente performance économique au S1 ».
+    const user = userEvent.setup();
+    const jour = new Date(Date.now() - 20 * 86_400_000).toISOString().slice(0, 10);
+    const pdf = "https://fr.ftp.opendatasoft.com/datadila/INFOFI/ECO/2026/07/FCECO0VINCI_20260729.pdf";
+    mockEvents([{ ticker: "DG.PA", name: "Vinci", type: "Résultats", date: jour, label: "Résultats intermédiaires (estimé)", fournisseur: "yahoo" }]);
+    fetchCommunique.mockResolvedValue({
+      url: pdf,
+      titre: "Excellente performance économique au S1 2026",
+      date: jour,
+      texte: "Chiffre d'affaires du premier semestre en hausse.",
+      tronque: false,
+    });
+    rendre(<FinancialCalendar positions={[{ ticker: "DG.PA", name: "Vinci" }]} watchlist={[]} catalogueReference={{}} />);
+    await user_clickTimeline();
+    await user.click(await screen.findByRole("button", { name: /Résultats intermédiaires/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Excellente performance économique au S1 2026")).toBeInTheDocument();
+    expect(fetchCommunique).toHaveBeenCalledWith({ symbole: "DG.PA", date: jour, type: "Résultats" });
+    // Le résumé part du document trouvé.
+    expect(within(dialog).getByRole("button", { name: "Résumer ce communiqué" })).toBeInTheDocument();
   });
 
   it("invite à remplir portefeuille ou watchlist quand les deux sont vides", async () => {

@@ -108,7 +108,7 @@ const MOTIF_FIN_ENCADRE =
   /(?<![a-zà-ÿ])(?:à propos d|a propos d|about [A-Z]|contacts?(?![a-zà-ÿ])|relations? investisseurs|investor relations|avertissement|disclaimer|communiqué de presse|press release)/i;
 
 /** Puces et tirets qui séparent les lignes d'un encadré. */
-const SEPARATEUR_LIGNES = /\s*(?:[•›▪►■●◦|]|\s[–—]\s|\s-\s)\s*/;
+const SEPARATEUR_LIGNES = /\s*(?:[•›▪►■●◦◼◾▸➢|]|\s[–—]\s|\s-\s)\s*/;
 
 /**
  * Une date SANS année n'est pas lue (on ne choisit pas l'année à la place de
@@ -267,7 +267,10 @@ const CHIFFRE_AFFAIRES =
  * résultats.
  */
 export function typerLibelle(libelle = "") {
-  const t = String(libelle);
+  // Apostrophe typographique ramenée à la droite : « CHIFFRE D’AFFAIRES »
+  // (Vinci, 9 mois 2026) n'était pas reconnu, le communiqué passait pour une
+  // simple « Communication » et ne rejoignait pas la date de l'agenda.
+  const t = String(libelle).replace(/[’‘`´]/g, "'");
   if (
     /assembl[ée]e\s+(?:g[ée]n[ée]rale|des actionnaires)|general meeting|\bAGM\b|shareholders'? meeting/i.test(
       t
@@ -317,7 +320,7 @@ const REPRISE_PHRASE =
  */
 export function nettoyerLibelle(brut = "") {
   let t = String(brut)
-    .replace(/[•›▪►■●◦|]/g, " ")
+    .replace(/[•›▪►■●◦◼◾▸➢|]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^[\s:–—\-,;.]+/, "")

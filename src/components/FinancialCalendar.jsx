@@ -187,6 +187,9 @@ function SourceLegend() {
 
 // ─── Modal de détail d'un événement ─────────────────────────────────────────
 function EventModal({ ev, onClose }) {
+  // Lien d'un communiqué TROUVÉ par recherche, quand l'événement n'en portait
+  // pas : le résumé doit partir du document qu'on vient de lire.
+  const [lienTrouve, setLienTrouve] = useState(null);
   if (!ev) return null;
   const t = typeOf(ev.type);
   const Icon = t.icon;
@@ -346,11 +349,22 @@ function EventModal({ ev, onClose }) {
         </div>
 
         {/* Le communiqué lui-même, chargé à l'ouverture : on lit ce que la
-            société a annoncé sans quitter la fiche, puis on le résume. */}
-        {estCommuniqueDepose(ev.lien) && (
+            société a annoncé sans quitter la fiche, puis on le résume. Sans
+            document attaché, il est CHERCHÉ dans le registre pour une
+            publication passée d'une société française — une date de résultats
+            venue de Yahoo, une date relevée sur l'agenda de la société. */}
+        {estCommuniqueDepose(ev.lien) ? (
           <div className="mt-2">
             <CommuniqueDepose url={ev.lien} date={ev.date} annonceLe={ev.annonceLe} />
           </div>
+        ) : (
+          /\.PA$/i.test(ev.ticker) &&
+          ev.date <= today &&
+          ["Résultats", "Chiffre d'affaires", "Communication"].includes(ev.type) && (
+            <div className="mt-2">
+              <CommuniqueDepose symbole={ev.ticker} date={ev.date} type={ev.type} onTrouve={setLienTrouve} />
+            </div>
+          )
         )}
 
         {/* Résumé de la publication, accessible depuis l'événement lui-même —
@@ -360,7 +374,11 @@ function EventModal({ ev, onClose }) {
             l'accompagne. */}
         {(["Résultats", "Communication", "Chiffre d'affaires"].includes(ev.type) || estCommuniqueDepose(ev.lien)) && (
           <div className="mt-3">
-            <ResumePublications ticker={ev.ticker} nom={ev.name} lienDocument={ev.lien || null} />
+            <ResumePublications
+              ticker={ev.ticker}
+              nom={ev.name}
+              lienDocument={estCommuniqueDepose(ev.lien) ? ev.lien : lienTrouve || ev.lien || null}
+            />
           </div>
         )}
       </div>
@@ -771,7 +789,14 @@ export default function FinancialCalendar({
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
-  const [events, setEvents] = useState([]);
+  // Événements de la DERNIÈRE synchronisation réussie, gardés d'une visite à
+  // l'autre. Sans eux, chaque rechargement repartait de rien : on ne voyait
+  // que le catalogue et les saisies manuelles (8 événements) pendant toute la
+  // synchronisation, avant que les 52 autres ne reviennent.
+  const [cacheApi, setCacheApi] = usePersistentState("calendrierCacheApi", { majLe: null, evenements: [] });
+  // `null` tant que la synchronisation de cette visite n'a pas abouti : c'est
+  // alors le cache qui s'affiche.
+  const [events, setEvents] = useState(null);
   // Persistés pour que le rappel « c'est demain » fonctionne depuis n'importe
   // quel onglet : le hook d'application lit cette clé plutôt que de refaire un
   // appel réseau que le cache serveur servirait à l'identique.
@@ -799,6 +824,19 @@ export default function FinancialCalendar({
   const tickers = useMemo(() => Object.keys(sourceByTicker), [sourceByTicker]);
   const tickersKey = tickers.join(",");
 
+  /**
+   * Événements des API à afficher : ceux de cette visite une fois synchronisés,
+   * sinon ceux gardés de la précédente. Seules les valeurs encore suivies sont
+   * reprises du cache, et leur origine (portefeuille ou watchlist) est
+   * recalculée : elle a pu changer depuis.
+   */
+  const evenementsApi = useMemo(() => {
+    const base = events ?? (Array.isArray(cacheApi?.evenements) ? cacheApi.evenements : []);
+    return base
+      .filter((e) => sourceByTicker[e.ticker])
+      .map((e) => ({ ...e, source: sourceByTicker[e.ticker] }));
+  }, [events, cacheApi, sourceByTicker]);
+
   const load = useCallback(async () => {
     if (tickers.length === 0) {
       setEvents([]);
@@ -812,6 +850,12 @@ export default function FinancialCalendar({
         r.ok ? r.events.map((ev) => ({ ...ev, source: sourceByTicker[ev.ticker] || "watchlist" })) : []
       );
       setEvents(merged);
+      // Une réponse amputée par une panne de Yahoo ne remplace pas le cache :
+      // on garderait sinon, jusqu'à la synchronisation suivante, un calendrier
+      // sans dividendes ni estimations.
+      if (!results.some((r) => r.partiel)) {
+        setCacheApi({ majLe: new Date().toISOString(), evenements: merged });
+      }
       const failed = results.filter((r) => !r.ok).length;
       // Quand Yahoo ne répond pas, le serveur rend quand même les communiqués
       // français : la ligne est « ok », mais sans dividendes ni estimations.
@@ -828,7 +872,11 @@ export default function FinancialCalendar({
       if (messages.length > 0) setError(messages.join(" "));
       setLastSync(new Date());
     } catch {
-      setError("Calendrier indisponible — vérifie ta connexion internet.");
+      setError(
+        cacheApi?.majLe
+          ? `Synchronisation impossible — affichage de la dernière, du ${new Date(cacheApi.majLe).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.`
+          : "Calendrier indisponible — vérifie ta connexion internet."
+      );
     } finally {
       setLoading(false);
     }
@@ -860,27 +908,58 @@ export default function FinancialCalendar({
     // l'utilisateur — qui connaît ses lignes mieux que n'importe quelle liste.
     const reference = evenementsReference(tickers, catalogueReference).map(marquerOrigine);
     const manuels = evenementsManuels(datesManuelles, tickers).map(marquerOrigine);
-    if (reference.length === 0 && manuels.length === 0) return events;
+    if (reference.length === 0 && manuels.length === 0) return evenementsApi;
 
     // Même clé d'identité que la fusion côté serveur : une date plus sûre qui
     // tombe le même jour qu'une date d'API la remplace au lieu de doubler.
     const cle = (e) => `${e.ticker}|${e.type}|${e.date}`;
     const clesReference = new Set(reference.map(cle));
     const clesManuelles = new Set(manuels.map(cle));
+    const apiParCle = new Map(evenementsApi.map((e) => [cle(e), e]));
+
+    /**
+     * La date sûre l'emporte, mais le communiqué DÉPOSÉ reste attaché.
+     *
+     * Le remplacement pur jetait l'événement d'API, et avec lui le PDF de
+     * l'information réglementée : la fiche du chiffre d'affaires de Vinci du
+     * 22 octobre ne proposait que la page « agenda » du site de la société,
+     * et donc ni lecture du communiqué ni résumé. L'agenda dit la date, le
+     * dépôt donne le texte.
+     */
+    const fusionner = (prioritaire) => {
+      const api = apiParCle.get(cle(prioritaire));
+      if (!api) return prioritaire;
+      return {
+        ...api,
+        ...prioritaire,
+        lien: estCommuniqueDepose(api.lien) ? api.lien : (prioritaire.lien ?? api.lien),
+        estimates: prioritaire.estimates ?? api.estimates,
+        fournisseurs: [
+          ...new Set([prioritaire.fournisseur, ...(api.fournisseurs || [api.fournisseur])].filter(Boolean)),
+        ],
+      };
+    };
 
     return [
-      ...events.filter((e) => !clesReference.has(cle(e)) && !clesManuelles.has(cle(e))),
-      ...reference.filter((e) => !clesManuelles.has(cle(e))),
-      ...manuels,
+      ...evenementsApi.filter((e) => !clesReference.has(cle(e)) && !clesManuelles.has(cle(e))),
+      ...reference.filter((e) => !clesManuelles.has(cle(e))).map(fusionner),
+      ...manuels.map(fusionner),
     ];
-  }, [events, datesManuelles, tickers, sourceByTicker, catalogueReference]);
+  }, [evenementsApi, datesManuelles, tickers, sourceByTicker, catalogueReference]);
 
   // La liste PERSISTÉE est celle qui inclut les saisies manuelles : sans
   // cela, le rappel « c'est demain » ignorerait précisément les dates les
   // plus sûres, celles relevées sur l'agenda officiel de la société.
+  //
+  // Elle n'est réécrite qu'une fois les événements d'API connus — de cette
+  // visite ou de la précédente. À l'ouverture, elle était écrasée par la
+  // seule partie calculée dans le navigateur (catalogue et saisies) : le temps
+  // de la synchronisation, ou pour de bon si elle échouait, les rappels
+  // perdaient tous les dividendes et résultats venus des API.
+  const apiConnus = events !== null || (cacheApi?.evenements?.length ?? 0) > 0;
   useEffect(() => {
-    setEvenementsPersistes(tousEvenements);
-  }, [tousEvenements, setEvenementsPersistes]);
+    if (apiConnus) setEvenementsPersistes(tousEvenements);
+  }, [apiConnus, tousEvenements, setEvenementsPersistes]);
 
   const counts = useMemo(
     () => ({
@@ -923,7 +1002,7 @@ export default function FinancialCalendar({
 
   // Skeleton uniquement au tout premier chargement (aucun événement encore connu) —
   // les actualisations suivantes gardent l'affichage existant pendant le refetch.
-  const isInitialLoad = loading && events.length === 0 && tickers.length > 0;
+  const isInitialLoad = loading && evenementsApi.length === 0 && tickers.length > 0;
 
   return (
     <div className="rounded-2xl border border-[#1a1a1a] bg-black p-5 text-white">
@@ -1066,11 +1145,27 @@ export default function FinancialCalendar({
       )}
 
       {error && tousEvenements.length > 0 && <p className="text-micro text-[#ffb020] mt-3">{error}</p>}
-      {lastSync && (
+      {lastSync ? (
         <p className="text-micro text-[#666] mt-3">
           Dernière synchro : {lastSync.toLocaleTimeString("fr-FR")} · {positions.length} ligne(s) en
           portefeuille et {watchlist.length} valeur(s) surveillée(s) suivies automatiquement.
         </p>
+      ) : (
+        // Calendrier de la visite précédente, en attendant la synchronisation :
+        // on dit de quand il date plutôt que de le faire passer pour frais.
+        cacheApi?.majLe &&
+        evenementsApi.length > 0 && (
+          <p className="text-micro text-[#666] mt-3">
+            Affichage de la synchro du{" "}
+            {new Date(cacheApi.majLe).toLocaleString("fr-FR", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            {loading ? " — actualisation en cours…" : "."}
+          </p>
+        )
       )}
       <p className="text-micro text-[#555] mt-1">
         Sources : Yahoo Finance, info-financiere.gouv.fr pour les sociétés françaises (communiqués
@@ -1079,7 +1174,13 @@ export default function FinancialCalendar({
         apparaît comme estimation rattachée à la publication des résultats.
       </p>
 
-      <EventModal ev={selectedEvent} onClose={() => setSelectedEvent(null)} />
+      {/* Une fiche par événement : le communiqué trouvé pour l'un ne doit
+          jamais rester affiché pour le suivant. */}
+      <EventModal
+        key={selectedEvent ? `${selectedEvent.ticker}|${selectedEvent.type}|${selectedEvent.date}` : "aucun"}
+        ev={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+      />
     </div>
   );
 }

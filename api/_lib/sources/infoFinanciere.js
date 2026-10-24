@@ -161,11 +161,23 @@ export function urlDocumentAutorisee(brut) {
  * Forte croissance au troisième trimestre, portée par… » dit l'essentiel
  * avant le tiret, le reste est l'accroche du communiqué, que le lien donne.
  */
-export function nettoyerTitre(titre) {
+export function nettoyerTitre(titre, nomSociete = null) {
   let t = String(titre || "")
     .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9 &'.-]{1,40}\s*:\s+(?=\S)/, "");
+    .trim();
+  // Le nom de la société en tête, quel que soit le séparateur : « VINCI -
+  // 9M 2026… », « Vusion - Forte croissance… ». Reconnu à ce que chaque mot
+  // de la tête appartient au nom déposé (« Vusion » pour « VUSIONGROUP ») ou
+  // est une forme juridique. « VINCI Airports – Trafic… » garde sa tête :
+  // « Airports » dit de quelle filiale il s'agit.
+  const tete = t.match(/^([A-Za-zÀ-ÿ][^:–—-]{1,40}?)\s*(?::|[-–—])\s+(?=\S)/);
+  const nom = String(nomSociete || "").toUpperCase().replace(/[^A-ZÀ-Ý]/g, "");
+  const motDuNom = (mot) => {
+    const m = mot.toUpperCase().replace(/[^A-ZÀ-Ý]/g, "");
+    return !m || nom.includes(m) || /^(?:SA|SE|SCA|NV|GROUPE?|GROUP)$/.test(m);
+  };
+  if (tete && nom && tete[1].split(/\s+/).every(motDuNom)) t = t.slice(tete[0].length);
+  else t = t.replace(/^[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9 &'.-]{1,40}\s*:\s+(?=\S)/, "");
   if (t.length > 70) {
     const separateur = t.slice(12).search(/\s[-–—:]\s/);
     if (separateur >= 0 && separateur + 12 <= 90) t = t.slice(0, separateur + 12);
@@ -209,8 +221,25 @@ function typerDepot(conf, titre) {
   }
   const type = typerLibelle(titre);
   if (conf.famille === "periodique") return type === "Résultats" ? "Résultats" : "Chiffre d'affaires";
-  return type === "Résultats" || type === "Chiffre d'affaires" ? type : "Communication";
+  if (type === "Résultats" || type === "Chiffre d'affaires") return type;
+  // Un titre sans « résultats » ni « chiffre d'affaires » peut quand même
+  // désigner la publication périodique par sa PÉRIODE : « VINCI : Excellente
+  // performance économique au S1 2026 » est le communiqué de résultats
+  // semestriels. Classé « Communication », il ne rejoignait pas la date de
+  // résultats de Yahoo, et la fiche restait sans document. Une assemblée ou
+  // un dividende (typés autrement par `typerLibelle`) ne passent pas ici.
+  if (type === "Communication") {
+    if (MARQUEUR_TRIMESTRE.test(titre)) return "Chiffre d'affaires";
+    if (MARQUEUR_SEMESTRE.test(titre)) return "Résultats";
+  }
+  return "Communication";
 }
+
+const MARQUEUR_TRIMESTRE = /(?<![A-Za-z0-9])(?:T[1-4]|Q[1-4]|9M)(?![A-Za-z0-9])|trimestr|9 mois|neuf mois/i;
+const MARQUEUR_SEMESTRE = /(?<![A-Za-z0-9])(?:S[12]|H[12])(?![A-Za-z0-9])|semestr/i;
+
+/** Mots d'un communiqué de publication qui ne nomme pas sa période. */
+const MOTS_PUBLICATION = /perspectives?|croissance|performance|guidance|outlook|objectifs?/i;
 
 /** Date AAAA-MM-JJ, en heure de Paris, d'un horodatage de dépôt. */
 function jourDepot(depot, formaterDate) {
@@ -267,7 +296,7 @@ export function evenementsDepots(depots, symbole, { formaterDate, aujourdhui }) 
       name: depot.identificationsociete_iso_nom_soc || symbole,
       type,
       date,
-      label: conf.label || (titreGenerique(titre) ? LIBELLES_GENERIQUES[type] : nettoyerTitre(titre)),
+      label: conf.label || (titreGenerique(titre) ? LIBELLES_GENERIQUES[type] : nettoyerTitre(titre, depot.identificationsociete_iso_nom_soc)),
       // Un dépôt réglementaire est un fait daté : confirmé par construction.
       statut: "confirme",
       fournisseur: "info-financiere",
@@ -354,7 +383,7 @@ async function lireAvecDelai(url, options = {}) {
 }
 
 /** Dépôts récents d'une société, par mnémonique. */
-async function lireDepots(mnemo, depuis) {
+async function lireDepots(mnemo, depuis, jusqua = null) {
   // Le filtre se fait côté serveur : sans lui, les déclarations de rachat
   // occupaient la page de résultats et repoussaient les communiqués au-delà.
   const sousTypes = Object.keys(SOUS_TYPES)
@@ -363,6 +392,7 @@ async function lireDepots(mnemo, depuis) {
   const where =
     `identificationsociete_iso_code_tkr_iso_cd_tkr="${mnemo}"` +
     ` and informationdeposee_inf_dat_emt >= "${depuis}"` +
+    (jusqua ? ` and informationdeposee_inf_dat_emt < "${jusqua}"` : "") +
     ` and sous_type_d_information in (${sousTypes})`;
   const champs = [
     "informationdeposee_inf_dat_emt",
@@ -379,6 +409,82 @@ async function lireDepots(mnemo, depuis) {
   const r = await lireAvecDelai(url, { headers: { Accept: "application/json" } });
   const data = await r.json();
   return Array.isArray(data?.results) ? data.results : [];
+}
+
+const FAMILLE_PUBLICATION = new Set(["Résultats", "Chiffre d'affaires"]);
+
+/** Écart en jours entre deux dates AAAA-MM-JJ. */
+const ecartJours = (a, b) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000);
+
+/**
+ * Le communiqué déposé qui correspond à un événement, parmi les dépôts
+ * d'une société autour de sa date.
+ *
+ * POURQUOI CHERCHER APRÈS COUP
+ *
+ * Le calendrier ne rattache un dépôt à un événement que s'ils tombent le
+ * même jour avec le même type. Il en reste sans document : une date de
+ * résultats Yahoo quand le communiqué, faute du mot « résultats » dans son
+ * titre, a été classé « Communication » (Vinci et Capgemini en juillet) ; une
+ * publication plus ancienne que l'historique gardé (L'Oréal en février). La
+ * fiche de l'événement interroge donc le registre à la demande.
+ *
+ * On accepte un jour d'écart — un communiqué publié à 17 h 45 est parfois
+ * daté du lendemain par l'une ou l'autre source — mais pas n'importe quel
+ * document : pour une publication de résultats, un communiqué sur un contrat
+ * le même jour serait la mauvaise lecture. Le type doit correspondre, ou au
+ * moins appartenir à la même famille.
+ */
+export function choisirCommunique(depots, { date, type = null, formaterDate }) {
+  let meilleur = null;
+  let meilleurScore = -1;
+  for (const depot of trierDepots(depots)) {
+    const conf = SOUS_TYPES[depot?.sous_type_d_information];
+    if (!conf || !urlDocumentAutorisee(depot.url_de_recuperation)) continue;
+    const jour = jourDepot(depot, formaterDate);
+    if (!jour || Math.abs(ecartJours(jour, date)) > 1) continue;
+
+    const titre = depot.informationdeposee_inf_tit_inf;
+    const t = typerDepot(conf, titre);
+    let pertinence;
+    if (conf.type) pertinence = 0; // rapport, documents d'assemblée : pas un communiqué
+    else if (type && t === type) pertinence = 3;
+    else if (FAMILLE_PUBLICATION.has(type) && FAMILLE_PUBLICATION.has(t)) pertinence = 2;
+    // « Capgemini relève ses perspectives pour 2026 », publié le jour même des
+    // résultats : c'est leur communiqué, qui ne dit ni « résultats » ni sa
+    // période. Le même jour seulement — un jour plus tôt, ce pourrait être
+    // une annonce distincte.
+    else if (FAMILLE_PUBLICATION.has(type) && jour === date && MOTS_PUBLICATION.test(titre)) pertinence = 2;
+    else pertinence = 1;
+
+    // Une publication de résultats ne se lit pas dans un communiqué
+    // quelconque du même jour.
+    const exigee = FAMILLE_PUBLICATION.has(type) ? 2 : 1;
+    if (pertinence < exigee) continue;
+
+    // La pertinence prime, puis la date exacte. À égalité, l'ordre de
+    // `trierDepots` (le plus récent, en français) tranche.
+    const score = pertinence * 10 + (jour === date ? 1 : 0);
+    if (score > meilleurScore) {
+      meilleur = { url: depot.url_de_recuperation, titre: nettoyerTitre(titre, depot.identificationsociete_iso_nom_soc), date: jour, type: t };
+      meilleurScore = score;
+    }
+  }
+  return meilleur;
+}
+
+/**
+ * Cherche dans le registre le communiqué d'une société à une date donnée.
+ * `null` si la valeur n'est pas parisienne ou si rien ne correspond.
+ */
+export async function communiqueDuJour(symbole, date, type, { formaterDate, lireDepotsSociete = lireDepots } = {}) {
+  const mnemo = mnemonique(symbole);
+  if (!mnemo || !/^\d{4}-\d{2}-\d{2}$/.test(String(date)) || typeof formaterDate !== "function") return null;
+  const jour = (decalage) => new Date(Date.parse(`${date}T00:00:00Z`) + decalage * 86400000).toISOString().slice(0, 10);
+  // Deux jours de part et d'autre en UTC, pour couvrir le jour d'écart toléré
+  // une fois les horodatages ramenés à l'heure de Paris.
+  const depots = await lireDepotsSociete(mnemo, jour(-2), jour(2));
+  return choisirCommunique(depots, { date, type, formaterDate });
 }
 
 /**
@@ -422,7 +528,7 @@ export function texteLisiblePdf(brut = "") {
     .replace(/([.!?:])[ ]*\n/g, `$1${FIN}`)
     .replace(/\s*\n\s*/g, " ")
     .replaceAll(FIN, "\n")
-    .replace(/[ ]*([•▪►■●])[ ]*/g, "\n$1 ")
+    .replace(/[ ]*([•▪►■●◼◾▸➢])[ ]*/g, "\n$1 ")
     .replace(/[ ]*\n[ ]*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

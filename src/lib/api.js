@@ -77,10 +77,17 @@ export async function fetchCalendarEvents(symbols) {
 /**
  * Texte d'un communiqué déposé sur info-financiere.gouv.fr, extrait du PDF
  * par le serveur. Public et sans compte : c'est le texte que la société a
- * publié. Renvoie { url, texte, tronque }.
+ * publié. Renvoie { url, titre, date, texte, tronque }.
+ *
+ * `cible` est le lien du document, ou { symbole, date, type } pour le faire
+ * chercher dans le registre quand l'événement n'en porte pas.
  */
-export async function fetchCommunique(url) {
-  const res = await fetch(marche("communique", { url }));
+export async function fetchCommunique(cible) {
+  const params =
+    typeof cible === "string"
+      ? { url: cible }
+      : { symbol: cible.symbole, date: cible.date, ...(cible.type ? { type: cible.type } : {}) };
+  const res = await fetch(marche("communique", params));
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || "Communiqué indisponible");
   return body;

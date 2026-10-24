@@ -100,6 +100,10 @@ Le calendrier couvre le portefeuille et la watchlist : résultats, dividendes, c
 
 Quand la société annonce sa date, l'estimation Yahoo qui tombait à quelques jours de là disparaît, au lieu de rester affichée à côté de la vraie.
 
+**Le calendrier garde sa dernière synchronisation.** Au rechargement, il affiche aussitôt les événements de la visite précédente (« Affichage de la synchro du 24/10 15:30 — actualisation en cours… ») et les remplace quand la nouvelle synchronisation aboutit. Avant, seuls le catalogue et les saisies manuelles — calculés dans le navigateur — apparaissaient pendant toute la synchronisation : 8 événements sur 52. La liste lue par les rappels « c'est demain » n'est plus réécrite à l'ouverture avec cette seule partie.
+
+**Le communiqué reste attaché, et se cherche au besoin.** Quand une date du catalogue ou une saisie manuelle prime sur une date d'API, l'événement garde le PDF déposé : l'agenda donne la date, le registre donne le texte. Pour une publication passée sans document — date de résultats venue de Yahoo, communiqué plus ancien que l'historique gardé —, la fiche le cherche dans le registre (le jour même, à un jour près) et dit lequel elle a trouvé. Pour des résultats, un communiqué sur un contrat le même jour n'est jamais retenu.
+
 Quand Yahoo ne répond pas, les communiqués français restent affichés, mais le calendrier le **dit** (« dividendes et dates de résultats estimées manquent ») et cette réponse incomplète n'est pas mise en cache : le prochain « Actualiser » repart des sources.
 
 Mesuré le 24 octobre 2026 sur 37 valeurs du SBF 120 hors CAC 40 et de small caps :

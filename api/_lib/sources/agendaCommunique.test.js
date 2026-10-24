@@ -283,6 +283,12 @@ describe("typerLibelle", () => {
     expect(typerLibelle("Chiffre d'affaires et résultats annuels")).toBe("Résultats");
   });
 
+  it("reconnaît le chiffre d'affaires écrit avec une apostrophe typographique (Vinci)", () => {
+    expect(typerLibelle("VINCI - 9M 2026 - NOUVELLES HAUSSES DU CHIFFRE D’AFFAIRES ET DES PRISES DE COMMANDES")).toBe(
+      "Chiffre d'affaires"
+    );
+  });
+
   it("range le reste en communication", () => {
     expect(typerLibelle("Capital Markets Day à Paris")).toBe("Communication");
   });

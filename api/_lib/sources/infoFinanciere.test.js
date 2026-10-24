@@ -7,6 +7,8 @@ import {
   communiquesAgenda,
   combinerAgendas,
   evenementsInfoFinanciere,
+  choisirCommunique,
+  communiqueDuJour,
 } from "./infoFinanciere.js";
 import { toIsoDate } from "../routes/calendar.js";
 
@@ -232,6 +234,72 @@ describe("evenementsDepots", () => {
       aujourdhui: "2026-12-05",
     });
     expect(e.date).toBe("2026-12-02");
+  });
+});
+
+describe("titres sans le mot « résultats »", () => {
+  it("reconnaît la publication périodique à sa période (Vinci, S1 et 9 mois)", () => {
+    const evts = evenementsDepots(
+      [
+        depot({ le: "2026-07-29T17:20:00+00:00", titre: "VINCI : Excellente performance économique au S1 2026", societe: "VINCI", n: 31 }),
+        depot({ le: "2026-10-22T15:45:00+00:00", titre: "VINCI - 9M 2026 - NOUVELLES HAUSSES DU CHIFFRE D’AFFAIRES ET DES PRISES DE COMMANDES", societe: "VINCI", n: 32 }),
+        depot({ le: "2026-10-19T15:45:00+00:00", titre: "VINCI Airports – Trafic au 30 septembre 2026", societe: "VINCI", n: 33 }),
+      ],
+      "DG.PA",
+      CONTEXTE
+    );
+    const parDate = Object.fromEntries(evts.map((e) => [e.date, e]));
+    expect(parDate["2026-07-29"].type).toBe("Résultats");
+    expect(parDate["2026-10-22"]).toMatchObject({ type: "Chiffre d'affaires", label: expect.stringMatching(/^9M 2026 - NOUVELLES HAUSSES/) });
+    // Une date dans le titre n'est pas une période de publication.
+    expect(parDate["2026-10-19"].type).toBe("Communication");
+  });
+
+  it("retire le nom de la société quel que soit le séparateur", () => {
+    expect(nettoyerTitre("Vusion - Forte croissance des ventes au 1er semestre - Acquisition stratégique dans le Retail Media", "VUSIONGROUP")).toBe(
+      "Forte croissance des ventes au 1er semestre"
+    );
+    expect(nettoyerTitre("Capgemini relève ses perspectives pour 2026", "CAPGEMINI")).toBe("Capgemini relève ses perspectives pour 2026");
+    expect(nettoyerTitre("BUREAU VERITAS - 2025 : Croissance organique", "BUREAU VERITAS")).toBe("2025 : Croissance organique");
+    expect(nettoyerTitre("Capgemini SE : Déclaration des transactions", "CAPGEMINI")).toBe("Déclaration des transactions");
+    // La filiale fait partie de l'information.
+    expect(nettoyerTitre("VINCI Airports – Trafic au 30 septembre 2026", "VINCI")).toBe("VINCI Airports – Trafic au 30 septembre 2026");
+  });
+});
+
+describe("choisirCommunique", () => {
+  const options = { formaterDate: toIsoDate };
+  const contrat = depot({ le: "2026-07-30T05:00:00+00:00", titre: "Capgemini remporte un contrat", societe: "CAPGEMINI", n: 41 });
+  const perspectives = depot({ le: "2026-07-30T05:00:00+00:00", titre: "Capgemini relève ses perspectives pour 2026", societe: "CAPGEMINI", n: 42 });
+  const rapport = depot({ le: "2026-07-30T16:55:00+00:00", titre: "Rapport financier semestriel", sousType: "Rapports financiers et d'audit semestriels/examens réduits", n: 43 });
+
+  it("trouve le communiqué de résultats qui ne dit ni « résultats » ni sa période", () => {
+    const c = choisirCommunique([contrat, rapport, perspectives], { ...options, date: "2026-07-30", type: "Résultats" });
+    expect(c).toMatchObject({ url: PDF(42), titre: "Capgemini relève ses perspectives pour 2026", date: "2026-07-30" });
+  });
+
+  it("ne lit pas des résultats dans un communiqué sur un contrat, ni dans le rapport", () => {
+    expect(choisirCommunique([contrat, rapport], { ...options, date: "2026-07-30", type: "Résultats" })).toBeNull();
+  });
+
+  it("tolère un jour d'écart, mais pas deux", () => {
+    const resultats = depot({ le: "2026-02-12T17:00:00+00:00", titre: "Résultats annuels 2025", n: 44 });
+    expect(choisirCommunique([resultats], { ...options, date: "2026-02-13", type: "Résultats" })?.url).toBe(PDF(44));
+    expect(choisirCommunique([resultats], { ...options, date: "2026-02-14", type: "Résultats" })).toBeNull();
+  });
+
+  it("n'accepte les mots de publication que le jour même", () => {
+    expect(choisirCommunique([perspectives], { ...options, date: "2026-07-31", type: "Résultats" })).toBeNull();
+  });
+});
+
+describe("communiqueDuJour", () => {
+  it("interroge le registre autour de la date, et ignore les autres places", async () => {
+    const lire = vi.fn(async () => [depot({ le: "2026-02-12T17:00:00+00:00", titre: "Résultats annuels 2025", n: 45 })]);
+    const c = await communiqueDuJour("OR.PA", "2026-02-12", "Résultats", { formaterDate: toIsoDate, lireDepotsSociete: lire });
+    expect(lire).toHaveBeenCalledWith("OR", "2026-02-10", "2026-02-14");
+    expect(c.url).toBe(PDF(45));
+    expect(await communiqueDuJour("AAPL", "2026-02-12", "Résultats", { formaterDate: toIsoDate, lireDepotsSociete: lire })).toBeNull();
   });
 });
 

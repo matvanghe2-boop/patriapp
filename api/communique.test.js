@@ -25,6 +25,12 @@ describe("texteLisiblePdf", () => {
     expect(t).toContain("Contenu de la page 3.");
   });
 
+  it("met à la ligne les puces carrées (Vinci, ◼)", () => {
+    expect(texteLisiblePdf("Faits marquants ◼ Forte progression ◼ Commandes toniques")).toBe(
+      "Faits marquants\n◼ Forte progression\n◼ Commandes toniques"
+    );
+  });
+
   it("ne lève pas sur une entrée vide", () => {
     expect(texteLisiblePdf("")).toBe("");
     expect(texteLisiblePdf(undefined)).toBe("");
@@ -33,6 +39,14 @@ describe("texteLisiblePdf", () => {
 
 describe("route communique", () => {
   const appeler = (url) => handler({ query: { url } }, { status: () => ({ json: () => {} }) });
+  const chercher = (query) => handler({ query }, { status: () => ({ json: () => {} }) });
+
+  it("ne cherche que pour une valeur parisienne et une date valide", async () => {
+    await expect(chercher({ symbol: "AAPL", date: "2026-07-29" })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(chercher({ symbol: "DG.PA", date: "29/07/2026" })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(chercher({})).rejects.toMatchObject({ statusCode: 400 });
+  });
+
 
   it("refuse toute adresse hors de l'entrepôt de la DILA", async () => {
     // L'URL vient du client : la suivre aveuglément ferait de la route un
