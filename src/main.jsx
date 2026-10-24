@@ -10,6 +10,7 @@ import { ToastProvider } from "./lib/ToastContext";
 import { ConfirmProvider } from "./lib/ConfirmContext";
 import { PatrimoineProvider } from "./lib/PatrimoineContext";
 import { ApparenceProvider } from "./lib/ApparenceContext";
+import { Analytics } from "@vercel/analytics/react";
 import "./index.css";
 
 function AuthGate() {
@@ -58,6 +59,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             {/* Hors de l'AuthGate : une mise à jour doit pouvoir être annoncée
                 même sur l'écran de connexion. */}
             <MiseAJourDisponible />
+            <Analytics />
           </ConfirmProvider>
         </ToastProvider>
       </AuthProvider>
