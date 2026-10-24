@@ -136,11 +136,9 @@ describe("FinancialCalendar", () => {
     expect(fetchCalendarEvents).not.toHaveBeenCalled();
   });
 
-  it("indique clairement que les assemblées générales ne sont pas fournies par la source", async () => {
+  it("nomme ses sources et dit qu'aucune date n'est inventée", async () => {
     rendre(<FinancialCalendar positions={POSITIONS} watchlist={[]} catalogueReference={{}} />);
-    expect(
-      await screen.findByText(/assemblée générale ne sont publiées par aucun endpoint/i)
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/info-financiere\.gouv\.fr.*aucune n'est inventée/i)).toBeInTheDocument();
   });
 });
 

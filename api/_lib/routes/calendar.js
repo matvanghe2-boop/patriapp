@@ -31,7 +31,8 @@ import { httpError, cached } from "../http.js";
 import { YF_HEADERS, getYahooSession, invalidateYahooSession, parseSymbols } from "../yahoo.js";
 import { evenementsSec } from "../sources/edgar.js";
 import { evenementsCalendrierYahoo } from "../sources/yahooCalendrier.js";
-import { fusionnerEvenements, statutYahoo } from "../sources/fusion.js";
+import { evenementsInfoFinanciere } from "../sources/infoFinanciere.js";
+import { fusionnerEvenements, statutYahoo, ecarterEstimationsDementies } from "../sources/fusion.js";
 
 // Un calendrier d'événements évolue au mieux une fois par jour : cache long.
 const CACHE_MS = 60 * 60_000;
@@ -269,9 +270,29 @@ async function mapWithConcurrency(items, limit, task) {
   return out;
 }
 
+/** Regroupe une liste d'événements par ticker. */
+function parTicker(evenements) {
+  return evenements.reduce((acc, e) => {
+    (acc[e.ticker] ||= []).push(e);
+    return acc;
+  }, {});
+}
+
 async function handler(req, res) {
   const symbols = parseSymbols(req.query.symbols);
   if (symbols.length === 0) throw httpError(400, "Paramètre `symbols` manquant ou invalide.");
+
+  /**
+   * Quatrième entrée : l'information réglementée française.
+   *
+   * C'est la seule source qui couvre correctement les valeurs plus petites
+   * que le CAC 40 — publications déposées, et dates annoncées par la société
+   * dans ses propres communiqués. Lancée D'EMBLÉE, en parallèle de Yahoo :
+   * elle lit des PDF et c'est la plus lente, l'attendre à la fin aurait
+   * additionné les durées au lieu de les superposer. Elle ne dépend pas de
+   * Yahoo, et son échec est absorbé.
+   */
+  const promesseInfoFinanciere = evenementsInfoFinanciere(symbols, { formaterDate: toIsoDate }).catch(() => []);
 
   try {
     const rows = await cached(`calendar:${symbols.join(",")}`, CACHE_MS, () =>
@@ -327,6 +348,7 @@ async function handler(req, res) {
     }
 
     const aujourdhui = toIsoDate(Math.floor(Date.now() / 1000));
+    const dilaParSymbole = parTicker(await promesseInfoFinanciere);
 
     return res.status(200).json(
       symbols.map((symbol) => {
@@ -334,10 +356,13 @@ async function handler(req, res) {
         const detail = detailBySymbol[symbol];
         const sec = secParSymbole[symbol] || [];
         const visu = visuParSymbole[symbol] || [];
-        if (!row && !detail && sec.length === 0 && visu.length === 0) {
+        if (!row && !detail && sec.length === 0 && visu.length === 0 && !dilaParSymbole[symbol]) {
           return { symbol, ok: false, error: "Symbole introuvable", events: [] };
         }
         const shortName = row?.shortName || row?.longName || symbol;
+        // Le registre nomme les sociétés en capitales (« VUSIONGROUP ») : le
+        // nom court de Yahoo, quand il existe, reste celui qu'on affiche.
+        const dila = (dilaParSymbole[symbol] || []).map((e) => (row ? { ...e, name: shortName } : e));
 
         // La source détaillée passe en premier : ses libellés sont plus
         // précis (« Résultats annuels » plutôt que « Publication des
@@ -352,10 +377,11 @@ async function handler(req, res) {
         return {
           symbol,
           ok: true,
-          // Fusion des deux sources : un dépôt EDGAR tombant le même jour
+          // Fusion des sources : un dépôt réglementaire tombant le même jour
           // qu'une date annoncée par Yahoo ne crée pas une seconde ligne, il
-          // la confirme.
-          events: fusionnerEvenements([yahoo, visu, sec]),
+          // la confirme. Une estimation Yahoo que la société a démentie en
+          // annonçant sa propre date, quelques jours plus loin, disparaît.
+          events: ecarterEstimationsDementies(fusionnerEvenements([yahoo, visu, sec, dila])),
         };
       })
     );
@@ -365,9 +391,16 @@ async function handler(req, res) {
     // répond 200 avec des lignes en échec pour que l'UI affiche le reste du
     // portefeuille plutôt qu'une page d'erreur.
     invalidateYahooSession();
-    return res
-      .status(200)
-      .json(symbols.map((symbol) => ({ symbol, ok: false, error: err.message, events: [] })));
+    // L'information réglementée ne dépend pas de Yahoo : une panne de
+    // celui-ci ne doit pas vider le calendrier des valeurs françaises.
+    const dilaParSymbole = parTicker(await promesseInfoFinanciere);
+    return res.status(200).json(
+      symbols.map((symbol) =>
+        dilaParSymbole[symbol]
+          ? { symbol, ok: true, events: fusionnerEvenements([dilaParSymbole[symbol]]) }
+          : { symbol, ok: false, error: err.message, events: [] }
+      )
+    );
   }
 }
 

@@ -45,9 +45,10 @@ function cle(e) {
  * l'agenda financier de la société, elle vaut mieux qu'une estimation de
  * fournisseur — et il n'y a aucune raison qu'un rafraîchissement automatique
  * vienne l'écraser. Vient ensuite le dépôt réglementaire, qui est un fait
- * daté, puis l'annonce Yahoo.
+ * daté — EDGAR pour les sociétés américaines, info-financiere.gouv.fr pour
+ * les françaises —, puis l'annonce Yahoo.
  */
-const RANG_SOURCE = { manuel: 3, "sec-edgar": 2, yahoo: 1 };
+const RANG_SOURCE = { manuel: 3, "sec-edgar": 2, "info-financiere": 2, yahoo: 1 };
 
 /**
  * Fusionne plusieurs listes d'événements.
@@ -109,4 +110,39 @@ export function fusionnerEvenements(listes = [], { maintenant = new Date() } = {
   return [...parCle.values()].sort((a, b) =>
     a.date === b.date ? a.ticker.localeCompare(b.ticker) : a.date.localeCompare(b.date)
   );
+}
+
+/**
+ * Jours d'écart en deçà desquels une estimation et une date confirmée
+ * désignent la même publication.
+ */
+const FENETRE_CONTRADICTION_JOURS = 45;
+
+/** Yahoo ne distingue pas chiffre d'affaires et résultats : une même famille. */
+const FAMILLE_PUBLICATION = new Set(["Résultats", "Chiffre d'affaires"]);
+
+/**
+ * Retire les estimations que la société a démenties en annonçant sa date.
+ *
+ * La fusion ne réunit que des événements tombant le MÊME jour. Quand Yahoo
+ * extrapole des résultats au 12 novembre et que la société annonce le 18,
+ * les deux restaient affichés côte à côte — une date fausse étiquetée
+ * « estimée » à côté de la vraie, et rien pour dire laquelle croire. Une
+ * estimation Yahoo de publication est donc écartée dès qu'une date
+ * CONFIRMÉE d'une autre source, pour la même famille, tombe à moins de
+ * quarante-cinq jours : c'est la même échéance, mieux renseignée.
+ */
+export function ecarterEstimationsDementies(evenements = []) {
+  const confirmees = evenements.filter(
+    (e) => e.statut === "confirme" && e.fournisseur !== "yahoo" && FAMILLE_PUBLICATION.has(e.type)
+  );
+  if (confirmees.length === 0) return evenements;
+
+  const jour = (iso) => Date.parse(`${iso}T00:00:00Z`) / 86400000;
+  return evenements.filter((e) => {
+    if (e.statut !== "estime" || e.fournisseur !== "yahoo" || !FAMILLE_PUBLICATION.has(e.type)) return true;
+    return !confirmees.some(
+      (c) => c.ticker === e.ticker && Math.abs(jour(c.date) - jour(e.date)) <= FENETRE_CONTRADICTION_JOURS
+    );
+  });
 }

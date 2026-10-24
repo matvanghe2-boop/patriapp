@@ -3,6 +3,7 @@ import { exigerUtilisateur } from "./_lib/auth.js";
 import { construireChaine } from "../shared/adaptateursLLM.js";
 import { PROMPT_RESUME, construireResume, verifierChiffres } from "../shared/resumePublication.js";
 import { PROMPT_ANALYSE, fourchetteValorisation } from "../shared/valorisation.js";
+import { urlDocumentAutorisee, texteDocument } from "./_lib/sources/infoFinanciere.js";
 
 /**
  * Résumé d'une publication d'entreprise — POST /api/resume
@@ -27,11 +28,13 @@ import { PROMPT_ANALYSE, fourchetteValorisation } from "../shared/valorisation.j
  *
  * DEUX FAÇONS DE FOURNIR LE TEXTE
  *
- *  1. `url` — uniquement vers un hôte de la SEC. Fetcher une URL arbitraire
+ *  1. `url` — uniquement vers un hôte de la SEC, ou vers l'entrepôt de
+ *     documents d'info-financiere.gouv.fr, où les sociétés françaises
+ *     déposent leurs communiqués en PDF. Fetcher une URL arbitraire
  *     transformerait cette fonction en relais vers le réseau interne de
  *     l'hébergeur ; la liste blanche n'est pas une précaution de principe.
- *  2. `texte` — collé par l'utilisateur. C'est la seule voie possible pour
- *     les sociétés européennes, dont aucun fournisseur gratuit ne sert les
+ *  2. `texte` — collé par l'utilisateur. C'est la voie qui reste pour les
+ *     autres sociétés européennes, dont aucun fournisseur gratuit ne sert les
  *     communiqués, et elle couvre tout le reste sans rien scraper.
  */
 
@@ -60,8 +63,9 @@ export function texteLisible(html = "") {
     .trim();
 }
 
-/** Vérifie qu'une URL vise bien un document de la SEC. */
+/** Vérifie qu'une URL vise bien un document de la SEC ou de la DILA. */
 export function urlAutorisee(brut) {
+  if (urlDocumentAutorisee(brut)) return true;
   let u;
   try {
     u = new URL(String(brut));
@@ -73,6 +77,16 @@ export function urlAutorisee(brut) {
 }
 
 async function recupererTexte(url, env = process.env) {
+  // Les communiqués français sont des PDF : même lecteur que le calendrier,
+  // avec ses bornes de taille et de pages.
+  if (urlDocumentAutorisee(url)) {
+    try {
+      return await texteDocument(url);
+    } catch (err) {
+      throw httpError(502, `Document indisponible (${err.message}).`);
+    }
+  }
+
   const enTetes = { Accept: "text/html,application/xhtml+xml" };
   // La SEC exige le même en-tête de contact que pour son API.
   const ua = (env.SEC_USER_AGENT || "").trim();
@@ -200,7 +214,7 @@ async function handler(req, res) {
     if (!urlAutorisee(url)) {
       throw httpError(
         400,
-        "Fournis le texte de la publication, ou un lien vers un document SEC. Les autres sources ne sont pas récupérées automatiquement."
+        "Fournis le texte de la publication, ou un lien vers un document SEC ou info-financiere.gouv.fr. Les autres sources ne sont pas récupérées automatiquement."
       );
     }
     lien = url;

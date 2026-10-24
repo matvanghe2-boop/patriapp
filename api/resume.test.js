@@ -7,6 +7,14 @@ describe("urlAutorisee", () => {
     expect(urlAutorisee("https://data.sec.gov/submissions/CIK0000320193.json")).toBe(true);
   });
 
+  it("accepte un communiqué déposé sur info-financiere.gouv.fr", () => {
+    expect(urlAutorisee("https://fr.ftp.opendatasoft.com/datadila/INFOFI/ACT/2026/10/FCACT081907_20261020.pdf")).toBe(true);
+  });
+
+  it("refuse le même hôte hors de l'entrepôt de documents", () => {
+    expect(urlAutorisee("https://fr.ftp.opendatasoft.com/autre/chemin.pdf")).toBe(false);
+  });
+
   it("refuse tout autre hôte", () => {
     // Fetcher une URL arbitraire transformerait la fonction en relais vers le
     // réseau interne de l'hébergeur : la liste blanche n'est pas théorique.
