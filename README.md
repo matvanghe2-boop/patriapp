@@ -13,6 +13,7 @@ C'est la question la plus importante pour une app de ce type, donc autant y rép
 | Tickers que tu consultes | Envoyés à **Yahoo Finance** (via `/api/*`) pour récupérer les cours | Yahoo |
 | Mnémoniques des valeurs parisiennes du calendrier (`VU` pour `VU.PA`) | Envoyés par le serveur à l'API publique d'**info-financiere.gouv.fr** pour lire les communiqués déposés | La DILA (opérateur du site, pour l'AMF) |
 | Descriptions d'entreprises (texte public fourni par Yahoo) | Envoyées à un endpoint public de **Google Translate** pour l'affichage en français | Google |
+| Mesure d'audience : page consultée, référent, pays, navigateur, système et type d'appareil — sans cookie, et jamais une donnée patrimoniale | Envoyée par le navigateur à **Vercel Web Analytics**, sur la même origine (`/_vercel/insights`) | Vercel |
 | Noms de domaine des sociétés affichées (pour leur logo) | Demandés à `icons.duckduckgo.com` par le navigateur, une requête par logo affiché | DuckDuckGo |
 | Questions posées à l'assistant du sous-onglet **Projet**, accompagnées d'un contexte **anonymisé** : répartition en pourcentages, taux d'épargne, mois d'épargne de sécurité. Aucun montant, aucun nom de compte, aucun ticker. | Envoyées au fournisseur de modèle configuré — **Gemini** par défaut, sinon Groq, sinon Ollama | Le fournisseur configuré, ou personne du tout avec Ollama, qui tourne en local |
 

@@ -77,11 +77,18 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-/** Ressource de coquille : même origine, et pas un appel d'API. */
+/**
+ * Ressource de coquille : même origine, et pas un appel d'API.
+ *
+ * `/_vercel/` est exclu : le script de mesure d'audience y est servi sans
+ * empreinte dans son nom. Mis en cache « cache d'abord », il resterait figé
+ * à sa première version, quoi que Vercel publie ensuite.
+ */
 function estCoquille(url) {
   return (
     url.origin === self.location.origin &&
     !url.pathname.startsWith("/api/") &&
+    !url.pathname.startsWith("/_vercel/") &&
     /\.(?:js|css|woff2?|png|svg|ico|webmanifest|json)$/.test(url.pathname)
   );
 }
