@@ -27,6 +27,17 @@ const EVENT_TYPES = {
 
 const typeOf = (type) => EVENT_TYPES[type] || EVENT_TYPES.Communication;
 
+// Provenance affichée sous l'événement. Tout ce qui n'était pas EDGAR
+// s'affichait « Yahoo Finance » — y compris les dates relevées sur l'agenda
+// des sociétés ou saisies à la main, qui n'en viennent justement pas.
+const NOMS_FOURNISSEURS = {
+  yahoo: "Yahoo Finance",
+  "sec-edgar": "SEC EDGAR",
+  "info-financiere": "info-financiere.gouv.fr",
+  reference: "Agenda de la société",
+  manuel: "Saisie manuelle",
+};
+
 // ─── Origine d'un événement ─────────────────────────────────────────────────
 // Une ligne réellement détenue et une simple valeur surveillée n'ont pas la
 // même importance : le portefeuille est mis en surbrillance franche (fond
@@ -257,7 +268,7 @@ function EventModal({ ev, onClose }) {
             <span className="text-micro text-[#777]">
               {(ev.fournisseurs || [ev.fournisseur])
                 .filter(Boolean)
-                .map((f) => (f === "sec-edgar" ? "SEC EDGAR" : "Yahoo Finance"))
+                .map((f) => NOMS_FOURNISSEURS[f] || "Yahoo Finance")
                 .join(" + ") || "Yahoo Finance"}
             </span>
             {ev.majLe && (
@@ -272,6 +283,12 @@ function EventModal({ ev, onClose }) {
               </span>
             )}
           </div>
+
+          {ev.annonceLe && (
+            <p className="text-micro text-emerald-300/80 mt-1.5">
+              Date annoncée par la société dans son communiqué du {formatDateFr(ev.annonceLe)}.
+            </p>
+          )}
 
           {ev.fourchette && (
             <p className="text-micro text-amber-300/80 mt-1.5">
@@ -1032,9 +1049,10 @@ export default function FinancialCalendar({
         </p>
       )}
       <p className="text-micro text-[#555] mt-1">
-        Source : Yahoo Finance. Les dates d'assemblée générale ne sont publiées par aucun endpoint
-        Yahoo public : aucune n'est donc inventée ici. Le chiffre d'affaires attendu apparaît comme
-        estimation rattachée à la publication des résultats.
+        Sources : Yahoo Finance, info-financiere.gouv.fr pour les sociétés françaises (communiqués
+        déposés, et dates qu'elles y annoncent) et SEC EDGAR pour les américaines. Une date
+        n'apparaît que si une source la donne : aucune n'est inventée. Le chiffre d'affaires attendu
+        apparaît comme estimation rattachée à la publication des résultats.
       </p>
 
       <EventModal ev={selectedEvent} onClose={() => setSelectedEvent(null)} />

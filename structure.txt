@@ -31,9 +31,13 @@ api/_lib/routes/quote.js
 api/_lib/routes/rates.js
 api/_lib/routes/screen.js
 api/_lib/routes/search.js
+api/_lib/sources/agendaCommunique.js
+api/_lib/sources/agendaCommunique.test.js
 api/_lib/sources/edgar.js
 api/_lib/sources/fusion.js
 api/_lib/sources/fusion.test.js
+api/_lib/sources/infoFinanciere.js
+api/_lib/sources/infoFinanciere.test.js
 api/_lib/sources/yahooCalendrier.js
 api/_lib/sources/yahooCalendrier.test.js
 api/_lib/webstat.js

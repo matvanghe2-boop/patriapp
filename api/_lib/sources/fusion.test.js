@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fusionnerEvenements, statutYahoo } from "./fusion.js";
+import { fusionnerEvenements, statutYahoo, ecarterEstimationsDementies } from "./fusion.js";
 import { estSymboleAmericain, enTetesSec, estActive } from "./edgar.js";
 
 const MAINTENANT = new Date("2026-10-19T10:00:00Z");
@@ -96,5 +96,46 @@ describe("source SEC — garde-fous", () => {
     expect(enTetesSec({})).toBeNull();
     expect(estActive({})).toBe(false);
     expect(estActive({ SEC_USER_AGENT: "Patrium contact@exemple.fr" })).toBe(true);
+  });
+});
+
+describe("info-financiere dans la fusion", () => {
+  it("fait primer le dépôt français sur l'estimation Yahoo du même jour", () => {
+    const yahoo = [{ ticker: "SOI.PA", type: "Résultats", date: "2026-11-18", label: "Publication des résultats", fournisseur: "yahoo", statut: "estime", estimates: { beneficeAttendu: 0.4 } }];
+    const dila = [{ ticker: "SOI.PA", type: "Résultats", date: "2026-11-18", label: "Résultats du S1'27", fournisseur: "info-financiere", statut: "confirme" }];
+    const [e] = fusionnerEvenements([yahoo, dila], { maintenant: MAINTENANT });
+    expect(e).toMatchObject({ label: "Résultats du S1'27", statut: "confirme", fournisseur: "info-financiere" });
+    // L'estimation d'analystes, que seul Yahoo portait, n'est pas perdue.
+    expect(e.estimates).toEqual({ beneficeAttendu: 0.4 });
+  });
+});
+
+describe("ecarterEstimationsDementies", () => {
+  const estimation = (date, type = "Résultats") => ({ ticker: "VU.PA", type, date, fournisseur: "yahoo", statut: "estime" });
+  const annonce = (date, type = "Résultats") => ({ ticker: "VU.PA", type, date, fournisseur: "info-financiere", statut: "confirme" });
+
+  it("retire l'estimation que la société a remplacée par sa propre date", () => {
+    // Yahoo extrapole le 12, la société annonce le 18 : afficher les deux
+    // laissait une fausse date à côté de la vraie.
+    const out = ecarterEstimationsDementies([estimation("2027-02-12"), annonce("2027-02-18")]);
+    expect(out.map((e) => e.date)).toEqual(["2027-02-18"]);
+  });
+
+  it("traite chiffre d'affaires et résultats comme une même échéance", () => {
+    // Yahoo ne distingue pas les deux publications.
+    const out = ecarterEstimationsDementies([estimation("2027-01-25"), annonce("2027-01-29", "Chiffre d'affaires")]);
+    expect(out).toHaveLength(1);
+  });
+
+  it("garde une estimation éloignée, ou d'une autre valeur", () => {
+    const autre = { ...annonce("2027-02-18"), ticker: "AI.PA" };
+    expect(ecarterEstimationsDementies([estimation("2027-07-28"), annonce("2027-02-18")])).toHaveLength(2);
+    expect(ecarterEstimationsDementies([estimation("2027-02-12"), autre])).toHaveLength(2);
+  });
+
+  it("ne touche ni aux dates confirmées par Yahoo, ni aux dividendes", () => {
+    const yahooConfirme = { ...estimation("2027-02-12"), statut: "confirme" };
+    const dividende = estimation("2027-02-12", "Dividende");
+    expect(ecarterEstimationsDementies([yahooConfirme, dividende, annonce("2027-02-18")])).toHaveLength(3);
   });
 });

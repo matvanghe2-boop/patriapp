@@ -11,6 +11,7 @@ C'est la question la plus importante pour une app de ce type, donc autant y rép
 | Livrets, positions, opérations, historique, abonnements… | `localStorage` du navigateur **et**, si tu as un compte, table `kv_store` de ta base Supabase | Toi seul — la sécurité au niveau ligne (RLS) de Supabase restreint chaque ligne à son propriétaire |
 | E-mail + mot de passe | Supabase Auth | Toi seul |
 | Tickers que tu consultes | Envoyés à **Yahoo Finance** (via `/api/*`) pour récupérer les cours | Yahoo |
+| Mnémoniques des valeurs parisiennes du calendrier (`VU` pour `VU.PA`) | Envoyés par le serveur à l'API publique d'**info-financiere.gouv.fr** pour lire les communiqués déposés | La DILA (opérateur du site, pour l'AMF) |
 | Descriptions d'entreprises (texte public fourni par Yahoo) | Envoyées à un endpoint public de **Google Translate** pour l'affichage en français | Google |
 | Noms de domaine des sociétés affichées (pour leur logo) | Demandés à `icons.duckduckgo.com` par le navigateur, une requête par logo affiché | DuckDuckGo |
 | Questions posées à l'assistant du sous-onglet **Projet**, accompagnées d'un contexte **anonymisé** : répartition en pourcentages, taux d'épargne, mois d'épargne de sécurité. Aucun montant, aucun nom de compte, aucun ticker. | Envoyées au fournisseur de modèle configuré — **Gemini** par défaut, sinon Groq, sinon Ollama | Le fournisseur configuré, ou personne du tout avec Ollama, qui tourne en local |
@@ -79,7 +80,7 @@ Trois limites, énoncées parce qu'elles se voient à l'usage :
 - **Le consensus s'arrête à l'exercice suivant.** L'application affiche donc un PER estimé sur deux exercices — l'année en cours et la suivante. Pas de troisième année : elle ne pourrait qu'être extrapolée, et s'afficherait à côté de vrais consensus sans que rien ne les distingue.
 - **Une donnée manquante n'est pas un échec.** Un titre dont le taux de distribution n'est pas publié n'est pas éliminé du filtre : le critère ressort « indéterminé » et le nombre de critères réellement évalués est affiché. Sans cette distinction, un titre disparaîtrait d'un écran pour une raison étrangère au filtre.
 
-### Calendrier financier : deux sources, et un statut assumé
+### Calendrier financier : plusieurs sources, et un statut assumé
 
 Le calendrier couvre le portefeuille et la watchlist : résultats, dividendes, conférences, communiqués, assemblées.
 
@@ -91,11 +92,27 @@ Le calendrier couvre le portefeuille et la watchlist : résultats, dividendes, c
 
 **Rappel la veille** — optionnel, désactivé par défaut, et réservé aux événements **confirmés** : prévenir la veille d'une date estimée reviendrait à annoncer un rendez-vous que personne n'a fixé.
 
-Limite connue, déjà vraie avant : Yahoo n'expose aucune date d'assemblée générale pour les valeurs européennes, et EDGAR ne couvre que les sociétés américaines. Le type existe, il reste vide pour les lignes françaises — aucune date n'est fabriquée pour combler ce trou.
+**Troisième source : info-financiere.gouv.fr**, pour les lignes françaises — sans clé, rien à configurer. Toute société cotée sur un marché français, Euronext Growth compris, doit y déposer son information réglementée, que la DILA republie en données ouvertes pour le compte de l'AMF. Elle apporte :
+
+- les **publications déposées** — résultats, chiffre d'affaires, communiqués, documents d'assemblée — à leur date certaine et avec le lien vers le PDF. Les déclarations hebdomadaires de rachat d'actions, de droits de vote et de franchissement de seuil sont écartées : elles noyaient le reste ;
+- les **dates à venir annoncées par la société elle-même**, lues dans le texte de ses trois derniers communiqués (`api/_lib/sources/agendaCommunique.js`) : l'encadré « Calendrier financier » / « Prochains rendez-vous », ou une phrase au futur (« Notre assemblée générale se tiendra le lundi 5 avril 2027 »). Une date future ailleurs dans le texte n'est pas retenue — « financer ses activités jusqu'à fin 2027 » n'est pas un rendez-vous — et une date sans jour ou sans année non plus. Ces dates sont **Confirmées** : c'est la société qui les écrit. Le communiqué le plus récent tranche quand une date a été déplacée.
+
+Quand la société annonce sa date, l'estimation Yahoo qui tombait à quelques jours de là disparaît, au lieu de rester affichée à côté de la vraie.
+
+Mesuré le 24 octobre 2026 sur 37 valeurs du SBF 120 hors CAC 40 et de small caps :
+
+| | Yahoo seul | Avec info-financiere |
+| --- | --- | --- |
+| Valeurs avec au moins une date **à venir** | 6 sur 37 | **21 sur 37** |
+| Valeurs avec leurs publications récentes | — | **34 sur 37** |
+
+Pour VusionGroup, Yahoo n'avait plus rien depuis le 21 septembre — pas même le chiffre d'affaires du T3 du 20 octobre ; le calendrier montre désormais ses huit dépôts récents et son Capital Markets Day du 18 novembre. Ce qui reste sans date, c'est ce que la société n'a pas encore annoncé : la source ne devine rien.
+
+Limites : la lecture des PDF dispose de douze secondes par requête — au-delà, les publications sont rendues sans l'agenda, que la requête suivante trouve en cache ; une société absente du registre sous son mnémonique (Coface, ou une valeur du Marché libre) n'y est pas couverte ; les valeurs étrangères cotées à Paris non plus.
 
 ### Dates d'agenda : pourquoi la saisie manuelle existe
 
-Aucune source gratuite ne publie l'agenda **à venir** des valeurs d'Euronext. Ce n'est pas une supposition, c'est mesuré :
+Aucune API gratuite ne publie l'agenda **à venir** des valeurs d'Euronext sous forme de données. Ce n'est pas une supposition, c'est mesuré :
 
 | Source | Résultat |
 | --- | --- |
@@ -105,9 +122,9 @@ Aucune source gratuite ne publie l'agenda **à venir** des valeurs d'Euronext. C
 | Euronext | Chiffre les réponses de son propre site |
 | SEC EDGAR | Ne couvre que les sociétés américaines |
 
-Ces dates existent pourtant : elles sont publiées sur l'**agenda financier** du site investisseurs de chaque société. Elles sont simplement hors de portée d'une API gratuite.
+Ces dates existent pourtant : elles sont publiées sur l'**agenda financier** du site investisseurs de chaque société, et le plus souvent répétées dans ses communiqués — que la source info-financiere lit désormais (voir ci-dessus). Celles qu'aucun communiqué ne reprend restent hors de portée.
 
-Le calendrier permet donc de les **saisir à la main**, avec le lien vers la source. C'est le même parti pris que `shared/ratesCatalog.js` pour les taux réglementés : quand aucune API ne sert la donnée, une référence tenue à la main, datée et sourcée, vaut mieux qu'une case vide. Ces dates **priment sur toutes les sources automatiques** — un rafraîchissement ne les écrase jamais.
+Le calendrier permet donc aussi de les **saisir à la main**, avec le lien vers la source. C'est le même parti pris que `shared/ratesCatalog.js` pour les taux réglementés : quand aucune API ne sert la donnée, une référence tenue à la main, datée et sourcée, vaut mieux qu'une case vide. Ces dates **priment sur toutes les sources automatiques** — un rafraîchissement ne les écrase jamais.
 
 ### Résumés de communiqués et de résultats
 

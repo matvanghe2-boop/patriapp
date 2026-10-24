@@ -14,6 +14,12 @@
  * elles-mêmes, dans leur communiqué de résultats ou sur la page « agenda
  * financier » de leur site investisseurs.
  *
+ * Depuis le 24 octobre 2026, la source info-financiere.gouv.fr
+ * (`api/_lib/sources/infoFinanciere.js`) relève automatiquement celles que
+ * les sociétés écrivent dans leurs communiqués déposés. Ce catalogue reste
+ * pour les dates qu'aucun communiqué ne reprend — celles de la seule page
+ * investisseurs — et il garde la priorité sur la source automatique.
+ *
  * C'est exactement la situation de `ratesCatalog.js` pour les taux
  * réglementés, et la réponse est la même : une référence tenue à la main,
  * datée et sourcée, vaut mieux qu'une case vide.
