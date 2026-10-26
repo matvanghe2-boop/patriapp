@@ -142,6 +142,8 @@ src/components/ChartFocusModal.jsx
 src/components/CommuniqueDepose.jsx
 src/components/ComparaisonPairs.jsx
 src/components/ComparateurScenarios.jsx
+src/components/CompteCourant.jsx
+src/components/CompteCourant.test.jsx
 src/components/CorrelationsLignes.jsx
 src/components/CoutDesFrais.jsx
 src/components/Dashboard.jsx
@@ -165,6 +167,7 @@ src/components/FriseUnifiee.jsx
 src/components/GlobalSearch.jsx
 src/components/HistoireTaux.jsx
 src/components/Immobilier.jsx
+src/components/ImportReleve.jsx
 src/components/IndicesWidget.jsx
 src/components/LecturePublication.jsx
 src/components/LecturePublication.test.jsx
@@ -188,6 +191,7 @@ src/components/OperationForm.test.jsx
 src/components/OperationList.jsx
 src/components/Operations.jsx
 src/components/Operations.test.jsx
+src/components/OperationsCompte.jsx
 src/components/OrderSimulator.jsx
 src/components/OriginePatrimoine.jsx
 src/components/PaletteCommandes.jsx
@@ -220,6 +224,7 @@ src/components/Screener.jsx
 src/components/SectorHeatmap.jsx
 src/components/SectorHeatmap.test.jsx
 src/components/Simulation.jsx
+src/components/StatsCompte.jsx
 src/components/StickySummaryHeader.jsx
 src/components/StrategieLogs.jsx
 src/components/SuiviDividendes.jsx
@@ -258,6 +263,8 @@ src/lib/cascade.js
 src/lib/cascade.test.js
 src/lib/compact.test.js
 src/lib/compositionEtf.js
+src/lib/compteCourant.js
+src/lib/compteCourant.test.js
 src/lib/correlations.js
 src/lib/correlations.test.js
 src/lib/decisions.js
@@ -292,6 +299,7 @@ src/lib/jeuExemple.js
 src/lib/jeuExemple.test.js
 src/lib/ledger.test.js
 src/lib/lireNombre.test.js
+src/lib/lirePdf.js
 src/lib/livretsMouvements.js
 src/lib/livretsMouvements.test.js
 src/lib/marqueursCourbe.js
@@ -314,6 +322,8 @@ src/lib/rattrapage.js
 src/lib/rattrapage.test.js
 src/lib/records.js
 src/lib/records.test.js
+src/lib/releveBourso.js
+src/lib/releveBourso.test.js
 src/lib/retrospective.js
 src/lib/retrospective.test.js
 src/lib/revenusPassifs.js
@@ -341,6 +351,7 @@ src/lib/useRappelsCalendrier.js
 src/lib/useRappelsCalendrier.test.js
 src/lib/versementsGeles.test.js
 src/main.jsx
+src/test/releveFactice.js
 src/test/setup.js
 structure.txt
 tailwind.config.cjs

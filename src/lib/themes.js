@@ -29,8 +29,11 @@
  * composants qui l'importent n'ont rien à changer.
  */
 
-/** Identifiants de thème valides, dans l'ordre des onglets. */
-export const THEME_IDS = ["emerald", "indigo", "violet", "amber", "rose", "cyan"];
+/**
+ * Identifiants de thème valides. Un par onglet ; `lime` est celui du Compte
+ * courant, ajouté en dernier pour ne renuméroter aucun des six autres.
+ */
+export const THEME_IDS = ["emerald", "indigo", "violet", "amber", "rose", "cyan", "lime"];
 
 /**
  * Recettes d'usage. Elles sont identiques pour les six thèmes : c'est

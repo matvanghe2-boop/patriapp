@@ -1173,7 +1173,11 @@
 .teinte-amber   { --teinte-h: 46; --teinte-s: 97%; --l-sombre: 64.5%; --l-clair: 26.5%; --teinte-2-h: 27; --teinte-2-s: 96%; }
 .teinte-rose    { --teinte-h: 353; --teinte-s: 96%; --l-sombre: 81.8%; --l-clair: 43.5%; --teinte-2-h: 27; --teinte-2-s: 96%; }
 .teinte-cyan    { --teinte-h: 187; --teinte-s: 92%; --l-sombre: 69%; --l-clair: 27%; --teinte-2-h: 172; --teinte-2-s: 66%; }
-.teinte-teal    { --teinte-h: 171; --teinte-s: 77%; --l-sombre: 64.3%; --l-clair: 25%; --teinte-2-h: 188; --teinte-2-s: 86%; }
+/* Compte courant. Le citron vert est la seule teinte encore libre qui ne
+   frôle aucune des six autres : l'émeraude du Dashboard est à 70° et l'ambre
+   de Simulation à 38°, là où sarcelle et orange n'en sont qu'à 15. */
+.teinte-lime    { --teinte-h: 84; --teinte-s: 81%; --l-sombre: 66%; --l-clair: 26%; --teinte-2-h: 142; --teinte-2-s: 71%; }
+.teinte-teal   { --teinte-h: 171; --teinte-s: 77%; --l-sombre: 64.3%; --l-clair: 25%; --teinte-2-h: 188; --teinte-2-s: 86%; }
 .teinte-orange  { --teinte-h: 31; --teinte-s: 97%; --l-sombre: 72.4%; --l-clair: 33%; --teinte-2-h: 43; --teinte-2-s: 96%; }
 
 /*
@@ -1198,16 +1202,29 @@
  * Tailwind, celles que l'application affichait déjà : le rendu sombre est donc
  * inchangé. Les valeurs claires sont calculées pour tenir au moins 4,6:1 sur
  * une carte claire.
+ *
+ * LE THÈME NE CHOISIT PAS LA VARIABLE, IL POSE UN INTERRUPTEUR. La racine
+ * écrivait `--l-teinte: var(--l-sombre)` ; or une variable qui en cite une
+ * autre est résolue LÀ OÙ ELLE EST DÉCLARÉE, et `--l-sombre` n'existe que sur
+ * les classes `.teinte-*`, pas sur :root. `--l-teinte` y valait donc « rien »,
+ * c'est ce rien que tous les éléments héritaient, et avec lui `--teinte` :
+ * bouton de navigation actif, cartes de domaine, fond de page et halos
+ * restaient sans couleur, sans la moindre erreur. La racine ne pose plus
+ * qu'un nombre, `--clair` (0 ou 1), et la luminosité est calculée sur
+ * l'élément teinté lui-même, là où ses deux valeurs existent.
  */
-:root { --l-teinte: var(--l-sombre); --a-carte: 0.12; --a-fond: 0.85; --l-fond: 20%; }
+:root { --clair: 0; --a-carte: 0.12; --a-fond: 0.85; --l-fond: 20%; }
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="sombre"]) { --l-teinte: var(--l-clair); --a-carte: 0.1; --a-fond: 0.6; --l-fond: 93%; }
+  :root:not([data-theme="sombre"]) { --clair: 1; --a-carte: 0.1; --a-fond: 0.6; --l-fond: 93%; }
 }
-:root[data-theme="clair"] { --l-teinte: var(--l-clair); --a-carte: 0.1; --a-fond: 0.6; --l-fond: 93%; }
-:root[data-theme="sombre"] { --l-teinte: var(--l-sombre); --a-carte: 0.12; --a-fond: 0.85; --l-fond: 20%; }
+:root[data-theme="clair"] { --clair: 1; --a-carte: 0.1; --a-fond: 0.6; --l-fond: 93%; }
+:root[data-theme="sombre"] { --clair: 0; --a-carte: 0.12; --a-fond: 0.85; --l-fond: 20%; }
 
-/* Couleurs composées, communes aux huit teintes. */
+/* Couleurs composées, communes aux huit teintes. Les valeurs de repli servent
+   à `.teinte-accent`, dont la teinte change avec le réglage de l'utilisateur
+   et qui ne porte donc pas de luminosités propres. */
 [class*="teinte-"] {
+  --l-teinte: calc(var(--l-sombre, 66%) + (var(--l-clair, 30%) - var(--l-sombre, 66%)) * var(--clair));
   --teinte: var(--teinte-h) var(--teinte-s) var(--l-teinte);
   --teinte-2: var(--teinte-2-h) var(--teinte-2-s) var(--l-teinte);
 }

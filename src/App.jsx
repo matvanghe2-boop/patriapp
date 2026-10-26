@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, Suspense, lazy } from "react";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
-  Repeat, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation,
+  Repeat, CreditCard, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation,
 } from "lucide-react";
 import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
@@ -39,6 +39,7 @@ import AideRaccourcis from "./components/AideRaccourcis";
 // recharts de « Marché » et le simulateur ne sont téléchargés que si
 // l'utilisateur ouvre effectivement l'onglet correspondant.
 const Dashboard = lazy(() => import("./components/Dashboard"));
+const CompteCourant = lazy(() => import("./components/CompteCourant"));
 const Livrets = lazy(() => import("./components/Livrets"));
 const Bourse = lazy(() => import("./components/Bourse"));
 const Simulation = lazy(() => import("./components/Simulation"));
@@ -56,8 +57,11 @@ const Abonnements = lazy(() => import("./components/Abonnements"));
 // exactement la même teinte, ce qui rendait la navigation et les fonds de page
 // indistinguables entre eux. Le rose n'était plus utilisé par aucun onglet
 // depuis la fusion d'Immobilier dans Simulation.
+// Compte courant vient juste après le Dashboard : c'est l'écran qu'on ouvre le
+// plus souvent, et il garde ainsi sa place dans la barre basse du mobile.
 const TABS = [
   { id: "dashboard", label: "Dashboard", shortLabel: "Accueil", icon: LayoutDashboard, theme: "emerald", Page: Dashboard },
+  { id: "compte", label: "Compte courant", shortLabel: "Compte", icon: CreditCard, theme: "lime", Page: CompteCourant },
   { id: "livrets", label: "Livrets & Épargne", shortLabel: "Épargne", icon: PiggyBank, theme: "indigo", Page: Livrets },
   { id: "bourse", label: "PEA & Bourse", shortLabel: "Bourse", icon: TrendingUp, theme: "violet", Page: Bourse },
   { id: "simulation", label: "Simulation", shortLabel: "Simuler", icon: Calculator, theme: "amber", Page: Simulation },
@@ -206,7 +210,7 @@ export default function App() {
    */
   useEffect(() => {
     const teintes = {
-      dashboard: "156 72%", livrets: "230 94%", bourse: "252 95%",
+      dashboard: "156 72%", compte: "84 81%", livrets: "230 94%", bourse: "252 95%",
       simulation: "46 97%", strategie: "353 96%", abonnements: "187 92%",
     };
     const [h, s] = (teintes[tab] || teintes.simulation).split(" ");
