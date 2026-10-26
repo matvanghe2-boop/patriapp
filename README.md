@@ -9,6 +9,8 @@ C'est la question la plus importante pour une app de ce type, donc autant y rép
 | Donnée | Où elle est stockée | Qui peut la lire |
 | --- | --- | --- |
 | Livrets, positions, opérations, historique, abonnements… | `localStorage` du navigateur **et**, si tu as un compte, table `kv_store` de ta base Supabase | Toi seul — la sécurité au niveau ligne (RLS) de Supabase restreint chaque ligne à son propriétaire |
+| Relevés PDF du compte courant | **Nulle part** : le fichier est lu dans le navigateur (pdf.js) et n'est envoyé à aucun serveur | Personne |
+| Opérations extraites de ces relevés (dates, montants, libellés — donc les noms des personnes avec qui tu échanges de l'argent), nom du titulaire, quatre derniers chiffres du compte | Comme le reste : `localStorage` et `kv_store` | Toi seul. L'adresse, l'IBAN et le numéro complet du compte ne sont jamais conservés |
 | E-mail + mot de passe | Supabase Auth | Toi seul |
 | Tickers que tu consultes | Envoyés à **Yahoo Finance** (via `/api/*`) pour récupérer les cours | Yahoo |
 | Mnémoniques des valeurs parisiennes du calendrier (`VU` pour `VU.PA`) | Envoyés par le serveur à l'API publique d'**info-financiere.gouv.fr** pour lire les communiqués déposés | La DILA (opérateur du site, pour l'AMF) |
@@ -34,6 +36,7 @@ Sans configuration Supabase, l'app fonctionne en **mode local pur** : rien ne so
 L'application démarre **vide** : aucun patrimoine fictif n'est préchargé. Un bouton « Charger un jeu d'exemple » est proposé sur le Dashboard tant que rien n'est saisi, et il annonce clairement que ses chiffres sont inventés.
 
 - **Dashboard** — patrimoine brut/net, plus-value latente, taux d'épargne, allocation d'actifs, historique du patrimoine net (relevé automatique une fois par jour), variation sur 30 jours glissants, projection à 6 mois capitalisée au taux moyen pondéré du patrimoine, **objectifs datés** avec avance/retard et effort mensuel requis
+- **Compte courant** — import des relevés PDF BoursoBank, affichés comme dans une application bancaire (opérations par jour, solde du soir, détail du libellé), avec le budget réel du mois : entrées, sorties, dépenses par catégorie, principaux postes, courbe du solde. Voir « Compte courant : lire le relevé plutôt que le saisir » plus bas
 - **Livrets & Épargne** — suivi des supports à capital garanti, plafonds, matelas de sécurité, enveloppes de ventilation
 - **PEA & Bourse** — positions, plus/moins-values, **plus-value nette après impôt** selon l'enveloppe et l'ancienneté du PEA, recherche par **ticker, ISIN ou nom**, actualisation des cours **avec conversion de change**, import PDF de relevés de courtage, watchlist avec **alertes de seuil**, heatmap sectorielle, calendrier financier
 - **Screener fondamental** — sous-onglet de PEA & Bourse. Six recettes assumées (dividende solide, value, qualité, défensif, momentum, repli), applicables de trois façons : filtrer un indice, **retourner le filtre contre ses propres lignes**, ou chercher des titres dans les secteurs sous-représentés du portefeuille. Chaque titre reçoit un **score sur 100** dont le détail est consultable, et deux titres se **comparent ratio par ratio**
@@ -50,6 +53,19 @@ L'application démarre **vide** : aucun patrimoine fictif n'est préchargé. Un 
 - **Stratégie & Logs** — journal des thèses d'investissement, timeline des jalons, opérations, **export CSV du journal** (déclaration, changement de courtier)
 - **Abonnements** — dépenses récurrentes, contrats et échéances de résiliation
 - **Sauvegarde** — export/import JSON depuis le menu latéral
+
+### Compte courant : lire le relevé plutôt que le saisir
+
+La synchronisation bancaire automatique demande un contrat d'agrégateur professionnel ; l'onglet part donc du document que la banque fournit déjà, le **relevé mensuel PDF** (« Extrait de votre compte en EUR » chez BoursoBank).
+
+- **Lu dans le navigateur.** `src/lib/lirePdf.js` charge pdf.js à la demande (jamais au démarrage) et en tire le texte positionné ; `src/lib/releveBourso.js` le transforme en opérations. Le PDF ne quitte pas l'appareil, l'import marche hors ligne et sans `vercel dev`. L'import de relevés de courtage, lui, reste sur `/api/parse-pdf`.
+- **Les positions, pas le texte.** Un montant ne dit pas seul s'il est un débit ou un crédit : c'est sa colonne qui le dit. Le lecteur repère les en-têtes « Débit » et « Crédit » et range chaque montant selon son abscisse. Les libellés coupés en fin de ligne (« DUPONTE » / « LLIER ») sont recollés.
+- **Chaque relevé est vérifié.** Solde de départ + opérations doit redonner exactement le nouveau solde, en centimes entiers. L'aperçu le dit avant toute écriture ; un écart signale une ligne mal lue. Entre deux relevés, un solde de clôture différent du solde d'ouverture suivant signale un mois manquant.
+- **Pas de doublons.** Une empreinte (date, montant, libellé, référence, rang d'apparition) rend le réimport sans effet, sans fusionner pour autant deux virements identiques le même jour.
+- **Classement proposé, jamais imposé.** Chaque opération reçoit une catégorie : choix manuel, puis règle (« toujours classer ce magasin en Courses »), puis virement entre ses propres comptes (reconnu au nom du titulaire), puis mots-clés, puis défaut selon le type. Les mouvements **entre ses comptes** et vers l'épargne ne comptent ni en dépense ni en revenu. Les virements d'une même personne se regroupent sous son nom quel que soit le motif (« Vir PEL de… », « Virement train… »), si bien qu'une seule règle suffit à classer, par exemple, l'aide d'un parent en « Aide familiale » — catégorie qu'aucun libellé ne permet d'attribuer d'office.
+- **Le patrimoine n'est pas modifié en silence.** Quand le solde du dernier relevé diffère du compte courant du patrimoine, l'onglet propose de le reporter ; il ne le fait pas seul, puisque le relevé peut dater de plusieurs semaines.
+
+Limites : seul le format BoursoBank est lu pour l'instant ; les opérations d'un relevé ne sont connues qu'une fois le mois clos.
 
 ### Sur mobile et hors ligne
 

@@ -42,6 +42,10 @@ export const STORAGE_KEYS = [
   "apparence",
   // Séries de cours par ticker, pour les sparklines du tableau de positions.
   "bourseSeriesCours",
+  // Onglet Compte courant : opérations importées des relevés, relevés
+  // eux-mêmes (période, soldes, contrôle) et règles de classement choisies
+  // par l'utilisateur (voir compteCourant.js).
+  "compteOperations", "compteReleves", "compteRegles",
 ];
 
 /**
@@ -187,6 +191,14 @@ export function PatrimoineProvider({ children }) {
   // seule clé pour toute l'app — Analyse et Screener lisent la même.
   const [secteursManuels, setSecteursManuels] = usePersistentState("secteursManuels", {});
 
+  // ─── Compte courant ────────────────────────────────────────────────────────
+  // Trois clés plutôt qu'une : la liste des opérations est la seule qui
+  // grossit, et une correction de catégorie ne doit pas réécrire les relevés.
+  // Montants en centimes entiers (voir compteCourant.js).
+  const [compteOperations, setCompteOperations] = usePersistentState("compteOperations", []);
+  const [compteReleves, setCompteReleves] = usePersistentState("compteReleves", []);
+  const [compteRegles, setCompteRegles] = usePersistentState("compteRegles", []);
+
   /** Bascule le repli d'un widget, sans avoir à recomposer l'objet à l'appel. */
   const basculerWidget = useCallback(
     (id) => setWidgetsReplies((w) => ({ ...(w || {}), [id]: !w?.[id] })),
@@ -316,6 +328,8 @@ export function PatrimoineProvider({ children }) {
       objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
       widgetsReplies, setWidgetsReplies, basculerWidget,
       secteursManuels, setSecteursManuels,
+      compteOperations, setCompteOperations, compteReleves, setCompteReleves,
+      compteRegles, setCompteRegles,
       horizonScenarios, setHorizonScenarios,
       horizonReglages, setHorizonReglages,
       horizonDernierBilan, setHorizonDernierBilan,
@@ -336,6 +350,8 @@ export function PatrimoineProvider({ children }) {
       objectifs, setObjectifs, alertesWatchlist, setAlertesWatchlist,
       widgetsReplies, setWidgetsReplies, basculerWidget,
       secteursManuels, setSecteursManuels,
+      compteOperations, setCompteOperations, compteReleves, setCompteReleves,
+      compteRegles, setCompteRegles,
       horizonScenarios, setHorizonScenarios,
       horizonReglages, setHorizonReglages,
       horizonDernierBilan, setHorizonDernierBilan,

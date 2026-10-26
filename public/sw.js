@@ -89,7 +89,10 @@ function estCoquille(url) {
     url.origin === self.location.origin &&
     !url.pathname.startsWith("/api/") &&
     !url.pathname.startsWith("/_vercel/") &&
-    /\.(?:js|css|woff2?|png|svg|ico|webmanifest|json)$/.test(url.pathname)
+    // `.mjs` : le worker de pdf.js (import des relevés du compte courant).
+    // Sans lui en cache, l'import échouait hors ligne alors que tout le
+    // reste de la lecture se fait dans le navigateur.
+    /\.(?:m?js|css|woff2?|png|svg|ico|webmanifest|json)$/.test(url.pathname)
   );
 }
 
