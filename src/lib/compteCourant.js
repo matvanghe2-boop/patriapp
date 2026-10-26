@@ -103,7 +103,14 @@ export function nomLisible(brut) {
   const n = normaliser(brut);
   for (const [motif, nom] of ENSEIGNES) {
     if (motif.test(n)) {
-      const suite = n.replace(motif, "").trim().split(" ").filter((m) => m && !/\d/.test(m));
+      // « SNCF -VOYAGEURS » : la ponctuation qui suivait l'enseigne ne doit
+      // pas rester accrochée au mot suivant.
+      const suite = n
+        .replace(motif, "")
+        .trim()
+        .split(" ")
+        .map((m) => m.replace(/^[-*.]+/, ""))
+        .filter((m) => m && !/\d/.test(m));
       return [nom, ...suite.map(casse)].join(" ").trim();
     }
   }
@@ -583,12 +590,19 @@ export function moisDisponibles(operations) {
  * Les dépenses se lisent par catégorie en montant NET : un remboursement par
  * carte chez le même marchand vient en déduction de la catégorie, au lieu de
  * gonfler les revenus.
+ *
+ * Les opérations mises À PART (`horsBudget`) sont comptées séparément : un
+ * don de 20 000 € reste un revenu, mais le laisser dans le mois ferait lire un
+ * taux d'épargne de 98 % là où le budget courant n'a pas bougé.
  */
 export function bilan(enrichies) {
   let entrees = 0;
   let sorties = 0;
   let interneSortant = 0;
   let interneEntrant = 0;
+  let horsBudgetEntrant = 0;
+  let horsBudgetSortant = 0;
+  let horsBudgetNombre = 0;
   const parCategorie = new Map();
   const parTitre = new Map();
 
@@ -596,6 +610,12 @@ export function bilan(enrichies) {
     if (op.famille === "interne") {
       if (op.montant < 0) interneSortant += -op.montant;
       else interneEntrant += op.montant;
+      continue;
+    }
+    if (op.horsBudget) {
+      if (op.montant < 0) horsBudgetSortant += -op.montant;
+      else horsBudgetEntrant += op.montant;
+      horsBudgetNombre += 1;
       continue;
     }
     if (op.famille === "depense") {
@@ -623,6 +643,9 @@ export function bilan(enrichies) {
     net: entrees - sorties,
     interneSortant,
     interneEntrant,
+    horsBudgetEntrant,
+    horsBudgetSortant,
+    horsBudgetNombre,
     tauxEpargne: entrees > 0 ? (entrees - sorties) / entrees : null,
     depensesParCategorie,
     principauxPostes: [...parTitre.values()].sort((a, b) => b.montant - a.montant).slice(0, 5),
@@ -630,11 +653,14 @@ export function bilan(enrichies) {
   };
 }
 
-/** Entrées et sorties mois par mois, hors mouvements entre ses comptes. */
+/**
+ * Entrées et sorties mois par mois, hors mouvements entre ses comptes et hors
+ * opérations mises à part du budget.
+ */
 export function parMois(enrichies) {
   const mois = new Map();
   for (const op of enrichies || []) {
-    if (op.famille === "interne") continue;
+    if (op.famille === "interne" || op.horsBudget) continue;
     const m = moisDe(op.date);
     const l = mois.get(m) || { mois: m, entrees: 0, sorties: 0 };
     // Même convention que `bilan` : un remboursement reçu sur une catégorie de
@@ -644,4 +670,41 @@ export function parMois(enrichies) {
     mois.set(m, l);
   }
   return [...mois.values()].sort((a, b) => a.mois.localeCompare(b.mois)).map((l) => ({ ...l, net: l.entrees - l.sorties }));
+}
+
+/** Plancher en dessous duquel une opération n'est jamais jugée inhabituelle. */
+export const SEUIL_PONCTUEL = 100000;
+
+function mediane(valeurs) {
+  const t = [...valeurs].sort((a, b) => a - b);
+  const m = Math.floor(t.length / 2);
+  return t.length % 2 ? t[m] : (t[m - 1] + t[m]) / 2;
+}
+
+/**
+ * Opérations d'un mois qui sortent de l'ordinaire : plus de 1 000 €, et plus
+ * à elles seules que ce qui entre (ou sort) d'habitude en un mois ENTIER — la
+ * médiane des mois connus, que l'opération en question ne peut pas tirer à
+ * elle.
+ *
+ * Elles sont PROPOSÉES à la mise à part, jamais mises à part d'office : un
+ * gros virement peut être une prime ordinaire comme un don exceptionnel, et
+ * seul l'utilisateur le sait. Une opération sur laquelle il s'est déjà
+ * prononcé (`horsBudget` à vrai ou à faux) n'est plus proposée.
+ *
+ * Il faut au moins deux mois : sur un seul, aucune opération ne peut dépasser
+ * le total du mois qui la contient.
+ */
+export function operationsInhabituelles(enrichies, mois) {
+  const flux = parMois(enrichies);
+  if (flux.length < 2) return [];
+  const seuilEntree = Math.max(SEUIL_PONCTUEL, mediane(flux.map((l) => l.entrees)));
+  const seuilSortie = Math.max(SEUIL_PONCTUEL, mediane(flux.map((l) => l.sorties)));
+  return (enrichies || []).filter(
+    (op) =>
+      moisDe(op.date) === mois &&
+      op.famille !== "interne" &&
+      op.horsBudget === undefined &&
+      (op.montant > 0 ? op.montant > seuilEntree : -op.montant > seuilSortie)
+  );
 }
