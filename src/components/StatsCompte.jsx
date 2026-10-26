@@ -112,16 +112,16 @@ function InfobulleSolde({ active, payload }) {
  * Courbe du solde, jour par jour. Le mois affiché est surligné : la courbe
  * couvre tout l'historique importé, pour qu'on voie d'où le mois part.
  */
-export function CourbeSolde({ serie, mois }) {
+export function CourbeSolde({ serie, periode = [] }) {
   const donnees = useMemo(
     () => serie.map((p) => ({ ...p, t: new Date(`${p.date}T00:00:00`).getTime() })),
     [serie]
   );
   if (donnees.length < 2) return null;
-  const debutMois = mois ? new Date(`${mois}-01T00:00:00`).getTime() : null;
-  const finMois = mois
-    ? new Date(Number(mois.slice(0, 4)), Number(mois.slice(5, 7)), 0).getTime()
-    : null;
+  const premier = periode[0];
+  const dernier = periode[periode.length - 1];
+  const debutMois = premier ? new Date(`${premier}-01T00:00:00`).getTime() : null;
+  const finMois = dernier ? new Date(Number(dernier.slice(0, 4)), Number(dernier.slice(5, 7)), 0).getTime() : null;
   const negatif = donnees.some((p) => p.solde < 0);
 
   return (

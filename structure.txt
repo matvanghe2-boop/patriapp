@@ -131,6 +131,7 @@ src/components/AssistantHorizon.test.jsx
 src/components/BackupReminder.jsx
 src/components/BilanMensuel.jsx
 src/components/BilanMensuel.test.jsx
+src/components/BlocsCompteDashboard.jsx
 src/components/BottomNav.jsx
 src/components/Bourse.jsx
 src/components/BoursePerformance.jsx
@@ -210,8 +211,10 @@ src/components/Projet.test.jsx
 src/components/RapprochementsAbonnements.jsx
 src/components/RatesHub.jsx
 src/components/RatesHub.test.jsx
+src/components/ReconstitutionCourbe.jsx
 src/components/Reequilibrage.jsx
 src/components/ReglagesApparence.jsx
+src/components/ReglagesChiffrement.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
 src/components/RendementsMensuels.jsx
@@ -266,6 +269,8 @@ src/lib/calendrierManuel.js
 src/lib/calendrierManuel.test.js
 src/lib/cascade.js
 src/lib/cascade.test.js
+src/lib/chiffrement.js
+src/lib/chiffrement.test.js
 src/lib/compact.test.js
 src/lib/compositionEtf.js
 src/lib/compteCourant.js
@@ -303,6 +308,8 @@ src/lib/indexConstituents.js
 src/lib/jeuExemple.js
 src/lib/jeuExemple.test.js
 src/lib/ledger.test.js
+src/lib/liensComptes.js
+src/lib/liensComptes.test.js
 src/lib/lireNombre.test.js
 src/lib/lirePdf.js
 src/lib/livretsMouvements.js
@@ -325,6 +332,8 @@ src/lib/publications.js
 src/lib/publications.test.js
 src/lib/rattrapage.js
 src/lib/rattrapage.test.js
+src/lib/reconstitutionPatrimoine.js
+src/lib/reconstitutionPatrimoine.test.js
 src/lib/records.js
 src/lib/records.test.js
 src/lib/releveBourso.js
@@ -333,9 +342,12 @@ src/lib/retrospective.js
 src/lib/retrospective.test.js
 src/lib/revenusPassifs.js
 src/lib/revenusPassifs.test.js
+src/lib/santeFinanciere.js
+src/lib/santeFinanciere.test.js
 src/lib/sectors.js
 src/lib/sectors.test.js
 src/lib/splits.test.js
+src/lib/storage.chiffrement.test.jsx
 src/lib/storage.js
 src/lib/storage.test.jsx
 src/lib/styleGraphique.js

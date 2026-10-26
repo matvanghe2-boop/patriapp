@@ -3,6 +3,7 @@ import { enrichir } from "./compteCourant";
 import {
   budgetMoyen, argentQuiDort, recurrences, rythmeMois, calendrierMois, depensesParJourSemaine,
   comparaisonCategories, zoomCategorie, petitesDepenses, jeuxParMois, misDeCoteParMois, fluxDuMois, joursDuMois,
+  moisDePeriode, categoriesPeriode, coutHabitude,
 } from "./analyseCompte";
 
 let n = 0;
@@ -201,5 +202,44 @@ describe("revenus réguliers à date un peu variable", () => {
       )
     );
     expect(recurrences(aide).revenus).toEqual([expect.objectContaining({ titre: "Claire Petit", jour: 16 })]);
+  });
+});
+
+describe("périodes longues", () => {
+  it("donne les mois d'une année connue ou des douze derniers mois", () => {
+    const connus = ["2025-11", "2025-12", "2026-01", "2026-09"];
+    expect(moisDePeriode("mois", { mois: "2026-09" })).toEqual(["2026-09"]);
+    expect(moisDePeriode("annee", { annee: "2026", moisConnus: connus })).toEqual(["2026-01", "2026-09"]);
+    const glissant = moisDePeriode("glissant", { moisConnus: connus });
+    expect(glissant).toHaveLength(12);
+    expect(glissant[0]).toBe("2025-10");
+    expect(glissant[11]).toBe("2026-09");
+  });
+
+  it("totalise chaque catégorie sur la période, avec sa moyenne mensuelle", () => {
+    const lignes = categoriesPeriode(enrichies, ["2026-07", "2026-08", "2026-09"]);
+    const courses = lignes.find((l) => l.id === "courses");
+    expect(courses).toMatchObject({ montant: 6600 * 3, moyenneMensuelle: 6600, anPasse: null });
+    expect(lignes.reduce((s, l) => s + l.part, 0)).toBeCloseTo(1);
+  });
+
+  it("accepte une période de plusieurs mois dans le flux et le zoom", () => {
+    const periode = ["2026-08", "2026-09"];
+    expect(zoomCategorie(enrichies, "courses", periode).nombre).toBe(4);
+    const flux = fluxDuMois(enrichies, periode);
+    const total = (l) => l.reduce((s, x) => s + x.montant, 0);
+    expect(total(flux.sources)).toBe(total(flux.destinations));
+  });
+});
+
+describe("coutHabitude", () => {
+  it("ramène une catégorie à l'année et la projette placée chaque mois", () => {
+    const c = coutHabitude(enrichies, "courses", { taux: [{ libelle: "Sans intérêt", tauxPct: 0 }, { libelle: "Livret", tauxPct: 1.7 }] });
+    expect(c.mensuel).toBe(6600);
+    expect(c.annuel).toBe(79200);
+    const dixAns = c.projections.find((p) => p.annees === 10);
+    expect(dixAns.verse).toBe(792000);
+    expect(dixAns.placements[0].valeur).toBe(792000);
+    expect(dixAns.placements[1].valeur).toBeGreaterThan(792000);
   });
 });

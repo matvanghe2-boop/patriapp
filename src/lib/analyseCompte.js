@@ -42,6 +42,67 @@ function moisSuivant(iso, jour) {
   return `${cle}-${String(Math.min(jour, joursDuMois(cle))).padStart(2, "0")}`;
 }
 
+/**
+ * Filtre « appartient à la période » : un mois (« 2026-09 ») ou une liste de
+ * mois (une année, douze mois glissants). Toutes les analyses qui portaient
+ * sur un mois acceptent ainsi une période plus longue, sans être réécrites.
+ */
+function dansPeriode(periode) {
+  const mois = new Set(Array.isArray(periode) ? periode : [periode]);
+  return (iso) => mois.has(moisDe(iso));
+}
+
+/** Mois calendaires d'une période, du plus ancien au plus récent. */
+export function moisDePeriode(vue, { mois, annee, moisConnus = [] } = {}) {
+  if (vue === "annee") return moisConnus.filter((m) => m.startsWith(`${annee}-`));
+  if (vue === "glissant") {
+    const fin = moisConnus[moisConnus.length - 1];
+    if (!fin) return [];
+    const [a, m] = fin.split("-").map(Number);
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(a, m - 12 + i, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    });
+  }
+  return mois ? [mois] : [];
+}
+
+/** Même période, un an plus tôt. */
+export function periodeUnAnAvant(periode) {
+  return periode.map((m) => `${Number(m.slice(0, 4)) - 1}${m.slice(4)}`);
+}
+
+/**
+ * Catégories d'une période longue (année, douze mois) : total, moyenne par
+ * mois couvert, et la même période un an plus tôt quand elle est connue.
+ */
+export function categoriesPeriode(enrichies, periode) {
+  const dedans = dansPeriode(periode);
+  const avant = dansPeriode(periodeUnAnAvant(periode));
+  const connus = new Set((enrichies || []).map((o) => moisDe(o.date)));
+  const nbMois = periode.filter((m) => connus.has(m)).length || 1;
+  const anPasseConnu = periodeUnAnAvant(periode).some((m) => connus.has(m));
+  const totaux = new Map();
+  const precedents = new Map();
+  for (const o of enrichies || []) {
+    if (!estDepenseBudget(o)) continue;
+    if (dedans(o.date)) totaux.set(o.categorie, (totaux.get(o.categorie) || 0) - o.montant);
+    else if (avant(o.date)) precedents.set(o.categorie, (precedents.get(o.categorie) || 0) - o.montant);
+  }
+  const total = [...totaux.values()].reduce((a, v) => a + Math.max(0, v), 0);
+  return [...totaux.entries()]
+    .filter(([, v]) => v > 0)
+    .map(([id, montant]) => ({
+      id,
+      libelle: categorie(id).libelle,
+      montant,
+      moyenneMensuelle: Math.round(montant / nbMois),
+      part: total > 0 ? montant / total : 0,
+      anPasse: anPasseConnu ? Math.max(0, precedents.get(id) || 0) : null,
+    }))
+    .sort((a, b) => b.montant - a.montant);
+}
+
 /** Dépense nette d'une opération : positive quand l'argent sort. */
 const estDepenseBudget = (op) => op.famille === "depense" && !op.horsBudget;
 
@@ -328,7 +389,8 @@ export function comparaisonCategories(enrichies, mois) {
 /** Détail d'une catégorie : le mois choisi, mois par mois, et ses marchands. */
 export function zoomCategorie(enrichies, id, mois) {
   const ops = (enrichies || []).filter((o) => o.categorie === id && estDepenseBudget(o));
-  const duMois = ops.filter((o) => moisDe(o.date) === mois);
+  const dedans = dansPeriode(mois);
+  const duMois = ops.filter((o) => dedans(o.date));
   const achats = duMois.filter((o) => o.montant < 0);
   const total = duMois.reduce((s, o) => s - o.montant, 0);
 
@@ -365,9 +427,10 @@ export function zoomCategorie(enrichies, id, mois) {
  */
 export function petitesDepenses(enrichies, mois, seuil = 1000) {
   const petites = (enrichies || []).filter((o) => estDepenseBudget(o) && o.montant < 0 && -o.montant < seuil);
-  const duMois = petites.filter((o) => moisDe(o.date) === mois);
+  const dedans = dansPeriode(mois);
+  const duMois = petites.filter((o) => dedans(o.date));
   const nbMois = new Set((enrichies || []).map((o) => moisDe(o.date))).size || 1;
-  const toutesDuMois = (enrichies || []).filter((o) => moisDe(o.date) === mois && estDepenseBudget(o));
+  const toutesDuMois = (enrichies || []).filter((o) => dedans(o.date) && estDepenseBudget(o));
   const depensesMois = toutesDuMois.reduce((s, o) => s - o.montant, 0);
   const total = duMois.reduce((s, o) => s - o.montant, 0);
   return {
@@ -433,8 +496,9 @@ export function fluxDuMois(enrichies, mois, { maxDestinations = 6 } = {}) {
     map.set(cle, l);
   };
 
+  const dedans = dansPeriode(mois);
   for (const o of enrichies || []) {
-    if (moisDe(o.date) !== mois) continue;
+    if (!dedans(o.date)) continue;
     if (o.famille === "interne") {
       if (o.montant > 0) ajouter(sources, "interne", "Depuis mes comptes", o.montant);
       else ajouter(destinations, "interne", "Vers mes comptes", -o.montant);
@@ -463,4 +527,41 @@ export function fluxDuMois(enrichies, mois, { maxDestinations = 6 } = {}) {
   else if (totalSources > totalDest) dest.push({ id: "reste", libelle: "Reste sur le compte", montant: totalSources - totalDest });
 
   return { sources: src, destinations: dest, total: Math.max(totalSources, totalDest) };
+}
+
+// ─── Coût des habitudes ──────────────────────────────────────────────────────
+
+/**
+ * Ce que coûte une catégorie de dépense à l'année, et ce que la même somme
+ * deviendrait si elle était placée chaque mois.
+ *
+ * La moyenne mensuelle porte sur TOUS les mois connus, y compris ceux sans
+ * dépense dans la catégorie : une habitude se mesure à son rythme réel, pas
+ * aux seuls mois où elle s'est manifestée. Le placement est un versement
+ * mensuel capitalisé au taux donné — une hypothèse, que l'écran présente
+ * comme telle.
+ */
+export function coutHabitude(enrichies, id, { taux = [], annees = [5, 10] } = {}) {
+  const mois = new Set((enrichies || []).map((o) => moisDe(o.date)));
+  if (mois.size === 0) return null;
+  const total = (enrichies || [])
+    .filter((o) => o.categorie === id && estDepenseBudget(o))
+    .reduce((s, o) => s - o.montant, 0);
+  const mensuel = Math.max(0, total) / mois.size;
+  const placer = (tauxPct, n) => {
+    const r = tauxPct / 100 / 12;
+    const periodes = 12 * n;
+    return r > 0 ? mensuel * ((Math.pow(1 + r, periodes) - 1) / r) : mensuel * periodes;
+  };
+  return {
+    id,
+    libelle: categorie(id).libelle,
+    mensuel: Math.round(mensuel),
+    annuel: Math.round(mensuel * 12),
+    projections: annees.map((n) => ({
+      annees: n,
+      verse: Math.round(mensuel * 12 * n),
+      placements: taux.map(({ libelle, tauxPct }) => ({ libelle, tauxPct, valeur: Math.round(placer(tauxPct, n)) })),
+    })),
+  };
 }

@@ -10,7 +10,7 @@ import { COULEURS, GRILLE, AXE, MARGES, TRAITS } from "../lib/styleGraphique";
 import { CATEGORIES } from "../lib/compteCourant";
 import {
   fluxDuMois, comparaisonCategories, rythmeMois, calendrierMois, depensesParJourSemaine, zoomCategorie,
-  petitesDepenses, jeuxParMois,
+  petitesDepenses, jeuxParMois, categoriesPeriode,
 } from "../lib/analyseCompte";
 
 /**
@@ -24,6 +24,10 @@ const nomMois = (cle, format = "long") => {
   const [a, m] = cle.split("-").map(Number);
   return new Date(a, m - 1, 1).toLocaleDateString("fr-FR", { month: format });
 };
+// Une période est un mois (« 2026-09 ») ou une liste de mois (année, 12 mois).
+const estPeriodeLongue = (mois) => Array.isArray(mois);
+const nomPeriode = (mois) => (estPeriodeLongue(mois) ? "la période" : nomMois(mois));
+const dansLaPeriode = (mois, cle) => (estPeriodeLongue(mois) ? mois.includes(cle) : cle === mois);
 
 // ─── Flux du mois ────────────────────────────────────────────────────────────
 
@@ -96,7 +100,7 @@ export function FluxMois({ enrichies, mois }) {
       {/* Sous 640 px, les marges des étiquettes ne laissent plus que quelques
           pixels aux bandes : les deux listes, en dessous, disent la même chose
           plus lisiblement. */}
-      <div className="hidden sm:block" style={{ height: hauteur }} role="img" aria-label={`Flux d'argent du mois de ${nomMois(mois)}`}>
+      <div className="hidden sm:block" style={{ height: hauteur }} role="img" aria-label={`Flux d'argent sur ${nomPeriode(mois)}`}>
         <ResponsiveContainer width="100%" height="100%">
           <Sankey
             data={donnees}
@@ -331,7 +335,13 @@ export function ZoomCategorie({ enrichies, mois, categorieInitiale }) {
   }, [enrichies]);
   // Par défaut : la catégorie filtrée dans la liste, sinon la plus grosse
   // dépense du mois — ouvrir le zoom sur une catégorie vide n'apprend rien.
-  const principale = useMemo(() => comparaisonCategories(enrichies, mois).sort((a, b) => b.montant - a.montant)[0]?.id, [enrichies, mois]);
+  const principale = useMemo(
+    () =>
+      (estPeriodeLongue(mois) ? categoriesPeriode(enrichies, mois) : comparaisonCategories(enrichies, mois)).sort(
+        (a, b) => b.montant - a.montant
+      )[0]?.id,
+    [enrichies, mois]
+  );
   const [choix, setChoix] = useState(null);
   const id =
     choix && presentes.some((c) => c.id === choix) ? choix : categorieInitiale || principale || presentes[0]?.id;
@@ -357,7 +367,7 @@ export function ZoomCategorie({ enrichies, mois, categorieInitiale }) {
       </div>
       <dl className="grid grid-cols-3 gap-3 mb-4">
         <div>
-          <dt className="text-micro text-slate-500">Achats en {nomMois(mois)}</dt>
+          <dt className="text-micro text-slate-500">Achats sur {nomPeriode(mois)}</dt>
           <dd className="font-display text-lg text-slate-100">{zoom.nombre}</dd>
         </div>
         <div>
@@ -379,7 +389,7 @@ export function ZoomCategorie({ enrichies, mois, categorieInitiale }) {
           <ul className="space-y-1.5">
             {zoom.parMois.map((l) => (
               <li key={l.mois} className="flex items-center gap-2">
-                <span className={`w-12 ${l.mois === mois ? "text-slate-100" : "text-slate-400"}`}>{nomMois(l.mois, "short")}</span>
+                <span className={`w-12 ${dansLaPeriode(mois, l.mois) ? "text-slate-100" : "text-slate-400"}`}>{nomMois(l.mois, "short")}</span>
                 <span className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
                   <span className="block h-full rounded-full" style={{ width: `${(Math.max(0, l.total) / maxMois) * 100}%`, background: COULEURS.domaine }} />
                 </span>
@@ -389,9 +399,9 @@ export function ZoomCategorie({ enrichies, mois, categorieInitiale }) {
           </ul>
         </div>
         <div>
-          <div className="text-micro uppercase tracking-wider text-slate-500 mb-1.5">Principaux marchands du mois</div>
+          <div className="text-micro uppercase tracking-wider text-slate-500 mb-1.5">Principaux marchands {estPeriodeLongue(mois) ? "de la période" : "du mois"}</div>
           {zoom.marchands.length === 0 ? (
-            <p className="text-slate-500">Aucun achat ce mois-ci.</p>
+            <p className="text-slate-500">Aucun achat sur {nomPeriode(mois)}.</p>
           ) : (
             <ul className="space-y-1">
               {zoom.marchands.map((t) => (
@@ -416,12 +426,12 @@ export function PetitesDepenses({ enrichies, mois }) {
     <Card>
       <CardLabel icon={Coins}>Les petites dépenses</CardLabel>
       {p.nombre === 0 ? (
-        <p className="text-sm text-slate-500">Aucun achat de moins de 10 € ce mois-ci.</p>
+        <p className="text-sm text-slate-500">Aucun achat de moins de 10 € sur {nomPeriode(mois)}.</p>
       ) : (
         <p className="text-sm text-slate-300">
-          {p.nombre} achat{p.nombre > 1 ? "s" : ""} de moins de 10 € ce mois-ci, pour{" "}
+          {p.nombre} achat{p.nombre > 1 ? "s" : ""} de moins de 10 € sur {nomPeriode(mois)}, pour{" "}
           <Montant valeur={euros(p.total)} decimales={2} className="text-slate-100" /> au total
-          {p.part != null && <> — {pctPlain(p.part * 100, 0)} des dépenses du mois</>}.
+          {p.part != null && <> — {pctPlain(p.part * 100, 0)} des dépenses</>}.
         </p>
       )}
       <p className="text-xs text-slate-500 mt-1">
@@ -469,7 +479,67 @@ export function JeuxArgent({ enrichies }) {
   );
 }
 
-export default function AnalyseCompte({ enrichies, mois, filtreCategorie }) {
+// ─── Catégories sur une période longue ───────────────────────────────────────
+
+export function CategoriesPeriode({ enrichies, periode }) {
+  const lignes = useMemo(() => categoriesPeriode(enrichies, periode), [enrichies, periode]);
+  if (lignes.length === 0) return null;
+  const comparable = lignes.some((l) => l.anPasse != null);
+  return (
+    <Card>
+      <CardLabel icon={GitCompare}>Dépenses par catégorie sur la période</CardLabel>
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-slate-500 text-left">
+              <th scope="col" className="font-normal py-1 px-1">Catégorie</th>
+              <th scope="col" className="font-normal py-1 px-1 text-right">Total</th>
+              <th scope="col" className="font-normal py-1 px-1 text-right">Par mois</th>
+              <th scope="col" className="font-normal py-1 px-1 text-right">Part</th>
+              {comparable && <th scope="col" className="font-normal py-1 px-1 text-right">Un an plus tôt</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/70">
+            {lignes.map((l) => (
+              <tr key={l.id}>
+                <th scope="row" className="font-normal text-left text-slate-200 py-1.5 px-1">{l.libelle}</th>
+                <td className="text-right px-1"><Montant valeur={euros(l.montant)} decimales={0} /></td>
+                <td className="text-right px-1 text-slate-400"><Montant valeur={euros(l.moyenneMensuelle)} decimales={0} /></td>
+                <td className="text-right px-1 text-slate-400">{pctPlain(l.part * 100, 0)}</td>
+                {comparable && (
+                  <td className="text-right px-1 text-slate-400">
+                    {l.anPasse == null ? "—" : <Montant valeur={euros(l.anPasse)} decimales={0} />}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!comparable && (
+        <p className="text-micro text-slate-500 mt-2">
+          La comparaison avec la même période un an plus tôt apparaîtra dès que tes relevés couvriront plus d'un an.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+export default function AnalyseCompte({ enrichies, periode = [], vue = "mois", filtreCategorie }) {
+  if (vue !== "mois") {
+    return (
+      <div className="space-y-6">
+        <FluxMois enrichies={enrichies} mois={periode} />
+        <CategoriesPeriode enrichies={enrichies} periode={periode} />
+        <ZoomCategorie enrichies={enrichies} mois={periode} categorieInitiale={filtreCategorie} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          <PetitesDepenses enrichies={enrichies} mois={periode} />
+          <JeuxArgent enrichies={enrichies} />
+        </div>
+      </div>
+    );
+  }
+  const mois = periode[0];
   return (
     <div className="space-y-6">
       <FluxMois enrichies={enrichies} mois={mois} />

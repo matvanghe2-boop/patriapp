@@ -29,6 +29,7 @@ import { AnneauRepartition, CalendrierAnnuel, CourbeEvolution } from "./graphiqu
 import { serieSparkline, marqueursOperations, decrireOperation, NATURES_MARQUEUR } from "../lib/marqueursCourbe";
 import { FileDown, FileSpreadsheet, PieChart as PieIcon, SlidersHorizontal } from "lucide-react";
 import { Disposition, Bloc, PersonnaliserDashboard } from "./DispositionDashboard";
+import { ResumeCompteCourant, SanteFinanciere } from "./BlocsCompteDashboard";
 import { DISPOSITION_DEFAUT } from "../lib/dispositionDashboard";
 import { decouperParPoche, COULEURS_POCHES } from "../lib/patrimoineParPoche";
 import { recordAAnnoncer, objectifsAAnnoncer, plusHautHistorique } from "../lib/records";
@@ -563,7 +564,8 @@ export default function Dashboard({
   livrets, bourse, matelasMois, setLastSnapshotDate,
   cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
   objectifs, setObjectifs, bourseHistory = [], contracts = [], evenementsMarche = [],
-  compteSolde = null,
+  compteSolde = null, matelasCompteCourant = 0, compteEnrichies = [], compteOperations = [], compteReleves = [],
+  budgetReel = null,
 }) {
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -1072,6 +1074,12 @@ export default function Dashboard({
                   ? `${matelasMois.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mois`
                   : "—"}
               </dd>
+              {matelasCompteCourant > 0 && (
+                <dd className="text-micro text-slate-500 mt-0.5 max-w-[11rem]">
+                  dont <span className="ghost-blur">{eur(matelasCompteCourant)}</span> du compte courant, au-delà d'un mois
+                  de dépenses
+                </dd>
+              )}
             </div>
           </dl>
         </div>
@@ -1139,6 +1147,22 @@ export default function Dashboard({
           </Card>
         </div>
       </div>
+      </Bloc>
+
+      <Bloc id="compte">
+        <ResumeCompteCourant compteSolde={compteSolde} compteEnrichies={compteEnrichies} budgetReel={budgetReel} />
+      </Bloc>
+
+      <Bloc id="sante">
+        <SanteFinanciere
+          matelasMois={matelasMois}
+          tauxEpargne={tauxEpargne}
+          profile={profile}
+          compteEnrichies={compteEnrichies}
+          compteOperations={compteOperations}
+          compteReleves={compteReleves}
+          budgetReel={budgetReel}
+        />
       </Bloc>
 
       <Bloc id="independance">
@@ -1540,6 +1564,7 @@ export default function Dashboard({
         // trajectoire : sans lui, il ne resterait que la ligne cible, et
         // l'écart — la seule chose qui compte — serait invisible.
         historique={historyPast}
+        rythmeReel={profile.source === "releves" ? profile.periode : null}
       />
       </Bloc>
 

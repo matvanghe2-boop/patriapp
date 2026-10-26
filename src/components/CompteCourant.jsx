@@ -11,12 +11,15 @@ import { BoutonImport, ApercuImport } from "./ImportReleve";
 import { DepensesParCategorie, PrincipauxPostes, CourbeSolde, EntreesSorties } from "./StatsCompte";
 import AnalyseCompte from "./AnalyseCompte";
 import MouvementsDepuisReleve from "./MouvementsDepuisReleve";
+import ReconstitutionCourbe from "./ReconstitutionCourbe";
+import { mouvementsAutresComptes, estimerSolde, virementsSansCorrespondance } from "../lib/liensComptes";
+import { moisDePeriode } from "../lib/analyseCompte";
 import EpargneCompte from "./EpargneCompte";
 import { useToast } from "../lib/ToastContext";
 import { useConfirm } from "../lib/ConfirmContext";
 import { pctPlain, uid } from "../lib/finance";
 import {
-  enrichir, soldesApres, soldeEstime, provisoiresNonCouverts, serieSolde, raccordsReleves, moisDisponibles, moisDe, bilan, parMois,
+  enrichir, soldesApres, provisoiresNonCouverts, serieSolde, raccordsReleves, moisDisponibles, moisDe, bilan, parMois,
   appliquerImport, retirerReleve, categorie, operationsInhabituelles,
 } from "../lib/compteCourant";
 
@@ -50,6 +53,14 @@ export default function CompteCourant({
   compteProvisoires = [],
   setCompteProvisoires,
   livrets = [],
+  setLivrets,
+  bourse,
+  setBourse,
+  sim,
+  bourseHistory = [],
+  historyPast = [],
+  setHistoryPast,
+  dettesTotal = 0,
   subs = [],
   setSubs,
 }) {
@@ -57,6 +68,9 @@ export default function CompteCourant({
   const confirm = useConfirm();
   const [apercu, setApercu] = useState(null);
   const [moisChoisi, setMoisChoisi] = useState(null);
+  // Mois, année civile ou douze mois glissants : la même lecture, à trois échelles.
+  const [vue, setVue] = useState("mois");
+  const [anneeChoisie, setAnneeChoisie] = useState(null);
   const [filtreCategorie, setFiltreCategorie] = useState(null);
   const [sousOnglet, setSousOnglet] = useState("operations");
 
@@ -73,7 +87,33 @@ export default function CompteCourant({
   const soldes = useMemo(() => soldesApres(compteOperations, compteReleves), [compteOperations, compteReleves]);
   const serie = useMemo(() => serieSolde(compteOperations, compteReleves), [compteOperations, compteReleves]);
   // Solde ESTIMÉ : le dernier relevé, corrigé des mouvements saisis depuis.
-  const actuel = useMemo(() => soldeEstime(compteReleves, compteProvisoires), [compteReleves, compteProvisoires]);
+  // Versements PEA et mouvements de livrets : ceux qui suivent le dernier
+  // relevé corrigent le solde, ceux qu'il contient déjà y sont rattachés.
+  const mouvements = useMemo(() => mouvementsAutresComptes({ bourse, livrets }), [bourse, livrets]);
+  const actuel = useMemo(
+    () => estimerSolde({ releves: compteReleves, provisoires: compteProvisoires, mouvements, operations: enrichies }),
+    [compteReleves, compteProvisoires, mouvements, enrichies]
+  );
+  const liens = useMemo(() => actuel?.liens || new Map(), [actuel]);
+  const sansCorrespondance = useMemo(() => virementsSansCorrespondance(enrichies, liens), [enrichies, liens]);
+
+  /** Marque un mouvement d'un autre onglet comme payé (ou non) depuis une autre banque. */
+  const marquerHorsCompte = (m, hors) => {
+    if (m.source === "bourse" && setBourse) {
+      setBourse((b) => ({
+        ...b,
+        operations: (b.operations || []).map((o) => (o.id === m.id ? { ...o, horsCompteCourant: hors || undefined } : o)),
+      }));
+    } else if (m.source === "livret" && setLivrets) {
+      setLivrets((ls) =>
+        ls.map((l) =>
+          l.id === m.livretId
+            ? { ...l, mouvements: (l.mouvements || []).map((x) => (x.id === m.id ? { ...x, horsCompteCourant: hors || undefined } : x)) }
+            : l
+        )
+      );
+    }
+  };
   const trous = useMemo(() => raccordsReleves(compteReleves), [compteReleves]);
   const mois = useMemo(() => moisDisponibles(compteOperations), [compteOperations]);
   const flux = useMemo(() => parMois(enrichies), [enrichies]);
@@ -84,17 +124,43 @@ export default function CompteCourant({
   }, [enrichies]);
 
   const moisCourant = moisChoisi && mois.includes(moisChoisi) ? moisChoisi : mois[mois.length - 1] || null;
-  const duMois = useMemo(() => enrichies.filter((o) => moisDe(o.date) === moisCourant), [enrichies, moisCourant]);
+  const annees = useMemo(() => [...new Set(mois.map((m) => m.slice(0, 4)))], [mois]);
+  const anneeCourante = anneeChoisie && annees.includes(anneeChoisie) ? anneeChoisie : annees[annees.length - 1] || null;
+  const periode = useMemo(
+    () => moisDePeriode(vue, { mois: moisCourant, annee: anneeCourante, moisConnus: mois }),
+    [vue, moisCourant, anneeCourante, mois]
+  );
+  const moisCouverts = periode.filter((m) => mois.includes(m)).length || 1;
+  const duMois = useMemo(() => {
+    const dedans = new Set(periode);
+    return enrichies.filter((o) => dedans.has(moisDe(o.date)));
+  }, [enrichies, periode]);
   const stats = useMemo(() => bilan(duMois), [duMois]);
-  const inhabituelles = useMemo(() => operationsInhabituelles(enrichies, moisCourant), [enrichies, moisCourant]);
-  const indexMois = mois.indexOf(moisCourant);
+  // Le repérage des opérations ponctuelles compare un mois aux autres : il
+  // n'a de sens qu'en vue mensuelle.
+  const inhabituelles = useMemo(
+    () => (vue === "mois" ? operationsInhabituelles(enrichies, moisCourant) : []),
+    [vue, enrichies, moisCourant]
+  );
+  const liste = vue === "annee" ? annees : mois;
+  const indexMois = liste.indexOf(vue === "annee" ? anneeCourante : moisCourant);
+  const fluxPeriode = vue === "mois" ? flux : flux.filter((l) => periode.includes(l.mois));
 
   const changerMois = (pas) => {
-    const cible = mois[indexMois + pas];
+    const cible = liste[indexMois + pas];
     if (!cible) return;
-    setMoisChoisi(cible);
+    if (vue === "annee") setAnneeChoisie(cible);
+    else setMoisChoisi(cible);
     setFiltreCategorie(null);
   };
+
+  const libellePeriode = !moisCourant
+    ? ""
+    : vue === "annee"
+      ? `Année ${anneeCourante}`
+      : vue === "glissant"
+        ? `12 mois glissants · ${libelleMois(periode[0])} – ${libelleMois(periode[periode.length - 1])}`
+        : libelleMois(moisCourant);
 
   const importer = (lots) => {
     let etat = { operations: compteOperations, releves: compteReleves };
@@ -183,6 +249,7 @@ export default function CompteCourant({
         <ApercuImport
           resultats={apercu}
           existant={{ operations: compteOperations, releves: compteReleves }}
+          mouvements={mouvements}
           onConfirmer={importer}
           onAnnuler={() => setApercu(null)}
         />
@@ -229,7 +296,7 @@ export default function CompteCourant({
           )}
 
           {actuel && setCompteProvisoires && (
-            <MouvementsDepuisReleve estime={actuel} setProvisoires={setCompteProvisoires} />
+            <MouvementsDepuisReleve estime={actuel} setProvisoires={setCompteProvisoires} onMarquerHorsCompte={marquerHorsCompte} />
           )}
 
           {trous.map((t) => (
@@ -262,27 +329,58 @@ export default function CompteCourant({
               livrets={livrets}
               subs={subs}
               setSubs={setSubs}
+              liens={liens}
+              sansCorrespondance={sansCorrespondance}
+              setBourse={setBourse}
+              setLivrets={setLivrets}
+              setCompteOperations={setCompteOperations}
+              enveloppe={bourse?.envelope || "PEA"}
+              tauxBoursePct={sim?.bourse?.rate ?? 6}
             />
           )}
 
           {moisCourant && sousOnglet !== "epargne" && (
             <>
+              <div role="group" aria-label="Échelle de lecture" className="flex justify-center gap-1">
+                {[
+                  ["mois", "Mois"],
+                  ["annee", "Année"],
+                  ["glissant", "12 mois glissants"],
+                ].map(([id, libelle]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={vue === id}
+                    onClick={() => {
+                      setVue(id);
+                      setFiltreCategorie(null);
+                    }}
+                    className={`text-xs px-3 py-1.5 rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400/40 ${
+                      vue === id
+                        ? "border-lime-400/40 bg-lime-400/10 text-lime-200"
+                        : "border-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {libelle}
+                  </button>
+                ))}
+              </div>
               <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
                   onClick={() => changerMois(-1)}
-                  disabled={indexMois <= 0}
-                  aria-label="Mois précédent"
+                  disabled={vue === "glissant" || indexMois <= 0}
+                  aria-label={vue === "annee" ? "Année précédente" : "Mois précédent"}
                   className="rounded-lg border border-slate-800 p-2 text-slate-400 hover:text-slate-100 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400/40"
                 >
                   <ChevronLeft size={16} aria-hidden="true" />
                 </button>
-                <h2 className="font-display text-lg text-slate-100" aria-live="polite">{libelleMois(moisCourant)}</h2>
+                <h2 className="font-display text-lg text-slate-100 text-center" aria-live="polite">{libellePeriode}</h2>
                 <button
                   type="button"
                   onClick={() => changerMois(1)}
-                  disabled={indexMois >= mois.length - 1}
-                  aria-label="Mois suivant"
+                  disabled={vue === "glissant" || indexMois >= liste.length - 1}
+                  aria-label={vue === "annee" ? "Année suivante" : "Mois suivant"}
                   className="rounded-lg border border-slate-800 p-2 text-slate-400 hover:text-slate-100 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400/40"
                 >
                   <ChevronRight size={16} aria-hidden="true" />
@@ -290,7 +388,7 @@ export default function CompteCourant({
               </div>
 
               {sousOnglet === "analyse" && (
-                <AnalyseCompte enrichies={enrichies} mois={moisCourant} filtreCategorie={filtreCategorie} />
+                <AnalyseCompte enrichies={enrichies} periode={periode} vue={vue} filtreCategorie={filtreCategorie} />
               )}
 
               {sousOnglet === "operations" && (
@@ -341,13 +439,23 @@ export default function CompteCourant({
                 <Card>
                   <CardLabel icon={ArrowDownLeft}>Entrées</CardLabel>
                   <Montant valeur={stats.entrees / 100} decimales={2} className="font-display text-chiffre text-emerald-300" />
+                  {vue !== "mois" && (
+                    <div className="text-xs text-slate-500 mt-1">
+                      soit <Montant valeur={stats.entrees / 100 / moisCouverts} decimales={0} /> par mois
+                    </div>
+                  )}
                 </Card>
                 <Card>
                   <CardLabel icon={ArrowUpRight}>Sorties</CardLabel>
                   <Montant valeur={stats.sorties / 100} decimales={2} className="font-display text-chiffre text-slate-100" />
+                  {vue !== "mois" && (
+                    <div className="text-xs text-slate-500 mt-1">
+                      soit <Montant valeur={stats.sorties / 100 / moisCouverts} decimales={0} /> par mois
+                    </div>
+                  )}
                 </Card>
                 <Card>
-                  <CardLabel icon={Scale}>Reste du mois</CardLabel>
+                  <CardLabel icon={Scale}>{vue === "mois" ? "Reste du mois" : "Reste sur la période"}</CardLabel>
                   <Montant
                     valeur={stats.net / 100}
                     decimales={2}
@@ -398,6 +506,7 @@ export default function CompteCourant({
                     onEffacerFiltreCategorie={() => setFiltreCategorie(null)}
                     onClasser={classer}
                     onMettreAPart={mettreAPart}
+                    liens={liens}
                   />
                 </Card>
                 <div className="lg:col-span-2 space-y-6">
@@ -407,14 +516,26 @@ export default function CompteCourant({
                     onFiltrer={setFiltreCategorie}
                   />
                   <PrincipauxPostes postes={stats.principauxPostes} />
-                  <CourbeSolde serie={serie} mois={moisCourant} />
+                  <CourbeSolde serie={serie} periode={periode} />
                 </div>
               </div>
 
-              <EntreesSorties mois={flux} />
+              <EntreesSorties mois={fluxPeriode} />
               </>
               )}
             </>
+          )}
+
+          {sousOnglet === "operations" && (
+            <ReconstitutionCourbe
+              serie={serie}
+              bourse={bourse}
+              bourseHistory={bourseHistory}
+              livrets={livrets}
+              dettesTotal={dettesTotal}
+              historyPast={historyPast}
+              setHistoryPast={setHistoryPast}
+            />
           )}
 
           {sousOnglet === "operations" && (

@@ -105,6 +105,8 @@ export default function OperationsCompte({
   onEffacerFiltreCategorie,
   onClasser,
   onMettreAPart,
+  // Virements rattachés à un versement PEA ou à un mouvement de livret.
+  liens = new Map(),
 }) {
   const [recherche, setRecherche] = useState("");
   const [famille, setFamille] = useState("tout");
@@ -213,6 +215,7 @@ export default function OperationsCompte({
                       autresMemeCle={Math.max(0, (nbParCle.get(op.analyse.cle) || 1) - 1)}
                       onClasser={onClasser}
                       onMettreAPart={onMettreAPart}
+                      lien={liens.get(op.id)}
                     />
                   ))}
                 </ul>
@@ -225,7 +228,7 @@ export default function OperationsCompte({
   );
 }
 
-function LigneOperation({ op, solde, ouverte, onBasculer, autresMemeCle, onClasser, onMettreAPart }) {
+function LigneOperation({ op, solde, ouverte, onBasculer, autresMemeCle, onClasser, onMettreAPart, lien }) {
   const idDetail = useId();
   const cat = categorie(op.categorie);
   const sousTitre = [
@@ -233,6 +236,7 @@ function LigneOperation({ op, solde, ouverte, onBasculer, autresMemeCle, onClass
     LIBELLES_TYPE[op.analyse.type],
     op.analyse.motif ? `« ${op.analyse.motif} »` : null,
     op.horsBudget ? "À part du budget" : null,
+    lien ? `${op.montant < 0 ? "→" : "←"} ${lien.compte}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -261,13 +265,14 @@ function LigneOperation({ op, solde, ouverte, onBasculer, autresMemeCle, onClass
           autresMemeCle={autresMemeCle}
           onClasser={onClasser}
           onMettreAPart={onMettreAPart}
+          lien={lien}
         />
       )}
     </li>
   );
 }
 
-function DetailOperation({ id, op, solde, autresMemeCle, onClasser, onMettreAPart }) {
+function DetailOperation({ id, op, solde, autresMemeCle, onClasser, onMettreAPart, lien }) {
   const idSelect = useId();
   const idCase = useId();
   const idAPart = useId();
@@ -281,6 +286,9 @@ function DetailOperation({ id, op, solde, autresMemeCle, onClasser, onMettreAPar
     ["Date de valeur", dateCourte(op.dateValeur)],
     ...(analyse.dateAchat ? [["Date d'achat", dateCourte(analyse.dateAchat)]] : []),
     ...(analyse.reference ? [["Référence", analyse.reference]] : []),
+    ...(lien
+      ? [["Rattaché à", `${lien.libelle} du ${dateCourte(lien.date)}, déjà enregistré — compté une seule fois`]]
+      : []),
   ];
 
   return (

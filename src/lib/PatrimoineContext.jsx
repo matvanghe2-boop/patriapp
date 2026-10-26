@@ -1,7 +1,8 @@
 import { createContext, useContext, useMemo, useCallback } from "react";
 import { usePersistentState } from "./storage";
 import { weightedAverageRate, upsertByDate, todayIso, valeurPosition, coutPosition, rebaselineLedger } from "./finance";
-import { enrichir, soldeEstime } from "./compteCourant";
+import { enrichir } from "./compteCourant";
+import { mouvementsAutresComptes, estimerSolde } from "./liensComptes";
 import { budgetMoyen } from "./analyseCompte";
 import { historiqueExemple, portefeuilleExemple, operationsExemple, objectifExemple } from "./jeuExemple";
 
@@ -246,10 +247,20 @@ export function PatrimoineProvider({ children }) {
     const dernierReleve = [...compteReleves].sort((a, b) => String(a.fin).localeCompare(String(b.fin))).pop();
     return enrichir(compteOperations, { regles: compteRegles, titulaire: dernierReleve?.titulaire || null });
   }, [compteOperations, compteRegles, compteReleves]);
-  // Solde ESTIMÉ : le dernier relevé, corrigé des mouvements saisis depuis.
+  // Versements PEA et mouvements de livrets : ils passent par le compte
+  // courant, et ceux postérieurs au dernier relevé corrigent son solde.
+  const compteMouvements = useMemo(() => mouvementsAutresComptes({ bourse, livrets }), [bourse, livrets]);
+  // Solde ESTIMÉ : le dernier relevé, corrigé de tout ce qui s'est passé
+  // depuis, sans jamais compter deux fois le même virement.
   const compteSolde = useMemo(
-    () => soldeEstime(compteReleves, compteProvisoires),
-    [compteReleves, compteProvisoires]
+    () =>
+      estimerSolde({
+        releves: compteReleves,
+        provisoires: compteProvisoires,
+        mouvements: compteMouvements,
+        operations: compteEnrichies,
+      }),
+    [compteReleves, compteProvisoires, compteMouvements, compteEnrichies]
   );
   const budgetReel = useMemo(() => budgetMoyen(compteEnrichies), [compteEnrichies]);
   const cashEffectif = compteSolde ? compteSolde.solde / 100 : (cash ?? 0);
@@ -273,6 +284,13 @@ export function PatrimoineProvider({ children }) {
     const patrimoineBrut = livretsTotal + bourseTotal + cashEffectif;
     const profile = profilEffectif;
     const epargneMensuelle = profile.monthly_income - profile.monthly_expenses;
+    // Matelas de sécurité : les livrets, plus ce qui dépasse un mois de
+    // dépenses sur le compte courant quand celui-ci est suivi par ses relevés.
+    // Sans ça, 5 000 € mis de côté en attendant l'ouverture d'un Livret A
+    // donnaient un matelas de « 0 mois ». Le premier mois de dépenses reste
+    // exclu : c'est l'argent du mois, pas une réserve.
+    const matelasCompteCourant =
+      compteSolde && profile.monthly_expenses > 0 ? Math.max(0, cashEffectif - profile.monthly_expenses) : 0;
     return {
       bourseTotal,
       bourseGainAbs,
@@ -285,9 +303,14 @@ export function PatrimoineProvider({ children }) {
       // matelas est alors INCONNU, pas nul. Retourner 0 déclenchait l'alerte
       // « matelas insuffisant » du Dashboard dès le premier lancement, sur une
       // application encore vide.
-      matelasMois: profile.monthly_expenses > 0 ? livretsTotal / profile.monthly_expenses : null,
+      matelasMois:
+        profile.monthly_expenses > 0 ? (livretsTotal + matelasCompteCourant) / profile.monthly_expenses : null,
+      matelasCompteCourant,
     };
-  }, [bourse.cash_pocket, bourseValuePositions, bourseInvested, livretsTotal, cashEffectif, dettesTotal, profilEffectif]);
+  }, [
+    bourse.cash_pocket, bourseValuePositions, bourseInvested, livretsTotal, cashEffectif, dettesTotal, profilEffectif,
+    compteSolde,
+  ]);
 
   // Patrimoine encore vierge : aucun support d'épargne, aucune position, aucun
   // cash. Sert à proposer un accueil explicite plutôt qu'un tableau de bord à
@@ -356,7 +379,7 @@ export function PatrimoineProvider({ children }) {
       profile: profilEffectif, profileSaisi: profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
       historyPast, setHistoryPast, sim, setSim, immo, setImmo,
       bourseHistory, setBourseHistory, watchlist, setWatchlist,
-      cash: cashEffectif, setCash, compteSolde, budgetReel, enveloppes, setEnveloppes,
+      cash: cashEffectif, setCash, compteSolde, budgetReel, compteEnrichies, compteMouvements, enveloppes, setEnveloppes,
       strategyNotes, setStrategyNotes,
       simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
       reminders, setReminders,
@@ -378,7 +401,7 @@ export function PatrimoineProvider({ children }) {
       profilEffectif, profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
       historyPast, setHistoryPast, sim, setSim, immo, setImmo,
       bourseHistory, setBourseHistory, watchlist, setWatchlist,
-      cashEffectif, setCash, compteSolde, budgetReel, enveloppes, setEnveloppes,
+      cashEffectif, setCash, compteSolde, budgetReel, compteEnrichies, compteMouvements, enveloppes, setEnveloppes,
       strategyNotes, setStrategyNotes,
       simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
       reminders, setReminders,

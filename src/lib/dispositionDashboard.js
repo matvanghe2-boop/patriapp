@@ -19,6 +19,8 @@ export const BLOCS_DASHBOARD = [
   { id: "profil", libelle: "Profil mensuel" },
   { id: "vedette", libelle: "Patrimoine net" },
   { id: "kpis", libelle: "Indicateurs : brut, bourse, épargne" },
+  { id: "compte", libelle: "Compte courant" },
+  { id: "sante", libelle: "Santé financière" },
   { id: "independance", libelle: "Revenus passifs et indépendance" },
   { id: "allocation", libelle: "Allocation et évolution" },
   { id: "origine", libelle: "D'où vient ton patrimoine" },

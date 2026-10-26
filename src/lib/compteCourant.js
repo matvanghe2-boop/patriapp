@@ -525,34 +525,6 @@ export function soldeActuel(releves) {
 // ─── Mouvements depuis le dernier relevé ────────────────────────────────────
 
 /**
- * Solde estimé : celui du dernier relevé, corrigé des mouvements connus
- * depuis et saisis à la main (« compteProvisoires »).
- *
- * Le relevé n'arrive qu'une fois le mois clos. D'ici là, un gros virement —
- * 2 000 € partis vers le PEA début octobre — était compté deux fois dans le
- * patrimoine : encore sur le compte courant d'après le relevé de septembre,
- * déjà sur le PEA. Ces mouvements corrigent le SOLDE seulement : ce sont des
- * estimations, ils n'entrent dans aucune statistique, et l'import du relevé
- * qui couvre leur date les remplace par les vraies opérations.
- */
-export function soldeEstime(releves, provisoires = []) {
-  const base = soldeActuel(releves);
-  if (!base) return null;
-  const depuis = (provisoires || [])
-    .filter((p) => p.date > base.date)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const ajustement = depuis.reduce((s, p) => s + p.montant, 0);
-  return {
-    solde: base.solde + ajustement,
-    soldeReleve: base.solde,
-    date: base.date,
-    ajustement,
-    provisoires: depuis,
-    releve: base.releve,
-  };
-}
-
-/**
  * Mouvements provisoires encore utiles : ceux qui tombent après le dernier
  * relevé. Un relevé importé qui couvre leur date contient les vraies
  * opérations, et les garder les compterait deux fois.

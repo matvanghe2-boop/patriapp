@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, Suspense, lazy } from "react";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
-  Repeat, CreditCard, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation,
+  Repeat, CreditCard, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation, LockKeyhole,
 } from "lucide-react";
 import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
@@ -29,6 +29,7 @@ import { useApparence } from "./lib/ApparenceContext";
 import { vibrer } from "./lib/haptique";
 import PaletteCommandes, { construireIndex, useRaccourciPalette } from "./components/PaletteCommandes";
 import ReglagesApparence from "./components/ReglagesApparence";
+import ReglagesChiffrement, { BandeauChiffrementVerrouille } from "./components/ReglagesChiffrement";
 import Retrospective from "./components/Retrospective";
 import ModePresentation from "./components/ModePresentation";
 import FeuillePlus from "./components/FeuillePlus";
@@ -96,6 +97,7 @@ export default function App() {
   const [ghostMode, setGhostMode] = React.useState(false);
   const [paletteOuverte, setPaletteOuverte] = React.useState(false);
   const [reglagesOuverts, setReglagesOuverts] = React.useState(false);
+  const [chiffrementOuvert, setChiffrementOuvert] = React.useState(false);
   const [retroOuverte, setRetroOuverte] = React.useState(false);
   const [presentation, setPresentation] = React.useState(false);
   const [plusOuvert, setPlusOuvert] = React.useState(false);
@@ -302,6 +304,7 @@ export default function App() {
   const actionsPalette = useMemo(
     () => [
       { id: "act-reglages", libelle: "Apparence : thème, accent, densité", motsCles: "theme clair sombre couleur densite reglages", icone: Palette, executer: () => setReglagesOuverts(true) },
+      { id: "act-chiffrement", libelle: "Chiffrement de bout en bout", motsCles: "chiffrement securite phrase secrete confidentialite cloud", icone: LockKeyhole, executer: () => setChiffrementOuvert(true) },
       { id: "act-presentation", libelle: "Mode présentation", motsCles: "presentation plein ecran grand montrer", icone: Presentation, executer: () => setPresentation(true) },
       { id: "act-retro", libelle: "Rétrospective annuelle", motsCles: "bilan annee resume retrospective", icone: Sparkles, executer: () => setRetroOuverte(true) },
       { id: "act-ghost", libelle: ghostMode ? "Afficher les montants" : "Masquer les montants (mode Ghost)", motsCles: "ghost masquer flouter confidentialite", icone: ghostMode ? Eye : EyeOff, executer: () => setGhostMode((g) => !g) },
@@ -384,6 +387,15 @@ export default function App() {
           >
             <Palette size={15} aria-hidden="true" />
             <span className="hidden md:inline">Apparence</span>
+          </button>
+          <button
+            onClick={() => setChiffrementOuvert(true)}
+            aria-label="Chiffrement de bout en bout"
+            title="Chiffrement de bout en bout des données synchronisées"
+            className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 rounded"
+          >
+            <LockKeyhole size={15} aria-hidden="true" />
+            <span className="hidden md:inline">Chiffrement</span>
           </button>
           <button
             onClick={() => setPresentation(true)}
@@ -481,6 +493,8 @@ export default function App() {
             d'échecs isolés dont rien ne donnait la cause commune. */}
         <EtatSourceMarche />
 
+        <BandeauChiffrementVerrouille onOuvrir={() => setChiffrementOuvert(true)} />
+
         <BackupReminder onExport={handleExport} />
 
         {/* La clé force le remontage — et donc l'animation d'entrée — à chaque
@@ -509,6 +523,7 @@ export default function App() {
         onNaviguer={allerA}
         actions={[
           { id: "f-apparence", libelle: "Apparence", icone: Palette, executer: () => setReglagesOuverts(true) },
+          { id: "f-chiffrement", libelle: "Chiffrement", icone: LockKeyhole, executer: () => setChiffrementOuvert(true) },
           { id: "f-retro", libelle: "Rétrospective annuelle", icone: Sparkles, executer: () => setRetroOuverte(true) },
           { id: "f-presentation", libelle: "Mode présentation", icone: Presentation, executer: () => setPresentation(true) },
           { id: "f-export", libelle: "Exporter une sauvegarde", icone: Download, executer: handleExport },
@@ -534,6 +549,7 @@ export default function App() {
         onNaviguer={allerA}
       />
       <ReglagesApparence ouvert={reglagesOuverts} onFermer={() => setReglagesOuverts(false)} />
+      <ReglagesChiffrement ouvert={chiffrementOuvert} onFermer={() => setChiffrementOuvert(false)} />
       <Retrospective
         ouvert={retroOuverte}
         onFermer={() => setRetroOuverte(false)}
