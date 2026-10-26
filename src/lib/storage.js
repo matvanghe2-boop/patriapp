@@ -8,6 +8,16 @@ import {
   markSynced,
   markFailed,
 } from "./syncStatus";
+import {
+  chiffrer,
+  dechiffrer,
+  estChiffre,
+  creerConfiguration,
+  verifierPhrase,
+  cleCorrespond,
+  exporterCle,
+  importerCle,
+} from "./chiffrement";
 
 const PREFIX = "patrimoine:";
 const META_PREFIX = "patrimoine:__meta:";
@@ -49,6 +59,120 @@ function readLocalUpdatedAt(key) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// ─── Chiffrement de bout en bout (optionnel) ─────────────────────────────────
+//
+// Quand il est actif, chaque valeur part vers Supabase chiffrée par
+// `chiffrement.js`, et revient déchiffrée avant d'être lue. Le localStorage,
+// lui, reste en clair : c'est la copie de travail de cet appareil.
+//
+// La configuration (sel, témoin) est une ligne `__chiffrement` de la même
+// table, en clair. La clé dérivée de la phrase secrète est gardée sur
+// l'appareil (`__cleChiffrement`) pour ne pas redemander la phrase à chaque
+// ouverture. Un appareil qui ne l'a pas est VERROUILLÉ : il ne lit pas les
+// lignes chiffrées et, surtout, n'écrit rien — une valeur en clair poussée
+// par-dessus une valeur chiffrée l'exposerait et l'écraserait.
+
+const CLE_CONFIG_CHIFFREMENT = "__chiffrement";
+const CLE_LOCALE_CHIFFREMENT = "patrimoine:__cleChiffrement";
+
+let chiffrement = { config: null, cle: null, operationEnCours: false };
+const abonnesChiffrement = new Set();
+let etatChiffrement = { actif: false, verrouille: false };
+
+function notifierChiffrement() {
+  etatChiffrement = { actif: !!chiffrement.config, verrouille: !!chiffrement.config && !chiffrement.cle };
+  abonnesChiffrement.forEach((f) => f());
+}
+
+function oublierCleLocale() {
+  chiffrement.cle = null;
+  try {
+    localStorage.removeItem(CLE_LOCALE_CHIFFREMENT);
+  } catch {
+    /* stockage indisponible */
+  }
+}
+
+async function garderCleLocale(cle) {
+  chiffrement.cle = cle;
+  try {
+    localStorage.setItem(CLE_LOCALE_CHIFFREMENT, await exporterCle(cle));
+  } catch {
+    /* sans stockage, la phrase sera redemandée à la prochaine ouverture */
+  }
+}
+
+function chargerCleLocale() {
+  return (async () => {
+    try {
+      const texte = typeof localStorage !== "undefined" ? localStorage.getItem(CLE_LOCALE_CHIFFREMENT) : null;
+      if (texte) chiffrement.cle = await importerCle(texte);
+    } catch {
+      chiffrement.cle = null;
+    }
+  })();
+}
+let cleChargee = chargerCleLocale();
+
+/**
+ * Adopte la configuration lue dans le cloud. Une configuration disparue
+ * (désactivée depuis un autre appareil) fait oublier la clé ; une clé qui ne
+ * lui correspond pas (autre phrase) aussi. Pendant une activation ou une
+ * désactivation en cours sur CET appareil, le cloud est momentanément
+ * incohérent : on ne l'écoute pas.
+ */
+async function adopterConfig(config) {
+  await cleChargee;
+  if (chiffrement.operationEnCours) return;
+  chiffrement.config = config || null;
+  if (!chiffrement.config) {
+    if (chiffrement.cle) oublierCleLocale();
+  } else if (chiffrement.cle && !(await cleCorrespond(chiffrement.cle, chiffrement.config))) {
+    oublierCleLocale();
+  }
+  notifierChiffrement();
+}
+
+/** Lignes lisibles par cet appareil : déchiffrées si besoin, écartées s'il est verrouillé. */
+async function lignesLisibles(data) {
+  const lignes = [];
+  for (const row of data || []) {
+    if (row.key === CLE_CONFIG_CHIFFREMENT) continue;
+    if (!estChiffre(row.value)) {
+      lignes.push(row);
+      continue;
+    }
+    if (!chiffrement.cle) continue;
+    try {
+      lignes.push({ ...row, value: await dechiffrer(chiffrement.cle, row.value) });
+    } catch {
+      /* chiffrée avec une autre clé : illisible ici */
+    }
+  }
+  return lignes;
+}
+
+/**
+ * Prépare dès maintenant la version chiffrée de la dernière valeur d'une clé.
+ * L'écriture d'urgence de `pagehide` est synchrone et ne peut pas attendre
+ * WebCrypto : elle envoie cette version si elle est prête, rien sinon — la clé
+ * reste alors marquée et repart à la prochaine ouverture.
+ */
+function preChiffrer(key) {
+  const entry = latestValues.get(key);
+  if (!entry || !chiffrement.cle) return;
+  const { value, updatedAt } = entry;
+  chiffrer(chiffrement.cle, value)
+    .then((chiffre) => {
+      const courant = latestValues.get(key);
+      if (courant && courant.updatedAt === updatedAt) {
+        courant.chiffre = chiffre;
+        courant.chiffreDe = updatedAt;
+      }
+    })
+    .catch(() => {});
+}
+
 /**
  * Écriture cloud avec réessais à délai croissant. Un échec réseau ponctuel
  * (perte de wifi, 503 momentané) ne doit pas se solder par une donnée
@@ -56,16 +180,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * visible dans l'interface plutôt que noyé dans la console.
  */
 async function pushToCloud(key, value, userId, updatedAt) {
+  // La configuration de chiffrement doit être connue avant toute écriture :
+  // un appareil qui l'ignorerait pousserait en clair.
+  await cleChargee;
+  await hydraterDepuisCloud();
+  if (chiffrement.config && !chiffrement.cle) {
+    dirtyKeys.delete(key);
+    return false;
+  }
   markPending(key);
   let lastError = null;
   for (let attempt = 0; attempt < MAX_PUSH_ATTEMPTS; attempt++) {
     if (attempt > 0) await sleep(2 ** attempt * 400);
     try {
+      const valeurCloud = chiffrement.cle ? await chiffrer(chiffrement.cle, value) : value;
       const { error } = await supabase.from(TABLE).upsert({
         id: `${userId}:${key}`,
         user_id: userId,
         key,
-        value,
+        value: valeurCloud,
         updated_at: updatedAt,
       });
       if (error) throw error;
@@ -197,7 +330,8 @@ function hydraterDepuisCloud() {
       hydratationCloud = null;
       return new Map();
     }
-    return new Map(data.map((row) => [row.key, row]));
+    await adopterConfig(data.find((row) => row.key === CLE_CONFIG_CHIFFREMENT)?.value);
+    return new Map((await lignesLisibles(data)).map((row) => [row.key, row]));
   })();
   return hydratationCloud;
 }
@@ -250,9 +384,10 @@ async function pullAllFromCloud() {
     const { data, error } = await supabase
       .from(TABLE)
       .select("key, value, updated_at")
-      .in("id", keys.map((k) => `${userId}:${k}`));
+      .in("id", [...keys, CLE_CONFIG_CHIFFREMENT].map((k) => `${userId}:${k}`));
     if (error || !data) return;
-    data.forEach((row) => applyCloudRow(row.key, row));
+    await adopterConfig(data.find((row) => row.key === CLE_CONFIG_CHIFFREMENT)?.value);
+    (await lignesLisibles(data)).forEach((row) => applyCloudRow(row.key, row));
   } finally {
     isPolling = false;
   }
@@ -288,11 +423,16 @@ function flushAllToCloud() {
   for (const key of dirtyKeys) {
     const entry = latestValues.get(key);
     if (!entry) continue;
+    let value = entry.value;
+    if (chiffrement.config) {
+      if (!chiffrement.cle || !entry.chiffre || entry.chiffreDe !== entry.updatedAt) continue;
+      value = entry.chiffre;
+    }
     lignes.push({
       id: `${userId}:${key}`,
       user_id: userId,
       key,
-      value: entry.value,
+      value,
       updated_at: entry.updatedAt,
     });
   }
@@ -518,6 +658,7 @@ export function usePersistentState(key, initialValue) {
     const updatedAt = new Date().toISOString();
     writeLocal(key, state, updatedAt);
     latestValues.set(key, { value: state, updatedAt });
+    preChiffrer(key);
 
     // Les autres composants branchés sur la même clé suivent immédiatement.
     // Sans cette diffusion, ils gardaient la valeur lue à LEUR montage :
@@ -550,6 +691,9 @@ export function _resetStorageCache() {
   latestValues.clear();
   dirtyKeys.clear();
   activeSetters.clear();
+  chiffrement = { config: null, cle: null, operationEnCours: false };
+  cleChargee = chargerCleLocale();
+  notifierChiffrement();
 }
 
 /** État de synchronisation courant, pour l'indicateur de l'interface. */
@@ -623,9 +767,140 @@ export async function clearCloudData(keys) {
   if (!userId) return;
   await supabase.from(TABLE).delete().in(
     "id",
-    keys.map((k) => `${userId}:${k}`)
+    [...keys, CLE_CONFIG_CHIFFREMENT].map((k) => `${userId}:${k}`)
+  );
+  // Tout effacer, c'est aussi oublier le chiffrement : sans cela, l'appareil
+  // garderait une clé qui ne correspond plus à rien.
+  chiffrement.config = null;
+  oublierCleLocale();
+  notifierChiffrement();
+}
+
+// ─── Chiffrement : interface publique ────────────────────────────────────────
+
+/** `{ actif, verrouille }` — verrouillé : chiffré dans le cloud, sans clé sur cet appareil. */
+export function useEtatChiffrement() {
+  return useSyncExternalStore(
+    (f) => {
+      abonnesChiffrement.add(f);
+      return () => abonnesChiffrement.delete(f);
+    },
+    () => etatChiffrement,
+    () => etatChiffrement
   );
 }
+
+/**
+ * Réécrit dans le cloud toutes les clés connues de cet appareil, avec leur
+ * horodatage d'origine — chiffrées ou en clair selon l'état courant. Renvoie
+ * le nombre d'échecs.
+ */
+async function reecrireTout(userId) {
+  const cles = new Set(latestValues.keys());
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(PREFIX) && !k.startsWith(`${PREFIX}__`)) cles.add(k.slice(PREFIX.length));
+    }
+  } catch {
+    /* stockage indisponible : on s'en tient aux clés en mémoire */
+  }
+  let echecs = 0;
+  for (const key of cles) {
+    const entry = latestValues.get(key);
+    const value = entry ? entry.value : readLocal(key, undefined);
+    if (value === undefined) continue;
+    const updatedAt = entry?.updatedAt || readLocalUpdatedAt(key) || new Date().toISOString();
+    if (!(await pushToCloud(key, value, userId, updatedAt))) echecs += 1;
+  }
+  return echecs;
+}
+
+async function utilisateurConnecte() {
+  if (!isSupabaseConfigured) {
+    throw new Error("La synchronisation n'est pas configurée : rien n'est envoyé dans le cloud.");
+  }
+  const userId = await currentUserId();
+  if (!userId) throw new Error("Connecte-toi à ton compte pour gérer le chiffrement.");
+  await cleChargee;
+  await hydraterDepuisCloud();
+  return userId;
+}
+
+/**
+ * Active le chiffrement : configuration d'abord, puis réécriture chiffrée de
+ * toutes les données. Interrompue en chemin, l'opération laisse une
+ * configuration et des lignes restées en clair, toujours lisibles : rien
+ * n'est perdu.
+ */
+export async function activerChiffrement(phrase) {
+  const userId = await utilisateurConnecte();
+  if (chiffrement.config) throw new Error("Le chiffrement est déjà actif.");
+  const { cle, config } = await creerConfiguration(phrase);
+  chiffrement.operationEnCours = true;
+  try {
+    const { error } = await supabase.from(TABLE).upsert({
+      id: `${userId}:${CLE_CONFIG_CHIFFREMENT}`,
+      user_id: userId,
+      key: CLE_CONFIG_CHIFFREMENT,
+      value: config,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    chiffrement.config = config;
+    await garderCleLocale(cle);
+    notifierChiffrement();
+    return await reecrireTout(userId);
+  } finally {
+    chiffrement.operationEnCours = false;
+  }
+}
+
+/** Déverrouille cet appareil avec la phrase secrète ; `false` si elle est fausse. */
+export async function deverrouillerChiffrement(phrase) {
+  await utilisateurConnecte();
+  const cle = await verifierPhrase(phrase, chiffrement.config);
+  if (!cle) return false;
+  await garderCleLocale(cle);
+  notifierChiffrement();
+  // Les lignes écartées à l'ouverture sont maintenant lisibles.
+  hydratationCloud = null;
+  await pullAllFromCloud();
+  return true;
+}
+
+/**
+ * Désactive le chiffrement : réécriture en clair de tout, puis suppression de
+ * la configuration — dans cet ordre, pour qu'aucune interruption ne laisse
+ * des données chiffrées sans configuration pour les relire.
+ */
+export async function desactiverChiffrement() {
+  const userId = await utilisateurConnecte();
+  if (chiffrement.config && !chiffrement.cle) {
+    throw new Error("Déverrouille d'abord cet appareil avec ta phrase secrète.");
+  }
+  const cleAvant = chiffrement.cle;
+  const configAvant = chiffrement.config;
+  chiffrement.operationEnCours = true;
+  try {
+    chiffrement.config = null;
+    chiffrement.cle = null;
+    const echecs = await reecrireTout(userId);
+    if (echecs > 0) {
+      // Rien n'est supprimé : la configuration reste, et la clé avec elle.
+      chiffrement.config = configAvant;
+      chiffrement.cle = cleAvant;
+      throw new Error(`${echecs} donnée(s) n'ont pas pu être réécrites en clair : réessaie.`);
+    }
+    await supabase.from(TABLE).delete().in("id", [`${userId}:${CLE_CONFIG_CHIFFREMENT}`]);
+    oublierCleLocale();
+    return 0;
+  } finally {
+    chiffrement.operationEnCours = false;
+    notifierChiffrement();
+  }
+}
+
 
 /**
  * Date du dernier export de sauvegarde, pour pouvoir rappeler à l'utilisateur

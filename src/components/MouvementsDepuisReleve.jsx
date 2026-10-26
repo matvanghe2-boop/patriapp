@@ -29,7 +29,7 @@ function joursEntre(debut, fin) {
   return Math.round((new Date(a2, m2 - 1, j2) - new Date(a1, m1 - 1, j1)) / 86400000);
 }
 
-export default function MouvementsDepuisReleve({ estime, setProvisoires }) {
+export default function MouvementsDepuisReleve({ estime, setProvisoires, onMarquerHorsCompte }) {
   const ids = useId();
   const aujourdhui = todayIso();
   const premierJour = lendemain(estime.date);
@@ -75,9 +75,32 @@ export default function MouvementsDepuisReleve({ estime, setProvisoires }) {
         )}
       </div>
 
-      {estime.provisoires.length > 0 ? (
+      {estime.provisoires.length + estime.autres.length + estime.provisoiresEnDouble.length + estime.horsCompte.length > 0 ? (
         <>
           <ul className="divide-y divide-slate-800/70 text-sm mt-1">
+            {/* Saisis dans PEA & Bourse ou dans un livret : comptés d'office,
+                sans rien ressaisir ici. */}
+            {estime.autres.map((m) => (
+              <li key={m.cle} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                <span className="text-xs text-slate-500 w-20">{dateCourte(m.date)}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate text-slate-200">{m.libelle}</span>
+                  <span className="block text-micro text-slate-500">
+                    Enregistré dans {m.source === "bourse" ? "PEA & Bourse" : "Livrets & Épargne"}
+                  </span>
+                </span>
+                <MontantSigne centimes={m.montant} />
+                {onMarquerHorsCompte && (
+                  <button
+                    type="button"
+                    onClick={() => onMarquerHorsCompte(m, true)}
+                    className="text-micro text-slate-500 hover:text-slate-200 underline underline-offset-2"
+                  >
+                    Pas depuis ce compte
+                  </button>
+                )}
+              </li>
+            ))}
             {estime.provisoires.map((p) => (
               <li key={p.id} className="flex items-center gap-3 py-2">
                 <span className="text-xs text-slate-500 w-20">{dateCourte(p.date)}</span>
@@ -87,6 +110,40 @@ export default function MouvementsDepuisReleve({ estime, setProvisoires }) {
                   onClick={() => setProvisoires((liste) => (liste || []).filter((x) => x.id !== p.id))}
                   label={`Retirer « ${p.libelle} »`}
                 />
+              </li>
+            ))}
+            {estime.provisoiresEnDouble.map((p) => (
+              <li key={p.id} className="flex items-center gap-3 py-2 opacity-70">
+                <span className="text-xs text-slate-500 w-20">{dateCourte(p.date)}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate text-slate-300 line-through">{p.libelle}</span>
+                  <span className="block text-micro text-slate-500">
+                    Doublon de « {p.double.libelle} », déjà compté : tu peux le retirer
+                  </span>
+                </span>
+                <MontantSigne centimes={p.montant} />
+                <IconTrash
+                  onClick={() => setProvisoires((liste) => (liste || []).filter((x) => x.id !== p.id))}
+                  label={`Retirer « ${p.libelle} »`}
+                />
+              </li>
+            ))}
+            {estime.horsCompte.map((m) => (
+              <li key={m.cle} className="flex items-center gap-3 py-2 opacity-70">
+                <span className="text-xs text-slate-500 w-20">{dateCourte(m.date)}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate text-slate-300">{m.libelle}</span>
+                  <span className="block text-micro text-slate-500">Payé depuis une autre banque : non compté</span>
+                </span>
+                {onMarquerHorsCompte && (
+                  <button
+                    type="button"
+                    onClick={() => onMarquerHorsCompte(m, false)}
+                    className="text-micro text-slate-500 hover:text-slate-200 underline underline-offset-2"
+                  >
+                    Il vient bien de ce compte
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -100,7 +157,7 @@ export default function MouvementsDepuisReleve({ estime, setProvisoires }) {
         <p className="text-sm text-slate-400 mt-1">
           {retard > 7
             ? `Ton dernier relevé s'arrête il y a ${retard} jours. Si un gros mouvement a eu lieu depuis — un virement vers ton PEA, une grosse dépense — ajoute-le : ton patrimoine restera juste en attendant le prochain relevé.`
-            : "Aucun mouvement saisi depuis le dernier relevé."}
+            : "Aucun mouvement depuis le dernier relevé."}
         </p>
       )}
 
@@ -179,8 +236,9 @@ export default function MouvementsDepuisReleve({ estime, setProvisoires }) {
       )}
 
       <p className="text-micro text-slate-500 mt-3">
-        Ces mouvements corrigent seulement le solde et le patrimoine, en attendant le relevé. Ils n'entrent dans aucune
-        statistique et disparaissent d'eux-mêmes quand tu importes le relevé qui couvre leur date.
+        Ces mouvements corrigent seulement le solde et le patrimoine, en attendant le relevé. Les versements saisis dans
+        PEA & Bourse ou dans un livret y figurent d'office : inutile de les ressaisir ici. Rien n'entre dans les
+        statistiques, et tout est remplacé par les vraies opérations à l'import du relevé qui couvre leur date.
       </p>
     </Card>
   );

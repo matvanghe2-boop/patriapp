@@ -145,3 +145,17 @@ describe("CompteCourant — mouvements depuis le dernier relevé", () => {
     expect(ajoutes[0].date > "2026-05-29").toBe(true);
   });
 });
+
+describe("CompteCourant — échelles de lecture", () => {
+  it("passe du mois à l'année et aux douze mois glissants", () => {
+    monter(donneesImportees());
+    fireEvent.click(screen.getByRole("button", { name: "Année" }));
+    expect(screen.getByRole("heading", { name: "Année 2026" })).toBeInTheDocument();
+    expect(screen.getByText("Reste sur la période")).toBeInTheDocument();
+    expect(screen.getAllByText(/par mois/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "12 mois glissants" }));
+    expect(screen.getByRole("heading", { name: /12 mois glissants · Juin 2025 – Mai 2026/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Analyse/ }));
+    expect(screen.getByText("Dépenses par catégorie sur la période")).toBeInTheDocument();
+  });
+});

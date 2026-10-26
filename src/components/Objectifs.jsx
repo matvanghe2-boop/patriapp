@@ -161,7 +161,18 @@ function LigneObjectif({ objectif, etat, onSupprimer, serie = [], epargneSimulee
  * retard ? ». Chaque objectif fige son point de départ à la création, ce qui
  * rend l'avance ou le retard mesurable plutôt que déclaratif.
  */
-export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet, epargneMensuelle, tauxAnnuelPct, historique = [] }) {
+const nomMoisCourt = (cle) => {
+  const [a, m] = cle.split("-").map(Number);
+  return new Date(a, m - 1, 1).toLocaleDateString("fr-FR", { month: "long" });
+};
+
+/**
+ * `rythmeReel` — les mois sur lesquels l'épargne mensuelle a été MESURÉE
+ * (relevés du compte courant), ou `null` quand elle vient du profil saisi.
+ * La date d'atteinte annoncée n'a pas la même valeur dans les deux cas : on
+ * le dit.
+ */
+export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet, epargneMensuelle, tauxAnnuelPct, historique = [], rythmeReel = null }) {
   const [ouvert, setOuvert] = useState(false);
   const { showToast } = useToast();
   /*
@@ -234,6 +245,13 @@ export default function Objectifs({ objectifs = [], setObjectifs, patrimoineNet,
           Ajouter un objectif
         </GhostButton>
       </div>
+      {rythmeReel?.length > 0 && objectifs.length > 0 && (
+        <p className="text-micro text-slate-500 mb-2">
+          Dates d'atteinte calculées au rythme de ton épargne réelle :{" "}
+          <span className="ghost-blur text-slate-300">{eur(epargneMensuelle)}</span> par mois, mesurés sur tes relevés de{" "}
+          {nomMoisCourt(rythmeReel[0])} à {nomMoisCourt(rythmeReel[rythmeReel.length - 1])}.
+        </p>
+      )}
 
       {/* Modèles : la page blanche est le vrai obstacle. Fixer une cible
           suppose de connaître le prix de ce qu'on vise, et c'est justement ce

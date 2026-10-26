@@ -4,7 +4,8 @@ import { Card, PastilleEtat } from "./ui";
 import Montant from "./Montant";
 import { extrairePagesPdf } from "../lib/lirePdf";
 import { lireReleveBourso, ReleveIllisible } from "../lib/releveBourso";
-import { preparerLots } from "../lib/compteCourant";
+import { preparerLots, enrichir } from "../lib/compteCourant";
+import { rapprocher } from "../lib/liensComptes";
 
 /**
  * Import des relevés PDF du compte courant, en deux temps : LIRE, puis
@@ -70,7 +71,7 @@ export function BoutonImport({ onLu, libelle = "Importer des relevés", principa
 }
 
 /** Aperçu avant écriture : un bilan par fichier, puis une seule confirmation. */
-export function ApercuImport({ resultats, existant, onConfirmer, onAnnuler }) {
+export function ApercuImport({ resultats, existant, mouvements = [], onConfirmer, onAnnuler }) {
   const lots = useMemo(() => preparerLots(resultats, existant), [resultats, existant]);
 
   const aImporter = lots.filter((l) => l.lot && l.lot.nouvelles.length > 0);
@@ -102,7 +103,7 @@ export function ApercuImport({ resultats, existant, onConfirmer, onAnnuler }) {
             {l.erreur ? (
               <p className="text-rose-300 mt-1">{l.erreur}</p>
             ) : (
-              <ResumeLot lot={l.lot} releveLu={l.releve} />
+              <ResumeLot lot={l.lot} releveLu={l.releve} mouvements={mouvements} />
             )}
           </li>
         ))}
@@ -129,8 +130,11 @@ export function ApercuImport({ resultats, existant, onConfirmer, onAnnuler }) {
   );
 }
 
-function ResumeLot({ lot, releveLu }) {
+function ResumeLot({ lot, releveLu, mouvements }) {
   const { releve, nouvelles, doublons } = lot;
+  // Virements de ce relevé déjà saisis à la main dans PEA & Bourse ou dans
+  // un livret : ils seront rattachés, pas ajoutés une seconde fois.
+  const rattaches = rapprocher(enrichir(nouvelles, { titulaire: releve.titulaire }), mouvements).size;
   return (
     <div className="mt-1 space-y-1.5">
       <div className="text-slate-100">
@@ -146,6 +150,12 @@ function ResumeLot({ lot, releveLu }) {
         <div className="text-xs text-slate-400">
           Solde <Montant valeur={releve.soldeDebut / 100} decimales={2} /> →{" "}
           <Montant valeur={releve.soldeFin / 100} decimales={2} />
+        </div>
+      )}
+      {rattaches > 0 && (
+        <div className="text-xs text-slate-400">
+          {rattaches} virement{rattaches > 1 ? "s" : ""} déjà saisi{rattaches > 1 ? "s" : ""} dans PEA & Bourse ou un
+          livret : rattaché{rattaches > 1 ? "s" : ""}, sans double comptage.
         </div>
       )}
       {releve.controleOk ? (
