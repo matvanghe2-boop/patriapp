@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useId } from "react";
-import { PiggyBank, ShieldCheck, Banknote, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
+import { PiggyBank, ShieldCheck, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, guessEnvelope, todayIso, lireNombre, pctPlain, nombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
@@ -131,51 +131,6 @@ function SaturationAlert({ livrets }) {
       <p className="text-micro text-slate-500 mt-2">
         Envisage un autre support pour tes prochains versements sur ces comptes.
       </p>
-    </Card>
-  );
-}
-
-// ─── Compte Courant card ──────────────────────────────────────────────────────
-function CompteCourant({ cash, setCash }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(cash);
-
-  const save = () => { setCash(lireNombre(draft) ?? 0); setEditing(false); };
-
-  return (
-    <Card accent={CARD_THEMES.indigo} className="flex items-center gap-4 relative">
-      <div className="rounded-full bg-slate-700/60 text-slate-300 p-3 shrink-0">
-        <Banknote size={20} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Compte courant</div>
-        {editing ? (
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="w-28 bg-slate-950 border border-amber-400/40 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400"
-              autoFocus
-              onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
-            />
-            <span className="text-xs text-slate-500">€</span>
-            <button onClick={save} className="text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold rounded-lg px-3 py-1">OK</button>
-            <button onClick={() => setEditing(false)} className="text-slate-500 hover:text-slate-300"><X size={14} /></button>
-          </div>
-        ) : (
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-xl text-slate-100 ghost-blur">{eur(cash)}</span>
-            <span className="text-micro text-slate-500">cash disponible</span>
-          </div>
-        )}
-      </div>
-      <button
-        onClick={() => { setDraft(cash); setEditing(true); }}
-        className="text-xs text-slate-500 hover:text-amber-300 border border-slate-700 hover:border-amber-400/40 rounded-lg px-3 py-1.5 transition-colors shrink-0"
-      >
-        Modifier
-      </button>
     </Card>
   );
 }
@@ -620,7 +575,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
 // ─── Main Livrets component ───────────────────────────────────────────────────
 export default function Livrets({
   livrets, setLivrets, matelasMois, livretsTotal, livretsAvgRate,
-  cash, setCash, enveloppes, setEnveloppes,
+  enveloppes, setEnveloppes,
 }) {
   const { showToast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
@@ -671,7 +626,7 @@ export default function Livrets({
         <h1 className="font-display text-2xl text-slate-50">
           Livrets &amp; <span className="text-indigo-400">Épargne sécurisée</span>
         </h1>
-        <p className="text-sm text-slate-500 mt-1">Capital garanti : Livrets réglementés, fonds en euros, cash disponible.</p>
+        <p className="text-sm text-slate-500 mt-1">Capital garanti : livrets réglementés et fonds en euros. Le compte courant a son propre onglet.</p>
       </div>
 
       {/* Sous-onglets */}
@@ -751,7 +706,6 @@ export default function Livrets({
       </div>
 
       {/* Compte courant */}
-      <CompteCourant cash={cash ?? 0} setCash={setCash} />
 
       {/* Alerte de saturation des plafonds */}
       <SaturationAlert livrets={livrets} />

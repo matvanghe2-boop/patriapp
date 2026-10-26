@@ -15,8 +15,7 @@ function monter(props = {}) {
           setCompteOperations={vi.fn()}
           setCompteReleves={vi.fn()}
           setCompteRegles={vi.fn()}
-          setCash={vi.fn()}
-          cash={0}
+          setSubs={vi.fn()}
           {...props}
         />
       </ConfirmProvider>
@@ -74,11 +73,20 @@ describe("CompteCourant", () => {
     expect(within(liste).queryByText("Carrefour City")).not.toBeInTheDocument();
   });
 
-  it("propose de reporter le solde du relevé dans le patrimoine", () => {
-    const setCash = vi.fn();
-    monter({ ...donneesImportees(), setCash, cash: 500 });
-    fireEvent.click(screen.getByRole("button", { name: "Reporter ce solde dans le patrimoine" }));
-    expect(setCash).toHaveBeenCalledWith(-82.98);
+  it("ouvre l'analyse du mois et l'onglet Épargne & charges", () => {
+    monter(donneesImportees());
+    fireEvent.click(screen.getByRole("tab", { name: /Analyse/ }));
+    expect(screen.getByText("D'où vient l'argent, où il va")).toBeInTheDocument();
+    expect(screen.getByText("Calendrier des dépenses")).toBeInTheDocument();
+    expect(screen.getByText(/entre ce qui est parti vers les sites de jeu/)).toBeInTheDocument();
+    // Le relevé de mai ne contient qu'un mois : rien à comparer encore.
+    expect(screen.getByText(/au moins deux mois de relevés/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Épargne & charges/ }));
+    expect(screen.getByText("Charges fixes et reste à vivre")).toBeInTheDocument();
+    expect(screen.getByText("Ce que tu mets réellement de côté")).toBeInTheDocument();
+    // Solde négatif à la fin du relevé factice : rien ne dort.
+    expect(screen.getByText(/rien ne dort/)).toBeInTheDocument();
   });
 });
 
@@ -113,5 +121,27 @@ describe("CompteCourant — opérations ponctuelles", () => {
     expect(screen.queryByText(/sort de l'ordinaire/)).not.toBeInTheDocument();
     expect(screen.getByText(/Mis à part du budget : 1 opération ponctuelle/)).toBeInTheDocument();
     expect(screen.getByText(/À part du budget/)).toBeInTheDocument();
+  });
+});
+
+describe("CompteCourant — mouvements depuis le dernier relevé", () => {
+  it("affiche un solde estimé quand un mouvement a été saisi depuis le relevé", () => {
+    const provisoires = [{ id: "p1", date: "2026-06-03", libelle: "Virement vers mon PEA", montant: -10000 }];
+    monter({ ...donneesImportees(), compteProvisoires: provisoires, setCompteProvisoires: vi.fn() });
+    expect(screen.getByText("Solde estimé aujourd'hui")).toBeInTheDocument();
+    expect(screen.getByText("Virement vers mon PEA")).toBeInTheDocument();
+    expect(screen.getByText(/de mouvements saisis depuis/)).toBeInTheDocument();
+  });
+
+  it("enregistre un mouvement saisi, en sortie par défaut", () => {
+    const setCompteProvisoires = vi.fn();
+    monter({ ...donneesImportees(), setCompteProvisoires });
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter un mouvement/ }));
+    fireEvent.change(screen.getByLabelText("Libellé"), { target: { value: "Virement vers mon PEA" } });
+    fireEvent.change(screen.getByLabelText("Montant (€)"), { target: { value: "2 000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
+    const ajoutes = setCompteProvisoires.mock.calls[0][0]([]);
+    expect(ajoutes).toEqual([expect.objectContaining({ libelle: "Virement vers mon PEA", montant: -200000 })]);
+    expect(ajoutes[0].date > "2026-05-29").toBe(true);
   });
 });

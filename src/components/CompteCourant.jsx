@@ -1,18 +1,22 @@
 import { useMemo, useState } from "react";
 import {
   CreditCard, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Scale, FileText, ShieldCheck,
-  TriangleAlert, Trash2, Landmark, Info,
+  TriangleAlert, Trash2, Landmark, Info, ListOrdered, BarChart3, PiggyBank,
 } from "lucide-react";
 import { Card, CardLabel, PageGlow, PastilleEtat, SectionRepliable, CARD_THEMES } from "./ui";
 import Montant from "./Montant";
+import OngletsGlissants from "./OngletsGlissants";
 import OperationsCompte, { MontantSigne } from "./OperationsCompte";
 import { BoutonImport, ApercuImport } from "./ImportReleve";
 import { DepensesParCategorie, PrincipauxPostes, CourbeSolde, EntreesSorties } from "./StatsCompte";
+import AnalyseCompte from "./AnalyseCompte";
+import MouvementsDepuisReleve from "./MouvementsDepuisReleve";
+import EpargneCompte from "./EpargneCompte";
 import { useToast } from "../lib/ToastContext";
 import { useConfirm } from "../lib/ConfirmContext";
 import { pctPlain, uid } from "../lib/finance";
 import {
-  enrichir, soldesApres, soldeActuel, serieSolde, raccordsReleves, moisDisponibles, moisDe, bilan, parMois,
+  enrichir, soldesApres, soldeEstime, provisoiresNonCouverts, serieSolde, raccordsReleves, moisDisponibles, moisDe, bilan, parMois,
   appliquerImport, retirerReleve, categorie, operationsInhabituelles,
 } from "../lib/compteCourant";
 
@@ -43,14 +47,18 @@ export default function CompteCourant({
   setCompteReleves,
   compteRegles = [],
   setCompteRegles,
-  cash,
-  setCash,
+  compteProvisoires = [],
+  setCompteProvisoires,
+  livrets = [],
+  subs = [],
+  setSubs,
 }) {
   const { showToast } = useToast();
   const confirm = useConfirm();
   const [apercu, setApercu] = useState(null);
   const [moisChoisi, setMoisChoisi] = useState(null);
   const [filtreCategorie, setFiltreCategorie] = useState(null);
+  const [sousOnglet, setSousOnglet] = useState("operations");
 
   // Le titulaire du relevé le plus récent sert à reconnaître les virements
   // entre ses propres comptes.
@@ -64,7 +72,8 @@ export default function CompteCourant({
   );
   const soldes = useMemo(() => soldesApres(compteOperations, compteReleves), [compteOperations, compteReleves]);
   const serie = useMemo(() => serieSolde(compteOperations, compteReleves), [compteOperations, compteReleves]);
-  const actuel = useMemo(() => soldeActuel(compteReleves), [compteReleves]);
+  // Solde ESTIMÉ : le dernier relevé, corrigé des mouvements saisis depuis.
+  const actuel = useMemo(() => soldeEstime(compteReleves, compteProvisoires), [compteReleves, compteProvisoires]);
   const trous = useMemo(() => raccordsReleves(compteReleves), [compteReleves]);
   const mois = useMemo(() => moisDisponibles(compteOperations), [compteOperations]);
   const flux = useMemo(() => parMois(enrichies), [enrichies]);
@@ -92,10 +101,21 @@ export default function CompteCourant({
     for (const lot of lots) etat = appliquerImport(lot, etat);
     setCompteOperations(etat.operations);
     setCompteReleves(etat.releves);
+    // Les mouvements saisis à la main que le nouveau relevé couvre sont
+    // remplacés par les vraies opérations : les garder les compterait deux fois.
+    const restants = provisoiresNonCouverts(compteProvisoires, etat.releves);
+    const remplaces = compteProvisoires.length - restants.length;
+    if (remplaces > 0) setCompteProvisoires(restants);
     setApercu(null);
     setMoisChoisi(null);
     const n = lots.reduce((s, l) => s + l.nouvelles.length, 0);
-    showToast({ message: `${n} opération${n > 1 ? "s" : ""} importée${n > 1 ? "s" : ""}.` });
+    showToast({
+      message:
+        `${n} opération${n > 1 ? "s" : ""} importée${n > 1 ? "s" : ""}.` +
+        (remplaces > 0
+          ? ` ${remplaces} mouvement${remplaces > 1 ? "s" : ""} saisi${remplaces > 1 ? "s" : ""} à la main remplacé${remplaces > 1 ? "s" : ""} par le relevé.`
+          : ""),
+    });
   };
 
   const classer = (op, idCategorie, { pourToutes }) => {
@@ -144,7 +164,6 @@ export default function CompteCourant({
   };
 
   const vide = compteOperations.length === 0 && compteReleves.length === 0;
-  const cashCentimes = Math.round((cash ?? 0) * 100);
 
   return (
     <div className="relative space-y-6">
@@ -177,8 +196,17 @@ export default function CompteCourant({
             <Card role="vedette" accent={CARD_THEMES.lime}>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="text-xs text-slate-400">Solde au {dateLongue(actuel.date)}</div>
+                  <div className="text-xs text-slate-400">
+                    {actuel.ajustement ? "Solde estimé aujourd'hui" : `Solde au ${dateLongue(actuel.date)}`}
+                  </div>
                   <Montant valeur={actuel.solde / 100} decimales={2} className="block font-display text-vedette text-slate-50 mt-1" />
+                  {actuel.ajustement !== 0 && (
+                    <div className="text-xs text-slate-400 mt-1">
+                      Relevé du {dateCourte(actuel.date)} : <Montant valeur={actuel.soldeReleve / 100} decimales={2} />,{" "}
+                      {actuel.ajustement > 0 ? "+" : ""}
+                      <Montant valeur={actuel.ajustement / 100} decimales={2} /> de mouvements saisis depuis
+                    </div>
+                  )}
                   <div className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
                     <Landmark size={13} aria-hidden="true" />
                     {actuel.releve.banque}
@@ -200,23 +228,8 @@ export default function CompteCourant({
             </Card>
           )}
 
-          {actuel && setCash && cashCentimes !== actuel.solde && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm">
-              <p className="text-slate-300">
-                Ton patrimoine compte <Montant valeur={cashCentimes / 100} decimales={2} /> sur le compte courant ; ton
-                dernier relevé indique <Montant valeur={actuel.solde / 100} decimales={2} /> au {dateCourte(actuel.date)}.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setCash(actuel.solde / 100);
-                  showToast({ message: "Solde du compte courant reporté dans le patrimoine." });
-                }}
-                className="rounded-lg border border-lime-400/40 bg-lime-400/10 px-3 py-1.5 text-xs text-lime-100 hover:bg-lime-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400/40"
-              >
-                Reporter ce solde dans le patrimoine
-              </button>
-            </div>
+          {actuel && setCompteProvisoires && (
+            <MouvementsDepuisReleve estime={actuel} setProvisoires={setCompteProvisoires} />
           )}
 
           {trous.map((t) => (
@@ -229,7 +242,30 @@ export default function CompteCourant({
             </div>
           ))}
 
-          {moisCourant && (
+          <OngletsGlissants
+            className="teinte-lime"
+            ariaLabel="Sections du compte courant"
+            actif={sousOnglet}
+            onChange={setSousOnglet}
+            onglets={[
+              { id: "operations", libelle: "Opérations", icone: ListOrdered },
+              { id: "analyse", libelle: "Analyse", icone: BarChart3 },
+              { id: "epargne", libelle: "Épargne & charges", icone: PiggyBank },
+            ]}
+          />
+
+          {sousOnglet === "epargne" && (
+            <EpargneCompte
+              enrichies={enrichies}
+              serie={serie}
+              solde={actuel}
+              livrets={livrets}
+              subs={subs}
+              setSubs={setSubs}
+            />
+          )}
+
+          {moisCourant && sousOnglet !== "epargne" && (
             <>
               <div className="flex items-center justify-between gap-3">
                 <button
@@ -253,6 +289,12 @@ export default function CompteCourant({
                 </button>
               </div>
 
+              {sousOnglet === "analyse" && (
+                <AnalyseCompte enrichies={enrichies} mois={moisCourant} filtreCategorie={filtreCategorie} />
+              )}
+
+              {sousOnglet === "operations" && (
+              <>
               {inhabituelles.length > 0 && (
                 <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm space-y-2">
                   <div className="flex items-start gap-2 text-slate-200">
@@ -370,9 +412,12 @@ export default function CompteCourant({
               </div>
 
               <EntreesSorties mois={flux} />
+              </>
+              )}
             </>
           )}
 
+          {sousOnglet === "operations" && (
           <SectionRepliable titre="Relevés importés" icon={FileText} resume={`${compteReleves.length}`}>
             <ul className="divide-y divide-slate-800">
               {[...compteReleves]
@@ -405,6 +450,7 @@ export default function CompteCourant({
                 ))}
             </ul>
           </SectionRepliable>
+          )}
         </>
       )}
     </div>

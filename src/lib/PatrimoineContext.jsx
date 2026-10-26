@@ -1,6 +1,8 @@
 import { createContext, useContext, useMemo, useCallback } from "react";
 import { usePersistentState } from "./storage";
 import { weightedAverageRate, upsertByDate, todayIso, valeurPosition, coutPosition, rebaselineLedger } from "./finance";
+import { enrichir, soldeEstime } from "./compteCourant";
+import { budgetMoyen } from "./analyseCompte";
 import { historiqueExemple, portefeuilleExemple, operationsExemple, objectifExemple } from "./jeuExemple";
 
 /**
@@ -46,6 +48,9 @@ export const STORAGE_KEYS = [
   // eux-mêmes (période, soldes, contrôle) et règles de classement choisies
   // par l'utilisateur (voir compteCourant.js).
   "compteOperations", "compteReleves", "compteRegles",
+  // Mouvements saisis à la main depuis le dernier relevé, en attendant le
+  // suivant : ils corrigent le solde estimé, jamais les statistiques.
+  "compteProvisoires",
 ];
 
 /**
@@ -198,6 +203,7 @@ export function PatrimoineProvider({ children }) {
   const [compteOperations, setCompteOperations] = usePersistentState("compteOperations", []);
   const [compteReleves, setCompteReleves] = usePersistentState("compteReleves", []);
   const [compteRegles, setCompteRegles] = usePersistentState("compteRegles", []);
+  const [compteProvisoires, setCompteProvisoires] = usePersistentState("compteProvisoires", []);
 
   /** Bascule le repli d'un widget, sans avoir à recomposer l'objet à l'appel. */
   const basculerWidget = useCallback(
@@ -231,10 +237,41 @@ export function PatrimoineProvider({ children }) {
     [bourse]
   );
 
+  // ─── Compte courant → patrimoine réel ──────────────────────────────────────
+  // Dès qu'un relevé est importé, le compte courant du patrimoine est le solde
+  // du dernier relevé, et le profil mensuel la moyenne des trois derniers mois
+  // réels. Les deux valeurs saisies à la main (`cash`, `profile`) restent
+  // stockées : elles reprennent la main si tous les relevés sont retirés.
+  const compteEnrichies = useMemo(() => {
+    const dernierReleve = [...compteReleves].sort((a, b) => String(a.fin).localeCompare(String(b.fin))).pop();
+    return enrichir(compteOperations, { regles: compteRegles, titulaire: dernierReleve?.titulaire || null });
+  }, [compteOperations, compteRegles, compteReleves]);
+  // Solde ESTIMÉ : le dernier relevé, corrigé des mouvements saisis depuis.
+  const compteSolde = useMemo(
+    () => soldeEstime(compteReleves, compteProvisoires),
+    [compteReleves, compteProvisoires]
+  );
+  const budgetReel = useMemo(() => budgetMoyen(compteEnrichies), [compteEnrichies]);
+  const cashEffectif = compteSolde ? compteSolde.solde / 100 : (cash ?? 0);
+  const profilEffectif = useMemo(
+    () =>
+      budgetReel
+        ? {
+            ...profile,
+            monthly_income: Math.round(budgetReel.revenus) / 100,
+            monthly_expenses: Math.round(budgetReel.depenses) / 100,
+            source: "releves",
+            periode: budgetReel.mois,
+          }
+        : profile,
+    [profile, budgetReel]
+  );
+
   const derived = useMemo(() => {
     const bourseTotal = bourse.cash_pocket + bourseValuePositions;
     const bourseGainAbs = bourseValuePositions - bourseInvested;
-    const patrimoineBrut = livretsTotal + bourseTotal + (cash ?? 0);
+    const patrimoineBrut = livretsTotal + bourseTotal + cashEffectif;
+    const profile = profilEffectif;
     const epargneMensuelle = profile.monthly_income - profile.monthly_expenses;
     return {
       bourseTotal,
@@ -250,13 +287,13 @@ export function PatrimoineProvider({ children }) {
       // application encore vide.
       matelasMois: profile.monthly_expenses > 0 ? livretsTotal / profile.monthly_expenses : null,
     };
-  }, [bourse.cash_pocket, bourseValuePositions, bourseInvested, livretsTotal, cash, dettesTotal, profile]);
+  }, [bourse.cash_pocket, bourseValuePositions, bourseInvested, livretsTotal, cashEffectif, dettesTotal, profilEffectif]);
 
   // Patrimoine encore vierge : aucun support d'épargne, aucune position, aucun
   // cash. Sert à proposer un accueil explicite plutôt qu'un tableau de bord à
   // zéro qu'on pourrait prendre pour un bug.
   const isEmpty =
-    livrets.length === 0 && bourse.positions.length === 0 && (cash ?? 0) === 0 && dettes.length === 0;
+    livrets.length === 0 && bourse.positions.length === 0 && cashEffectif === 0 && dettes.length === 0;
 
   /**
    * Enveloppe de `setProfile` qui horodate la saisie et en garde une trace
@@ -316,10 +353,10 @@ export function PatrimoineProvider({ children }) {
   const value = useMemo(
     () => ({
       isEmpty, loadDemoData, profileHistory,
-      profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
+      profile: profilEffectif, profileSaisi: profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
       historyPast, setHistoryPast, sim, setSim, immo, setImmo,
       bourseHistory, setBourseHistory, watchlist, setWatchlist,
-      cash, setCash, enveloppes, setEnveloppes,
+      cash: cashEffectif, setCash, compteSolde, budgetReel, enveloppes, setEnveloppes,
       strategyNotes, setStrategyNotes,
       simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
       reminders, setReminders,
@@ -329,7 +366,7 @@ export function PatrimoineProvider({ children }) {
       widgetsReplies, setWidgetsReplies, basculerWidget,
       secteursManuels, setSecteursManuels,
       compteOperations, setCompteOperations, compteReleves, setCompteReleves,
-      compteRegles, setCompteRegles,
+      compteRegles, setCompteRegles, compteProvisoires, setCompteProvisoires,
       horizonScenarios, setHorizonScenarios,
       horizonReglages, setHorizonReglages,
       horizonDernierBilan, setHorizonDernierBilan,
@@ -338,10 +375,10 @@ export function PatrimoineProvider({ children }) {
     }),
     [
       isEmpty, loadDemoData, profileHistory,
-      profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
+      profilEffectif, profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
       historyPast, setHistoryPast, sim, setSim, immo, setImmo,
       bourseHistory, setBourseHistory, watchlist, setWatchlist,
-      cash, setCash, enveloppes, setEnveloppes,
+      cashEffectif, setCash, compteSolde, budgetReel, enveloppes, setEnveloppes,
       strategyNotes, setStrategyNotes,
       simScenarios, setSimScenarios, immoTravaux, setImmoTravaux,
       reminders, setReminders,
@@ -351,7 +388,7 @@ export function PatrimoineProvider({ children }) {
       widgetsReplies, setWidgetsReplies, basculerWidget,
       secteursManuels, setSecteursManuels,
       compteOperations, setCompteOperations, compteReleves, setCompteReleves,
-      compteRegles, setCompteRegles,
+      compteRegles, setCompteRegles, compteProvisoires, setCompteProvisoires,
       horizonScenarios, setHorizonScenarios,
       horizonReglages, setHorizonReglages,
       horizonDernierBilan, setHorizonDernierBilan,
