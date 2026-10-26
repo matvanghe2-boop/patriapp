@@ -522,6 +522,46 @@ export function soldeActuel(releves) {
   return dernier ? { solde: dernier.soldeFin, date: dernier.fin, releve: dernier } : null;
 }
 
+// ─── Mouvements depuis le dernier relevé ────────────────────────────────────
+
+/**
+ * Solde estimé : celui du dernier relevé, corrigé des mouvements connus
+ * depuis et saisis à la main (« compteProvisoires »).
+ *
+ * Le relevé n'arrive qu'une fois le mois clos. D'ici là, un gros virement —
+ * 2 000 € partis vers le PEA début octobre — était compté deux fois dans le
+ * patrimoine : encore sur le compte courant d'après le relevé de septembre,
+ * déjà sur le PEA. Ces mouvements corrigent le SOLDE seulement : ce sont des
+ * estimations, ils n'entrent dans aucune statistique, et l'import du relevé
+ * qui couvre leur date les remplace par les vraies opérations.
+ */
+export function soldeEstime(releves, provisoires = []) {
+  const base = soldeActuel(releves);
+  if (!base) return null;
+  const depuis = (provisoires || [])
+    .filter((p) => p.date > base.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const ajustement = depuis.reduce((s, p) => s + p.montant, 0);
+  return {
+    solde: base.solde + ajustement,
+    soldeReleve: base.solde,
+    date: base.date,
+    ajustement,
+    provisoires: depuis,
+    releve: base.releve,
+  };
+}
+
+/**
+ * Mouvements provisoires encore utiles : ceux qui tombent après le dernier
+ * relevé. Un relevé importé qui couvre leur date contient les vraies
+ * opérations, et les garder les compterait deux fois.
+ */
+export function provisoiresNonCouverts(provisoires, releves) {
+  const fin = (releves || []).reduce((max, r) => (r.fin && r.fin > max ? r.fin : max), "");
+  return (provisoires || []).filter((p) => p.date > fin);
+}
+
 /**
  * Solde en fin de journée, pour la courbe : un point par jour où le compte a
  * bougé, plus l'ouverture de chaque relevé.
@@ -568,10 +608,44 @@ export function raccordsReleves(releves) {
 
 // ─── Statistiques ────────────────────────────────────────────────────────────
 
+/**
+ * Noms tronqués rattachés à leur forme complète.
+ *
+ * Le libellé bancaire a une longueur fixe : « Vir train x4 de Thierry
+ * DUPONTELLI » perd la fin du nom que « Virement de Thierry DUPONTELLIER »
+ * garde. Sans ce rattachement, la règle posée sur l'un ne couvrait pas
+ * l'autre. Une clé n'est rattachée que si elle est le DÉBUT d'une autre,
+ * coupée au milieu d'un mot, et assez longue pour ne pas être ambiguë :
+ * « CARREFOUR » n'est pas une coupure de « CARREFOUR MARKET ».
+ */
+export function clesCanoniques(analyses) {
+  const parCle = new Map();
+  for (const a of analyses) if (a.cle && !parCle.has(a.cle)) parCle.set(a.cle, a.titre);
+  const cles = [...parCle.keys()].sort((a, b) => b.length - a.length);
+  const canon = new Map();
+  for (const courte of cles) {
+    if (courte.length < 10) continue;
+    const longue = cles.find(
+      (l) => l.length > courte.length && l.startsWith(courte) && /[A-Z0-9]/.test(l[courte.length])
+    );
+    if (longue) {
+      const cible = canon.get(longue)?.cle || longue;
+      canon.set(courte, { cle: cible, titre: parCle.get(cible) });
+    }
+  }
+  return canon;
+}
+
 /** Opérations enrichies de leur lecture et de leur catégorie. */
 export function enrichir(operations, { regles = [], titulaire = null } = {}) {
-  return (operations || []).map((op) => {
-    const analyse = analyserOperation(op);
+  const analyses = (operations || []).map((op) => analyserOperation(op));
+  const canon = clesCanoniques(analyses);
+  return (operations || []).map((op, i) => {
+    const brute = analyses[i];
+    const complete = canon.get(brute.cle);
+    const analyse = complete
+      ? { ...brute, cle: complete.cle, titre: complete.titre, contrepartie: brute.contrepartie ? complete.titre : null }
+      : brute;
     const cat = categoriser(op, { analyse, regles, titulaire });
     return { ...op, analyse, categorie: cat, famille: categorie(cat).famille };
   });

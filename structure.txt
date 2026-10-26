@@ -121,6 +121,7 @@ src/App.test.jsx
 src/classesCss.test.js
 src/components/Abonnements.jsx
 src/components/AideRaccourcis.jsx
+src/components/AnalyseCompte.jsx
 src/components/AnalyseValeur.jsx
 src/components/AnalyseValeur.test.jsx
 src/components/AssetLogo.jsx
@@ -152,6 +153,7 @@ src/components/DispositionDashboard.jsx
 src/components/DispositionDashboard.test.jsx
 src/components/DividendesAuto.test.jsx
 src/components/DividendesLongTerme.jsx
+src/components/EpargneCompte.jsx
 src/components/ErrorBoundary.jsx
 src/components/EtatSourceMarche.jsx
 src/components/EtatVide.jsx
@@ -180,6 +182,7 @@ src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
 src/components/ModePresentation.jsx
 src/components/Montant.jsx
+src/components/MouvementsDepuisReleve.jsx
 src/components/MouvementsLivrets.jsx
 src/components/MouvementsLivrets.test.jsx
 src/components/Notifications.jsx
@@ -248,6 +251,8 @@ src/lib/ToastContext.jsx
 src/lib/actionnariat.js
 src/lib/alertes.js
 src/lib/alertes.test.js
+src/lib/analyseCompte.js
+src/lib/analyseCompte.test.js
 src/lib/analyseTitre.test.js
 src/lib/api.js
 src/lib/api.test.js

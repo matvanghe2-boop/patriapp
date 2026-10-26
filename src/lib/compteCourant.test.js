@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   analyserOperation, categoriser, estEntreMesComptes, empreintes, preparerImport, preparerLots, appliquerImport,
   retirerReleve, soldesApres, soldeActuel, serieSolde, raccordsReleves, enrichir, bilan, parMois, nomLisible,
-  operationsInhabituelles,
+  operationsInhabituelles, soldeEstime, provisoiresNonCouverts,
 } from "./compteCourant";
 import { lireReleveBourso } from "./releveBourso";
 import { pagesReleveFactice } from "../test/releveFactice";
@@ -253,5 +253,55 @@ describe("opérations ponctuelles", () => {
     expect(b.tauxEpargne).toBeCloseTo(0.6);
     expect(b).toMatchObject({ horsBudgetEntrant: 1000000, horsBudgetSortant: 0, horsBudgetNombre: 1 });
     expect(parMois(juillet)).toEqual([{ mois: "2026-07", entrees: 50000, sorties: 20000, net: 30000 }]);
+  });
+});
+
+describe("noms tronqués", () => {
+  it("rattache un nom coupé par la banque à sa forme complète, et la règle avec", () => {
+    const cle = analyserOperation(op("VIR Virement de Jean DUPONTELLIER", 12000)).cle;
+    const ops = [
+      op("VIR Virement de Jean DUPONTELLIER", 12000, [], { id: "a" }),
+      op("VIR Vir train x4 de Jean DUPONTELLI", 3000, [], { id: "b" }),
+    ];
+    const [complet, tronque] = enrichir(ops, { regles: [{ cle, categorie: "aide-familiale" }] });
+    expect(tronque.analyse.cle).toBe(complet.analyse.cle);
+    expect(tronque.analyse.titre).toBe("Jean Dupontellier");
+    expect(tronque.categorie).toBe("aide-familiale");
+  });
+
+  it("ne confond pas une enseigne avec une enseigne plus longue qui commence pareil", () => {
+    const [court, long] = enrichir([
+      op("CARTE 05/05/26 MONOPRIX PARIS CB*1234", -1000, [], { id: "c" }),
+      op("CARTE 05/05/26 MONOPRIX PARIS NORD CB*1234", -1000, [], { id: "d" }),
+    ]);
+    expect(court.analyse.cle).not.toBe(long.analyse.cle);
+  });
+});
+
+describe("mouvements depuis le dernier relevé", () => {
+  const releves = [{ id: "s", debut: "2026-09-01", fin: "2026-09-30", soldeDebut: 237430, soldeFin: 733554 }];
+
+  it("corrige le solde du relevé des mouvements saisis depuis", () => {
+    const provisoires = [
+      { id: "p1", date: "2026-10-02", libelle: "Virement vers mon PEA", montant: -200000 },
+      { id: "p2", date: "2026-09-15", libelle: "Déjà dans le relevé", montant: -5000 },
+    ];
+    const e = soldeEstime(releves, provisoires);
+    expect(e).toMatchObject({ solde: 533554, soldeReleve: 733554, ajustement: -200000, date: "2026-09-30" });
+    expect(e.provisoires.map((p) => p.id)).toEqual(["p1"]);
+  });
+
+  it("donne le solde du relevé tel quel sans mouvement saisi", () => {
+    expect(soldeEstime(releves, [])).toMatchObject({ solde: 733554, ajustement: 0 });
+    expect(soldeEstime([], [{ date: "2026-10-02", montant: -1 }])).toBeNull();
+  });
+
+  it("abandonne les mouvements qu'un relevé importé couvre désormais", () => {
+    const provisoires = [
+      { id: "p1", date: "2026-10-02", montant: -200000 },
+      { id: "p2", date: "2026-11-03", montant: -1000 },
+    ];
+    const avecOctobre = [...releves, { id: "o", debut: "2026-10-01", fin: "2026-10-31" }];
+    expect(provisoiresNonCouverts(provisoires, avecOctobre).map((p) => p.id)).toEqual(["p2"]);
   });
 });

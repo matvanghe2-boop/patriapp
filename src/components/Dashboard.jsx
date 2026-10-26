@@ -191,6 +191,42 @@ function OnboardingCard({ onLoadDemo }) {
   );
 }
 
+// ─── Profil mensuel lu sur les relevés ───────────────────────────────────────
+/**
+ * Dès qu'un relevé de compte courant est importé, revenus et dépenses ne se
+ * saisissent plus : ce sont les moyennes réelles des derniers mois, hors
+ * mouvements entre ses comptes et opérations mises à part. Le profil saisi
+ * reste stocké et reprend la main si les relevés sont retirés.
+ */
+function ProfilReel({ profile }) {
+  const mois = (profile.periode || []).map((m) => {
+    const [a, n] = m.split("-").map(Number);
+    return new Date(a, n - 1, 1).toLocaleDateString("fr-FR", { month: "long" });
+  });
+  const periode =
+    mois.length > 1 ? `moyenne de ${mois[0]} à ${mois[mois.length - 1]}` : mois.length === 1 ? `mois de ${mois[0]}` : "";
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <CardLabel icon={Wallet}>Profil mensuel</CardLabel>
+        <div className="text-sm text-slate-400">
+          Revenus <Montant valeur={profile.monthly_income} decimales={0} className="text-slate-100" /> / mois
+        </div>
+        <div className="text-sm text-slate-400">
+          Dépenses <Montant valeur={profile.monthly_expenses} decimales={0} className="text-slate-100" /> / mois
+        </div>
+      </div>
+      <p className="text-xs text-slate-500">
+        Calculé sur tes relevés de compte courant{periode ? `, ${periode}` : ""} — hors virements entre tes comptes et
+        opérations ponctuelles mises à part.{" "}
+        <a href="#/compte" className="text-emerald-300 hover:underline">
+          Voir le compte courant
+        </a>
+      </p>
+    </div>
+  );
+}
+
 // ─── Fraîcheur du profil mensuel ──────────────────────────────────────────────
 const PROFILE_STALE_DAYS = 120;
 
@@ -527,6 +563,7 @@ export default function Dashboard({
   livrets, bourse, matelasMois, setLastSnapshotDate,
   cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
   objectifs, setObjectifs, bourseHistory = [], contracts = [], evenementsMarche = [],
+  compteSolde = null,
 }) {
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -932,6 +969,10 @@ export default function Dashboard({
       <Bloc id="profil">
       {/* Profil mensuel */}
       <Card accent={CARD_THEMES.emerald}>
+        {profile.source === "releves" ? (
+          <ProfilReel profile={profile} />
+        ) : (
+        <>
         <div className="flex flex-wrap items-center gap-6">
           <CardLabel icon={Wallet}>Profil mensuel</CardLabel>
           <div className="flex items-center gap-2">
@@ -965,6 +1006,8 @@ export default function Dashboard({
             sécurité et l'alerte associée. Sans repère d'ancienneté, une saisie
             oubliée les rendait faux tous les trois, en silence. */}
         <ProfileFreshness updatedAt={profile.updatedAt} history={profileHistory} />
+        </>
+        )}
       </Card>
       </Bloc>
 
@@ -1043,6 +1086,16 @@ export default function Dashboard({
             <CardLabel icon={Landmark}>Patrimoine brut</CardLabel>
             <div className="font-display text-xl text-slate-100 ghost-blur">{eur(patrimoineBrut)}</div>
             {dettesTotal > 0 && <div className="text-xs text-slate-500 mt-1 ghost-blur">dont −{eur(dettesTotal)} de passifs</div>}
+            {compteSolde && (
+              <div className="text-xs text-slate-500 mt-1">
+                dont <span className="ghost-blur">{eur(compteSolde.solde / 100)}</span> sur le compte courant
+                {compteSolde.ajustement
+                  ? ` (relevé du ${formatDateFr(compteSolde.date)}, corrigé de ${compteSolde.provisoires.length} mouvement${
+                      compteSolde.provisoires.length > 1 ? "s" : ""
+                    } depuis)`
+                  : `, au ${formatDateFr(compteSolde.date)}`}
+              </div>
+            )}
           </Card>
 
           {/* Enhanced performance card: effort vs gains */}
