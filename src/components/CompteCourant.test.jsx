@@ -81,3 +81,37 @@ describe("CompteCourant", () => {
     expect(setCash).toHaveBeenCalledWith(-82.98);
   });
 });
+
+describe("CompteCourant — opérations ponctuelles", () => {
+  // Mai vient du relevé factice ; juin contient un don de 10 000 €.
+  function avecJuin() {
+    const { compteOperations, compteReleves } = donneesImportees();
+    const juin = { id: "juin", banque: "BoursoBank", compte: "5678", titulaire: "MARTIN PAUL", debut: "2026-06-01", fin: "2026-06-30", soldeDebut: -8298, soldeFin: 994702, nbOperations: 3, controleOk: true };
+    const ops = [
+      { id: "j1", releveId: "juin", ordre: 0, date: "2026-06-02", dateValeur: "2026-06-02", montant: 5000, libelle: "VIR SEPA MME CLAIRE PETIT", complements: [] },
+      { id: "j2", releveId: "juin", ordre: 1, date: "2026-06-05", dateValeur: "2026-06-05", montant: 1000000, libelle: "VIR Virement de Jean MARTIN", complements: [] },
+      { id: "j3", releveId: "juin", ordre: 2, date: "2026-06-08", dateValeur: "2026-06-08", montant: -2000, libelle: "CARTE 07/06/26 CARREFOUR CITY CB*1234", complements: [] },
+    ];
+    return { compteOperations: [...compteOperations, ...ops], compteReleves: [...compteReleves, juin] };
+  }
+
+  it("propose de mettre à part le gros virement du mois, et le fait sur demande", () => {
+    const setCompteOperations = vi.fn();
+    const donnees = avecJuin();
+    monter({ ...donnees, setCompteOperations });
+    expect(screen.getByText(/Une opération sort de l'ordinaire ce mois-ci/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mettre à part du budget" }));
+    const apres = setCompteOperations.mock.calls[0][0](donnees.compteOperations);
+    expect(apres.find((o) => o.id === "j2").horsBudget).toBe(true);
+    expect(apres.find((o) => o.id === "j1").horsBudget).toBeUndefined();
+  });
+
+  it("affiche à part une opération déjà mise à part", () => {
+    const donnees = avecJuin();
+    donnees.compteOperations = donnees.compteOperations.map((o) => (o.id === "j2" ? { ...o, horsBudget: true } : o));
+    monter(donnees);
+    expect(screen.queryByText(/sort de l'ordinaire/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Mis à part du budget : 1 opération ponctuelle/)).toBeInTheDocument();
+    expect(screen.getByText(/À part du budget/)).toBeInTheDocument();
+  });
+});

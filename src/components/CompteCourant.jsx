@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import {
   CreditCard, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Scale, FileText, ShieldCheck,
-  TriangleAlert, Trash2, Landmark,
+  TriangleAlert, Trash2, Landmark, Info,
 } from "lucide-react";
 import { Card, CardLabel, PageGlow, PastilleEtat, SectionRepliable, CARD_THEMES } from "./ui";
 import Montant from "./Montant";
-import OperationsCompte from "./OperationsCompte";
+import OperationsCompte, { MontantSigne } from "./OperationsCompte";
 import { BoutonImport, ApercuImport } from "./ImportReleve";
 import { DepensesParCategorie, PrincipauxPostes, CourbeSolde, EntreesSorties } from "./StatsCompte";
 import { useToast } from "../lib/ToastContext";
@@ -13,7 +13,7 @@ import { useConfirm } from "../lib/ConfirmContext";
 import { pctPlain, uid } from "../lib/finance";
 import {
   enrichir, soldesApres, soldeActuel, serieSolde, raccordsReleves, moisDisponibles, moisDe, bilan, parMois,
-  appliquerImport, retirerReleve, categorie,
+  appliquerImport, retirerReleve, categorie, operationsInhabituelles,
 } from "../lib/compteCourant";
 
 /**
@@ -77,6 +77,7 @@ export default function CompteCourant({
   const moisCourant = moisChoisi && mois.includes(moisChoisi) ? moisChoisi : mois[mois.length - 1] || null;
   const duMois = useMemo(() => enrichies.filter((o) => moisDe(o.date) === moisCourant), [enrichies, moisCourant]);
   const stats = useMemo(() => bilan(duMois), [duMois]);
+  const inhabituelles = useMemo(() => operationsInhabituelles(enrichies, moisCourant), [enrichies, moisCourant]);
   const indexMois = mois.indexOf(moisCourant);
 
   const changerMois = (pas) => {
@@ -111,6 +112,22 @@ export default function CompteCourant({
       setCompteOperations((ops) => ops.map((o) => (o.id === op.id ? { ...o, categorieManuelle: idCategorie } : o)));
     }
     showToast({ message: `Classé dans « ${categorie(idCategorie).libelle} ».` });
+  };
+
+  /**
+   * Met des opérations à part du budget du mois — ou les y remet. La valeur
+   * est écrite explicitement, `false` compris : une opération que l'on a
+   * choisi de garder ne doit plus être proposée à la mise à part.
+   */
+  const mettreAPart = (ids, aPart) => {
+    const cibles = new Set(ids);
+    setCompteOperations((ops) => ops.map((o) => (cibles.has(o.id) ? { ...o, horsBudget: aPart } : o)));
+    const n = cibles.size;
+    showToast({
+      message: aPart
+        ? `${n > 1 ? `${n} opérations mises` : "Opération mise"} à part du budget du mois.`
+        : `${n > 1 ? `${n} opérations gardées` : "Opération gardée"} dans le budget du mois.`,
+    });
   };
 
   const supprimerReleve = async (releve) => {
@@ -236,6 +253,48 @@ export default function CompteCourant({
                 </button>
               </div>
 
+              {inhabituelles.length > 0 && (
+                <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm space-y-2">
+                  <div className="flex items-start gap-2 text-slate-200">
+                    <Info size={16} className="mt-0.5 shrink-0 text-sky-300" aria-hidden="true" />
+                    <p>
+                      {inhabituelles.length > 1
+                        ? `${inhabituelles.length} opérations sortent de l'ordinaire ce mois-ci`
+                        : "Une opération sort de l'ordinaire ce mois-ci"}{" "}
+                      : chacune dépasse à elle seule ce qui entre ou sort d'habitude en un mois. Ponctuelles, elles
+                      fausseraient la lecture de ton budget courant.
+                    </p>
+                  </div>
+                  <ul className="pl-6 space-y-0.5 text-xs text-slate-400">
+                    {inhabituelles.map((op) => (
+                      <li key={op.id} className="flex justify-between gap-3 max-w-md">
+                        <span className="truncate">
+                          {op.analyse.titre}
+                          {op.analyse.motif && <span className="text-slate-500"> · « {op.analyse.motif} »</span>}
+                        </span>
+                        <MontantSigne centimes={op.montant} />
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap gap-2 pl-6">
+                    <button
+                      type="button"
+                      onClick={() => mettreAPart(inhabituelles.map((o) => o.id), true)}
+                      className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-1.5 text-xs text-sky-100 hover:bg-sky-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+                    >
+                      Mettre à part du budget
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => mettreAPart(inhabituelles.map((o) => o.id), false)}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+                    >
+                      Les garder dans le budget
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Card>
                   <CardLabel icon={ArrowDownLeft}>Entrées</CardLabel>
@@ -268,6 +327,23 @@ export default function CompteCourant({
                   des revenus.
                 </p>
               )}
+              {stats.horsBudgetNombre > 0 && (
+                <p className="text-xs text-slate-500 -mt-2">
+                  Mis à part du budget : {stats.horsBudgetNombre} opération{stats.horsBudgetNombre > 1 ? "s" : ""}{" "}
+                  ponctuelle{stats.horsBudgetNombre > 1 ? "s" : ""}
+                  {stats.horsBudgetEntrant > 0 && (
+                    <>
+                      , <Montant valeur={stats.horsBudgetEntrant / 100} decimales={2} /> reçus
+                    </>
+                  )}
+                  {stats.horsBudgetSortant > 0 && (
+                    <>
+                      , <Montant valeur={stats.horsBudgetSortant / 100} decimales={2} /> envoyés
+                    </>
+                  )}
+                  . {stats.horsBudgetNombre > 1 ? "Elles restent" : "Elle reste"} dans le solde.
+                </p>
+              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
                 <Card className="lg:col-span-3">
@@ -279,6 +355,7 @@ export default function CompteCourant({
                     filtreCategorie={filtreCategorie}
                     onEffacerFiltreCategorie={() => setFiltreCategorie(null)}
                     onClasser={classer}
+                    onMettreAPart={mettreAPart}
                   />
                 </Card>
                 <div className="lg:col-span-2 space-y-6">

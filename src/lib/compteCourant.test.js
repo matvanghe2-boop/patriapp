@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   analyserOperation, categoriser, estEntreMesComptes, empreintes, preparerImport, preparerLots, appliquerImport,
   retirerReleve, soldesApres, soldeActuel, serieSolde, raccordsReleves, enrichir, bilan, parMois, nomLisible,
+  operationsInhabituelles,
 } from "./compteCourant";
 import { lireReleveBourso } from "./releveBourso";
 import { pagesReleveFactice } from "../test/releveFactice";
@@ -24,6 +25,7 @@ describe("analyserOperation", () => {
   it("retire les numéros de magasin et nomme les enseignes illisibles", () => {
     expect(analyserOperation(op("CARTE 05/05/26 BK K0123 VILLENEUVE 2 CB*1234", -1390)).titre).toBe("Burger King Villeneuve");
     expect(nomLisible("MC DONALD'S")).toBe("McDonald's");
+    expect(nomLisible("SNCF -VOYAGEURS")).toBe("SNCF Voyageurs");
   });
 
   it("lit un prélèvement sans prendre la période ou le mandat pour un motif", () => {
@@ -209,5 +211,47 @@ describe("bilan", () => {
     expect(b.entrees).toBe(0);
     expect(b.sorties).toBe(4000);
     expect(parMois(avecAvoir)).toEqual([{ mois: "2026-05", entrees: 0, sorties: 4000, net: -4000 }]);
+  });
+});
+
+describe("opérations ponctuelles", () => {
+  // Trois mois de petites entrées, puis un don de 10 000 € le troisième.
+  const mois = (m, libelle, montant, extra = {}) =>
+    op(libelle, montant, [], { id: `${m}-${libelle}-${montant}`, date: `2026-0${m}-10`, ...extra });
+  const base = [
+    mois(5, "VIR SEPA MME CLAIRE PETIT", 50000),
+    mois(5, "CARTE 05/05/26 CARREFOUR CITY CB*1234", -20000),
+    mois(6, "VIR SEPA MME CLAIRE PETIT", 50000),
+    mois(6, "CARTE 05/06/26 CARREFOUR CITY CB*1234", -20000),
+    mois(7, "VIR SEPA MME CLAIRE PETIT", 50000),
+    mois(7, "CARTE 05/07/26 CARREFOUR CITY CB*1234", -20000),
+  ];
+  const don = mois(7, "VIR Virement de Jean MARTIN", 1000000);
+
+  it("propose de mettre à part une opération qui dépasse à elle seule un mois habituel", () => {
+    const enrichies = enrichir([...base, don]);
+    expect(operationsInhabituelles(enrichies, "2026-07").map((o) => o.id)).toEqual([don.id]);
+    expect(operationsInhabituelles(enrichies, "2026-06")).toEqual([]);
+  });
+
+  it("ne propose plus une opération sur laquelle on s'est prononcé, dans un sens ou dans l'autre", () => {
+    expect(operationsInhabituelles(enrichir([...base, { ...don, horsBudget: true }]), "2026-07")).toEqual([]);
+    expect(operationsInhabituelles(enrichir([...base, { ...don, horsBudget: false }]), "2026-07")).toEqual([]);
+  });
+
+  it("ne propose rien sur un seul mois, ni sous 1 000 €", () => {
+    expect(operationsInhabituelles(enrichir([base[4], base[5], don]), "2026-07")).toEqual([]);
+    const petit = mois(7, "VIR Virement de Jean MARTIN", 90000);
+    expect(operationsInhabituelles(enrichir([...base, petit]), "2026-07")).toEqual([]);
+  });
+
+  it("sort du budget une opération mise à part, sans la perdre de vue", () => {
+    const juillet = enrichir([base[4], base[5], { ...don, horsBudget: true }]);
+    const b = bilan(juillet);
+    expect(b.entrees).toBe(50000);
+    expect(b.sorties).toBe(20000);
+    expect(b.tauxEpargne).toBeCloseTo(0.6);
+    expect(b).toMatchObject({ horsBudgetEntrant: 1000000, horsBudgetSortant: 0, horsBudgetNombre: 1 });
+    expect(parMois(juillet)).toEqual([{ mois: "2026-07", entrees: 50000, sorties: 20000, net: 30000 }]);
   });
 });

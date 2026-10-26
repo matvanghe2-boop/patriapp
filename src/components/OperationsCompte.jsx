@@ -104,6 +104,7 @@ export default function OperationsCompte({
   filtreCategorie,
   onEffacerFiltreCategorie,
   onClasser,
+  onMettreAPart,
 }) {
   const [recherche, setRecherche] = useState("");
   const [famille, setFamille] = useState("tout");
@@ -211,6 +212,7 @@ export default function OperationsCompte({
                       onBasculer={() => setOuverte((id) => (id === op.id ? null : op.id))}
                       autresMemeCle={Math.max(0, (nbParCle.get(op.analyse.cle) || 1) - 1)}
                       onClasser={onClasser}
+                      onMettreAPart={onMettreAPart}
                     />
                   ))}
                 </ul>
@@ -223,13 +225,14 @@ export default function OperationsCompte({
   );
 }
 
-function LigneOperation({ op, solde, ouverte, onBasculer, autresMemeCle, onClasser }) {
+function LigneOperation({ op, solde, ouverte, onBasculer, autresMemeCle, onClasser, onMettreAPart }) {
   const idDetail = useId();
   const cat = categorie(op.categorie);
   const sousTitre = [
     cat.libelle,
     LIBELLES_TYPE[op.analyse.type],
     op.analyse.motif ? `« ${op.analyse.motif} »` : null,
+    op.horsBudget ? "À part du budget" : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -251,15 +254,23 @@ function LigneOperation({ op, solde, ouverte, onBasculer, autresMemeCle, onClass
         <MontantSigne centimes={op.montant} className="text-sm font-medium" />
       </button>
       {ouverte && (
-        <DetailOperation id={idDetail} op={op} solde={solde} autresMemeCle={autresMemeCle} onClasser={onClasser} />
+        <DetailOperation
+          id={idDetail}
+          op={op}
+          solde={solde}
+          autresMemeCle={autresMemeCle}
+          onClasser={onClasser}
+          onMettreAPart={onMettreAPart}
+        />
       )}
     </li>
   );
 }
 
-function DetailOperation({ id, op, solde, autresMemeCle, onClasser }) {
+function DetailOperation({ id, op, solde, autresMemeCle, onClasser, onMettreAPart }) {
   const idSelect = useId();
   const idCase = useId();
+  const idAPart = useId();
   const [pourToutes, setPourToutes] = useState(autresMemeCle > 0);
   const { analyse } = op;
 
@@ -324,6 +335,22 @@ function DetailOperation({ id, op, solde, autresMemeCle, onClasser }) {
           </span>
         )}
       </div>
+
+      {op.famille !== "interne" && (
+        <div className="flex items-start gap-1.5 text-slate-400">
+          <input
+            id={idAPart}
+            type="checkbox"
+            checked={!!op.horsBudget}
+            onChange={(e) => onMettreAPart([op.id], e.target.checked)}
+            className="accent-lime-400 mt-0.5"
+          />
+          <label htmlFor={idAPart}>
+            Opération ponctuelle : la mettre à part du budget du mois
+            <span className="block text-slate-500">Elle reste dans le solde et dans la liste.</span>
+          </label>
+        </div>
+      )}
     </div>
   );
 }
