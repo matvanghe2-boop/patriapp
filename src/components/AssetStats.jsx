@@ -17,7 +17,7 @@ function formatDateShortFr(iso) {
  * complète de chaque ligne : capital investi, frais cumulés, plus-value
  * réalisée ET latente, dividendes perçus, et un rendement net "tout compris".
  */
-function buildAssetStats(operations, positions) {
+export function buildAssetStats(operations, positions) {
   const groups = new Map();
 
   for (const op of operations) {

@@ -8,6 +8,7 @@ import { RATES_CATALOG } from "../../shared/ratesCatalog";
 import { categorie, normaliser, CATEGORIES } from "../lib/compteCourant";
 import { argentQuiDort, recurrences, misDeCoteParMois, budgetMoyen, coutHabitude } from "../lib/analyseCompte";
 import { enregistrerDansBourse, enregistrerSurLivret } from "../lib/liensComptes";
+import { aboDepuisCharge, correspond } from "../lib/abonnements";
 import { MontantSigne } from "./OperationsCompte";
 
 /**
@@ -92,16 +93,10 @@ export function ArgentQuiDort({ serie, solde, depensesMensuelles, livrets = [] }
 
 // ─── Charges fixes et reste à vivre ──────────────────────────────────────────
 
-/** Catégorie de l'onglet Abonnements la plus proche d'une catégorie du relevé. */
-const CATEGORIE_ABONNEMENT = {
-  sport: "Sport / Bien-être",
-  telecom: "Téléphonie",
-  abonnements: "Logiciel / Cloud",
-};
-
 export function ChargesFixes({ charges, revenusMensuels, subs = [], setSubs }) {
   const total = charges.reduce((s, c) => s + c.montant, 0);
   const deja = new Set(subs.map((s) => normaliser(s.label)));
+  const suivie = (c) => deja.has(normaliser(c.titre)) || subs.some((s) => correspond(s, c.cle));
   const resteAVivre = revenusMensuels != null ? revenusMensuels - total : null;
   const prochaines = [...charges].sort((a, b) => a.prochaine.localeCompare(b.prochaine)).slice(0, 4);
 
@@ -139,7 +134,7 @@ export function ChargesFixes({ charges, revenusMensuels, subs = [], setSubs }) {
           </div>
           <ul className="divide-y divide-slate-800/70 text-sm">
             {charges.map((c) => {
-              const ajoute = deja.has(normaliser(c.titre));
+              const ajoute = suivie(c);
               return (
                 <li key={`${c.cle}-${c.montant}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
                   <span className="flex-1 min-w-0">
@@ -154,17 +149,7 @@ export function ChargesFixes({ charges, revenusMensuels, subs = [], setSubs }) {
                       type="button"
                       disabled={ajoute}
                       onClick={() =>
-                        setSubs((s) => [
-                          ...(s || []),
-                          {
-                            id: uid(),
-                            category: CATEGORIE_ABONNEMENT[c.categorie] || "Autre",
-                            label: c.titre,
-                            montant: euros(c.montant),
-                            frequence: "mensuelle",
-                            prochaine_date: c.prochaine,
-                          },
-                        ])
+                        setSubs((s) => [...(s || []), aboDepuisCharge(c, uid())])
                       }
                       className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:text-slate-100 disabled:opacity-60 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400/40"
                     >

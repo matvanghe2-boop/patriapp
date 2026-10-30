@@ -57,25 +57,43 @@ describe("rapprochements", () => {
     expect(s[0].mensuel).toBeCloseTo(8, 6);
   });
 
-  it("repère un abonnement dormant au-delà de quatre mois", () => {
+  it("ne juge plus un abonnement à sa date de prélèvement saisie", () => {
+    // La date saisie ne bouge jamais : l'ancien signal « dormant » finissait
+    // par s'allumer sur chaque abonnement, quatre mois après sa création.
     const s = rapprochements(
       [{ id: "1", label: "Salle de sport", montant: 30, prochaine_date: "2025-11-01" }],
       [],
       { aujourdhui: AUJ }
     );
-    expect(s).toHaveLength(1);
-    expect(s[0].type).toBe("dormant");
-    expect(s[0].detail).toContain("2025-11-01");
+    expect(s).toEqual([]);
   });
 
-  it("ne signale pas comme dormant un prélèvement récent ou à venir", () => {
+  it("relaie ce que le relevé contredit, avec ce qui est en jeu", () => {
+    const subs = [
+      { id: "1", label: "Netflix", montant: 13.49 },
+      { id: "2", label: "Salle", montant: 30 },
+      { id: "3", label: "Presse", montant: 10, statut: "resilie" },
+    ];
+    const verifications = {
+      1: { trouve: true, alerte: "montant", detail: "Passé de 13,49 € à 14,99 €", derniere: { montant: 14.99 } },
+      2: { trouve: true, alerte: "absent", detail: "plus rien", derniere: { montant: 30 } },
+      3: { trouve: true, alerte: "toujours_preleve", detail: "encore prélevé", derniere: { montant: 10 } },
+    };
+    const s = rapprochements(subs, [], { verifications });
+    const parType = Object.fromEntries(s.map((x) => [x.type, x]));
+    expect(parType.montant.mensuel).toBeCloseTo(1.5, 6);
+    expect(parType.absent.mensuel).toBe(0);
+    expect(parType.toujours_preleve.mensuel).toBe(10);
+    expect(parType.toujours_preleve.libelle).toBe("Presse — toujours prélevé");
+  });
+
+  it("ne compte pas un abonnement résilié dans les doublons de catégorie", () => {
     const s = rapprochements(
       [
-        { id: "1", label: "Récent", montant: 30, prochaine_date: "2026-04-01" },
-        { id: "2", label: "À venir", montant: 30, prochaine_date: "2026-07-01" },
+        { id: "1", label: "Netflix", category: "Streaming", montant: 14 },
+        { id: "2", label: "Disney+", category: "Streaming", montant: 9, statut: "resilie" },
       ],
-      [],
-      { aujourdhui: AUJ }
+      []
     );
     expect(s).toEqual([]);
   });
