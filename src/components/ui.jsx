@@ -44,8 +44,12 @@ export function NavButton({ active, onClick, icon: Icon, label, disabled, theme 
  * portefeuille, livrets, objectifs — utilisent directement `EtatVide` avec un
  * titre et une action.
  */
-export function EmptyState({ children, picto = "recherche" }) {
-  return <EtatVide picto={picto}>{children}</EtatVide>;
+export function EmptyState({ children, picto = "recherche", titre, action }) {
+  return (
+    <EtatVide picto={picto} titre={titre} action={action}>
+      {children}
+    </EtatVide>
+  );
 }
 
 /**

@@ -385,7 +385,7 @@ export default function RatesHub({ livrets = [] }) {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState>Aucun taux ne correspond à « {query} ». Essaie un autre mot-clé ou une autre catégorie.</EmptyState>
+        <EmptyState picto="recherche">Aucun taux ne correspond à « {query} ». Essaie un autre mot-clé ou une autre catégorie.</EmptyState>
       ) : (
         // Région nommée : les cartes de KPI en haut de page réaffichent les
         // libellés des taux mis en avant (meilleur taux, prochaine révision).

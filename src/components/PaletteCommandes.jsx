@@ -24,13 +24,23 @@ import { vibrer } from "../lib/haptique";
  * Sans cela, un index français est inutilisable au clavier rapide.
  */
 
-const sansAccent = (s) =>
+export const sansAccent = (s) =>
   String(s || "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
 
-/** Construit l'index consultable à partir de l'état patrimonial. */
+/**
+ * Construit l'index consultable à partir de l'état patrimonial.
+ *
+ * Chaque entrée porte son onglet ET son sous-onglet : chercher « Netflix »
+ * mène au sous-onglet Abonnements, une opération du relevé à la liste des
+ * opérations du compte courant — plus seulement en haut de la bonne page.
+ *
+ * C'est aussi l'index de la barre de recherche (`GlobalSearch`) : les deux
+ * en tenaient chacune une copie, et elles avaient divergé (la recherche
+ * cherchait le titre d'une note dans un champ `title` qui n'existe pas).
+ */
 export function construireIndex({
   livrets = [],
   bourse = { positions: [], operations: [] },
@@ -39,6 +49,9 @@ export function construireIndex({
   strategyNotes = [],
   enveloppes = [],
   objectifs = [],
+  subs = [],
+  contracts = [],
+  compteEnrichies = [],
 }) {
   const items = [];
   const pousser = (o) => items.push({ ...o, cle: sansAccent(`${o.libelle} ${o.categorie} ${o.detail}`) });
@@ -59,6 +72,7 @@ export function construireIndex({
     pousser({
       id: `op-${op.id}`,
       onglet: "strategie",
+      sous: "journal",
       categorie: "Opération",
       libelle: `${op.type} ${op.asset || op.ticker || ""}`.trim(),
       detail: op.date || "",
@@ -68,16 +82,50 @@ export function construireIndex({
     pousser({ id: `dette-${d.id}`, onglet: "dashboard", categorie: "Passif", libelle: d.name, detail: eur(d.amount) })
   );
   watchlist.forEach((w) =>
-    pousser({ id: `watch-${w.id}`, onglet: "bourse", categorie: "Watchlist", libelle: w.name || w.ticker, detail: w.ticker })
+    pousser({ id: `watch-${w.id}`, onglet: "bourse", sous: "marche", categorie: "Watchlist", libelle: w.name || w.ticker, detail: w.ticker })
   );
   strategyNotes.forEach((n) =>
-    pousser({ id: `note-${n.id}`, onglet: "strategie", categorie: "Note de thèse", libelle: n.ticker || n.titre || "Note", detail: n.date || "" })
+    pousser({
+      id: `note-${n.id}`,
+      onglet: "strategie",
+      categorie: n.archivee ? "Thèse clôturée" : "Thèse",
+      libelle: [n.ticker, n.titre].filter(Boolean).join(" — ") || "Note",
+      detail: String(n.date || "").slice(0, 10),
+    })
   );
   enveloppes.forEach((e) =>
     pousser({ id: `env-${e.id}`, onglet: "livrets", categorie: "Enveloppe", libelle: e.label, detail: eur(e.amount) })
   );
   objectifs.forEach((o) =>
     pousser({ id: `obj-${o.id}`, onglet: "dashboard", categorie: "Objectif", libelle: o.libelle, detail: o.echeance || "" })
+  );
+  subs.forEach((s) =>
+    pousser({
+      id: `abo-${s.id}`,
+      onglet: "abonnements",
+      categorie: s.statut === "resilie" ? "Abonnement résilié" : "Abonnement",
+      libelle: s.label || "Abonnement",
+      detail: `${s.category || ""} · ${eur(Number(s.montant) || 0, 2)}`,
+    })
+  );
+  contracts.forEach((c) =>
+    pousser({
+      id: `contrat-${c.id}`,
+      onglet: "abonnements",
+      sous: "contrats",
+      categorie: "Contrat",
+      libelle: c.label || "Contrat",
+      detail: c.date_fin ? `fin ${c.date_fin}` : c.category || "",
+    })
+  );
+  compteEnrichies.forEach((op) =>
+    pousser({
+      id: `cc-${op.id}`,
+      onglet: "compte",
+      categorie: "Compte courant",
+      libelle: op.analyse?.titre || op.libelle || "Opération",
+      detail: `${op.date} · ${eur((op.montant || 0) / 100, 2)}`,
+    })
   );
   return items;
 }
@@ -131,7 +179,7 @@ export default function PaletteCommandes({ ouvert, onFermer, index = [], actions
   const choisir = (r) => {
     vibrer("navigation", haptique);
     if (r.estAction) r.executer?.();
-    else onNaviguer?.(r.onglet);
+    else onNaviguer?.(r.onglet, r.sous);
     onFermer?.();
   };
 

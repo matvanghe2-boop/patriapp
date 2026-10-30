@@ -12,6 +12,7 @@ import { dividendeAttendu } from "../../shared/dividendes.js";
 import { evenementsReference } from "../../shared/calendrierReference.js";
 import { rendementsQuotidiens, correlation } from "../lib/correlations";
 import { todayIso } from "../lib/finance";
+import { STATUTS_THESE } from "../lib/theses";
 
 /**
  * Tout sur une ligne, au même endroit.
@@ -282,7 +283,7 @@ export default function FicheLigne({
                       {" · "}
                     </>
                   )}
-                  Thèse {n.statut || "intacte"}
+                  Thèse {(STATUTS_THESE[n.statut] || STATUTS_THESE.intacte).libelle.toLowerCase()}
                   {n.conditions_vente && <> · vendre si : {n.conditions_vente}</>}
                 </div>
               </div>

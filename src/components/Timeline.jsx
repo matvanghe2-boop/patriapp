@@ -179,8 +179,8 @@ export default function Timeline({ bourse, historyPast, patrimoineNet, epargneMe
 
       <Card>
         {events.length === 0 ? (
-          <EmptyState>
-            Aucun événement pour l'instant — les jalons de patrimoine, dividendes reçus et arbitrages apparaîtront ici automatiquement au fil de tes opérations.
+          <EmptyState picto="calendrier" titre="Aucun jalon pour l'instant">
+            Les jalons de patrimoine, dividendes reçus et arbitrages apparaîtront ici automatiquement au fil de tes opérations.
           </EmptyState>
         ) : (
           <div className="relative pl-6">

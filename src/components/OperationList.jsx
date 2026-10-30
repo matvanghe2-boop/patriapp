@@ -19,8 +19,8 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
 
   if (sorted.length === 0) {
     return (
-      <EmptyState>
-        Aucune opération enregistrée. Importe un avis d'opéré PDF ou déclare une opération manuellement pour démarrer l'historique.
+      <EmptyState picto="operations" titre="Aucune opération enregistrée">
+        Importe un avis d'opéré PDF ou déclare une opération manuellement pour démarrer l'historique.
       </EmptyState>
     );
   }

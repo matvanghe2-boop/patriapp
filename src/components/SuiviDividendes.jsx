@@ -76,8 +76,8 @@ export default function SuiviDividendes({ bourse }) {
         <CardLabel icon={Coins}>Dividendes — attendus et réellement perçus</CardLabel>
 
         {aucunDividende ? (
-          <EmptyState>
-            Aucun dividende suivi. Renseigne le dividende annuel par action de tes lignes, ou saisis
+          <EmptyState picto="dividendes" titre="Aucun dividende suivi">
+            Renseigne le dividende annuel par action de tes lignes, ou saisis
             un encaissement dans le journal d'opérations.
           </EmptyState>
         ) : (
@@ -292,7 +292,7 @@ export default function SuiviDividendes({ bourse }) {
         <CardLabel icon={TrendingUp}>Taux de rendement interne, par ligne</CardLabel>
 
         {trisCalculables.length === 0 ? (
-          <EmptyState>
+          <EmptyState picto="dividendes">
             {trisTropJeunes.length > 0
               ? `${trisTropJeunes.length} ligne(s) sont suivies mais trop récentes : un taux ANNUALISÉ sur quelques jours n'aurait aucun sens. Il apparaîtra passé trente jours d'ancienneté.`
               : trisIncomplets.length > 0

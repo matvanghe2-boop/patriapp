@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSousOnglet } from "../lib/useHashRoute";
 import {
   CreditCard, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Scale, FileText, ShieldCheck,
   TriangleAlert, Trash2, Landmark, Info, ListOrdered, BarChart3, PiggyBank,
@@ -72,7 +73,7 @@ export default function CompteCourant({
   const [vue, setVue] = useState("mois");
   const [anneeChoisie, setAnneeChoisie] = useState(null);
   const [filtreCategorie, setFiltreCategorie] = useState(null);
-  const [sousOnglet, setSousOnglet] = useState("operations");
+  const [sousOnglet, setSousOnglet] = useSousOnglet(["operations", "analyse", "epargne"], "operations");
 
   // Le titulaire du relevé le plus récent sert à reconnaître les virements
   // entre ses propres comptes.

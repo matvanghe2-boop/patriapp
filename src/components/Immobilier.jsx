@@ -74,7 +74,7 @@ function TravauxTracker({ items, setItems }) {
       </div>
 
       {items.length === 0 ? (
-        <EmptyState>Aucune ligne de travaux ou de charges suivie pour le moment.</EmptyState>
+        <EmptyState picto="maison">Aucune ligne de travaux ou de charges suivie pour le moment.</EmptyState>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 mb-3">

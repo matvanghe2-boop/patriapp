@@ -116,7 +116,7 @@ export default function OrderSimulator({ positions = [], cashPocket = 0 }) {
       </div>
 
       {!result ? (
-        <EmptyState>Sélectionne un actif et un poids cible.</EmptyState>
+        <EmptyState picto="bourse">Sélectionne un actif et un poids cible.</EmptyState>
       ) : result.impossible ? (
         <p className="text-sm text-amber-300/90 mt-3">
           Poids déjà {result.currentWeight < targetWeight ? "inférieur" : "supérieur"} à la cible pour ce sens

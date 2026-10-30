@@ -437,7 +437,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
 
       {!symbol ? (
         <Card accent={CARD_THEMES.violet}>
-          <EmptyState>
+          <EmptyState picto="recherche">
             Recherche une entreprise ou choisis un accès rapide ci-dessus pour afficher sa fiche complète et son historique de cours depuis son introduction en bourse.
           </EmptyState>
         </Card>
@@ -571,9 +571,9 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
                 <SkeletonChart height={80} />
               </div>
             ) : historyError ? (
-              <EmptyState>{historyError}</EmptyState>
+              <EmptyState picto="graphique">{historyError}</EmptyState>
             ) : chartData.length < 2 ? (
-              <EmptyState>Historique insuffisant pour cette valeur sur la période sélectionnée.</EmptyState>
+              <EmptyState picto="graphique">Historique insuffisant pour cette valeur sur la période sélectionnée.</EmptyState>
             ) : (
               <>
                 <ProChart
@@ -748,7 +748,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
                 <div className="skeleton" style={{ width: "80%", height: 12, borderRadius: 4 }} />
               </div>
             ) : profileError ? (
-              <EmptyState>{profileError}</EmptyState>
+              <EmptyState picto="recherche">{profileError}</EmptyState>
             ) : profile ? (
               <div className="mt-2 space-y-4">
                 {profile.limited && (
@@ -797,7 +797,7 @@ export default function Marche({ watchlist, setWatchlist, openRequest, positions
                 </p>
               </div>
             ) : (
-              <EmptyState>Aucune donnée disponible pour cette valeur.</EmptyState>
+              <EmptyState picto="recherche">Aucune donnée disponible pour cette valeur.</EmptyState>
             )}
           </Card>
         </>

@@ -698,7 +698,7 @@ export default function Screener({ bourse, secteursManuels = {}, watchlist = [],
         {chargement ? (
           <SkeletonTable rows={6} columns={4} />
         ) : donnees.length === 0 ? (
-          <EmptyState>
+          <EmptyState picto="bourse">
             {mode === "portefeuille" && positions.length === 0
               ? "Aucune position à analyser — ajoute des lignes dans ton portefeuille."
               : "Lance l'analyse pour récupérer les fondamentaux. Ils sont ensuite mis en cache une heure."}
@@ -808,7 +808,7 @@ export default function Screener({ bourse, secteursManuels = {}, watchlist = [],
               </div>
             )}
             {suggestions.length === 0 ? (
-              <EmptyState>
+              <EmptyState picto="bourse">
                 Aucune suggestion — charge d'abord les fondamentaux d'un indice, et vérifie que ton portefeuille contient des lignes.
               </EmptyState>
             ) : (

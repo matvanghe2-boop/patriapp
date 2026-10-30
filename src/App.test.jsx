@@ -116,7 +116,7 @@ describe("App", () => {
     await user.click(sidebar().getByRole("button", { name: "Simulation" }));
 
     const sousOnglet = await screen.findByRole(
-      "button",
+      "tab",
       { name: /immobilier & crédit/i },
       { timeout: ATTENTE_CHUNK }
     );
@@ -135,7 +135,7 @@ describe("App", () => {
     await user.click(sidebar().getByRole("button", { name: "Simulation" }));
 
     const sousOnglet = await screen.findByRole(
-      "button",
+      "tab",
       { name: /projet/i },
       { timeout: ATTENTE_CHUNK }
     );

@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, useMemo, useId } from "react";
-import { TrendingUp, Wallet, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUpDown, ArrowUp, ArrowDown, Coins, AlertTriangle, BookOpen, Briefcase, Info, Search, CalendarDays, Filter, Gauge } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useSousOnglet } from "../lib/useHashRoute";
+import { TrendingUp, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUp, ArrowDown, Coins, BookOpen, Briefcase, Search, CalendarDays, Filter, Gauge, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Card, CardLabel, CarteRepliable, GhostButton, IconTrash, EmptyState, PageGlow, CARD_THEMES, ChiffreCompteur } from "./ui";
+import { Card, CardLabel, CarteRepliable, GhostButton, EmptyState, PageGlow, CARD_THEMES, ChiffreCompteur } from "./ui";
+import MenuActions from "./MenuActions";
 import AssetLogo from "./AssetLogo";
 import SectorHeatmap from "./SectorHeatmap";
 import CorrelationsLignes from "./CorrelationsLignes";
@@ -10,24 +12,13 @@ import { Sparkline } from "./graphiques";
 import { serieSparkline } from "../lib/marqueursCourbe";
 import OngletsGlissants from "./OngletsGlissants";
 import EtatVide from "./EtatVide";
-import { useTirerPourRafraichir, IndicateurRafraichissement, useBalayageSuppression } from "./gestes";
-import { eur, pctPlain, pct, uid, rebaseTo100, upsertByDate, computeDividendSummary, computeInvestedCapital, investedCapitalAsOf, todayIso, applyOperationsToBourse, buildCashAdjustment, rebaselineLedger, valeurPosition, positionsSansTaux, lireNombre, variationDuJour } from "../lib/finance";
-import { searchSecurity, fetchQuotes, fetchTauxChange, fetchHistory, fetchScreen } from "../lib/api";
-import { majDividendeAuto, repartitionMensuelle, dividendesAVerifier } from "../lib/dividendesAuto";
-import {
-  plagePour,
-  joursManquants,
-  reconstituer,
-  indexerClotures,
-  datesCotees,
-  ABSENCE_MAX_JOURS,
-  recalculerReleves,
-  appliquerRecalcul,
-} from "../lib/rattrapage";
-import { BENCHMARKS, CLES_INDICE } from "../lib/benchmarks";
+import { useTirerPourRafraichir, IndicateurRafraichissement } from "./gestes";
+import { eur, pctPlain, pct, uid, rebaseTo100, computeDividendSummary, rebaselineLedger, valeurPosition, lireNombre, variationDuJour } from "../lib/finance";
+
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
-
+import { usePatrimoine } from "../lib/PatrimoineContext";
+import { useSuiviBourse } from "../lib/useSuiviBourse";
 import Watchlist from "./Watchlist";
 import FinancialCalendar from "./FinancialCalendar";
 import Marche from "./Marche";
@@ -36,22 +27,12 @@ import PerformanceTab from "./BoursePerformance";
 import FiscaliteSortie from "./FiscaliteSortie";
 import Screener from "./Screener";
 import SantePortefeuille from "./SantePortefeuille";
-import { verifierEligibilite } from "../../shared/eligibilitePea";
-
-// Reprend le même code couleur que le module Stratégie & Logs pour que le
-// statut d'une thèse se reconnaisse d'un coup d'œil, qu'on le voie dans le
-// journal de bord ou dans le widget Anti-Panique du tableau de positions.
-const STRATEGY_STATUS = {
-  intacte: { label: "intacte", dot: "bg-emerald-400", text: "text-emerald-300", bg: "bg-emerald-500/10 border-emerald-500/30" },
-  surveiller: { label: "à surveiller", dot: "bg-amber-400", text: "text-amber-300", bg: "bg-amber-500/10 border-amber-500/30" },
-  invalidee: { label: "invalidée", dot: "bg-rose-400", text: "text-rose-300", bg: "bg-rose-500/10 border-rose-500/30" },
-};
-
-function formatDateFrShort(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
-}
+import { SortButton, LignePosition, tendance, DailyVariation } from "./TableauPositionsOutils";
+import AntiPanicModal, { PANIC_THRESHOLD_PCT } from "./AntiPanicModal";
+import PeaFiscalWidget from "./PeaFiscalWidget";
+import { ForeignCurrencyWarning, EligibilitePeaWarning } from "./AvertissementsPortefeuille";
+import CashPocketCard from "./CashPocketCard";
+import AddPositionPanel from "./AddPositionPanel";
 
 // `cle` est le nom sous lequel l'indice est rangé dans `bourseHistory`. Il
 // vivait jusqu'ici en dur dans `captureSnapshot` ; le rattrapage en a besoin
@@ -63,484 +44,39 @@ function formatDateFrShort(iso) {
 // collectés, ce qui vidait le graphique au lieu d'afficher une courbe en moins.
 const PIE_PALETTE = ["#a78bfa", "#d946ef", "#818cf8", "#c084fc", "#22d3ee", "#f472b6", "#8b5cf6", "#e879f9"];
 
-const today = () => todayIso();
-// ─── Sort config ──────────────────────────────────────────────────────────────
-const SORT_OPTIONS = [
-  { key: "none", label: "Ordre d'ajout" },
-  { key: "value_desc", label: "Valeur ↓" },
-  { key: "value_asc", label: "Valeur ↑" },
-  { key: "pnl_desc", label: "Plus-value ↓" },
-  { key: "pnl_asc", label: "Plus-value ↑" },
-  { key: "daily_desc", label: "Variation du jour ↓" },
-  { key: "daily_asc", label: "Variation du jour ↑" },
-  { key: "weight_desc", label: "Poids ↓" },
-];
-
-function SortButton({ sort, setSort }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-  const current = SORT_OPTIONS.find((o) => o.key === sort) || SORT_OPTIONS[0];
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((s) => !s)}
-        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-violet-300 border border-slate-700 hover:border-violet-500/50 rounded-lg px-3 py-1.5 transition-colors"
-      >
-        <ArrowUpDown size={13} />
-        Trier : {current.label}
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-20 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden min-w-[200px]">
-          {SORT_OPTIONS.map((o) => (
-            <button
-              key={o.key}
-              onClick={() => { setSort(o.key); setOpen(false); }}
-              className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-800 transition-colors ${sort === o.key ? "text-amber-300 bg-slate-800" : "text-slate-300"}`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+const SOUS_ONGLETS_BOURSE = ["portefeuille", "analyse", "performance", "marche", "screener", "calendrier"];
 
 /**
- * Ligne de position, balayable vers la gauche pour supprimer.
- *
- * Un composant plutôt qu'un `<tr>` écrit sur place : le balayage a besoin d'un
- * hook, et un hook ne peut pas vivre à l'intérieur d'un `.map()`. Le geste est
- * réservé au tactile, et le bouton de suppression reste le chemin principal —
- * au clavier comme à la souris, rien ne change.
+ * Onglet PEA & Bourse. Il lit l'état patrimonial dans le contexte
+ * (`usePatrimoine`) au lieu de recevoir l'état complet de l'application en
+ * props : ce dont il dépend se lit ici, d'un coup d'œil.
  */
-function LignePosition({ onSupprimer, children }) {
-  const { handlers, style } = useBalayageSuppression(onSupprimer);
-  return (
-    <tr className="group hover:bg-slate-800/30 transition-colors" style={style} {...handlers}>
-      {children}
-    </tr>
-  );
-}
-
-/**
- * Sens général d'une série de cours : dernier point contre premier.
- *
- * Volontairement grossier — la sparkline n'a que sa COULEUR pour dire le sens,
- * et une régression linéaire donnerait la même réponse dans les cas qui
- * comptent tout en compliquant la lecture du code.
- */
-function tendance(serie) {
-  if (!serie || serie.length < 2) return 0;
-  return serie[serie.length - 1].p - serie[0].p;
-}
-
-// ─── Daily variation cell ─────────────────────────────────────────────────────
-function DailyVariation({ position, dailyData }) {
-  const d = dailyData?.[position.ticker];
-  if (!d) {
-    return <span className="text-slate-500 text-xs font-data">—</span>;
-  }
-  const { changeAbs, changePct } = d;
-  const pos = changeAbs >= 0;
-  return (
-    <div className={`flex items-center gap-1 font-data tabular-nums text-xs ${pos ? "text-emerald-400" : "text-rose-400"}`}>
-      {pos ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
-      <span>
-        {pos ? "+" : ""}{eur(changeAbs * position.quantity, 2)}
-        <span className="opacity-70 ml-1">({pos ? "+" : ""}{pctPlain(changePct, 2)})</span>
-      </span>
-    </div>
-  );
-}
-
-// ─── Widget Anti-Panique ─────────────────────────────────────────────────────
-// Seuil de baisse journalière au-delà duquel le bouton "Lire ma thèse"
-// apparaît sur la ligne — au-delà de ce seuil, c'est typiquement le moment où
-// une décision impulsive est la plus tentante.
-const PANIC_THRESHOLD_PCT = -5;
-
-function AntiPanicModal({ position, note, onClose }) {
-  if (!position) return null;
-  const st = STRATEGY_STATUS[note?.statut] || STRATEGY_STATUS.intacte;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-slate-950 p-5 shadow-[0_0_40px_rgba(244,63,94,0.15)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2 text-rose-300">
-            <AlertTriangle size={20} />
-            <span className="text-xs font-bold uppercase tracking-wide">Secousse détectée</span>
-          </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors" aria-label="Fermer">
-            <XIcon size={18} />
-          </button>
-        </div>
-
-        <h3 className="text-lg font-bold text-slate-50 mb-0.5 flex items-center gap-2">
-          <AssetLogo ticker={position.ticker} size="sm" />
-          {position.ticker}
-        </h3>
-        <p className="text-sm text-slate-500 mb-4">{position.name}</p>
-
-        {note ? (
-          <>
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`flex items-center gap-1.5 text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${st.bg} ${st.text}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                Thèse {st.label}
-              </span>
-            </div>
-
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 mb-3">
-              <p className="text-sm text-slate-300 leading-relaxed italic">
-                💡 Rappel à toi-même (rédigé le {formatDateFrShort(note.date)}) :
-              </p>
-              {note.these && <p className="text-sm text-slate-200 mt-2 whitespace-pre-wrap">{note.these}</p>}
-            </div>
-
-            {note.conditions_vente && (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 mb-3">
-                <div className="text-micro text-amber-300/80 font-semibold uppercase tracking-wide mb-1">
-                  Tu ne vends que si...
-                </div>
-                <p className="text-sm text-slate-200 whitespace-pre-wrap">{note.conditions_vente}</p>
-              </div>
-            )}
-
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Est-ce que l'une de ces conditions est vraie aujourd'hui ? Si non, cette baisse est probablement du bruit de marché. Respire, et laisse la thèse jouer.
-            </p>
-          </>
-        ) : (
-          <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900 p-4 text-sm text-slate-400">
-            Aucune thèse enregistrée pour {position.ticker}. Sans repère écrit à froid, c'est le moment idéal pour ne prendre aucune décision impulsive — attends d'avoir de quoi te relire la prochaine fois.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-import { computePeaAge, PEA_PLAFONDS, plafondPea } from "../lib/finance";
-// ... imports existants inchangés ...
-
-function PeaFiscalWidget({ bourse, setBourse, replie, onBasculer }) {
-  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
-  // des identifiants uniques même si ce formulaire est monté deux fois.
-  const idsChamps = useId();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ peaOuverture: bourse.peaOuverture || "", peaVersements: bourse.peaVersements || 0 });
-
-  const versements = bourse.peaVersements || 0;
-  const plafond = plafondPea(bourse);
-  const typeCourant = PEA_PLAFONDS[bourse.peaType] ? bourse.peaType : "classique";
-  const pctPlafond = Math.min(100, (versements / plafond) * 100);
-  const age = computePeaAge(bourse.peaOuverture);
-
-  // Le total versé saisi ici est l'ancrage de la courbe « Capital investi » :
-  // on refixe donc la ligne de base pour qu'il devienne le nouveau point de
-  // départ. Sans ça, le chiffre serait immédiatement recalculé à partir de
-  // l'ancien ancrage et la correction manuelle serait perdue.
-  const save = () => {
-    setBourse((b) =>
-      rebaselineLedger({ ...b, peaOuverture: draft.peaOuverture, peaVersements: lireNombre(draft.peaVersements) ?? 0 })
-    );
-    setEditing(false);
-  };
-
-  return (
-    <CarteRepliable
-      titre="Plafond de versements PEA"
-      accent={CARD_THEMES.violet}
-      replie={replie}
-      onBasculer={onBasculer}
-      resume={`${pctPlain(pctPlafond, 0)} de ${eur(plafond, 0)}`}
-      actions={
-        <button
-          onClick={() => { setDraft({ peaOuverture: bourse.peaOuverture || "", peaVersements: versements }); setEditing((e) => !e); }}
-          className="btn-flash text-micro text-violet-300/80 hover:text-violet-200"
-        >
-          {editing ? "Fermer" : "Modifier"}
-        </button>
-      }
-    >
-
-      {editing ? (
-        <div className="flex flex-wrap items-end gap-3 mb-3">
-          <div>
-            <label htmlFor={`${idsChamps}-date-d-ouverture`} className="text-micro text-slate-500 block mb-1">Date d'ouverture du PEA</label>
-            <input id={`${idsChamps}-date-d-ouverture`} type="date" value={draft.peaOuverture} onChange={(e) => setDraft((d) => ({ ...d, peaOuverture: e.target.value }))} className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
-          </div>
-          <div>
-            <label htmlFor={`${idsChamps}-total-verse`} className="text-micro text-slate-500 block mb-1">Total versé (€)</label>
-            <input id={`${idsChamps}-total-verse`} type="number" step="100" value={draft.peaVersements} onChange={(e) => setDraft((d) => ({ ...d, peaVersements: e.target.value }))} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-violet-400/60" />
-            <p className="text-micro text-slate-500 mt-1 max-w-[13rem]">
-              Point de départ de la courbe « Capital investi ». Il évoluera ensuite tout seul à chaque versement ou retrait de cash.
-            </p>
-          </div>
-          {/* Le plafond ne vaut 150 000 € que pour un PEA classique. Entre 18 et
-              25 ans, tant que le titulaire est rattaché au foyer fiscal de ses
-              parents, il est de 20 000 € — sept fois moins. */}
-          <div>
-            <label htmlFor={`${idsChamps}-type-de-pea`} className="text-micro text-slate-500 block mb-1">Type de PEA</label>
-            <select id={`${idsChamps}-type-de-pea`}
-              value={typeCourant}
-              onChange={(e) => setBourse((b) => ({ ...b, peaType: e.target.value }))}
-              className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-violet-400/60"
-            >
-              {Object.entries(PEA_PLAFONDS).map(([cle, v]) => (
-                <option key={cle} value={cle}>{v.label}</option>
-              ))}
-            </select>
-          </div>
-          <button onClick={save} className="btn-solid text-xs font-semibold bg-violet-400 hover:bg-violet-300 text-slate-950 rounded-lg px-3 py-1.5">Enregistrer</button>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-slate-400 font-data ghost-blur">{eur(versements, 0)} versés</span>
-            <span className="text-slate-500 font-data">{eur(plafond, 0)} plafond</span>
-          </div>
-          <div className="h-2.5 rounded-full bg-slate-800 overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${pctPlafond >= 90 ? "bg-rose-400" : pctPlafond >= 70 ? "bg-amber-400" : "bg-violet-400"}`} style={{ width: `${pctPlafond}%` }} />
-          </div>
-          <div className="text-micro text-slate-500 mt-1">{pctPlain(pctPlafond, 1)} du plafond — reste <span className="ghost-blur">{eur(plafond - versements, 0)}</span> de marge de versement</div>
-          {typeCourant === "jeune" && (
-            <p className="text-micro text-violet-300/80 mt-1.5 leading-relaxed">
-              {PEA_PLAFONDS.jeune.detail}
-            </p>
-          )}
-        </>
-      )}
-
-      <div className="mt-4 pt-3 border-t border-slate-800 flex items-center gap-3">
-        {age ? (
-          <>
-            <span className="text-2xl">{age.eligible ? "🟢" : "🔴"}</span>
-            <div>
-              <div className="text-sm text-slate-200 font-medium">
-                {age.eligible ? "PEA de plus de 5 ans" : "PEA de moins de 5 ans"}
-              </div>
-              <div className="text-micro text-slate-500">
-                {age.eligible
-                  ? "Exonération d'impôt sur les plus-values — seuls 17,2 % de prélèvements sociaux restent dus."
-                  : `Clôture entraînerait imposition spécifique — encore ${age.monthsRemaining} mois avant l'exonération.`}
-              </div>
-              <div className="text-micro text-slate-500 font-data mt-0.5">Ouvert depuis {age.years} an(s) {age.months} mois</div>
-            </div>
-          </>
-        ) : (
-          <span className="text-micro text-slate-500">Renseigne la date d'ouverture pour voir le décompte fiscal.</span>
-        )}
-      </div>
-    </CarteRepliable>
-  );
-}
-
-
-/**
- * Avertit quand des positions sont cotées dans une autre devise que l'euro.
- *
- * Toute l'application additionne les `current_price` comme des euros et ne
- * convertit jamais : sans ce signal, un titre coté en dollars était compté à
- * parité 1:1 et faussait silencieusement la valeur du portefeuille, la
- * plus-value et la répartition. Mieux vaut le dire que de laisser croire à un
- * chiffre juste.
- */
-function ForeignCurrencyWarning({ positions }) {
-  const sansTaux = positionsSansTaux(positions);
-  const converties = (positions || []).filter(
-    (p) => p.currency && p.currency !== "EUR" && Number.isFinite(p.fxRate) && p.fxRate > 0
-  );
-
-  // Cas nominal désormais : les lignes en devise sont converties au taux du
-  // jour, récupéré en même temps que les cours. On l'indique sans alarmer.
-  if (sansTaux.length === 0) {
-    if (converties.length === 0) return null;
-    const devises = [...new Set(converties.map((p) => p.currency))].join(", ");
-    return (
-      <div className="flex items-start gap-2 text-xs rounded-lg border border-slate-700 bg-slate-900/60 text-slate-400 px-3 py-2">
-        <Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-        <span>
-          {converties.length} position(s) cotée(s) en {devises}, converties en euros au taux du jour.
-          Le prix de revient est converti à ce même taux : la plus-value affichée inclut donc l'effet
-          de change, sans le distinguer de la performance du titre.
-        </span>
-      </div>
-    );
-  }
-
-  const devises = [...new Set(sansTaux.map((p) => p.currency))].join(", ");
-  return (
-    <div className="flex items-start gap-2 text-xs rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 px-3 py-2">
-      <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-      <span>
-        {sansTaux.length} position(s) en {devises} ({sansTaux.map((p) => p.ticker).join(", ")}) sans
-        taux de change connu : elles sont comptées à parité 1:1. Actualise les cours pour récupérer
-        les taux et corriger la valeur totale, la plus-value et la répartition.
-      </span>
-    </div>
-  );
-}
-
-/**
- * Lignes incompatibles avec l'enveloppe déclarée.
- *
- * Un PEA ne peut détenir que des sociétés dont le siège est dans l'UE ou
- * l'EEE. Rien ne l'empêchait : on pouvait ajouter `AAPL` à un portefeuille
- * déclaré PEA, et toute la fiscalité calculée derrière — exonération après
- * cinq ans, plus-value nette — devenait fausse sans qu'aucun signal
- * n'apparaisse.
- *
- * L'avertissement reste informatif : on ne bloque pas la saisie. Le suffixe du
- * ticker est une heuristique, et une ligne peut être détenue sur un CTO
- * pendant que l'enveloppe principale est un PEA.
- */
-function EligibilitePeaWarning({ positions, enveloppe }) {
-  const inelegibles = useMemo(
-    () =>
-      (positions || [])
-        .map((p) => ({ position: p, verdict: verifierEligibilite(p.ticker, enveloppe) }))
-        .filter(({ verdict }) => verdict.eligible === false),
-    [positions, enveloppe]
-  );
-
-  if (inelegibles.length === 0) return null;
-
-  const pays = [...new Set(inelegibles.map(({ verdict }) => verdict.pays))].join(", ");
-  return (
-    <div className="flex items-start gap-2 text-xs rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-200 px-3 py-2">
-      <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-      <span>
-        {inelegibles.length} ligne(s) hors Espace économique européen ({pays}) :{" "}
-        <span className="font-medium">{inelegibles.map(({ position }) => position.ticker).join(", ")}</span>.
-        Un {enveloppe} ne peut pas les détenir — si elles sont sur un compte-titres, déclare-le dans
-        l&apos;enveloppe de ce portefeuille, sinon la fiscalité affichée ici est fausse.
-      </span>
-    </div>
-  );
-}
-
-/**
- * Poche de cash — modifiable à la main. Tout écart est tracé, mais comme un
- * AJUSTEMENT de solde, et non plus comme un versement ou un retrait.
- *
- * La trace reste indispensable : `cash_pocket` est rejoué depuis le journal,
- * une correction non écrite ne tiendrait pas d'un rechargement à l'autre.
- * Mais sa NATURE comptait autant que son existence. En créant un VERSEMENT ou
- * un RETRAIT, l'ancienne version déclarait un mouvement d'argent entre le
- * compte courant et le portefeuille — un flux externe, donc du capital
- * investi en plus ou en moins, et une performance faussée d'autant.
- *
- * Or on corrige son solde presque toujours pour la raison inverse : une
- * vente, un dividende ou des frais qui ne tombaient pas au centime près.
- * Après une vente, recaler le solde créait ainsi un retrait du montant de la
- * vente — l'argent était pourtant toujours là, simplement passé des titres
- * vers le cash.
- *
- * Un vrai versement se saisit désormais depuis Opérations, explicitement.
- *
- * La saisie n'est validée qu'à la sortie du champ (ou sur Entrée) : sinon
- * chaque frappe créerait sa propre écriture.
- */
-/**
- * Le solde est rejoué depuis le journal, par additions successives : il porte
- * donc les scories de l'arithmétique flottante (555,8100000000001). Le champ
- * les affichait telles quelles — « 555,810000 » tronqué dans sa case. On
- * l'arrondit au centime pour l'affichage ; l'écart résiduel reste sous le
- * seuil de `buildCashAdjustment`, qui n'écrit donc rien si l'on quitte le
- * champ sans y toucher.
- */
-const auCentime = (n) => String(Math.round((Number(n) || 0) * 100) / 100);
-
-function CashPocketCard({ bourse, setBourse }) {
-  const current = bourse.cash_pocket || 0;
-  const [draft, setDraft] = useState(auCentime(current));
-
-  // Resynchronisation du brouillon quand la valeur de référence change
-  // (import de relevé, rejeu du journal, arrivée d'une valeur cloud).
-  //
-  // C'était un effet, qui repeignait donc le champ avec l'ancienne valeur
-  // avant de le corriger au rendu suivant. L'ajustement pendant le rendu est
-  // le motif documenté par React pour « réagir au changement d'une prop » :
-  // le rendu est relancé immédiatement, sans rien afficher entre les deux.
-  const [refPrecedente, setRefPrecedente] = useState(current);
-  if (current !== refPrecedente) {
-    setRefPrecedente(current);
-    setDraft(auCentime(current));
-  }
-
-  const commit = () => {
-    const target = lireNombre(draft);
-    if (!Number.isFinite(target)) {
-      setDraft(auCentime(current));
-      return;
-    }
-    const movement = buildCashAdjustment(current, target);
-    if (!movement) return;
-    setBourse((b) => applyOperationsToBourse(b, [movement, ...(b.operations || [])]));
-  };
-
-  return (
-    <Card accent={CARD_THEMES.violet}>
-      <CardLabel icon={Wallet}>Poche cash disponible</CardLabel>
-      <div className="flex items-center gap-2 mt-1">
-        <input
-          type="number"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-          title="Une correction est enregistrée comme ajustement de solde daté dans le journal d'opérations."
-          className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
-        />
-        <span className="text-xs text-slate-500">€</span>
-      </div>
-      {/* Le libellé annonçait encore « versement ou retrait » : c'était
-          l'ancien comportement, celui qui faussait la performance. Une
-          correction crée désormais un ajustement de solde. */}
-      <p className="text-micro text-slate-500 mt-1">
-        Corriger le solde crée un ajustement — un versement se saisit dans Opérations
-      </p>
-    </Card>
-  );
-}
-
-export default function Bourse({
-  bourse, setBourse, bourseTotal, bourseGainAbs, bourseGainPct,
-  alertesWatchlist, setAlertesWatchlist,
-  bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
-  // Composition de l'écran : quels blocs sont repliés. Persisté, donc retrouvé
-  // tel quel au rechargement et sur les autres appareils.
-  widgetsReplies = {}, basculerWidget,
-  // Secteurs choisis à la main, partagés par Analyse et le Screener.
-  secteursManuels = {}, setSecteursManuels,
-}) {
+export default function Bourse() {
+  const {
+    bourse, setBourse, bourseTotal, bourseGainAbs, bourseGainPct,
+    alertesWatchlist, setAlertesWatchlist,
+    bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
+    // Composition de l'écran : quels blocs sont repliés. Persisté, donc
+    // retrouvé tel quel au rechargement et sur les autres appareils.
+    widgetsReplies = {}, basculerWidget,
+    // Secteurs choisis à la main, partagés par Analyse et le Screener.
+    secteursManuels = {}, setSecteursManuels,
+  } = usePatrimoine();
   const { showToast } = useToast();
   const replie = (id) => Boolean(widgetsReplies?.[id]);
   const basculer = (id) => () => basculerWidget?.(id);
+  // Actualisation des cours, relevés quotidiens et rattrapage : voir le hook.
+  const {
+    refreshing, refreshMsg, refreshPrices, completerDividendes,
+    dailyData, seriesCours,
+    trackLoading, trackError, captureSnapshot,
+    apercuRecalcul, setApercuRecalcul, recalculEnCours, preparerRecalcul, validerRecalcul,
+  } = useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHistory });
   const [showAdd, setShowAdd] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshMsg, setRefreshMsg] = useState("");
   const [panicPosition, setPanicPosition] = useState(null);
   // Fiche par ligne : l'identifiant de la position ouverte, ou null.
   const [ficheOuverte, setFicheOuverte] = useState(null);
-  const [subTab, setSubTab] = useState("portefeuille"); // "portefeuille" | "analyse" | "performance" | "marche" | "screener" | "calendrier"
+  const [subTab, setSubTab] = useSousOnglet(SOUS_ONGLETS_BOURSE, "portefeuille");
   // Requête d'ouverture d'une fiche dans l'onglet Marché depuis le tableau de
   // positions ou la watchlist. Le "ts" force le rechargement dans <Marche>
   // même si on reclique deux fois de suite sur la même valeur.
@@ -595,15 +131,9 @@ export default function Bourse({
 
   // ─── Persistance du tri et des données de variation ──────────────────────
   const [sort, setSort] = usePersistentState("bourseSort", "none");
-  const [dailyData, setDailyData] = usePersistentState("bourseDailyData", {});
-  // Séries de cours par ticker, accumulées au fil des actualisations et
-  // consommées par les sparklines du tableau de positions.
-  const [seriesCours, setSeriesCours] = usePersistentState("bourseSeriesCours", {});
 
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({ quantity: "", pru: "", current_price: "", annual_dividend: "" });
-  const [trackLoading, setTrackLoading] = useState(false);
-  const [trackError, setTrackError] = useState("");
 
   // Toute retouche MANUELLE des positions refixe la ligne de base : la saisie
   // de l'utilisateur devient le nouveau point de départ du grand livre. Sans
@@ -692,170 +222,6 @@ export default function Bourse({
   };
 
   /**
-   * Dividende par action et calendrier de détachement, depuis la source de
-   * marché. Ne remplace jamais une saisie manuelle (voir dividendesAuto.js).
-   * Deux appels pour tout le portefeuille, quelle que soit sa taille : les
-   * ratios (dividende annoncé) et deux ans d'historique mensuel avec les
-   * détachements, qui disent EN QUEL MOIS le dividende tombe.
-   */
-  const completerDividendes = async (symboles) => {
-    const aujourdhui = todayIso();
-    const [ratios, historiques] = await Promise.all([
-      fetchScreen(symboles).catch(() => []),
-      fetchHistory(symboles, "2y", "1mo", { dividendes: true }).catch(() => []),
-    ]);
-    const ratiosPar = new Map((ratios || []).map((r) => [String(r.symbole || "").toUpperCase(), r]));
-    const moisPar = new Map(
-      (historiques || [])
-        .filter((h) => h?.ok && Array.isArray(h.dividendes))
-        .map((h) => [String(h.symbol).toUpperCase(), repartitionMensuelle(h.dividendes, aujourdhui)])
-    );
-    if (ratiosPar.size === 0 && moisPar.size === 0) return;
-
-    // Ce qui va changer, pour le dire : un remplissage silencieux ne se
-    // distinguait pas d'un remplissage qui ne marche pas.
-    const changes = (bourse.positions || [])
-      .map((p) => {
-        const maj = majDividendeAuto(p, ratiosPar.get(String(p.ticker || "").toUpperCase()), aujourdhui);
-        return maj && "annual_dividend" in maj && Number(maj.annual_dividend) !== Number(p.annual_dividend || 0)
-          ? `${p.ticker} ${eur(maj.annual_dividend, 2)}`
-          : null;
-      })
-      .filter(Boolean);
-
-    const avant = bourse;
-    setBourse((b) => ({
-      ...b,
-      positions: b.positions.map((p) => {
-        const cle = String(p.ticker || "").toUpperCase();
-        const ratio = ratiosPar.get(cle);
-        const maj = majDividendeAuto(p, ratio, aujourdhui);
-        const mois = moisPar.has(cle) ? { dividendeMois: moisPar.get(cle) } : null;
-        // Ligne vérifiée dès que la source a répondu pour elle, même si sa
-        // valeur est manuelle ou inchangée : c'est ce qui évite de la
-        // réinterroger à chaque ouverture de l'onglet.
-        const verifie = (ratio && ratio.ok !== false) || mois ? { dividendeVerifieLe: aujourdhui } : null;
-        return maj || mois || verifie ? { ...p, ...(maj || {}), ...(mois || {}), ...(verifie || {}) } : p;
-      }),
-    }));
-
-    if (changes.length > 0) {
-      showToast({
-        message: `Dividende par action mis à jour : ${changes.join(", ")}.`,
-        onUndo: () => setBourse(avant),
-      });
-    }
-  };
-
-  const refreshPrices = async () => {
-    if (bourse.positions.length === 0) return;
-    setRefreshing(true);
-    setRefreshMsg("");
-    try {
-      const symbols = bourse.positions.map((p) => p.ticker);
-      const quotes = await fetchQuotes(symbols);
-      const newDailyData = {};
-      // Copie de travail des séries existantes : elles sont complétées dans la
-      // boucle ci-dessous, puis persistées en une seule écriture.
-      const serieParTicker = { ...(seriesCours || {}) };
-      const refreshedAt = new Date().toISOString();
-
-      // Taux de change des devises effectivement rencontrées dans les cours
-      // qu'on vient de recevoir — la devise d'une position peut changer au
-      // premier rafraîchissement, quand elle n'était pas encore connue.
-      const devises = [...new Set(
-        quotes.filter((q) => q.ok && q.currency && q.currency !== "EUR").map((q) => q.currency)
-      )];
-      let tauxParDevise = {};
-      if (devises.length > 0) {
-        try {
-          const taux = await fetchTauxChange(devises);
-          tauxParDevise = Object.fromEntries(
-            taux.filter((t) => t.ok).map((t) => [t.devise, t.versEuro])
-          );
-        } catch {
-          // Échec des taux : les cours restent à jour, les positions étrangères
-          // gardent leur ancien taux (ou aucun) et l'avertissement subsiste.
-          tauxParDevise = {};
-        }
-      }
-
-      setBourse((b) => ({
-        ...b,
-        // Date de dernière actualisation des cours — c'est elle qui mesure la
-        // fraîcheur réelle des données affichées. Le Dashboard s'appuyait
-        // auparavant sur l'historique de patrimoine, alimenté automatiquement
-        // chaque jour, et affichait donc toujours « actualisé aujourd'hui »
-        // même quand les cours dataient de plusieurs semaines.
-        pricesUpdatedAt: refreshedAt,
-        positions: b.positions.map((p) => {
-          const q = quotes.find((x) => x.symbol === p.ticker);
-          if (q?.ok) {
-            // Compute daily variation
-            if (q.previousClose && q.price) {
-              newDailyData[p.ticker] = {
-                changeAbs: q.price - q.previousClose,
-                changePct: ((q.price - q.previousClose) / q.previousClose) * 100,
-              };
-            }
-            /*
-             * Série de cours, pour la sparkline de la ligne.
-             *
-             * Elle s'ACCUMULE au fil des actualisations, elle n'est pas
-             * reconstituée : c'est le même parti pris que le relevé quotidien
-             * du patrimoine, qui refuse d'inventer un passé qu'il n'a pas
-             * observé. Un point par jour, le dernier de la journée l'emportant,
-             * et soixante au maximum — au-delà, une micro-courbe de 4,5 rem ne
-             * distingue plus rien.
-             *
-             * Conséquence assumée : la sparkline n'apparaît qu'après quelques
-             * jours d'usage. Une courbe tirée d'un historique complet serait
-             * disponible tout de suite, mais coûterait un appel réseau par
-             * ligne à chaque ouverture de l'onglet.
-             */
-            if (q.price) {
-              const jour = todayIso();
-              const ancienne = (serieParTicker[p.ticker] || []).filter((pt) => pt.d !== jour);
-              serieParTicker[p.ticker] = [...ancienne, { d: jour, p: q.price }].slice(-60);
-            }
-            // Devise de cotation ET taux de conversion vers l'euro. Sans ce
-            // taux, un titre coté en dollars était compté à parité 1:1 dans la
-            // valeur du portefeuille, la plus-value et la répartition.
-            const devise = q.currency || p.currency || "EUR";
-            const taux = devise === "EUR" ? 1 : tauxParDevise[devise] ?? p.fxRate ?? null;
-            return {
-              ...p,
-              current_price: q.price,
-              // Clôture de la veille CONSERVÉE sur la position : c'est elle qui
-              // permet de calculer la variation du jour du portefeuille entier.
-              // C'est Yahoo qui décide de ce qu'est « la veille » — vendredi pour
-              // un lundi, l'avant-veille après un jour férié — ce qui évite d'avoir
-              // à tenir un calendrier boursier par place.
-              previousClose: q.previousClose ?? p.previousClose ?? null,
-              currency: devise,
-              fxRate: taux,
-              fxUpdatedAt: taux != null && devise !== "EUR" ? refreshedAt : p.fxUpdatedAt ?? null,
-            };
-          }
-          return p;
-        }),
-      }));
-      // Mettre à jour les données persistées (fusionner avec les existantes)
-      setDailyData((prev) => ({ ...prev, ...newDailyData }));
-      setSeriesCours(serieParTicker);
-      // Dividendes : lancés APRÈS les cours et sans les attendre — un échec
-      // ici ne doit jamais faire échouer l'actualisation.
-      completerDividendes(symbols);
-      const failed = quotes.filter((q) => !q.ok).length;
-      setRefreshMsg(failed > 0 ? `${failed} cours sur ${quotes.length} n'ont pas pu être actualisés.` : "Tous les cours ont été actualisés.");
-    } catch {
-      setRefreshMsg("Actualisation impossible — vérifiez votre connexion internet.");
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  /**
    * Tirer vers le bas pour actualiser les cours.
    *
    * Le bouton d'actualisation est en haut de l'onglet, hors de portée du pouce
@@ -879,239 +245,6 @@ export default function Bourse({
     () => computeDividendSummary(bourse.positions, bourse.envelope),
     [bourse.positions, bourse.envelope]
   );
-
-  const captureSnapshot = async (silent = false) => {
-    if (!silent) { setTrackLoading(true); setTrackError(""); }
-    try {
-      const tickers = [...new Set(bourse.positions.map((p) => p.ticker))];
-      const allSymbols = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
-      const quotes = allSymbols.length > 0 ? await fetchQuotes(allSymbols) : [];
-      const priceMap = {};
-      const veilleMap = {};
-      quotes.forEach((q) => {
-        if (!q.ok) return;
-        priceMap[q.symbol] = q.price;
-        if (q.previousClose != null) veilleMap[q.symbol] = q.previousClose;
-      });
-
-      /*
-       * La clôture de la veille est écrite sur les positions ICI aussi.
-       *
-       * Elle ne l'était que dans `refreshPrices`, déclenché par le bouton
-       * « Actualiser les cours ». Tant qu'on ne l'avait pas pressé une fois,
-       * aucune position ne portait de `previousClose` : `variationDuJour` se
-       * déclarait inexploitable et la variation du jour ne s'affichait tout
-       * simplement pas, sans rien dire. Or ce relevé-ci tourne tout seul au
-       * montage de l'onglet, et il tient déjà les cotations en main — les
-       * jeter pour les redemander plus tard n'avait aucun sens.
-       */
-      /*
-       * Le COURS aussi, et pas seulement la veille.
-       *
-       * Seule la clôture de la veille était écrite ici : la variation du jour
-       * rapprochait donc la veille fraîche d'un cours resté à la dernière
-       * pression du bouton — parfois vieux de plusieurs jours. Le chiffre
-       * affiché sous la valeur du portefeuille, et le briefing du Dashboard,
-       * n'étaient alors la variation de rien. Ce relevé tient les cotations
-       * du jour : il les écrit.
-       */
-      if (Object.keys(veilleMap).length > 0 || Object.keys(priceMap).length > 0) {
-        setBourse((b) => ({
-          ...b,
-          ...(tickers.some((t) => priceMap[t] != null) ? { pricesUpdatedAt: new Date().toISOString() } : {}),
-          positions: b.positions.map((p) =>
-            veilleMap[p.ticker] != null || priceMap[p.ticker] != null
-              ? {
-                  ...p,
-                  ...(veilleMap[p.ticker] != null ? { previousClose: veilleMap[p.ticker] } : {}),
-                  ...(priceMap[p.ticker] != null ? { current_price: priceMap[p.ticker] } : {}),
-                }
-              : p
-          ),
-        }));
-      }
-
-      // Valorisation par `valeurPosition`, donc CONVERTIE en euros. L'ancien
-      // calcul multipliait le cours par la quantité sans toucher au taux de
-      // change : une ligne en dollars entrait dans l'instantané quotidien à
-      // parité 1:1, alors que le reste de l'application la convertit. La
-      // courbe de valeur et la variation du jour en héritaient.
-      const valeur =
-        bourse.positions.reduce(
-          (sum, p) => sum + valeurPosition({ ...p, current_price: priceMap[p.ticker] ?? p.current_price }),
-          0
-        ) + bourse.cash_pocket;
-      // Cumul des versements, dérivé du journal d'opérations — et non plus
-      // `Σ quantité × PRU + cash`, qui chutait à chaque vente alors qu'aucun
-      // argent n'était sorti du compte.
-      const capital = investedCapitalAsOf(computeInvestedCapital(bourse), today());
-
-      const entry = {
-        date: today(),
-        valeur: Math.round(valeur),
-        capital: Math.round(capital),
-        // Dérivé de la liste d'indices, et non réécrit à la main : c'est
-        // l'énumération en dur de trois clés qui avait laissé Nasdaq, MSCI
-        // Emerging et Or vides en permanence.
-        ...Object.fromEntries(BENCHMARKS.map((b) => [b.cle, priceMap[b.symbol] ?? null])),
-      };
-      setBourseHistory((h) => upsertByDate(h, entry));
-
-      const failed = quotes.filter((q) => !q.ok).length;
-      if (failed > 0) setTrackError(`${failed} cotation(s) sur ${quotes.length} indisponible(s).`);
-    } catch {
-      setTrackError("Mise à jour du suivi impossible — vérifie ta connexion internet.");
-    } finally {
-      if (!silent) setTrackLoading(false);
-    }
-  };
-
-  /**
-   * Rattrapage des jours d'absence.
-   *
-   * Le relevé ci-dessus ne sait prendre que le jour même. Une semaine sans
-   * ouvrir l'application laisse donc sept trous que rien ne comblera jamais :
-   * ni le calendrier de la rétrospective, ni les courbes, ni le TWR n'ont de
-   * quoi les remplir.
-   *
-   * On les reconstitue à partir des CLÔTURES RÉELLES et du journal d'opérations,
-   * qui est daté. C'est plus juste qu'un relevé pris en séance, et cela ne
-   * demande aucune infrastructure : pas de travail planifié côté serveur, donc
-   * pas de clé de service capable de lire les données de tous les utilisateurs.
-   */
-  const rattraperHistorique = async () => {
-    // Sans relevé antérieur, il n'y a pas d'absence à combler : il y a un
-    // début. Reconstituer une année à partir d'un portefeuille qui n'existait
-    // pas encore tracerait une ligne plate à zéro — du bruit présenté comme de
-    // l'histoire.
-    if (bourseHistory.length === 0) return;
-
-    const dernier = bourseHistory.map((e) => e.date).filter(Boolean).sort().at(-1);
-    const absence = Math.round(
-      (new Date(`${today()}T00:00:00`) - new Date(`${dernier}T00:00:00`)) / 86400000
-    );
-    // Un seul jour d'écart, c'est le rythme normal : hier relevé, aujourd'hui
-    // ouvert. Au-delà d'un an, ce n'est plus une absence.
-    if (absence < 2 || absence > ABSENCE_MAX_JOURS) return;
-
-    const tickers = [...new Set(bourse.positions.map((p) => p.ticker))];
-    const symboles = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
-
-    try {
-      // `interval=1d` explicitement : sur une plage courte la route descendrait
-      // d'elle-même en intraday, ce qui multiplierait le volume par cinquante
-      // pour une information — la clôture — qu'on peut demander directement.
-      const reponses = await fetchHistory(symboles, plagePour(absence), "1d");
-      const clotures = indexerClotures(reponses);
-      const dates = joursManquants(bourseHistory, datesCotees(clotures), today());
-      const releves = reconstituer({ bourse, dates, clotures, indices: CLES_INDICE });
-      if (releves.length === 0) return;
-
-      const avant = bourseHistory;
-      setBourseHistory((h) => releves.reduce(upsertByDate, h));
-      showToast({
-        message: `${releves.length} jour${releves.length > 1 ? "s" : ""} d'absence reconstitué${
-          releves.length > 1 ? "s" : ""
-        } à partir des clôtures.`,
-        onUndo: () => setBourseHistory(avant),
-      });
-    } catch {
-      // Un rattrapage qui échoue laisse l'historique tel quel. C'est un
-      // confort : rien dans l'onglet n'en dépend, et une erreur affichée ici
-      // ferait passer pour une panne ce qui n'est qu'une donnée absente.
-    }
-  };
-
-  /**
-   * Recalcul des relevés DÉJÀ enregistrés.
-   *
-   * Le rattrapage ci-dessus ne comble que les trous ; il ne corrige jamais un
-   * point existant, et c'est voulu — un relevé pris en séance vaut mieux
-   * qu'une clôture reconstituée. Sauf quand ce relevé a figé une valeur
-   * fausse, ce qui est exactement ce qu'a produit le « faux creux » : après
-   * une vente dont le produit n'était pas crédité en poche cash au même
-   * instant, le portefeuille paraissait avoir perdu le montant de la vente.
-   * Le creux est entré dans l'historique, et le rattrapage ne pouvait pas
-   * l'en sortir.
-   *
-   * Le recalcul rejoue le journal CORRIGÉ contre les clôtures réelles, et ne
-   * touche que les points dont la valeur change. Rien n'est écrit avant que
-   * l'utilisateur ait vu l'écart, point par point.
-   */
-  const [apercuRecalcul, setApercuRecalcul] = useState(null);
-  const [recalculEnCours, setRecalculEnCours] = useState(false);
-
-  const preparerRecalcul = async () => {
-    if (bourseHistory.length === 0) return;
-    setRecalculEnCours(true);
-    setTrackError("");
-    try {
-      const premier = bourseHistory.map((e) => e.date).filter(Boolean).sort()[0];
-      const profondeur = Math.round(
-        (new Date(`${today()}T00:00:00`) - new Date(`${premier}T00:00:00`)) / 86400000
-      );
-      const tickers = [...new Set(bourse.positions.map((p) => p.ticker))];
-      const symboles = [...tickers, ...BENCHMARKS.map((b) => b.symbol)];
-      const reponses = await fetchHistory(symboles, plagePour(Math.min(profondeur, ABSENCE_MAX_JOURS)), "1d");
-      const clotures = indexerClotures(reponses);
-      const changements = recalculerReleves({
-        bourse,
-        historique: bourseHistory,
-        clotures,
-        indices: CLES_INDICE,
-      });
-      setApercuRecalcul(changements);
-    } catch {
-      setTrackError("Recalcul impossible — les clôtures n'ont pas pu être récupérées.");
-    } finally {
-      setRecalculEnCours(false);
-    }
-  };
-
-  const validerRecalcul = () => {
-    if (!apercuRecalcul || apercuRecalcul.length === 0) return;
-    const avant = bourseHistory;
-    setBourseHistory((h) => appliquerRecalcul(h, apercuRecalcul));
-    showToast({
-      message: `${apercuRecalcul.length} relevé(s) recalculé(s) à partir du journal.`,
-      onUndo: () => setBourseHistory(avant),
-    });
-    setApercuRecalcul(null);
-  };
-
-  useEffect(() => {
-    const hasToday = bourseHistory.some((e) => e.date === today());
-    // Une position sans clôture de veille empêche le calcul de la variation
-    // du jour. Le relevé quotidien ramène justement ces clôtures : on le
-    // déclenche donc aussi dans ce cas, même si le point du jour existe déjà.
-    // Sinon la variation restait invisible jusqu'à ce que l'utilisateur pense
-    // à presser « Actualiser les cours » — c'est-à-dire, en pratique, jamais.
-    const veilleManquante = bourse.positions.some(
-      (p) => p.quantity && (p.previousClose == null || !(p.previousClose > 0))
-    );
-    // Effet de CHARGEMENT : Relevé de performance du jour au montage :
-    // `captureSnapshot` lève son propre témoin de chargement avant d'interroger
-    // le réseau. C'est la définition même d'un effet — synchroniser avec un
-    // système externe.
-    //
-    // Le rattrapage passe D'ABORD : il remonte le temps, le relevé écrit le
-    // présent. Dans l'ordre inverse, le message de rattrapage arriverait après
-    // le point du jour, sans qu'on sache à quoi il se rapporte.
-    //
-    // Plus de `set-state-in-effect` à museler ici : les deux écritures d'état
-    // partent désormais d'une continuation asynchrone, pas du corps de l'effet.
-    rattraperHistorique().finally(() => {
-      if (!hasToday || veilleManquante) captureSnapshot(true);
-    });
-    // Dividendes : vérifiés tout seuls, comme les cours, et non plus
-    // seulement sur « Actualiser les cours » — qu'on ne presse presque jamais
-    // puisque les cours, eux, s'actualisent déjà à l'ouverture. Une fois par
-    // semaine au plus : un dividende change une ou deux fois par an.
-    if (dividendesAVerifier(bourse.positions, todayIso())) {
-      completerDividendes([...new Set(bourse.positions.map((p) => p.ticker).filter(Boolean))]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const base100Data = useMemo(() => rebaseTo100(bourseHistory, ["valeur", "sp500", "cac40", "msciWorld"]), [bourseHistory]);
   const hasEnoughHistory = bourseHistory.length >= 2;
@@ -1324,7 +457,7 @@ export default function Bourse({
         }
       >
         {bourse.positions.length === 0 || dividendSummary.totalAnnualDividend === 0 ? (
-          <EmptyState>
+          <EmptyState picto="dividendes">
             Le dividende de chaque ligne se remplit au prochain « Actualiser les cours », depuis la source de marché. Une ligne qui ne verse rien (ETF capitalisant, société sans dividende) reste à zéro ; le crayon permet de corriger une valeur.
           </EmptyState>
         ) : (
@@ -1543,10 +676,16 @@ export default function Bourse({
                         )}
                       </td>
                       <td className="py-3 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEdit(p)} className="text-slate-500 hover:text-amber-300 p-1"><Pencil size={14} /></button>
-                          <IconTrash onClick={() => removePosition(p.id)} />
-                        </div>
+                        <MenuActions
+                          className="flex justify-end"
+                          libelle={`Actions sur ${p.ticker || p.name}`}
+                          actions={[
+                            { libelle: "Modifier", icone: Pencil, onClick: () => startEdit(p) },
+                            { libelle: "Fiche de la ligne", icone: BookOpen, onClick: () => setFicheOuverte(p.id) },
+                            p.ticker && { libelle: "Ouvrir dans Marché", icone: Search, onClick: () => openInMarche(p.ticker) },
+                            { libelle: "Supprimer", icone: Trash2, onClick: () => removePosition(p.id), danger: true },
+                          ]}
+                        />
                       </td>
                     </LignePosition>
                   );
@@ -1614,7 +753,7 @@ export default function Bourse({
         resume={`${pieData.length} ligne(s)`}
       >
         {pieData.length === 0 ? (
-          <EmptyState>Ajoute une position pour voir sa répartition.</EmptyState>
+          <EmptyState picto="graphique">Ajoute une position pour voir sa répartition.</EmptyState>
         ) : (
           <div className="flex flex-col sm:flex-row items-center gap-6 mt-2">
             <div className="h-64 w-full sm:w-1/2">
@@ -1736,141 +875,5 @@ export default function Bourse({
         />
       )}
     </div>
-  );
-}
-
-function AddPositionPanel({ open, onClose, onSubmit }) {
-  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
-  // des identifiants uniques même si ce formulaire est monté deux fois.
-  const idsChamps = useId();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [selected, setSelected] = useState(null);
-  const [quantity, setQuantity] = useState("");
-  const [pru, setPru] = useState("");
-  const [annualDividend, setAnnualDividend] = useState("");
-  const [manual, setManual] = useState(false);
-  const debounceRef = useRef(null);
-
-  // Remise à zéro à la FERMETURE, décidée pendant le rendu plutôt que dans un
-  // effet : sinon le panneau se rouvrait brièvement avec la saisie précédente
-  // encore affichée, le temps que l'effet s'exécute.
-  const [ouvertPrecedent, setOuvertPrecedent] = useState(open);
-  if (open !== ouvertPrecedent) {
-    setOuvertPrecedent(open);
-    if (!open) {
-      setQuery(""); setResults([]); setSelected(null); setQuantity("");
-      setPru(""); setAnnualDividend(""); setManual(false); setError("");
-    }
-  }
-
-  useEffect(() => {
-    if (manual || selected) return undefined;
-    clearTimeout(debounceRef.current);
-    if (query.trim().length < 2) return undefined;
-    // `setLoading(true)` était appelé ici, synchroniquement : chaque caractère
-    // tapé allumait donc le témoin de chargement pour une recherche qui, neuf
-    // fois sur dix, allait être annulée par la frappe suivante. Il part
-    // désormais avec la requête, à l'expiration du délai.
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true); setError("");
-      try { const r = await searchSecurity(query.trim()); setResults(r); }
-      catch { setError("Recherche indisponible pour le moment."); }
-      finally { setLoading(false); }
-    }, 400);
-    return () => clearTimeout(debounceRef.current);
-  }, [query, manual, selected]);
-
-  if (!open) return null;
-
-  const pickResult = async (r) => {
-    setSelected({ ...r, current_price: null, currency: "" });
-    setResults([]); setLoading(true); setError("");
-    try {
-      const quotes = await fetchQuotes([r.symbol]);
-      const q = quotes[0];
-      if (q?.ok) setSelected((s) => ({ ...s, current_price: q.price, currency: q.currency }));
-      else { setError("Cours indisponible — tu peux le saisir manuellement."); setSelected((s) => ({ ...s, current_price: 0 })); }
-    } catch { setError("Cours indisponible — tu peux le saisir manuellement."); setSelected((s) => ({ ...s, current_price: 0 })); }
-    finally { setLoading(false); }
-  };
-
-  const ready = manual ? query.trim().length > 0 : !!selected;
-
-  const submit = (e) => {
-    e.preventDefault();
-    if (!quantity || !pru || !ready) return;
-    if (manual) {
-      onSubmit({ ticker: query.toUpperCase(), name: query, type: "Autre", quantity: lireNombre(quantity), pru: lireNombre(pru), current_price: lireNombre(pru), annual_dividend: lireNombre(annualDividend) ?? 0 });
-    } else {
-      onSubmit({ ticker: selected.symbol, name: selected.name, type: selected.type || "Autre", quantity: lireNombre(quantity), pru: lireNombre(pru), current_price: selected.current_price || 0, annual_dividend: lireNombre(annualDividend) ?? 0, currency: selected.currency || "EUR" });
-    }
-    onClose();
-  };
-
-  return (
-    <form onSubmit={submit} className="mt-3 p-4 rounded-xl border border-amber-400/20 bg-slate-950 space-y-3">
-      {!manual ? (
-        <>
-          <label htmlFor={`${idsChamps}-ticker-isin-ou`} className="text-micro text-slate-500">Ticker, ISIN ou nom du produit</label>
-          <input id={`${idsChamps}-ticker-isin-ou`} autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Ex : CW8, FR0011550185, Air Liquide..." className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60" />
-          {loading && <p className="text-xs text-slate-500">Recherche en cours…</p>}
-          {error && <p className="text-xs text-amber-400/90">{error}</p>}
-          {/* La liste est DÉRIVÉE de la requête courante, elle n'est plus vidée
-              par un effet. L'ancien code appelait `setResults([])` dès que la
-              saisie repassait sous deux caractères ; en dériver l'affichage
-              évite à la fois ce rendu supplémentaire et le risque d'afficher
-              des résultats qui ne correspondent plus à ce qui est tapé. */}
-          {!selected && query.trim().length >= 2 && results.length > 0 && (
-            <div className="border border-slate-800 rounded-lg divide-y divide-slate-800 max-h-44 overflow-y-auto">
-              {results.map((r) => (
-                <button type="button" key={r.symbol} onClick={() => pickResult(r)} className="w-full text-left px-3 py-2 hover:bg-slate-800 text-sm">
-                  <span className="text-slate-100 font-medium">{r.symbol}</span>
-                  <span className="text-slate-500"> — {r.name} {r.exchange ? `(${r.exchange})` : ""}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {selected && (
-            <div className="flex items-center justify-between rounded-lg bg-slate-900 border border-slate-800 px-3 py-2">
-              <div>
-                <div className="text-sm text-slate-100 font-medium">{selected.symbol} — {selected.name}</div>
-                <div className="text-xs text-slate-500">Cours actuel : {selected.current_price != null ? `${selected.current_price} ${selected.currency || ""}` : "…"}</div>
-              </div>
-              <button type="button" onClick={() => setSelected(null)} className="text-xs text-slate-500 hover:text-rose-400">Changer</button>
-            </div>
-          )}
-          <button type="button" onClick={() => setManual(true)} className="text-micro text-slate-500 hover:text-slate-300 underline">Le produit n'est pas trouvé ? Saisie manuelle</button>
-        </>
-      ) : (
-        <>
-          <label htmlFor={`${idsChamps}-nom-ticker-saisie`} className="text-micro text-slate-500">Nom / ticker (saisie libre)</label>
-          <input id={`${idsChamps}-nom-ticker-saisie`} value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400/60" placeholder="Ex : Plan Épargne Entreprise" />
-          <button type="button" onClick={() => setManual(false)} className="text-micro text-slate-500 hover:text-slate-300 underline">Revenir à la recherche</button>
-        </>
-      )}
-      {ready && (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor={`${idsChamps}-quantite`} className="text-micro text-slate-500">Quantité</label>
-            <input id={`${idsChamps}-quantite`} required type="number" step="0.0001" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
-          </div>
-          <div>
-            <label htmlFor={`${idsChamps}-prix-de-revient`} className="text-micro text-slate-500">Prix de revient unitaire (€)</label>
-            <input id={`${idsChamps}-prix-de-revient`} required type="number" step="0.01" value={pru} onChange={(e) => setPru(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
-          </div>
-          <div className="col-span-2">
-            <label htmlFor={`${idsChamps}-dividende-annuel-par`} className="text-micro text-slate-500">Dividende annuel par action (€) — optionnel</label>
-            <input id={`${idsChamps}-dividende-annuel-par`} type="number" step="0.01" placeholder="Ex : 1.20" value={annualDividend} onChange={(e) => setAnnualDividend(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-amber-400/60" />
-          </div>
-        </div>
-      )}
-      <div className="flex gap-2 justify-end">
-        <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">Annuler</button>
-        <button type="submit" disabled={!ready || !quantity || !pru} className="text-xs font-semibold bg-amber-400 hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 rounded-lg px-4 py-1.5">Ajouter au portefeuille</button>
-      </div>
-    </form>
   );
 }

@@ -13,6 +13,7 @@ import { useAlertesWatchlist } from "./lib/useAlertesWatchlist";
 import { useRappelsCalendrier } from "./lib/useRappelsCalendrier";
 import { useBilanRappel } from "./lib/useBilanRappel";
 import { rappelsEssais } from "./lib/abonnements";
+import { sauvegardeTropRecente } from "./lib/migrations";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
 import { useConfirm } from "./lib/ConfirmContext";
@@ -172,10 +173,10 @@ export default function App() {
    */
   const [direction, setDirection] = React.useState("droite");
   const allerA = React.useCallback(
-    (cible) => {
+    (cible, sous = "") => {
       setDirection(TAB_IDS.indexOf(cible) >= TAB_IDS.indexOf(tab) ? "droite" : "gauche");
       vibrer("navigation", haptique);
-      setTab(cible);
+      setTab(cible, sous);
     },
     [tab, setTab, haptique]
   );
@@ -197,10 +198,14 @@ export default function App() {
         strategyNotes: patrimoine.strategyNotes,
         enveloppes: patrimoine.enveloppes,
         objectifs: patrimoine.objectifs,
+        subs: patrimoine.subs,
+        contracts: patrimoine.contracts,
+        compteEnrichies: patrimoine.compteEnrichies,
       }),
     [
       patrimoine.livrets, patrimoine.bourse, patrimoine.dettes, patrimoine.watchlist,
       patrimoine.strategyNotes, patrimoine.enveloppes, patrimoine.objectifs,
+      patrimoine.subs, patrimoine.contracts, patrimoine.compteEnrichies,
     ]
   );
 
@@ -272,6 +277,13 @@ export default function App() {
     const known = keys.filter((k) => STORAGE_KEYS.includes(k));
     if (!dump || typeof dump !== "object" || Array.isArray(dump) || known.length === 0) {
       showToast({ type: "error", message: "Ce fichier ne ressemble pas à une sauvegarde Patrium." });
+      return;
+    }
+    if (sauvegardeTropRecente(dump)) {
+      showToast({
+        type: "error",
+        message: "Cette sauvegarde vient d'une version plus récente de Patrium : recharge l'application pour la mettre à jour, puis réessaie.",
+      });
       return;
     }
 
@@ -469,15 +481,7 @@ export default function App() {
           ghostMode={ghostMode}
           onToggleGhost={() => setGhostMode((g) => !g)}
         >
-          <GlobalSearch
-            livrets={patrimoine.livrets}
-            bourse={patrimoine.bourse}
-            dettes={patrimoine.dettes}
-            watchlist={patrimoine.watchlist}
-            strategyNotes={patrimoine.strategyNotes}
-            enveloppes={patrimoine.enveloppes}
-            onNavigate={setTab}
-          />
+          <GlobalSearch index={indexPalette} onNavigate={allerA} />
           <SyncIndicator />
           <Notifications
             reminders={patrimoine.reminders}

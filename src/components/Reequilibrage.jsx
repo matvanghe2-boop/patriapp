@@ -84,7 +84,7 @@ export default function Reequilibrage({ bourse, setBourse, replie, onBasculer })
         replie={replie}
         onBasculer={onBasculer}
       >
-        <EmptyState>Ajoute des positions pour construire un plan de rééquilibrage.</EmptyState>
+        <EmptyState picto="bourse">Ajoute des positions pour construire un plan de rééquilibrage.</EmptyState>
       </CarteRepliable>
     );
   }

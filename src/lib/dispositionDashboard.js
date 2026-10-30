@@ -15,7 +15,7 @@
 
 export const BLOCS_DASHBOARD = [
   { id: "briefing", libelle: "Briefing du jour" },
-  { id: "actions", libelle: "Actions prioritaires" },
+  { id: "actions", libelle: "À faire" },
   { id: "profil", libelle: "Profil mensuel" },
   { id: "vedette", libelle: "Patrimoine net" },
   { id: "kpis", libelle: "Indicateurs : brut, bourse, épargne" },

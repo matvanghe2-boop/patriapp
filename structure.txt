@@ -121,15 +121,20 @@ src/App.test.jsx
 src/classesCss.test.js
 src/components/Abonnements.jsx
 src/components/AbonnementsDetectes.jsx
+src/components/AddPositionPanel.jsx
 src/components/AideRaccourcis.jsx
+src/components/AllocationCible.jsx
 src/components/AnalyseCompte.jsx
 src/components/AnalyseValeur.jsx
 src/components/AnalyseValeur.test.jsx
+src/components/AntiPanicModal.jsx
 src/components/AssetLogo.jsx
 src/components/AssetStats.jsx
 src/components/AssistantHorizon.jsx
 src/components/AssistantHorizon.test.jsx
+src/components/AvertissementsPortefeuille.jsx
 src/components/BackupReminder.jsx
+src/components/BadgeFraicheurCours.jsx
 src/components/BilanMensuel.jsx
 src/components/BilanMensuel.test.jsx
 src/components/BlocsCompteDashboard.jsx
@@ -139,9 +144,12 @@ src/components/BoursePerformance.jsx
 src/components/BriefingDuJour.jsx
 src/components/CalendrierPrelevements.jsx
 src/components/CalendrierRevenus.jsx
+src/components/CarteBienvenue.jsx
 src/components/CarteCac40.jsx
 src/components/CarteRepliable.test.jsx
 src/components/CascadeMensuelle.jsx
+src/components/CashPocketCard.jsx
+src/components/CentreAFaire.jsx
 src/components/ChartFocusModal.jsx
 src/components/CommuniqueDepose.jsx
 src/components/ComparaisonPairs.jsx
@@ -149,6 +157,7 @@ src/components/ComparateurScenarios.jsx
 src/components/CompteCourant.jsx
 src/components/CompteCourant.test.jsx
 src/components/CorrelationsLignes.jsx
+src/components/CourbePatrimoineOutils.jsx
 src/components/CoutDesFrais.jsx
 src/components/Dashboard.jsx
 src/components/Decumulation.jsx
@@ -204,11 +213,13 @@ src/components/OriginePatrimoine.jsx
 src/components/PaletteCommandes.jsx
 src/components/PanneauTransparence.jsx
 src/components/PanneauTransparence.test.jsx
+src/components/PeaFiscalWidget.jsx
 src/components/PerHistorique.jsx
 src/components/PortefeuilleRepli.test.jsx
 src/components/ProChart.jsx
 src/components/ProChart.test.jsx
 src/components/ProchainesEcheances.jsx
+src/components/ProfilMensuelOutils.jsx
 src/components/Projet.jsx
 src/components/Projet.test.jsx
 src/components/RapprochementsAbonnements.jsx
@@ -238,6 +249,7 @@ src/components/StickySummaryHeader.jsx
 src/components/StrategieLogs.jsx
 src/components/SuiviDividendes.jsx
 src/components/SyncIndicator.jsx
+src/components/TableauPositionsOutils.jsx
 src/components/ThermometreMarche.jsx
 src/components/Timeline.jsx
 src/components/TrajectoireObjectif.jsx
@@ -255,6 +267,7 @@ src/lib/AuthContext.jsx
 src/lib/ConfirmContext.jsx
 src/lib/PatrimoineContext.jsx
 src/lib/ToastContext.jsx
+src/lib/aFaire.js
 src/lib/abonnements.js
 src/lib/abonnements.test.js
 src/lib/actionnariat.js
@@ -322,6 +335,7 @@ src/lib/livretsMouvements.js
 src/lib/livretsMouvements.test.js
 src/lib/marqueursCourbe.js
 src/lib/marqueursCourbe.test.js
+src/lib/migrations.js
 src/lib/netWorth.test.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
@@ -332,6 +346,7 @@ src/lib/patrimoineParPoche.test.js
 src/lib/performanceComparee.js
 src/lib/performanceComparee.test.js
 src/lib/piotroski.js
+src/lib/plafondsLivrets.js
 src/lib/portefeuilleSante.js
 src/lib/portefeuilleSante.test.js
 src/lib/publications.js
@@ -342,6 +357,7 @@ src/lib/reconstitutionPatrimoine.js
 src/lib/reconstitutionPatrimoine.test.js
 src/lib/records.js
 src/lib/records.test.js
+src/lib/refonteGlobale.test.jsx
 src/lib/releveBourso.js
 src/lib/releveBourso.test.js
 src/lib/retrospective.js
@@ -374,6 +390,7 @@ src/lib/useMaintenant.js
 src/lib/useMaintenant.test.js
 src/lib/useRappelsCalendrier.js
 src/lib/useRappelsCalendrier.test.js
+src/lib/useSuiviBourse.js
 src/lib/versementsGeles.test.js
 src/main.jsx
 src/test/releveFactice.js
