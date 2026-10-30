@@ -120,6 +120,7 @@ src/App.jsx
 src/App.test.jsx
 src/classesCss.test.js
 src/components/Abonnements.jsx
+src/components/AbonnementsDetectes.jsx
 src/components/AideRaccourcis.jsx
 src/components/AnalyseCompte.jsx
 src/components/AnalyseValeur.jsx
@@ -136,6 +137,7 @@ src/components/BottomNav.jsx
 src/components/Bourse.jsx
 src/components/BoursePerformance.jsx
 src/components/BriefingDuJour.jsx
+src/components/CalendrierPrelevements.jsx
 src/components/CalendrierRevenus.jsx
 src/components/CarteCac40.jsx
 src/components/CarteRepliable.test.jsx
@@ -178,6 +180,7 @@ src/components/Livrets.jsx
 src/components/Login.jsx
 src/components/Marche.jsx
 src/components/MemeArgentEtf.jsx
+src/components/MenuActions.jsx
 src/components/MesDecisions.jsx
 src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
@@ -243,6 +246,7 @@ src/components/gestes.jsx
 src/components/graphiques.jsx
 src/components/graphiques.test.jsx
 src/components/nouveauxWidgets.test.jsx
+src/components/ongletsRefondus.test.jsx
 src/components/refonte.test.jsx
 src/components/ui.jsx
 src/index.css
@@ -251,6 +255,8 @@ src/lib/AuthContext.jsx
 src/lib/ConfirmContext.jsx
 src/lib/PatrimoineContext.jsx
 src/lib/ToastContext.jsx
+src/lib/abonnements.js
+src/lib/abonnements.test.js
 src/lib/actionnariat.js
 src/lib/alertes.js
 src/lib/alertes.test.js
@@ -356,6 +362,8 @@ src/lib/syncStatus.js
 src/lib/themes.js
 src/lib/thermometre.js
 src/lib/thermometre.test.js
+src/lib/theses.js
+src/lib/theses.test.js
 src/lib/tri.test.js
 src/lib/univers.js
 src/lib/useAlertesWatchlist.js
