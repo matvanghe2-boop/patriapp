@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Copy, MoonStar, Layers } from "lucide-react";
+import { Copy, Layers, TrendingUp, CircleSlash, CopyPlus, Ban } from "lucide-react";
 import { Card, CardLabel, PastilleEtat } from "./ui";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
@@ -11,8 +11,8 @@ import { rapprochements } from "../lib/doublonsAbonnements";
  * PLACÉ ICI ET PAS AILLEURS : l'onglet liste et totalise déjà. Ce widget lui
  * ajoute la seule chose qui manquait pour qu'il serve à décider — le
  * RAPPROCHEMENT. Deux services de streaming, deux assurances qui se recouvrent,
- * un abonnement dont la date de prélèvement n'a plus bougé depuis huit mois :
- * rien de tout cela ne se voit dans une liste triée par date.
+ * un prélèvement qui a changé de prix ou continue après une résiliation : rien
+ * de tout cela ne se voit dans une liste triée par date.
  *
  * IL SIGNALE, IL NE CONCLUT PAS. L'application ne peut pas savoir si deux
  * abonnements de la même catégorie font double emploi : une assurance auto et
@@ -24,16 +24,22 @@ import { rapprochements } from "../lib/doublonsAbonnements";
 
 const PRESENTATION = {
   doublon: { icone: Copy, etat: "attention", titre: "À vérifier" },
-  dormant: { icone: MoonStar, etat: "critique", titre: "Sans suivi" },
   recouvrement: { icone: Layers, etat: "attention", titre: "À vérifier" },
+  // Les quatre suivants viennent du relevé : ce sont des constats, pas des
+  // hypothèses — mais la conclusion reste à l'utilisateur.
+  montant: { icone: TrendingUp, etat: "attention", titre: "Prix changé" },
+  absent: { icone: CircleSlash, etat: "neutre", titre: "Plus prélevé" },
+  double: { icone: CopyPlus, etat: "critique", titre: "Prélevé 2 fois" },
+  toujours_preleve: { icone: Ban, etat: "critique", titre: "Après résiliation" },
 };
 
-export default function RapprochementsAbonnements({ subs = [], contracts = [] }) {
-  const signaux = useMemo(() => rapprochements(subs, contracts), [subs, contracts]);
+export default function RapprochementsAbonnements({ subs = [], contracts = [], verifications = {} }) {
+  const signaux = useMemo(
+    () => rapprochements(subs, contracts, { verifications }),
+    [subs, contracts, verifications]
+  );
 
-  const totalEnJeu = signaux
-    .filter((s) => s.type !== "recouvrement")
-    .reduce((s, x) => s + x.mensuel, 0);
+  const totalEnJeu = signaux.reduce((s, x) => s + x.mensuel, 0);
 
   return (
     <Card accent="teinte-cyan carte-domaine">
@@ -41,8 +47,8 @@ export default function RapprochementsAbonnements({ subs = [], contracts = [] })
 
       {signaux.length === 0 ? (
         <EtatVide picto="abonnements" titre="Rien à rapprocher">
-          Aucune catégorie ne compte deux abonnements, et aucune date de prélèvement n'est restée en
-          arrière. C'est le bon résultat.
+          Aucune catégorie ne compte deux abonnements, et rien sur tes relevés ne contredit ce que tu as
+          déclaré. C'est le bon résultat.
         </EtatVide>
       ) : (
         <>

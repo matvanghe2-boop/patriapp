@@ -12,6 +12,7 @@ import { useDailySnapshot } from "./lib/useDailySnapshot";
 import { useAlertesWatchlist } from "./lib/useAlertesWatchlist";
 import { useRappelsCalendrier } from "./lib/useRappelsCalendrier";
 import { useBilanRappel } from "./lib/useBilanRappel";
+import { rappelsEssais } from "./lib/abonnements";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
 import { useConfirm } from "./lib/ConfirmContext";
@@ -137,6 +138,15 @@ export default function App() {
    * l'onglet ouvert pour se signaler.
    */
   const rappelsCalendrier = useRappelsCalendrier();
+
+  // Fins d'essai gratuit : le rappel doit arriver AVANT le premier
+  // prélèvement, donc quel que soit l'onglet ouvert.
+  const { subs, setSubs } = patrimoine;
+  const rappelsEssaisDus = useMemo(() => rappelsEssais(subs), [subs]);
+  const acquitterEssai = React.useCallback(
+    (id) => setSubs((l) => (l || []).map((s) => (s.id === id ? { ...s, rappelEssaiVu: s.fin_essai } : s))),
+    [setSubs]
+  );
 
   /**
    * Variation du jour, calculée ici parce que l'en-tête collant est monté au
@@ -472,8 +482,9 @@ export default function App() {
           <Notifications
             reminders={patrimoine.reminders}
             setReminders={patrimoine.setReminders}
-            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier]}
+            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier, ...rappelsEssaisDus]}
             onAcquitterAlerte={acquitterAlerte}
+            onAcquitterEssai={acquitterEssai}
             onAcquitterBilan={acquitterBilan}
           />
           {/* En mode local (sans compte), il n'y a rien à déconnecter. */}

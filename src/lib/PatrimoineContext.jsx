@@ -52,6 +52,9 @@ export const STORAGE_KEYS = [
   // Mouvements saisis à la main depuis le dernier relevé, en attendant le
   // suivant : ils corrigent le solde estimé, jamais les statistiques.
   "compteProvisoires",
+  // Prélèvements récurrents du relevé que l'utilisateur a choisi de ne pas
+  // suivre comme abonnements (clés de marchand, voir abonnements.js).
+  "abonnementsIgnores",
 ];
 
 /**

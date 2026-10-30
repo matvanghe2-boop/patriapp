@@ -1,14 +1,14 @@
-import { lireNombre, todayIso } from "./finance";
+import { lireNombre } from "./finance";
 
 /**
  * Rapprochements d'abonnements.
  *
  * L'onglet Abonnements liste et totalise. Il ne RAPPROCHE rien — or c'est le
  * rapprochement qui fait économiser : deux services de streaming, deux
- * assurances qui se recouvrent, un abonnement dont la date de prélèvement n'a
- * plus bougé depuis huit mois.
+ * assurances qui se recouvrent, un prélèvement qui a changé de prix ou cessé
+ * sur le relevé.
  *
- * TROIS SIGNAUX, ET AUCUNE CONCLUSION. L'application ne peut pas savoir si deux
+ * DES SIGNAUX, ET AUCUNE CONCLUSION. L'application ne peut pas savoir si deux
  * abonnements de la même catégorie font double emploi — une assurance auto et
  * une assurance habitation sont deux « assurances » parfaitement légitimes.
  * Elle signale donc un rapprochement à VÉRIFIER, jamais une dépense à
@@ -26,17 +26,20 @@ export function mensualiser(sub) {
   }
 }
 
-const MOIS_MS = 30.44 * 86400000;
-
 /**
+ * @param {object} options
+ * @param {Object<string, object>} options.verifications  Vérification de chaque
+ *   abonnement contre le relevé (`rapprocherCompte` dans abonnements.js).
  * @returns {{id, type, libelle, detail, lignes, mensuel}[]}
  */
-export function rapprochements(subs = [], contracts = [], { aujourdhui = todayIso() } = {}) {
+export function rapprochements(subs = [], contracts = [], { verifications = {} } = {}) {
   const signaux = [];
+  // Un abonnement résilié ne fait plus double emploi avec rien.
+  const suivis = (subs || []).filter((s) => s?.statut !== "resilie");
 
   // ── Doublons de catégorie ────────────────────────────────────────────────
   const parCategorie = new Map();
-  for (const s of subs) {
+  for (const s of suivis) {
     if (!s?.category) continue;
     if (!parCategorie.has(s.category)) parCategorie.set(s.category, []);
     parCategorie.get(s.category).push(s);
@@ -55,22 +58,36 @@ export function rapprochements(subs = [], contracts = [], { aujourdhui = todayIs
     });
   }
 
-  // ── Abonnements dormants ─────────────────────────────────────────────────
+  // ── Ce que le relevé contredit ───────────────────────────────────────────
   //
-  // Une date de prochain prélèvement qui n'a pas bougé depuis des mois signale
-  // presque toujours un abonnement qu'on ne suit plus — pas nécessairement
-  // inutile, mais dont personne n'a vérifié qu'il servait encore.
-  for (const s of subs) {
-    if (!s?.prochaine_date) continue;
-    const ecart = new Date(`${aujourdhui}T00:00:00`) - new Date(`${s.prochaine_date}T00:00:00`);
-    if (!Number.isFinite(ecart) || ecart < 4 * MOIS_MS) continue;
+  // L'ancien signal « dormant » jugeait un abonnement à la date de prélèvement
+  // SAISIE, qui ne bouge jamais : tout abonnement finissait « sans suivi »
+  // quatre mois après sa création, alors que l'écran affichait une prochaine
+  // date correcte. Seul le relevé peut dire qu'un prélèvement a cessé, changé
+  // ou doublé : ces signaux n'existent donc que pour les abonnements retrouvés
+  // sur le compte courant.
+  for (const s of subs || []) {
+    const v = verifications?.[s.id];
+    if (!v?.trouve || !v.alerte) continue;
+    const nom = s.label || "Abonnement";
+    const libelles = {
+      toujours_preleve: `${nom} — toujours prélevé`,
+      double: `${nom} — prélevé deux fois`,
+      absent: `${nom} — plus prélevé`,
+      montant: `${nom} — montant changé`,
+    };
     signaux.push({
-      id: `dormant-${s.id}`,
-      type: "dormant",
-      libelle: `${s.label || "Abonnement"} — non mis à jour`,
-      detail: `Prochain prélèvement encore au ${s.prochaine_date}, il y a ${Math.round(ecart / MOIS_MS)} mois.`,
+      id: `releve-${v.alerte}-${s.id}`,
+      type: v.alerte,
+      libelle: libelles[v.alerte],
+      detail: v.detail,
       lignes: [s],
-      mensuel: mensualiser(s),
+      // Ce qui est en jeu : le prélèvement en trop, l'écart de prix, ou rien
+      // pour un abonnement qui a cessé de coûter.
+      mensuel:
+        v.alerte === "absent" ? 0
+        : v.alerte === "montant" ? Math.abs(v.derniere.montant - (lireNombre(s.montant) ?? 0))
+        : v.derniere.montant,
     });
   }
 

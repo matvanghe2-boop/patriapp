@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { History, ShoppingCart, Banknote, Coins, Target, Split, ArrowDownLeft , Pencil } from "lucide-react";
+import { History, ShoppingCart, Banknote, Coins, Target, Split, ArrowDownLeft, Pencil, NotebookPen, BookOpenCheck, ClipboardCheck } from "lucide-react";
 import { CarteFocalisable, CardLabel } from "./ui";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { lireNombre } from "../lib/finance";
+import { evenementsTheses } from "../lib/theses";
 
 /**
  * Frise unifiée — onglet Stratégie & Logs.
@@ -32,6 +33,11 @@ const TYPES = {
   AJUSTEMENT: { icone: Pencil, couleur: "slate", libelle: "Ajustement de solde" },
   SPLIT: { icone: Split, couleur: "cyan", libelle: "Division" },
   OBJECTIF: { icone: Target, couleur: "amber", libelle: "Objectif atteint" },
+  // Les thèses dans le même fil que les opérations : relire une thèse la
+  // veille d'une vente, ou vendre sans l'avoir relue, ne se voit qu'ainsi.
+  THESE: { icone: NotebookPen, couleur: "rose", libelle: "Thèse écrite" },
+  REVUE: { icone: BookOpenCheck, couleur: "rose", libelle: "Thèse relue" },
+  CLOTURE: { icone: ClipboardCheck, couleur: "slate", libelle: "Thèse clôturée" },
 };
 
 const CLASSES_POINT = {
@@ -69,7 +75,7 @@ function montantDe(op) {
   }
 }
 
-export default function FriseUnifiee({ operations = [], objectifs = [], patrimoineNet = 0, limite = 30 }) {
+export default function FriseUnifiee({ operations = [], objectifs = [], theses = [], patrimoineNet = 0, limite = 30 }) {
   const [tout, setTout] = useState(false);
 
   const evenements = useMemo(() => {
@@ -109,8 +115,10 @@ export default function FriseUnifiee({ operations = [], objectifs = [], patrimoi
       });
     }
 
+    liste.push(...evenementsTheses(theses));
+
     return liste.sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [operations, objectifs, patrimoineNet]);
+  }, [operations, objectifs, theses, patrimoineNet]);
 
   const visibles = tout ? evenements : evenements.slice(0, limite);
 
@@ -120,8 +128,8 @@ export default function FriseUnifiee({ operations = [], objectifs = [], patrimoi
 
       {evenements.length === 0 ? (
         <EtatVide picto="notes" titre="Aucun événement daté">
-          Les achats, ventes, dividendes et objectifs atteints se rangeront ici dans l'ordre, dès
-          qu'une opération sera saisie dans le journal.
+          Les achats, ventes, dividendes, thèses et objectifs atteints se rangeront ici dans
+          l'ordre, dès qu'une opération ou une thèse sera saisie.
         </EtatVide>
       ) : (
         <>
