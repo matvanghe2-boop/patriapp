@@ -334,7 +334,7 @@ function BarreObjectif({ position, objectif }) {
           ? <span className="etat-ok">objectif atteint ({pct(p.ecartObjectifPct)})</span>
           : p.pct < 0
             ? <span className="etat-critique">sous ton prix de revient</span>
-            : `${Math.round(p.pct)} % du chemin, encore ${pct(-p.ecartObjectifPct)} à faire`}
+            : `${Math.round(p.pct)} % du chemin, encore ${pct(p.hausseRestantePct)} à faire`}
       </p>
     </div>
   );

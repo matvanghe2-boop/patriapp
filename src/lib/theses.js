@@ -100,6 +100,14 @@ export function evenementsTheses(notes = []) {
  * Où en est le cours sur le chemin qui va du prix de revient à l'objectif.
  * 0 % = au prix de revient, 100 % = objectif atteint ; au-dessous de zéro, la
  * ligne est en perte. Sans objectif au-dessus du PRU, il n'y a pas de chemin.
+ *
+ * Deux écarts, qui n'ont pas la même base :
+ *  · `hausseRestantePct` — la hausse que le cours doit encore faire pour
+ *    toucher l'objectif, rapportée au COURS (134,80 → 300 : +122,6 %) ;
+ *  · `ecartObjectifPct` — de combien le cours dépasse l'objectif, rapporté à
+ *    l'OBJECTIF, pour un objectif déjà atteint.
+ * Rapporter le reste à faire à l'objectif le sous-estimait : 55 % au lieu
+ * de 122,6 % dans l'exemple ci-dessus.
  */
 export function progressionObjectif({ pru, cours, objectif }) {
   const p = lireNombre(pru);
@@ -109,6 +117,7 @@ export function progressionObjectif({ pru, cours, objectif }) {
   return {
     pct: ((c - p) / (o - p)) * 100,
     atteint: c >= o,
+    hausseRestantePct: Math.max(0, ((o - c) / c) * 100),
     ecartObjectifPct: ((c - o) / o) * 100,
   };
 }
