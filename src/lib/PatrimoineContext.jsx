@@ -58,6 +58,15 @@ export const STORAGE_KEYS = [
   "abonnementsIgnores",
   // Note de santé financière, un point par mois (voir santeFinanciere.js).
   "historiqueSante",
+  // Événements de vie posés sur la courbe du patrimoine (voir annotations.js).
+  "annotationsPatrimoine",
+  // Avances faites pour d'autres, remboursées par virement (voir avances.js).
+  "avances",
+  // Agenda financier : département (zone de la déclaration de revenus) et
+  // rappels déjà vus (voir agendaFinancier.js).
+  "agendaReglages", "agendaVus",
+  // Comparateur rattachement / déclaration séparée (voir rattachementFiscal.js).
+  "rattachementReglages",
 ];
 
 /**

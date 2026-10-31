@@ -26,9 +26,35 @@ const TABLE = "kv_store";
 const DEBOUNCE_MS = 800;
 const MAX_PUSH_ATTEMPTS = 4;
 
+// ─── Bac à sable « et si » ───────────────────────────────────────────────────
+/**
+ * Mode bac à sable : l'application continue de fonctionner normalement, mais
+ * plus RIEN n'est écrit — ni dans le localStorage, ni dans le cloud — et le
+ * cloud n'est plus relu. Les modifications vivent en mémoire (`valeursBac`),
+ * pour que deux écrans qui lisent la même clé voient la même version d'essai.
+ *
+ * On en sort en rechargeant la page : la mémoire repart de zéro, les vraies
+ * données sont relues telles qu'elles étaient. Il n'y a donc rien à « annuler »,
+ * et aucune façon d'enregistrer par accident une donnée d'essai.
+ */
+let bacASable = false;
+const valeursBac = new Map();
+const abonnesBac = new Set();
+
+export function entrerBacASable() {
+  bacASable = true;
+  abonnesBac.forEach((f) => f());
+}
+export const estBacASable = () => bacASable;
+export function abonnerBacASable(fonction) {
+  abonnesBac.add(fonction);
+  return () => abonnesBac.delete(fonction);
+}
+
 // Toute valeur qui entre dans l'application passe par `migrer` : lecture
 // locale, réception du cloud, restauration d'une sauvegarde (voir migrations.js).
 function readLocal(key, initialValue) {
+  if (bacASable && valeursBac.has(key)) return valeursBac.get(key);
   try {
     const raw = localStorage.getItem(PREFIX + key);
     return raw ? migrer(key, JSON.parse(raw)) : initialValue;
@@ -345,6 +371,7 @@ function hydraterDepuisCloud() {
  * usePersistentState).
  */
 function applyCloudRow(key, row) {
+  if (bacASable) return;
   const localUpdatedAt = readLocalUpdatedAt(key);
   if (localUpdatedAt && row.updated_at && row.updated_at <= localUpdatedAt) return;
 
@@ -377,7 +404,7 @@ function applyCloudRow(key, row) {
  */
 let isPolling = false;
 async function pullAllFromCloud() {
-  if (!isSupabaseConfigured || isPolling) return;
+  if (!isSupabaseConfigured || isPolling || bacASable) return;
   if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
   const keys = [...activeSetters.keys()];
   if (keys.length === 0) return;
@@ -573,7 +600,9 @@ export function usePersistentState(key, initialValue) {
   // la plus récente des deux.
   useEffect(() => {
     let cancelled = false;
-    if (!isSupabaseConfigured) {
+    // En bac à sable, une clé montée en cours d'essai ne relit pas le cloud :
+    // la version d'essai (ou la version locale) fait foi.
+    if (!isSupabaseConfigured || bacASable) {
       hasHydrated.current = true;
       return undefined;
     }
@@ -660,6 +689,14 @@ export function usePersistentState(key, initialValue) {
       return undefined;
     }
 
+    // Bac à sable : la modification reste en mémoire et suit sur les autres
+    // écrans, sans jamais toucher au stockage ni au cloud.
+    if (bacASable) {
+      valeursBac.set(key, state);
+      diffuser(key, state, abonneRef.current);
+      return undefined;
+    }
+
     const updatedAt = new Date().toISOString();
     writeLocal(key, state, updatedAt);
     latestValues.set(key, { value: state, updatedAt });
@@ -691,6 +728,8 @@ export function usePersistentState(key, initialValue) {
  * instances du hook, ils survivent donc au démontage des composants.
  */
 export function _resetStorageCache() {
+  bacASable = false;
+  valeursBac.clear();
   session = { userId: null, accessToken: null };
   hydratationCloud = null;
   latestValues.clear();

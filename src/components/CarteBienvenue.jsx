@@ -1,5 +1,6 @@
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, Smartphone } from "lucide-react";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
+import { ouvrirPanneau } from "./CentreAFaire";
 
 /**
  * Accueil d'un patrimoine encore vierge. Sorti de Dashboard.jsx.
@@ -19,12 +20,21 @@ export default function OnboardingCard({ onLoadDemo }) {
         « Livrets &amp; Épargne », puis tes positions dans « PEA &amp; Bourse » — ce tableau de bord
         se remplit tout seul ensuite.
       </p>
-      <button
-        onClick={onLoadDemo}
-        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-100 border border-slate-700 hover:border-slate-500 rounded-lg px-3.5 py-2 transition-colors mt-4"
-      >
-        <ArrowRight size={14} aria-hidden="true" /> Charger un jeu d'exemple
-      </button>
+      <div className="flex flex-wrap gap-2 mt-4">
+        <button
+          onClick={onLoadDemo}
+          className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-100 border border-slate-700 hover:border-slate-500 rounded-lg px-3.5 py-2 transition-colors"
+        >
+          <ArrowRight size={14} aria-hidden="true" /> Charger un jeu d'exemple
+        </button>
+        {/* Nouvel appareil : reprendre ses données depuis l'ancien, sans compte. */}
+        <button
+          onClick={() => ouvrirPanneau("transfert-recevoir")}
+          className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-100 border border-slate-700 hover:border-slate-500 rounded-lg px-3.5 py-2 transition-colors"
+        >
+          <Smartphone size={14} aria-hidden="true" /> Récupérer mes données d'un autre appareil
+        </button>
+      </div>
       <p className="text-micro text-slate-500 mt-3">
         Le jeu d'exemple contient un an d'historique et des chiffres inventés, à des fins de
         démonstration uniquement.

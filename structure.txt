@@ -119,10 +119,12 @@ shared/valorisation.test.js
 sql/schema.sql
 src/App.jsx
 src/App.test.jsx
+src/accessibilite.test.jsx
 src/classesCss.test.js
 src/components/Abonnements.jsx
 src/components/AbonnementsDetectes.jsx
 src/components/AddPositionPanel.jsx
+src/components/AgendaFinancier.jsx
 src/components/AideRaccourcis.jsx
 src/components/AllocationCible.jsx
 src/components/AnalyseCompte.jsx
@@ -133,6 +135,7 @@ src/components/AssetLogo.jsx
 src/components/AssetStats.jsx
 src/components/AssistantHorizon.jsx
 src/components/AssistantHorizon.test.jsx
+src/components/Avances.jsx
 src/components/AvertissementsPortefeuille.jsx
 src/components/BackupReminder.jsx
 src/components/BadgeFraicheurCours.jsx
@@ -155,6 +158,7 @@ src/components/ChartFocusModal.jsx
 src/components/ClasserOperations.jsx
 src/components/CommuniqueDepose.jsx
 src/components/ComparaisonPairs.jsx
+src/components/ComparateurRattachement.jsx
 src/components/ComparateurScenarios.jsx
 src/components/CompteCourant.jsx
 src/components/CompteCourant.test.jsx
@@ -187,6 +191,7 @@ src/components/ImportReleve.jsx
 src/components/IndicesWidget.jsx
 src/components/InflationPerso.jsx
 src/components/InteretsFinAnnee.jsx
+src/components/JournalErreurs.jsx
 src/components/LecturePublication.jsx
 src/components/LecturePublication.test.jsx
 src/components/Livrets.jsx
@@ -244,7 +249,9 @@ src/components/ResumePublications.jsx
 src/components/Retrospective.jsx
 src/components/RevenusPassifs.jsx
 src/components/SanteComptes.jsx
+src/components/SanteDonnees.jsx
 src/components/SantePortefeuille.jsx
+src/components/SauvegardeAuto.jsx
 src/components/ScenariosProjet.jsx
 src/components/ScenariosProjet.test.jsx
 src/components/Screener.jsx
@@ -260,6 +267,7 @@ src/components/TableauPositionsOutils.jsx
 src/components/ThermometreMarche.jsx
 src/components/Timeline.jsx
 src/components/TrajectoireObjectif.jsx
+src/components/TransfertAppareil.jsx
 src/components/Watchlist.jsx
 src/components/gestes.jsx
 src/components/graphiques.jsx
@@ -278,16 +286,19 @@ src/lib/aFaire.js
 src/lib/abonnements.js
 src/lib/abonnements.test.js
 src/lib/actionnariat.js
+src/lib/agendaFinancier.js
 src/lib/alertes.js
 src/lib/alertes.test.js
 src/lib/analyseCompte.js
 src/lib/analyseCompte.test.js
 src/lib/analyseTitre.test.js
+src/lib/annotations.js
 src/lib/api.js
 src/lib/api.test.js
 src/lib/apparence.test.jsx
 src/lib/authErrors.js
 src/lib/authErrors.test.js
+src/lib/avances.js
 src/lib/benchmarks.js
 src/lib/briefing.js
 src/lib/briefing.test.js
@@ -328,6 +339,7 @@ src/lib/exposition.js
 src/lib/exposition.test.js
 src/lib/finance.js
 src/lib/finance.test.js
+src/lib/fonctionsGlobales.test.js
 src/lib/formatPct.test.js
 src/lib/haptique.js
 src/lib/histoireTaux.js
@@ -339,6 +351,7 @@ src/lib/indexConstituents.js
 src/lib/inflation.js
 src/lib/jeuExemple.js
 src/lib/jeuExemple.test.js
+src/lib/journalErreurs.js
 src/lib/ledger.test.js
 src/lib/liensComptes.js
 src/lib/liensComptes.test.js
@@ -364,6 +377,8 @@ src/lib/portefeuilleSante.js
 src/lib/portefeuilleSante.test.js
 src/lib/publications.js
 src/lib/publications.test.js
+src/lib/qualiteDonnees.js
+src/lib/rattachementFiscal.js
 src/lib/rattrapage.js
 src/lib/rattrapage.test.js
 src/lib/reconstitutionPatrimoine.js
@@ -379,9 +394,11 @@ src/lib/revenusPassifs.js
 src/lib/revenusPassifs.test.js
 src/lib/santeFinanciere.js
 src/lib/santeFinanciere.test.js
+src/lib/sauvegardeAuto.js
 src/lib/sectors.js
 src/lib/sectors.test.js
 src/lib/splits.test.js
+src/lib/storage.bacASable.test.jsx
 src/lib/storage.chiffrement.test.jsx
 src/lib/storage.js
 src/lib/storage.test.jsx
@@ -393,6 +410,7 @@ src/lib/thermometre.js
 src/lib/thermometre.test.js
 src/lib/theses.js
 src/lib/theses.test.js
+src/lib/transfertQr.js
 src/lib/tri.test.js
 src/lib/univers.js
 src/lib/useAlertesWatchlist.js

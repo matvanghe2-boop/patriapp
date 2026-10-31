@@ -4,6 +4,8 @@ import { alertesPanique, aRelire, resultatsARelire } from "./theses";
 import { recurrences } from "./analyseCompte";
 import { rapprocherCompte, statutContrat, statutDe, joursEntre, prochainPrelevement } from "./abonnements";
 import { boostsAFinir, interetsFinAnnee, projectionVirement, verifierVirement, deMot } from "./epargne";
+import { controlesDonnees } from "./qualiteDonnees";
+import { rapprocherAvances, aRelancer } from "./avances";
 
 /**
  * Le centre « À faire » du Dashboard.
@@ -29,10 +31,12 @@ export function elementsAFaire({
   livrets = [], bourse = {}, matelasMois = null, tauxReference = 0,
   strategyNotes = [], series = {}, evenements = [],
   subs = [], contracts = [], compteEnrichies = [], ignores = [],
+  enveloppes = [], objectifs = [], compteReleves = [], patrimoineNet = 0, avances = [],
   aujourdhui = todayIso(),
 } = {}) {
   const liste = [];
-  const ajouter = (e) => liste.push(e);
+  // Un mois abrégé (« sept. ») en fin de phrase doublait le point final.
+  const ajouter = (e) => liste.push({ ...e, texte: e.texte.replace(/\.\.$/, ".") });
 
   // ── Thèses ───────────────────────────────────────────────────────────────
   for (const a of alertesPanique({ notes: strategyNotes, positions: bourse.positions || [], series, aujourdhui })) {
@@ -237,6 +241,35 @@ export function elementsAFaire({
       type: "epargne",
       texte: `Matelas de sécurité de ${nombre(matelasMois, 1)} mois seulement — vise au moins 3 mois de dépenses.`,
       lien: { onglet: "livrets" },
+    });
+  }
+
+  // ── Avances non remboursées depuis plus d'un mois ─────────────────────
+  for (const s of aRelancer(rapprocherAvances(avances, compteEnrichies), { aujourdhui })) {
+    ajouter({
+      id: `avance-${s.personne}`,
+      urgence: "info",
+      type: "epargne",
+      texte: `${s.personne} te doit encore ${eur(s.du, 2)} depuis le ${dateCourte(s.depuis)}.`,
+      lien: { onglet: "compte", sous: "avances" },
+      sensible: true,
+    });
+  }
+
+  // ── Santé des données : un seul rappel, pour ce qui fausse un calcul ────
+  // Le détail vit dans le panneau « Santé des données » ; le répéter ici
+  // noierait le reste de la liste.
+  const aCorriger = controlesDonnees(
+    { livrets, enveloppes, bourse, compteReleves, objectifs, subs, contracts, strategyNotes, patrimoineNet },
+    { aujourdhui }
+  ).filter((c) => c.gravite === "attention");
+  if (aCorriger.length > 0) {
+    ajouter({
+      id: "sante-donnees",
+      urgence: "attention",
+      type: "donnees",
+      texte: `${aCorriger.length} incohérence${aCorriger.length > 1 ? "s" : ""} à corriger dans tes données : elle${aCorriger.length > 1 ? "s faussent" : " fausse"} certains totaux.`,
+      ouvrir: "donnees",
     });
   }
 

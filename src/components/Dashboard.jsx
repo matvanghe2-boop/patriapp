@@ -25,9 +25,11 @@ import { DISPOSITION_DEFAUT } from "../lib/dispositionDashboard";
 import { decouperParPoche, COULEURS_POCHES } from "../lib/patrimoineParPoche";
 import { recordAAnnoncer, objectifsAAnnoncer, plusHautHistorique } from "../lib/records";
 import CentreAFaire from "./CentreAFaire";
+import AgendaFinancier from "./AgendaFinancier";
 import { enEurosConstants, inflationOfficielle } from "../lib/inflation";
 import { usePatrimoine } from "../lib/PatrimoineContext";
-import { TIME_FILTERS, getMonthsAgo, PointFinal, TimeFilterBar, ChartTooltip, PastilleOperations } from "./CourbePatrimoineOutils";
+import { TIME_FILTERS, getMonthsAgo, PointFinal, TimeFilterBar, ChartTooltip, PastilleOperations, RepereAnnotation } from "./CourbePatrimoineOutils";
+import { creerAnnotation, placerAnnotations, LONGUEUR_MAX } from "../lib/annotations";
 import OnboardingCard from "./CarteBienvenue";
 import { ProfilReel, ProfileFreshness, formatDateFr } from "./ProfilMensuelOutils";
 import StagnationBadge from "./BadgeFraicheurCours";
@@ -48,7 +50,7 @@ export default function Dashboard() {
     cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
     objectifs, setObjectifs, bourseHistory = [], contracts = [], evenementsMarche = [],
     compteSolde = null, matelasCompteCourant = 0, compteEnrichies = [], compteOperations = [], compteReleves = [],
-    budgetReel = null, strategyNotes = [], subs = [], matelasMoisPrudent = null,
+    budgetReel = null, strategyNotes = [], subs = [], matelasMoisPrudent = null, enveloppes = [],
   } = usePatrimoine();
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -279,6 +281,27 @@ export default function Dashboard() {
     [marqueurs]
   );
 
+  // Événements de vie posés sur la courbe — ce que les chiffres ne disent pas.
+  const [annotations, setAnnotations] = usePersistentState("annotationsPatrimoine", []);
+  const [annotationOuverte, setAnnotationOuverte] = useState(false);
+  const [brouillonAnnotation, setBrouillonAnnotation] = useState({ date: todayIso(), texte: "" });
+  const groupesAnnotations = useMemo(
+    () => (eurosConstants ? [] : placerAnnotations(annotations, chartData, "value")),
+    [annotations, chartData, eurosConstants]
+  );
+  const annotationsParCle = useMemo(
+    () => Object.fromEntries(groupesAnnotations.map((g) => [g.point.cle, g])),
+    [groupesAnnotations]
+  );
+  const ajouterAnnotation = (e) => {
+    e.preventDefault();
+    const a = creerAnnotation({ id: uid(), ...brouillonAnnotation });
+    if (!a) return;
+    setAnnotations((l) => [...(Array.isArray(l) ? l : []), a]);
+    setBrouillonAnnotation({ date: todayIso(), texte: "" });
+    setAnnotationOuverte(false);
+  };
+
   const decoupage = useMemo(
     () =>
       vueCourbe === "poches"
@@ -464,6 +487,10 @@ export default function Dashboard() {
         subs={subs}
         contracts={contracts}
         compteEnrichies={compteEnrichies}
+        enveloppes={enveloppes}
+        objectifs={objectifs}
+        compteReleves={compteReleves}
+        patrimoineNet={patrimoineNet}
       />
       </Bloc>
 
@@ -861,6 +888,14 @@ export default function Dashboard() {
                 </button>
               )}
               <TimeFilterBar active={timeFilter} onChange={setTimeFilter} />
+              <button
+                type="button"
+                onClick={() => setAnnotationOuverte((o) => !o)}
+                aria-expanded={annotationOuverte}
+                className="text-micro px-2 py-1 rounded-lg border border-slate-800 text-sky-300/90 hover:border-sky-400/40"
+              >
+                ◆ Annoter
+              </button>
               <GhostButton theme="emerald" onClick={() => setShowAddHistory((s) => !s)}>Ajouter</GhostButton>
             </div>
           </div>
@@ -917,7 +952,7 @@ export default function Dashboard() {
                   tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd"
                 />
                 <YAxis tickFormatter={compact} tick={{ fill: "rgb(var(--c-slate-500))", fontSize: 10 }} axisLine={false} tickLine={false} width={46} />
-                <Tooltip content={<ChartTooltip marqueursParCle={marqueursParCle} />} />
+                <Tooltip content={<ChartTooltip marqueursParCle={marqueursParCle} annotationsParCle={annotationsParCle} />} />
                 {/* Vertical reference line at "Aujourd'hui" */}
                 {cleAujourdhui && (
                   <ReferenceLine x={cleAujourdhui} stroke="#475569" strokeDasharray="3 3" label={{ value: "Auj.", fill: "#475569", fontSize: 10 }} />
@@ -1011,6 +1046,15 @@ export default function Dashboard() {
                     shape={<PastilleOperations marqueur={m} />}
                   />
                 ))}
+                {groupesAnnotations.map((g) => (
+                  <ReferenceDot
+                    key={`note-${g.point.cle}`}
+                    x={g.point.cle}
+                    y={g.valeur}
+                    isFront
+                    shape={<RepereAnnotation groupe={g} />}
+                  />
+                ))}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -1040,6 +1084,54 @@ export default function Dashboard() {
                   </span>
                 ))}
             </div>
+          )}
+
+          {annotationOuverte && (
+            <form onSubmit={ajouterAnnotation} className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-sky-400/20 bg-slate-950 p-3">
+              <div>
+                <label htmlFor="annotation-date" className="text-micro text-slate-500 block">Date</label>
+                <input
+                  id="annotation-date"
+                  type="date"
+                  required
+                  value={brouillonAnnotation.date}
+                  onChange={(e) => setBrouillonAnnotation((b) => ({ ...b, date: e.target.value }))}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-data focus:outline-none focus:border-sky-400/60"
+                />
+              </div>
+              <div className="flex-1 min-w-[12rem]">
+                <label htmlFor="annotation-texte" className="text-micro text-slate-500 block">Ce qui s'est passé</label>
+                <input
+                  id="annotation-texte"
+                  type="text"
+                  required
+                  maxLength={LONGUEUR_MAX}
+                  placeholder="Premier salaire, déménagement, aide des parents…"
+                  value={brouillonAnnotation.texte}
+                  onChange={(e) => setBrouillonAnnotation((b) => ({ ...b, texte: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-sky-400/60"
+                />
+              </div>
+              <button type="submit" className="text-xs font-semibold bg-sky-400 hover:bg-sky-300 text-slate-950 rounded-lg px-3 py-1.5">Annoter</button>
+            </form>
+          )}
+          {Array.isArray(annotations) && annotations.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Annotations de la courbe">
+              {[...annotations].sort((a, b) => a.date.localeCompare(b.date)).map((a) => (
+                <li key={a.id} className="flex items-center gap-1 rounded-full border border-sky-400/25 bg-sky-500/5 pl-2.5 pr-1 py-0.5 text-micro text-sky-200">
+                  <span aria-hidden="true">◆</span>
+                  <span>{new Date(`${a.date}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })} — {a.texte}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAnnotations((l) => l.filter((x) => x.id !== a.id))}
+                    aria-label={`Retirer l'annotation « ${a.texte} »`}
+                    className="ml-0.5 rounded-full px-1 text-sky-300/70 hover:text-sky-100"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
 
           <AddPanel
@@ -1145,6 +1237,10 @@ export default function Dashboard() {
         question et cassait la progression du regard ; en pied de page, elle
         répond à « et ensuite », qui vient bien après.
       */}
+      <Bloc id="agenda">
+      <AgendaFinancier livrets={livrets} bourse={bourse} contracts={contracts} objectifs={objectifs} />
+      </Bloc>
+
       <Bloc id="echeances">
       <ProchainesEcheances
         evenements={evenementsMarche}

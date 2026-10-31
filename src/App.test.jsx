@@ -149,6 +149,23 @@ describe("App", () => {
     ).toBeInTheDocument();
   }, 20000);
 
+  it("expose le comparateur fiscal en sous-onglet Impôts de Simulation", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(sidebar().getByRole("button", { name: "Simulation" }));
+
+    const sousOnglet = await screen.findByRole("tab", { name: /impôts/i }, { timeout: ATTENTE_CHUNK });
+    await user.click(sousOnglet);
+
+    expect(
+      await screen.findByRole("heading", { name: /rattaché ou déclaration séparée/i }, { timeout: ATTENTE_CHUNK })
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/revenu net imposable/i), "60000");
+    await user.click(screen.getByRole("button", { name: /maximum déductible/i }));
+    expect(screen.getAllByText(/aide déduite en pension/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/rattaché à tes parents/i).length).toBeGreaterThan(0);
+  }, 20000);
+
   it("retombe sur le Dashboard si l'URL désigne un onglet inexistant", () => {
     window.location.hash = "#/nimportequoi";
     renderApp();
