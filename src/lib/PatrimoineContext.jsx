@@ -4,6 +4,7 @@ import { weightedAverageRate, upsertByDate, todayIso, valeurPosition, coutPositi
 import { enrichir } from "./compteCourant";
 import { mouvementsAutresComptes, estimerSolde } from "./liensComptes";
 import { budgetMoyen } from "./analyseCompte";
+import { moisDeReference } from "./santeFinanciere";
 import { historiqueExemple, portefeuilleExemple, operationsExemple, objectifExemple } from "./jeuExemple";
 
 /**
@@ -55,6 +56,8 @@ export const STORAGE_KEYS = [
   // Prélèvements récurrents du relevé que l'utilisateur a choisi de ne pas
   // suivre comme abonnements (clés de marchand, voir abonnements.js).
   "abonnementsIgnores",
+  // Note de santé financière, un point par mois (voir santeFinanciere.js).
+  "historiqueSante",
 ];
 
 /**
@@ -266,6 +269,9 @@ export function PatrimoineProvider({ children }) {
     [compteReleves, compteProvisoires, compteMouvements, compteEnrichies]
   );
   const budgetReel = useMemo(() => budgetMoyen(compteEnrichies), [compteEnrichies]);
+  // Le mois qui sert d'unité au matelas « prudent » : la moyenne des mois les
+  // plus chers, plutôt qu'un mois moyen (voir moisDeReference).
+  const moisReference = useMemo(() => moisDeReference(compteEnrichies), [compteEnrichies]);
   const cashEffectif = compteSolde ? compteSolde.solde / 100 : (cash ?? 0);
   const profilEffectif = useMemo(
     () =>
@@ -309,10 +315,16 @@ export function PatrimoineProvider({ children }) {
       matelasMois:
         profile.monthly_expenses > 0 ? (livretsTotal + matelasCompteCourant) / profile.monthly_expenses : null,
       matelasCompteCourant,
+      // Le même matelas, compté en mois « les plus chers ». `null` tant que
+      // les relevés ne couvrent pas trois mois.
+      depensesMoisReference: moisReference ? moisReference.centimes / 100 : null,
+      matelasMoisPrudent: moisReference
+        ? (livretsTotal + matelasCompteCourant) / (moisReference.centimes / 100)
+        : null,
     };
   }, [
     bourse.cash_pocket, bourseValuePositions, bourseInvested, livretsTotal, cashEffectif, dettesTotal, profilEffectif,
-    compteSolde,
+    compteSolde, moisReference,
   ]);
 
   // Patrimoine encore vierge : aucun support d'épargne, aucune position, aucun

@@ -87,6 +87,7 @@ shared/adaptateursLLM.js
 shared/adaptateursLLM.test.js
 shared/anonymiser.js
 shared/anonymiser.test.js
+shared/assistantsDonnees.js
 shared/calendrierReference.js
 shared/calendrierReference.test.js
 shared/dividendes.js
@@ -151,6 +152,7 @@ src/components/CascadeMensuelle.jsx
 src/components/CashPocketCard.jsx
 src/components/CentreAFaire.jsx
 src/components/ChartFocusModal.jsx
+src/components/ClasserOperations.jsx
 src/components/CommuniqueDepose.jsx
 src/components/ComparaisonPairs.jsx
 src/components/ComparateurScenarios.jsx
@@ -183,6 +185,7 @@ src/components/HistoireTaux.jsx
 src/components/Immobilier.jsx
 src/components/ImportReleve.jsx
 src/components/IndicesWidget.jsx
+src/components/InflationPerso.jsx
 src/components/LecturePublication.jsx
 src/components/LecturePublication.test.jsx
 src/components/Livrets.jsx
@@ -222,6 +225,7 @@ src/components/ProchainesEcheances.jsx
 src/components/ProfilMensuelOutils.jsx
 src/components/Projet.jsx
 src/components/Projet.test.jsx
+src/components/QuestionDonnees.jsx
 src/components/RapprochementsAbonnements.jsx
 src/components/RatesHub.jsx
 src/components/RatesHub.test.jsx
@@ -288,12 +292,14 @@ src/lib/calendrierManuel.js
 src/lib/calendrierManuel.test.js
 src/lib/cascade.js
 src/lib/cascade.test.js
+src/lib/categorisationAssistee.js
 src/lib/chiffrement.js
 src/lib/chiffrement.test.js
 src/lib/compact.test.js
 src/lib/compositionEtf.js
 src/lib/compteCourant.js
 src/lib/compteCourant.test.js
+src/lib/contexteDonnees.js
 src/lib/correlations.js
 src/lib/correlations.test.js
 src/lib/decisions.js
@@ -323,7 +329,9 @@ src/lib/histoireTaux.js
 src/lib/histoireTaux.test.js
 src/lib/historiqueDividendes.js
 src/lib/horizonClient.js
+src/lib/ideesIaLecture.test.js
 src/lib/indexConstituents.js
+src/lib/inflation.js
 src/lib/jeuExemple.js
 src/lib/jeuExemple.test.js
 src/lib/ledger.test.js

@@ -170,6 +170,44 @@ export function alertesPanique({
   return alertes.sort((a, b) => a.variationPct - b.variationPct);
 }
 
+/**
+ * Les thèses à relire parce que la société vient de PUBLIER.
+ *
+ * L'anti-panique réagit au cours ; ceci réagit aux faits. Une publication de
+ * résultats est précisément ce que les conditions de vente décrivent (marge,
+ * dividende, croissance) : c'est le moment de confronter la thèse aux chiffres,
+ * que le cours ait bougé ou non.
+ *
+ * Retenues : les publications de résultats passées depuis moins de
+ * `fenetreJours` jours, postérieures à la dernière relecture. Une date
+ * seulement ESTIMÉE est écartée — demander de relire après une publication
+ * qui n'a peut-être pas eu lieu ferait perdre confiance dans le rappel.
+ *
+ * @param {object[]} evenements  Événements du calendrier (`calendrierEvenements`).
+ * @returns {{note, evenement}[]}
+ */
+export function resultatsARelire({ notes = [], evenements = [], aujourdhui = todayIso(), fenetreJours = 21 } = {}) {
+  const sortie = [];
+  for (const note of notes || []) {
+    if (note.archivee || !note.ticker) continue;
+    const ticker = normaliser(note.ticker);
+    const derniere = jourDe(derniereRevue(note));
+    const publications = (evenements || [])
+      .filter(
+        (e) =>
+          e?.type === "Résultats" &&
+          e.statut !== "estime" &&
+          normaliser(e.ticker) === ticker &&
+          e.date <= aujourdhui &&
+          joursEntre(e.date, aujourdhui) <= fenetreJours &&
+          (!derniere || e.date > derniere)
+      )
+      .sort((a, b) => b.date.localeCompare(a.date));
+    if (publications[0]) sortie.push({ note, evenement: publications[0] });
+  }
+  return sortie.sort((a, b) => b.evenement.date.localeCompare(a.evenement.date));
+}
+
 /** Part du portefeuille couverte par une thèse active. */
 export function couverture(notes = [], positions = []) {
   const actives = new Set((notes || []).filter((n) => !n.archivee && n.ticker).map((n) => normaliser(n.ticker)));

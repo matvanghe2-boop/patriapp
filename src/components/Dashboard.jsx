@@ -25,6 +25,7 @@ import { DISPOSITION_DEFAUT } from "../lib/dispositionDashboard";
 import { decouperParPoche, COULEURS_POCHES } from "../lib/patrimoineParPoche";
 import { recordAAnnoncer, objectifsAAnnoncer, plusHautHistorique } from "../lib/records";
 import CentreAFaire from "./CentreAFaire";
+import { enEurosConstants, inflationOfficielle } from "../lib/inflation";
 import { usePatrimoine } from "../lib/PatrimoineContext";
 import { TIME_FILTERS, getMonthsAgo, PointFinal, TimeFilterBar, ChartTooltip, PastilleOperations } from "./CourbePatrimoineOutils";
 import OnboardingCard from "./CarteBienvenue";
@@ -47,7 +48,7 @@ export default function Dashboard() {
     cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
     objectifs, setObjectifs, bourseHistory = [], contracts = [], evenementsMarche = [],
     compteSolde = null, matelasCompteCourant = 0, compteEnrichies = [], compteOperations = [], compteReleves = [],
-    budgetReel = null, strategyNotes = [], subs = [],
+    budgetReel = null, strategyNotes = [], subs = [], matelasMoisPrudent = null,
   } = usePatrimoine();
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
@@ -55,6 +56,8 @@ export default function Dashboard() {
   // « total » : la courbe du patrimoine net ; « poches » : la même, découpée
   // en bourse, livrets suivis et reste.
   const [vueCourbe, setVueCourbe] = useState("total");
+  // Courbe en euros d'aujourd'hui (corrigée de l'inflation officielle).
+  const [eurosConstants, setEurosConstants] = useState(false);
   const { showToast } = useToast();
 
   // Allocation cible — passe par l'état persistant, et donc par la
@@ -227,6 +230,16 @@ export default function Dashboard() {
       });
     }
 
+    // En euros d'aujourd'hui : chaque point est ramené au pouvoir d'achat du
+    // jour au taux d'inflation officiel — une hypothèse simple, annoncée
+    // dans la légende. Les projections futures sont ramenées dans l'autre sens.
+    if (eurosConstants) {
+      filtered = filtered.map((p) => ({ ...p, value: Math.round(enEurosConstants(p.value, p.date)) }));
+      projectionPoints.forEach((p) => {
+        p.projection = Math.round(enEurosConstants(p.projection, p.date));
+      });
+    }
+
     // Merge: last real point ties into first projection
     const histData = filtered.map((p) => ({ ...p, projection: undefined }));
     // Connect real line to first projection point
@@ -240,7 +253,7 @@ export default function Dashboard() {
     // repère — une pastille d'achat de cette année atterrissait sur le
     // relevé de l'an dernier. L'axe affiche toujours le libellé.
     return [...histData, ...projectionPoints].map((p, i) => ({ ...p, cle: `p${i}` }));
-  }, [historyPast, patrimoineNet, epargneMensuelle, timeFilter, blendedRatePct]);
+  }, [historyPast, patrimoineNet, epargneMensuelle, timeFilter, blendedRatePct, eurosConstants]);
 
   const libelleParCle = useMemo(
     () => Object.fromEntries(chartData.map((p) => [p.cle, p.label])),
@@ -445,7 +458,7 @@ export default function Dashboard() {
       <CentreAFaire
         livrets={livrets}
         bourse={bourse}
-        matelasMois={matelasMois}
+        matelasMois={matelasMoisPrudent ?? matelasMois}
         tauxReference={bourseGainPct}
         strategyNotes={strategyNotes}
         subs={subs}
@@ -560,6 +573,15 @@ export default function Dashboard() {
                   ? `${matelasMois.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mois`
                   : "—"}
               </dd>
+              {matelasMoisPrudent != null && matelasMois != null && Math.abs(matelasMoisPrudent - matelasMois) >= 0.1 && (
+                <dd className="text-micro text-slate-500 mt-0.5 max-w-[11rem]">
+                  soit{" "}
+                  <span className="ghost-blur">
+                    {matelasMoisPrudent.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mois
+                  </span>{" "}
+                  de tes mois les plus chers
+                </dd>
+              )}
               {matelasCompteCourant > 0 && (
                 <dd className="text-micro text-slate-500 mt-0.5 max-w-[11rem]">
                   dont <span className="ghost-blur">{eur(matelasCompteCourant)}</span> du compte courant, au-delà d'un mois
@@ -642,6 +664,7 @@ export default function Dashboard() {
       <Bloc id="sante">
         <SanteFinanciere
           matelasMois={matelasMois}
+          matelasMoisPrudent={matelasMoisPrudent}
           tauxEpargne={tauxEpargne}
           profile={profile}
           compteEnrichies={compteEnrichies}
@@ -824,6 +847,19 @@ export default function Dashboard() {
                   </button>
                 ))}
               </div>
+              {vueCourbe === "total" && (
+                <button
+                  type="button"
+                  onClick={() => setEurosConstants((v) => !v)}
+                  aria-pressed={eurosConstants}
+                  title="Corriger la courbe de l'inflation : chaque point en euros d'aujourd'hui"
+                  className={`text-micro px-2 py-1 rounded-lg border transition-colors ${
+                    eurosConstants ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300" : "border-slate-800 text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  € constants
+                </button>
+              )}
               <TimeFilterBar active={timeFilter} onChange={setTimeFilter} />
               <GhostButton theme="emerald" onClick={() => setShowAddHistory((s) => !s)}>Ajouter</GhostButton>
             </div>
@@ -847,6 +883,11 @@ export default function Dashboard() {
                 <div className="w-6 h-0.5 bg-emerald-400 rounded" />
                 Historique
               </div>
+            )}
+            {eurosConstants && vueCourbe === "total" && (
+              <span className="text-micro text-emerald-300/80">
+                En euros d'aujourd'hui · inflation {pctPlain(inflationOfficielle().tauxPct, 1)}/an ({inflationOfficielle().source})
+              </span>
             )}
             <div className="flex items-center gap-1.5 text-micro text-slate-500">
               <div className="w-6 h-0.5 border-t-2 border-dashed border-emerald-400/50" />

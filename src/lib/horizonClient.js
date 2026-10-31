@@ -36,6 +36,8 @@ export async function poserQuestion({
   // Mode B : doit être déclaré explicitement, sinon le serveur refuse un
   // contexte contenant des montants réels (voir api/advisor.js).
   montantsReels = false,
+  // « horizon » (défaut), « donnees » ou « categories » : voir api/advisor.js.
+  mode = "horizon",
   signal,
 } = {}) {
   const jeton = await jetonAcces();
@@ -48,7 +50,7 @@ export async function poserQuestion({
         "Content-Type": "application/json",
         ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
       },
-      body: JSON.stringify({ question, contexte, historique, montantsReels }),
+      body: JSON.stringify({ question, contexte, historique, montantsReels, mode }),
       signal,
     });
   } catch (err) {

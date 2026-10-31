@@ -4,6 +4,20 @@ import { construireChaine } from "../shared/adaptateursLLM.js";
 import { executerBoucle, ErreurModeDegrade } from "../shared/orchestrateur.js";
 import { auditerContexte } from "../shared/anonymiser.js";
 import { construirePromptSysteme } from "../shared/horizonOutils.js";
+import {
+  REGISTRE_DONNEES, construirePromptDonnees, PROMPT_CATEGORIES, questionCategories,
+} from "../shared/assistantsDonnees.js";
+
+/**
+ * Trois assistants partagent cette route, et donc son contrôle d'identité, son
+ * audit et sa limite de débit :
+ *  · « horizon » (défaut) — simulation de projet, avec les outils d'Horizon ;
+ *  · « donnees » — question sur ses propres chiffres (voir assistantsDonnees.js) ;
+ *  · « categories » — catégorie de budget pour des noms de marchands.
+ * Une route de plus aurait été une fonction serverless de plus, avec ses propres
+ * garde-fous à tenir synchrones.
+ */
+const MODES = ["horizon", "donnees", "categories"];
 
 /**
  * Assistant Horizon — orchestration côté serveur.
@@ -32,7 +46,11 @@ async function handler(req, res) {
   // légitime pour le navigateur comme pour un `curl`.
   await exigerUtilisateur(req);
 
-  const { question, contexte, historique = [], montantsReels = false } = req.body ?? {};
+  const { question, contexte, historique = [], montantsReels = false, mode = "horizon" } = req.body ?? {};
+
+  if (!MODES.includes(mode)) {
+    throw httpError(400, "Mode d'assistant inconnu.");
+  }
 
   if (typeof question !== "string" || !question.trim()) {
     throw httpError(400, "Question manquante.");
@@ -60,16 +78,25 @@ async function handler(req, res) {
     throw httpError(503, "Aucun fournisseur configuré. Le simulateur à formulaires reste disponible.");
   }
 
-  const messages = [...historique, { role: "utilisateur", contenu: question }];
+  // En mode « categories », le modèle n'a aucun outil pour lire le contexte :
+  // la liste des marchands lui est donc donnée dans la question elle-même.
+  const contenu = mode === "categories" ? questionCategories(contexte) : question;
+  const messages = [...historique, { role: "utilisateur", contenu }];
+
+  const parMode = {
+    // L'unité annoncée au modèle doit suivre celle du contexte, sinon il
+    // écrira « points » devant des euros, ou l'inverse.
+    horizon: { systeme: construirePromptSysteme({ montantsReels: montantsReels === true }) },
+    donnees: { systeme: construirePromptDonnees({ montantsReels: montantsReels === true }), registre: REGISTRE_DONNEES },
+    categories: { systeme: PROMPT_CATEGORIES, registre: [], maxIterations: 2 },
+  };
 
   try {
     const resultat = await executerBoucle({
       adaptateurs,
       contexte,
       messages,
-      // L'unité annoncée au modèle doit suivre celle du contexte, sinon il
-      // écrira « points » devant des euros, ou l'inverse.
-      systeme: construirePromptSysteme({ montantsReels: montantsReels === true }),
+      ...parMode[mode],
     });
     return res.status(200).json(resultat);
   } catch (err) {

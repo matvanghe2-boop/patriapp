@@ -23,6 +23,7 @@ import {
   enrichir, soldesApres, provisoiresNonCouverts, serieSolde, raccordsReleves, moisDisponibles, moisDe, bilan, parMois,
   appliquerImport, retirerReleve, categorie, operationsInhabituelles,
 } from "../lib/compteCourant";
+import ClasserOperations from "./ClasserOperations";
 
 /**
  * Onglet Compte courant.
@@ -394,6 +395,9 @@ export default function CompteCourant({
 
               {sousOnglet === "operations" && (
               <>
+              {/* Les marchands restés « Autres », tous mois confondus : une
+                  règle posée ici reclasse aussi les mois passés. */}
+              <ClasserOperations enrichies={enrichies} onClasser={(g, id) => classer(g.ops[0], id, { pourToutes: true })} />
               {inhabituelles.length > 0 && (
                 <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm space-y-2">
                   <div className="flex items-start gap-2 text-slate-200">

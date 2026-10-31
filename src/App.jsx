@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, Suspense, lazy } from "react";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
   Repeat, CreditCard, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation, LockKeyhole,
+  MessageCircleQuestion,
 } from "lucide-react";
 import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
@@ -31,6 +32,7 @@ import { useApparence } from "./lib/ApparenceContext";
 import { vibrer } from "./lib/haptique";
 import PaletteCommandes, { construireIndex, useRaccourciPalette } from "./components/PaletteCommandes";
 import ReglagesApparence from "./components/ReglagesApparence";
+import QuestionDonnees from "./components/QuestionDonnees";
 import ReglagesChiffrement, { BandeauChiffrementVerrouille } from "./components/ReglagesChiffrement";
 import Retrospective from "./components/Retrospective";
 import ModePresentation from "./components/ModePresentation";
@@ -101,6 +103,7 @@ export default function App() {
   const [reglagesOuverts, setReglagesOuverts] = React.useState(false);
   const [chiffrementOuvert, setChiffrementOuvert] = React.useState(false);
   const [retroOuverte, setRetroOuverte] = React.useState(false);
+  const [questionOuverte, setQuestionOuverte] = React.useState(false);
   const [presentation, setPresentation] = React.useState(false);
   const [plusOuvert, setPlusOuvert] = React.useState(false);
   const { haptique } = useApparence();
@@ -329,6 +332,7 @@ export default function App() {
       { id: "act-chiffrement", libelle: "Chiffrement de bout en bout", motsCles: "chiffrement securite phrase secrete confidentialite cloud", icone: LockKeyhole, executer: () => setChiffrementOuvert(true) },
       { id: "act-presentation", libelle: "Mode présentation", motsCles: "presentation plein ecran grand montrer", icone: Presentation, executer: () => setPresentation(true) },
       { id: "act-retro", libelle: "Rétrospective annuelle", motsCles: "bilan annee resume retrospective", icone: Sparkles, executer: () => setRetroOuverte(true) },
+      { id: "act-question", libelle: "Poser une question à mes données", motsCles: "question demander assistant ia combien depense", icone: MessageCircleQuestion, executer: () => setQuestionOuverte(true) },
       { id: "act-ghost", libelle: ghostMode ? "Afficher les montants" : "Masquer les montants (mode Ghost)", motsCles: "ghost masquer flouter confidentialite", icone: ghostMode ? Eye : EyeOff, executer: () => setGhostMode((g) => !g) },
       { id: "act-export", libelle: "Exporter une sauvegarde", motsCles: "export sauvegarde json backup", icone: Download, executer: handleExport },
       ...TABS.map((t) => ({
@@ -482,6 +486,15 @@ export default function App() {
           onToggleGhost={() => setGhostMode((g) => !g)}
         >
           <GlobalSearch index={indexPalette} onNavigate={allerA} />
+          <button
+            type="button"
+            onClick={() => setQuestionOuverte(true)}
+            aria-label="Poser une question à mes données"
+            title="Poser une question à mes données"
+            className="btn-flash shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-emerald-300 hover:bg-slate-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
+          >
+            <MessageCircleQuestion size={16} aria-hidden="true" />
+          </button>
           <SyncIndicator />
           <Notifications
             reminders={patrimoine.reminders}
@@ -540,6 +553,7 @@ export default function App() {
           { id: "f-apparence", libelle: "Apparence", icone: Palette, executer: () => setReglagesOuverts(true) },
           { id: "f-chiffrement", libelle: "Chiffrement", icone: LockKeyhole, executer: () => setChiffrementOuvert(true) },
           { id: "f-retro", libelle: "Rétrospective annuelle", icone: Sparkles, executer: () => setRetroOuverte(true) },
+          { id: "f-question", libelle: "Poser une question à mes données", icone: MessageCircleQuestion, executer: () => setQuestionOuverte(true) },
           { id: "f-presentation", libelle: "Mode présentation", icone: Presentation, executer: () => setPresentation(true) },
           { id: "f-export", libelle: "Exporter une sauvegarde", icone: Download, executer: handleExport },
         ]}
@@ -564,6 +578,7 @@ export default function App() {
         onNaviguer={allerA}
       />
       <ReglagesApparence ouvert={reglagesOuverts} onFermer={() => setReglagesOuverts(false)} />
+      <QuestionDonnees ouvert={questionOuverte} onFermer={() => setQuestionOuverte(false)} />
       <ReglagesChiffrement ouvert={chiffrementOuvert} onFermer={() => setChiffrementOuvert(false)} />
       <Retrospective
         ouvert={retroOuverte}
