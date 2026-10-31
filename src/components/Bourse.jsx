@@ -311,8 +311,9 @@ export default function Bourse() {
             PEA &amp; <span className="text-violet-400">Bourse</span>
           </h1>
           <div className="flex items-center gap-2 text-xs text-slate-500">
-            Enveloppe fiscale
+            <label htmlFor="bourse-enveloppe">Enveloppe fiscale</label>
             <select
+              id="bourse-enveloppe"
               value={bourse.envelope || "PEA"}
               onChange={(e) => setBourse((b) => ({ ...b, envelope: e.target.value }))}
               className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-100 focus:outline-none focus:border-violet-400/60"

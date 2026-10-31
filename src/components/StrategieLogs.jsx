@@ -1042,6 +1042,7 @@ export default function StrategieLogs({
 
       <OngletsGlissants
         className="teinte-rose"
+        avecPanneaux
         ariaLabel="Sections de Stratégie & Logs"
         actif={subTab}
         onChange={setSubTab}

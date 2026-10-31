@@ -747,6 +747,7 @@ export default function Abonnements({
 
       <OngletsGlissants
         className="teinte-cyan"
+        avecPanneaux
         ariaLabel="Sections des abonnements"
         actif={onglet}
         onChange={setOnglet}

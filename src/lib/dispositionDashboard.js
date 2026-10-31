@@ -29,6 +29,7 @@ export const BLOCS_DASHBOARD = [
   { id: "objectifs", libelle: "Objectifs" },
   { id: "passifs", libelle: "Passifs" },
   { id: "echeances", libelle: "Prochaines échéances" },
+  { id: "agenda", libelle: "Agenda de l'année" },
 ];
 
 const IDS = BLOCS_DASHBOARD.map((b) => b.id);

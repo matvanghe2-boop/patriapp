@@ -1,13 +1,14 @@
 import { useMemo, useState, lazy, Suspense } from "react";
 import { useSousOnglet } from "../lib/useHashRoute";
 import OngletsGlissants from "./OngletsGlissants";
-import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark, Rocket } from "lucide-react";
+import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark, Rocket, Scale } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES, SkeletonCard, SkeletonChart } from "./ui";
 import { projectCompound, eur, pct, compact, solveMonthlyForTarget, generateVolatileReturns, uid, todayIso, pctPlain } from "../lib/finance";
 import Immobilier from "./Immobilier";
 import ComparateurScenarios from "./ComparateurScenarios";
 import Decumulation from "./Decumulation";
+import ComparateurRattachement from "./ComparateurRattachement";
 
 // Chargé à la demande : « Projet » embarque le moteur Horizon et son propre
 // graphique, inutiles tant qu'on reste sur Projection ou Immobilier. En import
@@ -44,7 +45,7 @@ export default function Simulation({
   horizonScenarios, setHorizonScenarios,
   horizonDernierBilan, setHorizonDernierBilan,
 }) {
-  const [subTab, setSubTab] = useSousOnglet(["projection", "immobilier", "projet"], "projection");
+  const [subTab, setSubTab] = useSousOnglet(["projection", "immobilier", "projet", "impots"], "projection");
   const livretsCapital = sim.livrets.capital ?? livretsTotal;
   const livretsRate = sim.livrets.rate ?? Math.max(livretsAvgRate, 0.5);
   const bourseCapital = sim.bourse.capital ?? bourseTotal;
@@ -199,8 +200,12 @@ export default function Simulation({
           { id: "projection", libelle: "Projection", icone: Calculator },
           { id: "immobilier", libelle: "Immobilier & Crédit", icone: Landmark },
           { id: "projet", libelle: "Projet", icone: Rocket },
+          { id: "impots", libelle: "Impôts", icone: Scale },
         ]}
       />
+
+      {/* Rattaché au foyer des parents ou déclaration séparée (estimation). */}
+      {subTab === "impots" && <ComparateurRattachement />}
 
       {subTab === "projet" && (
         <Suspense

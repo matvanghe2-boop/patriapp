@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { History, ShoppingCart, Banknote, Coins, Target, Split, ArrowDownLeft, Pencil, NotebookPen, BookOpenCheck, ClipboardCheck } from "lucide-react";
+import { History, ShoppingCart, Banknote, Coins, Target, Split, ArrowDownLeft, Pencil, NotebookPen, BookOpenCheck, ClipboardCheck, Flag } from "lucide-react";
 import { CarteFocalisable, CardLabel } from "./ui";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { lireNombre } from "../lib/finance";
 import { evenementsTheses } from "../lib/theses";
+import { usePersistentState } from "../lib/storage";
 
 /**
  * Frise unifiée — onglet Stratégie & Logs.
@@ -38,6 +39,7 @@ const TYPES = {
   THESE: { icone: NotebookPen, couleur: "rose", libelle: "Thèse écrite" },
   REVUE: { icone: BookOpenCheck, couleur: "rose", libelle: "Thèse relue" },
   CLOTURE: { icone: ClipboardCheck, couleur: "slate", libelle: "Thèse clôturée" },
+  NOTE: { icone: Flag, couleur: "sky", libelle: "Événement" },
 };
 
 const CLASSES_POINT = {
@@ -47,6 +49,7 @@ const CLASSES_POINT = {
   indigo: "bg-indigo-400",
   rose: "bg-rose-400",
   cyan: "bg-cyan-400",
+  sky: "bg-sky-300",
   slate: "bg-slate-500",
 };
 
@@ -76,6 +79,8 @@ function montantDe(op) {
 }
 
 export default function FriseUnifiee({ operations = [], objectifs = [], theses = [], patrimoineNet = 0, limite = 30 }) {
+  // Les événements de vie annotés sur la courbe du Dashboard.
+  const [annotations] = usePersistentState("annotationsPatrimoine", []);
   const [tout, setTout] = useState(false);
 
   const evenements = useMemo(() => {
@@ -117,8 +122,12 @@ export default function FriseUnifiee({ operations = [], objectifs = [], theses =
 
     liste.push(...evenementsTheses(theses));
 
+    for (const a of Array.isArray(annotations) ? annotations : []) {
+      liste.push({ id: `note-${a.id}`, date: a.date, type: "NOTE", libelle: a.texte, detail: "annoté sur la courbe" });
+    }
+
     return liste.sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [operations, objectifs, theses, patrimoineNet]);
+  }, [operations, objectifs, theses, patrimoineNet, annotations]);
 
   const visibles = tout ? evenements : evenements.slice(0, limite);
 

@@ -65,10 +65,11 @@ export function TimeFilterBar({ active, onChange }) {
 // ─── Custom tooltip for chart with projection ─────────────────────────────────
 // L'abscisse de la courbe est une clé d'indice (voir `chartData`) : le libellé
 // lisible se relit donc sur le point lui-même, pas sur `label`.
-export function ChartTooltip({ active, payload, marqueursParCle }) {
+export function ChartTooltip({ active, payload, marqueursParCle, annotationsParCle }) {
   if (!active || !payload?.length) return null;
   const point = payload[0]?.payload;
   const marqueur = marqueursParCle?.[point?.cle];
+  const notes = annotationsParCle?.[point?.cle];
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
       <div className="text-slate-400 mb-1">{point?.label}</div>
@@ -93,7 +94,30 @@ export function ChartTooltip({ active, payload, marqueursParCle }) {
           )}
         </div>
       )}
+      {notes && (
+        <div className="pt-1.5 mt-1.5 border-t border-slate-800 space-y-0.5">
+          {notes.annotations.map((a) => (
+            <div key={a.id} className="flex items-center gap-1.5 text-sky-200">
+              <span aria-hidden="true">◆</span>
+              <span>{a.texte}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+/** Repère d'annotation sur la courbe : un losange, pour ne pas le confondre avec une opération. */
+export function RepereAnnotation({ cx, cy, groupe }) {
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+  const y = cy + 12;
+  return (
+    <g>
+      <title>{groupe.annotations.map((a) => a.texte).join(" · ")}</title>
+      <line x1={cx} y1={cy} x2={cx} y2={y - 4} stroke="#7dd3fc" strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />
+      <rect x={cx - 4} y={y - 4} width={8} height={8} transform={`rotate(45 ${cx} ${y})`} fill="#7dd3fc" stroke="rgb(var(--c-slate-950))" strokeWidth={1.5} />
+    </g>
   );
 }
 

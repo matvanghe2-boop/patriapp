@@ -78,6 +78,7 @@ export default function CashPocketCard({ bourse, setBourse }) {
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          aria-label="Montant de la poche cash, en euros"
           title="Une correction est enregistrée comme ajustement de solde daté dans le journal d'opérations."
           className="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm font-data tabular-nums ghost-blur focus:outline-none focus:border-amber-400/60 focus-visible:ring-2 focus-visible:ring-amber-400/30"
         />

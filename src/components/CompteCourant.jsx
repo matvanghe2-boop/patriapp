@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useSousOnglet } from "../lib/useHashRoute";
+import Avances from "./Avances";
 import {
-  CreditCard, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Scale, FileText, ShieldCheck,
+  HandCoins, CreditCard, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Scale, FileText, ShieldCheck,
   TriangleAlert, Trash2, Landmark, Info, ListOrdered, BarChart3, PiggyBank,
 } from "lucide-react";
 import { Card, CardLabel, PageGlow, PastilleEtat, SectionRepliable, CARD_THEMES } from "./ui";
@@ -74,7 +75,7 @@ export default function CompteCourant({
   const [vue, setVue] = useState("mois");
   const [anneeChoisie, setAnneeChoisie] = useState(null);
   const [filtreCategorie, setFiltreCategorie] = useState(null);
-  const [sousOnglet, setSousOnglet] = useSousOnglet(["operations", "analyse", "epargne"], "operations");
+  const [sousOnglet, setSousOnglet] = useSousOnglet(["operations", "analyse", "epargne", "avances"], "operations");
 
   // Le titulaire du relevé le plus récent sert à reconnaître les virements
   // entre ses propres comptes.
@@ -320,6 +321,7 @@ export default function CompteCourant({
               { id: "operations", libelle: "Opérations", icone: ListOrdered },
               { id: "analyse", libelle: "Analyse", icone: BarChart3 },
               { id: "epargne", libelle: "Épargne & charges", icone: PiggyBank },
+              { id: "avances", libelle: "Avances", icone: HandCoins },
             ]}
           />
 
@@ -341,7 +343,10 @@ export default function CompteCourant({
             />
           )}
 
-          {moisCourant && sousOnglet !== "epargne" && (
+          {/* Qui me doit quoi : tous mois confondus, sans navigation par mois. */}
+          {sousOnglet === "avances" && <Avances enrichies={enrichies} />}
+
+          {moisCourant && sousOnglet !== "epargne" && sousOnglet !== "avances" && (
             <>
               <div role="group" aria-label="Échelle de lecture" className="flex justify-center gap-1">
                 {[

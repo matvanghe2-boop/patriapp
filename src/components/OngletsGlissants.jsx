@@ -23,6 +23,12 @@ export default function OngletsGlissants({
   ariaLabel = "Sous-navigation",
   /** Reste visible au défilement. Voir `.onglets-colles` dans index.css. */
   colle = true,
+  /**
+   * La page enveloppe-t-elle son contenu dans des `role="tabpanel"` d'id
+   * `panneau-<id>` ? Sans eux, `aria-controls` désignerait un élément
+   * inexistant — une référence invalide que les lecteurs d'écran signalent.
+   */
+  avecPanneaux = false,
 }) {
   const { haptique } = useApparence();
   const barreRef = useRef(null);
@@ -79,7 +85,7 @@ export default function OngletsGlissants({
           role="tab"
           id={`onglet-${o.id}`}
           aria-selected={actif === o.id}
-          aria-controls={`panneau-${o.id}`}
+          aria-controls={avecPanneaux ? `panneau-${o.id}` : undefined}
           // Un seul onglet dans l'ordre de tabulation : c'est la convention du
           // motif, et elle évite d'imposer six tabulations pour traverser une
           // barre de navigation.

@@ -6,6 +6,8 @@ import EtatVide from "./EtatVide";
 import { CalendrierAnnuel, CalendrierCompare, CourbeEvolution } from "./graphiques";
 import { eur, pct, pctPlain } from "../lib/finance";
 import { construireRetrospective, anneesDisponibles, nomMois, joursDeLAnnee, semainesAgitees } from "../lib/retrospective";
+import { usePersistentState } from "../lib/storage";
+import { annotationsDeLAnnee } from "../lib/annotations";
 
 /**
  * Rétrospective annuelle.
@@ -34,6 +36,10 @@ export default function Retrospective({
 }) {
   const annees = useMemo(() => anneesDisponibles(historyPast), [historyPast]);
   const [an, setAn] = useState(() => annees[0] ?? new Date().getFullYear());
+
+  // Les événements de vie annotés sur la courbe du Dashboard.
+  const [annotations] = usePersistentState("annotationsPatrimoine", []);
+  const annotationsAnnee = useMemo(() => annotationsDeLAnnee(annotations, an), [annotations, an]);
 
   const bilan = useMemo(
     () => construireRetrospective({ an, historyPast, operations, positions, profileHistory }),
@@ -124,6 +130,24 @@ export default function Retrospective({
                   libelle={`Évolution du patrimoine en ${an}`}
                   className="w-full h-auto text-emerald-400 ghost-blur"
                 />
+              </section>
+            )}
+
+            {/* ── Les événements de l'année, annotés sur la courbe ──────── */}
+            {annotationsAnnee.length > 0 && (
+              <section className="retro-bloc">
+                <p className="retro-label">Ce qui s'est passé</p>
+                <ol className="mt-2 flex flex-col gap-1">
+                  {annotationsAnnee.map((a) => (
+                    <li key={a.id} className="text-sm text-slate-300">
+                      <span className="text-sky-300" aria-hidden="true">◆ </span>
+                      <span className="text-slate-500">
+                        {new Date(`${a.date}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} —{" "}
+                      </span>
+                      {a.texte}
+                    </li>
+                  ))}
+                </ol>
               </section>
             )}
 

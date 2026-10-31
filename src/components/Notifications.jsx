@@ -20,7 +20,7 @@ function isDue(r) {
  * lib/alertes.js) et s'affichent aux côtés des rappels manuels. Elles ne sont
  * pas supprimables ici : on supprime l'alerte, pas sa notification.
  */
-export default function Notifications({ reminders = [], setReminders, alertes = [], onAcquitterAlerte, onAcquitterBilan, onAcquitterEssai }) {
+export default function Notifications({ reminders = [], setReminders, alertes = [], onAcquitterAlerte, onAcquitterBilan, onAcquitterEssai, onAcquitterAgenda }) {
   const [open, setOpen] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState({ label: "", type: "monthly", day: 5, date: "" });
@@ -110,6 +110,10 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
       onAcquitterEssai?.(r.subId);
       return;
     }
+    if (r.type === "agenda") {
+      onAcquitterAgenda?.(r.agendaId);
+      return;
+    }
     setReminders((list) =>
       list.map((x) => (x.id === r.id ? (x.type === "monthly" ? { ...x, lastAck: currentYearMonth() } : { ...x, done: true }) : x))
     );
@@ -197,7 +201,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
           ) : (
             <div className="space-y-1.5">
               {[...alertes, ...reminders].map((r) => {
-                const due = r.type === "alerte" || r.type === "bilan" || r.type === "essai" ? true : isDue(r);
+                const due = ["alerte", "bilan", "essai", "agenda"].includes(r.type) ? true : isDue(r);
                 return (
                   <div
                     key={r.id}
@@ -212,6 +216,8 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
                           ? "Bilan mensuel — sous-onglet Projet"
                           : r.type === "essai"
                           ? "Fin d'essai — onglet Abonnements"
+                          : r.type === "agenda"
+                          ? "Agenda de l'année — Dashboard"
                           : r.type === "alerte"
                           ? "Seuil de watchlist franchi"
                           : r.type === "monthly"
@@ -224,7 +230,7 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
                         <Check size={13} />
                       </button>
                     )}
-                    {r.type !== "alerte" && r.type !== "bilan" && r.type !== "essai" && (
+                    {!["alerte", "bilan", "essai", "agenda"].includes(r.type) && (
                       <button onClick={() => removeReminder(r.id)} title="Supprimer" className="text-slate-500 hover:text-rose-400">
                         <Trash2 size={13} />
                       </button>

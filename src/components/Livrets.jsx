@@ -254,8 +254,13 @@ function Ventilation({ livretsTotal, livrets = [], enveloppes, setEnveloppes }) 
         <CardLabel icon={Target}>Ventilation de l'épargne</CardLabel>
         <div className="flex items-center gap-2">
           <GhostButton onClick={() => setShowAdd((s) => !s)} icon={Plus}>Ajouter une enveloppe</GhostButton>
-          <button onClick={() => setExpanded((e) => !e)} className="text-slate-500 hover:text-slate-300">
-            {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            aria-expanded={expanded}
+            aria-label={expanded ? "Replier la ventilation" : "Déplier la ventilation"}
+            className="text-slate-500 hover:text-slate-300"
+          >
+            {expanded ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
           </button>
         </div>
       </div>
@@ -321,13 +326,14 @@ function Ventilation({ livretsTotal, livrets = [], enveloppes, setEnveloppes }) 
                     <span className="text-micro opacity-60 font-data">{pctPlain(pct, 0)}</span>
                     <input
                       type="number"
+                      aria-label={`Montant de l'enveloppe « ${e.label} », en euros`}
                       value={e.amount}
                       onChange={(ev) => updateEnv(e.id, ev.target.value)}
                       className="w-24 bg-black/20 border border-white/10 rounded-lg px-2 py-1 text-sm font-data tabular-nums text-right ghost-blur focus:outline-none focus:border-white/30"
                     />
                     <span className="text-micro opacity-50">€</span>
-                    <button onClick={() => removeEnv(e.id)} className="opacity-40 hover:opacity-80 ml-1">
-                      <X size={13} />
+                    <button onClick={() => removeEnv(e.id)} aria-label={`Supprimer l'enveloppe « ${e.label} »`} className="opacity-40 hover:opacity-80 ml-1">
+                      <X size={13} aria-hidden="true" />
                     </button>
                   </div>
                 );

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ListChecks, NotebookPen, FileText, Repeat, PiggyBank, Wallet, ChevronRight, CircleCheck } from "lucide-react";
+import { ListChecks, NotebookPen, FileText, Repeat, PiggyBank, Wallet, ChevronRight, CircleCheck, Stethoscope } from "lucide-react";
 import { Card, CardLabel, PastilleEtat, CARD_THEMES } from "./ui";
 import { elementsAFaire } from "../lib/aFaire";
 import { allerVers } from "../lib/useHashRoute";
@@ -15,13 +15,17 @@ import { usePersistentState } from "../lib/storage";
  * essais et prélèvements du relevé restaient invisibles depuis l'accueil.
  */
 
-const ICONES = { these: NotebookPen, contrat: FileText, abonnement: Repeat, epargne: PiggyBank, bourse: Wallet };
+const ICONES = { these: NotebookPen, contrat: FileText, abonnement: Repeat, epargne: PiggyBank, bourse: Wallet, donnees: Stethoscope };
+
+/** Ouvre un panneau de l'application (voir l'écouteur dans App.jsx). */
+export const ouvrirPanneau = (id) => window.dispatchEvent(new CustomEvent("patrium:ouvrir", { detail: id }));
 const LIBELLES_URGENCE = { critique: "Urgent", attention: "Bientôt", info: "À voir" };
 const ETAT = { critique: "critique", attention: "attention", info: "neutre" };
 const VISIBLES = 5;
 
 export default function CentreAFaire({
   livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies,
+  enveloppes, objectifs, compteReleves, patrimoineNet,
 }) {
   // Lus ici plutôt que reçus : ces deux clés appartiennent aux onglets Bourse
   // et Abonnements, et le Dashboard n'a aucune raison de les connaître.
@@ -30,15 +34,19 @@ export default function CentreAFaire({
   // Écrit par l'onglet Calendrier à chaque actualisation : les publications
   // de résultats y sont, et une thèse se relit après elles.
   const [evenements] = usePersistentState("calendrierEvenements", []);
+  const [avances] = usePersistentState("avances", []);
   const [tout, setTout] = useState(false);
 
   const elements = useMemo(
     () =>
       elementsAFaire({
         livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies, series, ignores,
-        evenements,
+        evenements, enveloppes, objectifs, compteReleves, patrimoineNet, avances,
       }),
-    [livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies, series, ignores, evenements]
+    [
+      livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies, series, ignores,
+      evenements, enveloppes, objectifs, compteReleves, patrimoineNet, avances,
+    ]
   );
   const affiches = tout ? elements : elements.slice(0, VISIBLES);
   const urgents = elements.filter((e) => e.urgence === "critique").length;
@@ -71,7 +79,7 @@ export default function CentreAFaire({
             <li key={e.id}>
               <button
                 type="button"
-                onClick={() => allerVers(e.lien.onglet, e.lien.sous)}
+                onClick={() => (e.ouvrir ? ouvrirPanneau(e.ouvrir) : allerVers(e.lien.onglet, e.lien.sous))}
                 className="btn-flash w-full flex items-center gap-3 text-left rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 hover:border-slate-700 hover:bg-slate-900/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
               >
                 <Icone size={15} className={`shrink-0 etat-${ETAT[e.urgence]}`} aria-hidden="true" />

@@ -1,5 +1,6 @@
 import React from "react";
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { AlertTriangle, RotateCcw, Copy } from "lucide-react";
+import { consignerErreur, lireJournal, rapportTexte } from "../lib/journalErreurs";
 
 /**
  * Filet de sécurité global.
@@ -22,6 +23,9 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error("Erreur de rendu :", error, info?.componentStack);
+    // Gardée dans le journal de l'appareil : l'écran blanc d'avant ne
+    // laissait rien à transmettre une fois la page rechargée.
+    consignerErreur(error, { source: "rendu", contexte: info?.componentStack?.split("\n").slice(0, 4).join(" ") });
   }
 
   render() {
@@ -44,6 +48,12 @@ export default class ErrorBoundary extends React.Component {
             className="mt-4 inline-flex items-center gap-2 text-sm font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-4 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
           >
             <RotateCcw size={14} aria-hidden="true" /> Recharger l'application
+          </button>
+          <button
+            onClick={() => navigator.clipboard?.writeText(rapportTexte(lireJournal())).catch(() => {})}
+            className="mt-2 ml-2 inline-flex items-center gap-2 text-sm text-slate-300 hover:text-slate-100 border border-slate-700 rounded-lg px-4 py-2"
+          >
+            <Copy size={14} aria-hidden="true" /> Copier le rapport d'erreur
           </button>
         </div>
       </div>

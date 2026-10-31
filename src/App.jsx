@@ -2,10 +2,11 @@ import React, { useEffect, useMemo, Suspense, lazy } from "react";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
   Repeat, CreditCard, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation, LockKeyhole,
-  MessageCircleQuestion,
+  MessageCircleQuestion, Bug, Stethoscope, FlaskConical, FolderSync, Smartphone,
 } from "lucide-react";
 import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
+  entrerBacASable, estBacASable, abonnerBacASable, usePersistentState,
 } from "./lib/storage";
 import { usePatrimoine, STORAGE_KEYS } from "./lib/PatrimoineContext";
 import { todayIso, netWorthDelta, variationDuJour } from "./lib/finance";
@@ -14,6 +15,7 @@ import { useAlertesWatchlist } from "./lib/useAlertesWatchlist";
 import { useRappelsCalendrier } from "./lib/useRappelsCalendrier";
 import { useBilanRappel } from "./lib/useBilanRappel";
 import { rappelsEssais } from "./lib/abonnements";
+import { evenementsAgenda, rappelsAgenda } from "./lib/agendaFinancier";
 import { sauvegardeTropRecente } from "./lib/migrations";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
@@ -33,6 +35,10 @@ import { vibrer } from "./lib/haptique";
 import PaletteCommandes, { construireIndex, useRaccourciPalette } from "./components/PaletteCommandes";
 import ReglagesApparence from "./components/ReglagesApparence";
 import QuestionDonnees from "./components/QuestionDonnees";
+import JournalErreurs from "./components/JournalErreurs";
+import SanteDonnees from "./components/SanteDonnees";
+import SauvegardeAuto from "./components/SauvegardeAuto";
+import { etatSauvegardeAuto, sauvegardeDue, ecrireSauvegarde } from "./lib/sauvegardeAuto";
 import ReglagesChiffrement, { BandeauChiffrementVerrouille } from "./components/ReglagesChiffrement";
 import Retrospective from "./components/Retrospective";
 import ModePresentation from "./components/ModePresentation";
@@ -43,13 +49,54 @@ import AideRaccourcis from "./components/AideRaccourcis";
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
 // recharts de « Marché » et le simulateur ne sont téléchargés que si
 // l'utilisateur ouvre effectivement l'onglet correspondant.
-const Dashboard = lazy(() => import("./components/Dashboard"));
-const CompteCourant = lazy(() => import("./components/CompteCourant"));
-const Livrets = lazy(() => import("./components/Livrets"));
-const Bourse = lazy(() => import("./components/Bourse"));
-const Simulation = lazy(() => import("./components/Simulation"));
-const StrategieLogs = lazy(() => import("./components/StrategieLogs"));
-const Abonnements = lazy(() => import("./components/Abonnements"));
+// Les pages sont chargées à la demande, et PRÉCHARGÉES quand l'application
+// n'a rien d'autre à faire (voir prechargerOnglets) : sans cela, chaque
+// premier passage sur un onglet affichait son squelette le temps du
+// téléchargement.
+const CHARGEURS = {
+  dashboard: () => import("./components/Dashboard"),
+  compte: () => import("./components/CompteCourant"),
+  livrets: () => import("./components/Livrets"),
+  bourse: () => import("./components/Bourse"),
+  simulation: () => import("./components/Simulation"),
+  strategie: () => import("./components/StrategieLogs"),
+  abonnements: () => import("./components/Abonnements"),
+};
+const Dashboard = lazy(CHARGEURS.dashboard);
+const CompteCourant = lazy(CHARGEURS.compte);
+const Livrets = lazy(CHARGEURS.livrets);
+const Bourse = lazy(CHARGEURS.bourse);
+const Simulation = lazy(CHARGEURS.simulation);
+const StrategieLogs = lazy(CHARGEURS.strategie);
+const Abonnements = lazy(CHARGEURS.abonnements);
+const TransfertAppareil = lazy(() => import("./components/TransfertAppareil"));
+
+/**
+ * Précharge les autres onglets un par un, pendant les temps morts du
+ * navigateur. Rien ne part si l'utilisateur a demandé à économiser ses
+ * données mobiles : un onglet jamais ouvert ne vaut pas ce forfait.
+ */
+function prechargerOnglets(ongletCourant) {
+  if (typeof window === "undefined") return () => {};
+  if (navigator.connection?.saveData) return () => {};
+  const file = Object.keys(CHARGEURS).filter((id) => id !== ongletCourant);
+  let annule = false;
+  let minuterie = null;
+  const attendre = (f) =>
+    window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 4000 }) : (minuterie = setTimeout(f, 1500));
+  const suivant = () => {
+    if (annule || file.length === 0) return;
+    CHARGEURS[file.shift()]()
+      .catch(() => {})
+      .finally(() => attendre(suivant));
+  };
+  // Laisse d'abord l'onglet affiché finir de se charger.
+  minuterie = setTimeout(() => attendre(suivant), 2500);
+  return () => {
+    annule = true;
+    clearTimeout(minuterie);
+  };
+}
 
 // « Immobilier & Crédit » n'est plus une entrée de menu : c'est un sous-onglet
 // de Simulation (voir Simulation.jsx). Les deux modules répondent à la même
@@ -98,12 +145,36 @@ const TAB_BG = Object.fromEntries(TABS.map((t) => [t.id, theme(t.theme).pageBg])
 
 export default function App() {
   const [tab, setTab] = useHashRoute(TAB_IDS, "dashboard", TAB_ALIASES);
+  // Préchargement des autres onglets, une fois, à partir de celui d'arrivée.
+  const ongletInitial = React.useRef(tab);
+  useEffect(() => prechargerOnglets(ongletInitial.current), []);
   const [ghostMode, setGhostMode] = React.useState(false);
   const [paletteOuverte, setPaletteOuverte] = React.useState(false);
   const [reglagesOuverts, setReglagesOuverts] = React.useState(false);
   const [chiffrementOuvert, setChiffrementOuvert] = React.useState(false);
   const [retroOuverte, setRetroOuverte] = React.useState(false);
   const [questionOuverte, setQuestionOuverte] = React.useState(false);
+  const [journalOuvert, setJournalOuvert] = React.useState(false);
+  const [santeOuverte, setSanteOuverte] = React.useState(false);
+  const [sauvegardeAutoOuverte, setSauvegardeAutoOuverte] = React.useState(false);
+  // false, ou le mode d'ouverture du transfert : « envoyer » ou « recevoir ».
+  const [transfertOuvert, setTransfertOuvert] = React.useState(false);
+  // La sauvegarde automatique attend un clic pour que le navigateur rende
+  // l'accès au dossier : un bandeau le propose plutôt que d'échouer en silence.
+  const [sauvegardeEnAttente, setSauvegardeEnAttente] = React.useState(false);
+  const bacASable = React.useSyncExternalStore(abonnerBacASable, estBacASable, estBacASable);
+  // Un composant peut demander l'ouverture d'un panneau sans en connaître
+  // l'état : le centre « À faire » ouvre ainsi la santé des données.
+  useEffect(() => {
+    const ouvrir = (e) => {
+      if (e.detail === "donnees") setSanteOuverte(true);
+      if (e.detail === "journal") setJournalOuvert(true);
+      if (e.detail === "transfert") setTransfertOuvert("envoyer");
+      if (e.detail === "transfert-recevoir") setTransfertOuvert("recevoir");
+    };
+    window.addEventListener("patrium:ouvrir", ouvrir);
+    return () => window.removeEventListener("patrium:ouvrir", ouvrir);
+  }, []);
   const [presentation, setPresentation] = React.useState(false);
   const [plusOuvert, setPlusOuvert] = React.useState(false);
   const { haptique } = useApparence();
@@ -147,6 +218,28 @@ export default function App() {
   // prélèvement, donc quel que soit l'onglet ouvert.
   const { subs, setSubs } = patrimoine;
   const rappelsEssaisDus = useMemo(() => rappelsEssais(subs), [subs]);
+
+  // La veille d'une date de l'agenda financier (impôts, taux, contrats…).
+  const [agendaReglages] = usePersistentState("agendaReglages", { departement: "" });
+  const [agendaVus, setAgendaVus] = usePersistentState("agendaVus", []);
+  const rappelsAgendaDus = useMemo(
+    () =>
+      rappelsAgenda(
+        evenementsAgenda({
+          departement: agendaReglages?.departement,
+          livrets: patrimoine.livrets,
+          bourse: patrimoine.bourse,
+          contracts: patrimoine.contracts,
+          objectifs: patrimoine.objectifs,
+        }),
+        { vus: agendaVus }
+      ),
+    [agendaReglages, agendaVus, patrimoine.livrets, patrimoine.bourse, patrimoine.contracts, patrimoine.objectifs]
+  );
+  const acquitterAgenda = React.useCallback(
+    (id) => setAgendaVus((l) => [...new Set([...(Array.isArray(l) ? l : []), id])].slice(-200)),
+    [setAgendaVus]
+  );
   const acquitterEssai = React.useCallback(
     (id) => setSubs((l) => (l || []).map((s) => (s.id === id ? { ...s, rappelEssaiVu: s.fin_essai } : s))),
     [setSubs]
@@ -248,6 +341,41 @@ export default function App() {
   // `useCallback` : `handleExport` alimente la liste d'actions de la palette,
   // qui est mémoïsée. Recréé à chaque rendu, il invalidait cette mémoïsation
   // en permanence — c'est-à-dire qu'il la supprimait.
+  // Sauvegarde automatique hebdomadaire, à l'ouverture, si un dossier a été
+  // choisi et que le navigateur en garde l'accès (voir sauvegardeAuto.js).
+  useEffect(() => {
+    let annule = false;
+    etatSauvegardeAuto().then(async (e) => {
+      if (annule || !e.active || !sauvegardeDue(e.derniere) || estBacASable()) return;
+      if (e.permission !== "granted") {
+        setSauvegardeEnAttente(true);
+        return;
+      }
+      try {
+        await ecrireSauvegarde(e.poignee, exportAllData(STORAGE_KEYS));
+        markBackupDone();
+        if (!annule) showToast({ message: `Sauvegarde automatique écrite dans « ${e.nom} ».` });
+      } catch {
+        if (!annule) setSauvegardeEnAttente(true);
+      }
+    });
+    return () => {
+      annule = true;
+    };
+    // Une fois, à l'ouverture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const entrerEnBacASable = React.useCallback(async () => {
+    const ok = await confirm({
+      title: "Passer en bac à sable ?",
+      message:
+        "Tu peux tout modifier pour voir l'effet sur tes chiffres : rien ne sera enregistré, ni sur cet appareil ni sur ton compte. En sortant, l'application revient exactement à tes vraies données.",
+      confirmLabel: "Entrer dans le bac à sable",
+    });
+    if (ok) entrerBacASable();
+  }, [confirm]);
+
   const handleExport = React.useCallback(() => {
     const dump = exportAllData(STORAGE_KEYS);
     const blob = new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" });
@@ -273,6 +401,11 @@ export default function App() {
       showToast({ type: "error", message: "Fichier de sauvegarde illisible (JSON invalide)." });
       return;
     }
+    await restaurerSauvegarde(dump, "le contenu du fichier");
+  };
+
+  // Commun à l'import d'un fichier et au transfert depuis un autre appareil.
+  const restaurerSauvegarde = async (dump, origine) => {
     // Un JSON valide n'est pas forcément une sauvegarde Patrium : sans ce
     // contrôle, importer n'importe quel fichier .json écrasait les données
     // avec des clés qui n'ont aucun sens pour l'app.
@@ -292,7 +425,7 @@ export default function App() {
 
     const ok = await confirm({
       title: "Restaurer cette sauvegarde ?",
-      message: `${known.length} section(s) seront remplacées par le contenu du fichier. Les données actuelles de cet appareil seront écrasées.`,
+      message: `${known.length} section(s) seront remplacées par ${origine}. Les données actuelles de cet appareil seront écrasées.`,
       confirmLabel: "Restaurer",
       danger: true,
     });
@@ -332,6 +465,11 @@ export default function App() {
       { id: "act-chiffrement", libelle: "Chiffrement de bout en bout", motsCles: "chiffrement securite phrase secrete confidentialite cloud", icone: LockKeyhole, executer: () => setChiffrementOuvert(true) },
       { id: "act-presentation", libelle: "Mode présentation", motsCles: "presentation plein ecran grand montrer", icone: Presentation, executer: () => setPresentation(true) },
       { id: "act-retro", libelle: "Rétrospective annuelle", motsCles: "bilan annee resume retrospective", icone: Sparkles, executer: () => setRetroOuverte(true) },
+      { id: "act-bac", libelle: "Bac à sable « et si » : tester sans rien enregistrer", motsCles: "essai simulation tester et si sandbox brouillon", icone: FlaskConical, executer: () => entrerEnBacASable() },
+      { id: "act-transfert", libelle: "Transférer vers un autre appareil (QR codes)", motsCles: "transfert telephone nouvel appareil qr code camera migrer", icone: Smartphone, executer: () => setTransfertOuvert("envoyer") },
+      { id: "act-sauvegarde-auto", libelle: "Sauvegarde automatique dans un dossier", motsCles: "sauvegarde backup dossier automatique export", icone: FolderSync, executer: () => setSauvegardeAutoOuverte(true) },
+      { id: "act-sante", libelle: "Santé des données : incohérences à corriger", motsCles: "verifier coherence erreur donnees controle", icone: Stethoscope, executer: () => setSanteOuverte(true) },
+      { id: "act-journal", libelle: "Journal d'erreurs de l'appareil", motsCles: "erreur bug plantage rapport journal", icone: Bug, executer: () => setJournalOuvert(true) },
       { id: "act-question", libelle: "Poser une question à mes données", motsCles: "question demander assistant ia combien depense", icone: MessageCircleQuestion, executer: () => setQuestionOuverte(true) },
       { id: "act-ghost", libelle: ghostMode ? "Afficher les montants" : "Masquer les montants (mode Ghost)", motsCles: "ghost masquer flouter confidentialite", icone: ghostMode ? Eye : EyeOff, executer: () => setGhostMode((g) => !g) },
       { id: "act-export", libelle: "Exporter une sauvegarde", motsCles: "export sauvegarde json backup", icone: Download, executer: handleExport },
@@ -343,7 +481,7 @@ export default function App() {
         executer: () => allerA(t.id),
       })),
     ],
-    [ghostMode, handleExport, allerA]
+    [ghostMode, handleExport, allerA, entrerEnBacASable]
   );
 
   return (
@@ -499,9 +637,10 @@ export default function App() {
           <Notifications
             reminders={patrimoine.reminders}
             setReminders={patrimoine.setReminders}
-            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier, ...rappelsEssaisDus]}
+            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier, ...rappelsEssaisDus, ...rappelsAgendaDus]}
             onAcquitterAlerte={acquitterAlerte}
             onAcquitterEssai={acquitterEssai}
+            onAcquitterAgenda={acquitterAgenda}
             onAcquitterBilan={acquitterBilan}
           />
           {/* En mode local (sans compte), il n'y a rien à déconnecter. */}
@@ -522,6 +661,37 @@ export default function App() {
         <EtatSourceMarche />
 
         <BandeauChiffrementVerrouille onOuvrir={() => setChiffrementOuvert(true)} />
+
+        {/* Bac à sable : rien n'est enregistré tant que ce bandeau est là. */}
+        {bacASable && (
+          <div role="status" className="sticky top-0 z-40 mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-sky-400/40 bg-sky-500/15 px-4 py-2.5 text-sm text-sky-100 backdrop-blur">
+            <FlaskConical size={16} className="shrink-0" aria-hidden="true" />
+            <span className="flex-1 min-w-[14rem]">
+              Bac à sable : modifie tout ce que tu veux, rien n'est enregistré ni synchronisé.
+            </span>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-sky-300 hover:bg-sky-200 px-3 py-1 text-xs font-semibold text-slate-950"
+            >
+              Quitter et tout annuler
+            </button>
+          </div>
+        )}
+
+        {sauvegardeEnAttente && !bacASable && (
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-100">
+            <FolderSync size={16} className="shrink-0" aria-hidden="true" />
+            <span className="flex-1 min-w-[14rem]">La sauvegarde automatique attend ton feu vert pour accéder au dossier.</span>
+            <button
+              type="button"
+              onClick={() => setSauvegardeAutoOuverte(true)}
+              className="rounded-lg bg-emerald-300 hover:bg-emerald-200 px-3 py-1 text-xs font-semibold text-slate-950"
+            >
+              Reprendre
+            </button>
+          </div>
+        )}
 
         <BackupReminder onExport={handleExport} />
 
@@ -554,6 +724,11 @@ export default function App() {
           { id: "f-chiffrement", libelle: "Chiffrement", icone: LockKeyhole, executer: () => setChiffrementOuvert(true) },
           { id: "f-retro", libelle: "Rétrospective annuelle", icone: Sparkles, executer: () => setRetroOuverte(true) },
           { id: "f-question", libelle: "Poser une question à mes données", icone: MessageCircleQuestion, executer: () => setQuestionOuverte(true) },
+          { id: "f-sante", libelle: "Santé des données", icone: Stethoscope, executer: () => setSanteOuverte(true) },
+          { id: "f-bac", libelle: "Bac à sable « et si »", icone: FlaskConical, executer: () => entrerEnBacASable() },
+          { id: "f-transfert", libelle: "Transférer vers un autre appareil", icone: Smartphone, executer: () => setTransfertOuvert("envoyer") },
+          { id: "f-sauvegarde-auto", libelle: "Sauvegarde automatique", icone: FolderSync, executer: () => setSauvegardeAutoOuverte(true) },
+          { id: "f-journal", libelle: "Journal d'erreurs", icone: Bug, executer: () => setJournalOuvert(true) },
           { id: "f-presentation", libelle: "Mode présentation", icone: Presentation, executer: () => setPresentation(true) },
           { id: "f-export", libelle: "Exporter une sauvegarde", icone: Download, executer: handleExport },
         ]}
@@ -579,6 +754,30 @@ export default function App() {
       />
       <ReglagesApparence ouvert={reglagesOuverts} onFermer={() => setReglagesOuverts(false)} />
       <QuestionDonnees ouvert={questionOuverte} onFermer={() => setQuestionOuverte(false)} />
+      <JournalErreurs ouvert={journalOuvert} onFermer={() => setJournalOuvert(false)} />
+      <SanteDonnees ouvert={santeOuverte} onFermer={() => setSanteOuverte(false)} />
+      <SauvegardeAuto
+        ouvert={sauvegardeAutoOuverte}
+        onFermer={() => setSauvegardeAutoOuverte(false)}
+        exporter={() => exportAllData(STORAGE_KEYS)}
+        onSauvegarde={() => {
+          markBackupDone();
+          setSauvegardeEnAttente(false);
+        }}
+      />
+      {/* Chargé à l'ouverture : le générateur de QR codes n'a rien à faire
+          dans le paquet de démarrage. */}
+      {transfertOuvert && (
+        <Suspense fallback={null}>
+          <TransfertAppareil
+            ouvert
+            modeInitial={transfertOuvert}
+            onFermer={() => setTransfertOuvert(false)}
+            exporter={() => exportAllData(STORAGE_KEYS)}
+            onRecu={(dump) => restaurerSauvegarde(dump, "les données reçues")}
+          />
+        </Suspense>
+      )}
       <ReglagesChiffrement ouvert={chiffrementOuvert} onFermer={() => setChiffrementOuvert(false)} />
       <Retrospective
         ouvert={retroOuverte}

@@ -25,7 +25,7 @@ const encodeur = new TextEncoder();
 const decodeur = new TextDecoder();
 
 /** Octets → base64, par tranches : une opération étalée sur 200 Ko dépasserait la pile. */
-function versBase64(octets) {
+export function versBase64(octets) {
   const vue = octets instanceof Uint8Array ? octets : new Uint8Array(octets);
   let binaire = "";
   for (let i = 0; i < vue.length; i += 0x8000) {
@@ -34,7 +34,7 @@ function versBase64(octets) {
   return btoa(binaire);
 }
 
-function depuisBase64(texte) {
+export function depuisBase64(texte) {
   const binaire = atob(texte);
   const octets = new Uint8Array(binaire.length);
   for (let i = 0; i < binaire.length; i += 1) octets[i] = binaire.charCodeAt(i);
