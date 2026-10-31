@@ -105,13 +105,22 @@ export function dateDeValeur(m) {
 
 /**
  * Série de taux officielle d'un livret réglementé, d'après son nom : le LDDS
- * suit toujours le taux du Livret A. `null` pour un autre support, dont le
- * taux saisi est alors pris pour constant sur l'année.
+ * suit toujours le taux du Livret A. Pour un livret à taux boosté, le taux
+ * saisi puis celui d'après le boost. `null` sinon : le taux saisi est alors
+ * pris pour constant sur l'année.
  */
 export function serieTauxPour(livret) {
   const nom = String(livret?.name || "").toLowerCase();
   if (/\blep\b|épargne populaire/.test(nom)) return LEP;
   if (/livret a\b|\bldds?\b|développement durable/.test(nom)) return LIVRET_A;
+  // Taux promotionnel : le taux saisi jusqu'à la fin du boost, puis le taux
+  // annoncé, dès la quinzaine qui suit — comme le calcule la banque.
+  if (livret?.boost?.fin && Number.isFinite(Number(livret.boost.tauxApres))) {
+    return [
+      { date: "1900-01-01", taux: (Number(livret.rate) || 0) * 100 },
+      { date: quinzaineSuivante(livret.boost.fin), taux: Number(livret.boost.tauxApres) * 100 },
+    ];
+  }
   return null;
 }
 
