@@ -47,6 +47,16 @@ describe("lecture face au marché", () => {
     expect(progressionObjectif({ pru: null, cours: 90, objectif: 200 })).toBeNull();
   });
 
+  it("rapporte la hausse restante au cours, pas à l'objectif", () => {
+    // Cas réels : 134,80 → 300 demande +122,6 %, et 180,90 → 250 +38,2 %.
+    expect(progressionObjectif({ pru: 125.91, cours: 134.8, objectif: 300 }).hausseRestantePct).toBeCloseTo(122.55, 1);
+    expect(progressionObjectif({ pru: 156.78, cours: 180.9, objectif: 250 }).hausseRestantePct).toBeCloseTo(38.2, 1);
+    // Objectif dépassé : plus rien à faire, et l'écart se lit par rapport à l'objectif.
+    const atteint = progressionObjectif({ pru: 100, cours: 210, objectif: 200 });
+    expect(atteint.hausseRestantePct).toBe(0);
+    expect(atteint.ecartObjectifPct).toBeCloseTo(5, 6);
+  });
+
   it("mesure la variation sur environ un mois, et se tait si la série est trop courte", () => {
     const serie = [
       { d: "2026-09-25", p: 200 },
