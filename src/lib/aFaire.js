@@ -1,6 +1,6 @@
 import { todayIso, valeurPosition, eur, nombre, pct, pctPlain, lireNombre } from "./finance";
 import { plafondLegal } from "./plafondsLivrets";
-import { alertesPanique, aRelire } from "./theses";
+import { alertesPanique, aRelire, resultatsARelire } from "./theses";
 import { recurrences } from "./analyseCompte";
 import { rapprocherCompte, statutContrat, statutDe, joursEntre, prochainPrelevement } from "./abonnements";
 
@@ -26,7 +26,7 @@ const dateCourte = (iso) =>
 
 export function elementsAFaire({
   livrets = [], bourse = {}, matelasMois = null, tauxReference = 0,
-  strategyNotes = [], series = {},
+  strategyNotes = [], series = {}, evenements = [],
   subs = [], contracts = [], compteEnrichies = [], ignores = [],
   aujourdhui = todayIso(),
 } = {}) {
@@ -43,6 +43,15 @@ export function elementsAFaire({
         a.base === "mois"
           ? `${a.note.ticker} : ${pct(a.variationPct)} en un mois — relis ta thèse avant d'agir.`
           : `${a.note.ticker} est ${pctPlain(Math.abs(a.variationPct), 0)} sous ton prix de revient — relis ta thèse avant d'agir.`,
+      lien: { onglet: "strategie", sous: "theses" },
+    });
+  }
+  for (const { note, evenement } of resultatsARelire({ notes: strategyNotes, evenements, aujourdhui })) {
+    ajouter({
+      id: `resultats-${note.id}-${evenement.date}`,
+      urgence: "attention",
+      type: "these",
+      texte: `${note.ticker} a publié ses résultats le ${dateCourte(evenement.date)} — ta thèse tient-elle toujours face aux chiffres ?`,
       lien: { onglet: "strategie", sous: "theses" },
     });
   }

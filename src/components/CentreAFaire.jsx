@@ -27,14 +27,18 @@ export default function CentreAFaire({
   // et Abonnements, et le Dashboard n'a aucune raison de les connaître.
   const [series] = usePersistentState("bourseSeriesCours", {});
   const [ignores] = usePersistentState("abonnementsIgnores", []);
+  // Écrit par l'onglet Calendrier à chaque actualisation : les publications
+  // de résultats y sont, et une thèse se relit après elles.
+  const [evenements] = usePersistentState("calendrierEvenements", []);
   const [tout, setTout] = useState(false);
 
   const elements = useMemo(
     () =>
       elementsAFaire({
         livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies, series, ignores,
+        evenements,
       }),
-    [livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies, series, ignores]
+    [livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies, series, ignores, evenements]
   );
   const affiches = tout ? elements : elements.slice(0, VISIBLES);
   const urgents = elements.filter((e) => e.urgence === "critique").length;

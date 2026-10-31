@@ -1,12 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { CreditCard, HeartPulse } from "lucide-react";
 import { Card, CardLabel, PastilleEtat, CARD_THEMES } from "./ui";
 import Montant from "./Montant";
 import { MontantSigne } from "./OperationsCompte";
-import { AnneauProgression } from "./graphiques";
+import { AnneauProgression, Sparkline } from "./graphiques";
 import { serieSolde } from "../lib/compteCourant";
 import { recurrences } from "../lib/analyseCompte";
-import { scoreSante, joursADecouvert } from "../lib/santeFinanciere";
+import { scoreSante, joursADecouvert, noterMois, evolutionSante } from "../lib/santeFinanciere";
+import { usePersistentState } from "../lib/storage";
+import { todayIso } from "../lib/finance";
 
 /**
  * Deux blocs du Dashboard nourris par le compte courant : un résumé du
@@ -80,20 +82,33 @@ export function ResumeCompteCourant({ compteSolde, compteEnrichies = [], budgetR
 }
 
 /** Score de santé financière, critère par critère. */
-export function SanteFinanciere({ matelasMois, tauxEpargne, profile, compteEnrichies = [], compteOperations = [], compteReleves = [], budgetReel }) {
+export function SanteFinanciere({
+  matelasMois, matelasMoisPrudent = null, tauxEpargne, profile, compteEnrichies = [], compteOperations = [], compteReleves = [], budgetReel,
+}) {
   const sante = useMemo(() => {
     const charges = recurrences(compteEnrichies).charges.reduce((s, c) => s + c.montant, 0);
     const revenus = budgetReel?.revenus;
     const serie = compteReleves.length ? serieSolde(compteOperations, compteReleves) : [];
     return scoreSante({
-      matelasMois,
+      // Le matelas compté en mois « les plus chers » dès que les relevés le
+      // permettent : un mois moyen protège mal un budget irrégulier.
+      matelasMois: matelasMoisPrudent ?? matelasMois,
+      matelasPrudent: matelasMoisPrudent != null,
       // Sans revenus connus, le taux d'épargne n'est pas mesuré : il est
       // écarté plutôt que noté zéro.
       tauxEpargnePct: profile?.monthly_income > 0 ? tauxEpargne : null,
       partChargesFixes: revenus > 0 ? charges / revenus : null,
       joursDecouvert: serie.length ? joursADecouvert(serie, 90) : null,
     });
-  }, [matelasMois, tauxEpargne, profile, compteEnrichies, compteOperations, compteReleves, budgetReel]);
+  }, [matelasMois, matelasMoisPrudent, tauxEpargne, profile, compteEnrichies, compteOperations, compteReleves, budgetReel]);
+
+  // Un point par mois : la note ne dit quelque chose qu'en évoluant.
+  const [historique, setHistorique] = usePersistentState("historiqueSante", []);
+  useEffect(() => {
+    if (sante) setHistorique((h) => noterMois(h, sante, todayIso().slice(0, 7)));
+  }, [sante, setHistorique]);
+  const evolution = useMemo(() => evolutionSante(historique), [historique]);
+  const scores = useMemo(() => (Array.isArray(historique) ? historique.map((e) => e.score) : []), [historique]);
 
   if (!sante) return null;
 
@@ -124,6 +139,25 @@ export function SanteFinanciere({ matelasMois, tauxEpargne, profile, compteEnric
           ))}
         </ul>
       </div>
+      {evolution && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
+          <Sparkline valeurs={scores} largeur={96} hauteur={24} className="text-lime-400 shrink-0" />
+          <p className="text-xs text-slate-400">
+            <span className={evolution.delta > 0 ? "etat-ok" : evolution.delta < 0 ? "etat-critique" : "text-slate-300"}>
+              {evolution.delta > 0 ? "+" : ""}
+              {evolution.delta} point{Math.abs(evolution.delta) > 1 ? "s" : ""}
+            </span>{" "}
+            depuis {new Date(`${evolution.precedent}-01T00:00:00`).toLocaleDateString("fr-FR", { month: "long" })}
+            {evolution.principal && (
+              <>
+                {" "}— surtout {evolution.principal.libelle} ({evolution.principal.delta > 0 ? "+" : ""}
+                {evolution.principal.delta})
+              </>
+            )}
+            .
+          </p>
+        </div>
+      )}
       <p className="text-micro text-slate-500 mt-3">
         Repères usuels, pas des normes. Un critère dont la donnée manque est écarté plutôt que noté zéro.
       </p>

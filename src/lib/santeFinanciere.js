@@ -11,6 +11,8 @@
  * mangent pas plus du tiers des revenus, aucun jour à découvert.
  */
 
+import { parMois } from "./compteCourant";
+
 const borne = (x) => Math.max(0, Math.min(100, Math.round(x)));
 const etat = (score) => (score >= 75 ? "ok" : score >= 40 ? "attention" : "critique");
 
@@ -35,7 +37,11 @@ export function joursADecouvert(serie, jours = 90) {
  * @param {{ matelasMois?: number|null, tauxEpargnePct?: number|null,
  *           partChargesFixes?: number|null, joursDecouvert?: number|null }} mesures
  */
-export function scoreSante({ matelasMois = null, tauxEpargnePct = null, partChargesFixes = null, joursDecouvert = null } = {}) {
+export function scoreSante({
+  matelasMois = null, tauxEpargnePct = null, partChargesFixes = null, joursDecouvert = null,
+  // Le matelas est-il compté en mois « les plus chers » (voir moisDeReference) ?
+  matelasPrudent = false,
+} = {}) {
   const criteres = [];
 
   if (Number.isFinite(matelasMois)) {
@@ -43,13 +49,14 @@ export function scoreSante({ matelasMois = null, tauxEpargnePct = null, partChar
     criteres.push({
       id: "matelas",
       libelle: "Matelas de sécurité",
-      valeur: `${matelasMois.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} mois de dépenses`,
+      valeur: `${matelasMois.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} mois de dépenses${matelasPrudent ? " (tes mois les plus chers)" : ""}`,
       score,
       etat: etat(score),
       explication:
-        score >= 100
+        (score >= 100
           ? "Au moins trois mois de dépenses de côté : un imprévu ne te met pas en difficulté."
-          : "Le repère usuel est trois mois de dépenses disponibles sans délai.",
+          : "Le repère usuel est trois mois de dépenses disponibles sans délai.") +
+        (matelasPrudent ? " Compté sur tes mois les plus chers, pas sur un mois moyen." : ""),
     });
   }
 
@@ -105,4 +112,68 @@ export function scoreSante({ matelasMois = null, tauxEpargnePct = null, partChar
   if (criteres.length === 0) return null;
   const score = borne(criteres.reduce((s, c) => s + c.score, 0) / criteres.length);
   return { score, etat: etat(score), criteres };
+}
+
+// ─── Matelas calé sur les vrais mois ─────────────────────────────────────────
+
+const moyenne = (v) => (v.length ? v.reduce((s, x) => s + x, 0) / v.length : null);
+
+/**
+ * Le mois qui sert d'unité au matelas de sécurité.
+ *
+ * Trois mois de dépenses MOYENNES protègent mal un budget irrégulier : le mois
+ * de la rentrée, des impôts ou d'une réparation, c'est précisément celui où
+ * l'on puise dans son épargne. On retient donc la moyenne des `plusChers` mois
+ * les plus coûteux des `nbMois` derniers — tant qu'il y en a au moins
+ * `minMois`, sans quoi on ne sait pas encore.
+ *
+ * @returns {null | {centimes, moisObserves, retenus}}
+ */
+export function moisDeReference(enrichies, { nbMois = 12, plusChers = 3, minMois = 3 } = {}) {
+  const flux = parMois(enrichies).slice(-nbMois);
+  if (flux.length < minMois) return null;
+  const retenus = flux.map((l) => l.sorties).sort((a, b) => b - a).slice(0, plusChers);
+  const centimes = moyenne(retenus);
+  return centimes > 0 ? { centimes, moisObserves: flux.length, retenus: retenus.length } : null;
+}
+
+// ─── Historique de la note ───────────────────────────────────────────────────
+
+export const LIBELLES_CRITERES = {
+  matelas: "matelas",
+  epargne: "taux d'épargne",
+  charges: "charges fixes",
+  decouvert: "découvert",
+};
+
+/**
+ * Enregistre la note du mois en cours : un point par mois, mis à jour tant que
+ * le mois dure (la dernière valeur du mois fait foi). Rend l'historique tel
+ * quel s'il n'y a rien de nouveau, pour ne rien réécrire.
+ */
+export function noterMois(historique = [], sante, mois) {
+  if (!sante) return historique;
+  const liste = Array.isArray(historique) ? historique : [];
+  const entree = { mois, score: sante.score, criteres: Object.fromEntries(sante.criteres.map((c) => [c.id, c.score])) };
+  const existant = liste.find((e) => e.mois === mois);
+  if (existant && existant.score === entree.score && JSON.stringify(existant.criteres) === JSON.stringify(entree.criteres)) {
+    return historique;
+  }
+  return [...liste.filter((e) => e.mois !== mois), entree].sort((a, b) => a.mois.localeCompare(b.mois)).slice(-36);
+}
+
+/**
+ * Ce qui a bougé depuis le mois précédent : l'écart de note et le critère qui
+ * l'explique le plus.
+ */
+export function evolutionSante(historique = []) {
+  const liste = Array.isArray(historique) ? historique : [];
+  if (liste.length < 2) return null;
+  const actuel = liste[liste.length - 1];
+  const precedent = liste[liste.length - 2];
+  const ecarts = Object.keys({ ...actuel.criteres, ...precedent.criteres })
+    .filter((id) => actuel.criteres?.[id] != null && precedent.criteres?.[id] != null)
+    .map((id) => ({ id, libelle: LIBELLES_CRITERES[id] || id, delta: actuel.criteres[id] - precedent.criteres[id] }))
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return { precedent: precedent.mois, delta: actuel.score - precedent.score, principal: ecarts[0]?.delta ? ecarts[0] : null };
 }

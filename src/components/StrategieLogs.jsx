@@ -1,5 +1,5 @@
 import { useState, useMemo, useId, useEffect } from "react";
-import { useSousOnglet } from "../lib/useHashRoute";
+import { useSousOnglet, allerVers } from "../lib/useHashRoute";
 import {
   NotebookPen, Pencil, X, Check, Search, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal,
   Camera, BookOpenCheck, Trash2, ShieldAlert, Scale, ChevronDown, Trophy, History,
@@ -19,7 +19,7 @@ import { usePersistentState } from "../lib/storage";
 import { fetchFundamentals, fetchQuotes } from "../lib/api";
 import {
   STATUTS_THESE, DECISIONS, derniereRevue, aRelire, ajouterRevue, filThese, progressionObjectif, alertesPanique,
-  couverture, photoDepuisFiche, depuisVente, bilanDecisions,
+  couverture, photoDepuisFiche, depuisVente, bilanDecisions, resultatsARelire,
 } from "../lib/theses";
 
 const dateFr = (iso) =>
@@ -445,18 +445,19 @@ function FilDeLaThese({ note }) {
 }
 
 function NoteCard({
-  note, position, highlighted, aujourdhui, onEdit, onDelete, onClose, onReopen, onDeclareOperation, onRevue, onPhoto,
+  note, position, highlighted, aujourdhui, publication, onEdit, onDelete, onClose, onReopen, onDeclareOperation, onRevue, onPhoto,
 }) {
   const st = STATUTS_THESE[note.statut] || STATUTS_THESE.intacte;
   const pm = note.postmortem;
   const dec = pm ? DECISIONS[pm.decision] || DECISIONS.bonne_decision : null;
+  // `false`, ou le motif de la relecture : « simple » ou « resultats ».
   const [relecture, setRelecture] = useState(false);
   const derniere = derniereRevue(note);
   const relue = (note.revues || []).length > 0;
   const enRetard = aRelire(note, aujourdhui);
 
   const actions = [
-    !note.archivee && { libelle: "Relire la thèse", icone: BookOpenCheck, onClick: () => setRelecture(true) },
+    !note.archivee && { libelle: "Relire la thèse", icone: BookOpenCheck, onClick: () => setRelecture(publication ? "resultats" : "simple") },
     { libelle: "Modifier", icone: Pencil, onClick: () => onEdit(note) },
     note.ticker && { libelle: "Déclarer une opération", icone: SendHorizonal, onClick: () => onDeclareOperation(note) },
     note.ticker && !note.photo && { libelle: "Prendre la photo du jour", icone: Camera, onClick: () => onPhoto(note) },
@@ -520,15 +521,43 @@ function NoteCard({
       {relecture && (
         <RevueForm
           note={note}
+          titre={relecture === "resultats" ? "Face aux résultats publiés, la thèse tient-elle ?" : undefined}
+          commentaireInitial={relecture === "resultats" && publication ? `Après les résultats du ${dateFr(publication.date)} : ` : ""}
           onCancel={() => setRelecture(false)}
           onSubmit={(r) => { onRevue(note, r); setRelecture(false); }}
         />
       )}
 
-      {!note.archivee && !relecture && enRetard && (
+      {/* Une publication de résultats est exactement ce que décrivent les
+          conditions de vente : c'est le moment de relire, que le cours ait
+          bougé ou non. */}
+      {!note.archivee && !relecture && publication && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-100 flex flex-wrap items-center gap-2">
+          <span className="flex-1 min-w-[12rem]">
+            {note.ticker} a publié ses résultats le {dateFr(publication.date)}
+            {publication.label ? ` (${publication.label})` : ""}. Ta thèse tient-elle face aux chiffres ?
+          </span>
+          <button
+            type="button"
+            onClick={() => setRelecture("resultats")}
+            className="btn-flash rounded-md bg-amber-400/90 hover:bg-amber-300 px-2.5 py-1 font-semibold text-slate-950"
+          >
+            Relire maintenant
+          </button>
+          <button
+            type="button"
+            onClick={() => allerVers("bourse", "calendrier")}
+            className="btn-flash rounded-md border border-amber-400/40 px-2.5 py-1 hover:bg-amber-500/10"
+          >
+            Voir le résumé
+          </button>
+        </div>
+      )}
+
+      {!note.archivee && !relecture && !publication && enRetard && (
         <button
           type="button"
-          onClick={() => setRelecture(true)}
+          onClick={() => setRelecture("simple")}
           className="btn-flash self-start inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-xs text-rose-200 hover:bg-rose-500/20"
         >
           <BookOpenCheck size={13} aria-hidden="true" /> Relire — {relue ? `relue ${ilYA(derniere, aujourdhui)}` : "jamais relue"}
@@ -846,6 +875,7 @@ export default function StrategieLogs({
   const positions = useMemo(() => bourse?.positions || [], [bourse]);
   const { showToast } = useToast();
   const [series] = usePersistentState("bourseSeriesCours", {});
+  const [evenements] = usePersistentState("calendrierEvenements", []);
   const aujourdhui = todayIso();
 
   // ─── Sous-onglets & passerelles Thèse ⇄ Opérations ──────────────────────
@@ -947,6 +977,10 @@ export default function StrategieLogs({
   const alertes = useMemo(
     () => alertesPanique({ notes, positions, series, aujourdhui }),
     [notes, positions, series, aujourdhui]
+  );
+  const publications = useMemo(
+    () => new Map(resultatsARelire({ notes, evenements, aujourdhui }).map((x) => [x.note.id, x.evenement])),
+    [notes, evenements, aujourdhui]
   );
 
   const comptes = useMemo(() => {
@@ -1154,6 +1188,7 @@ export default function StrategieLogs({
                       onDeclareOperation={declareOperation}
                       onRevue={consignerRevue}
                       onPhoto={(n) => prendrePhoto(n, { tardive: true, signaler: true })}
+                      publication={publications.get(note.id)}
                       highlighted={!!highlightTicker && note.ticker?.toUpperCase() === highlightTicker}
                     />
                   )

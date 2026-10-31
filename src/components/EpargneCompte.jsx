@@ -10,6 +10,7 @@ import { argentQuiDort, recurrences, misDeCoteParMois, budgetMoyen, coutHabitude
 import { enregistrerDansBourse, enregistrerSurLivret } from "../lib/liensComptes";
 import { aboDepuisCharge, correspond } from "../lib/abonnements";
 import { MontantSigne } from "./OperationsCompte";
+import InflationPerso from "./InflationPerso";
 
 /**
  * Sous-onglet « Épargne & charges » du compte courant : ce qui revient chaque
@@ -460,6 +461,7 @@ export default function EpargneCompte({
         setCompteOperations={setCompteOperations}
       />
       <ChargesFixes charges={rec.charges} revenusMensuels={budget?.revenus ?? null} subs={subs} setSubs={setSubs} />
+      <InflationPerso enrichies={enrichies} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <RevenusReguliers revenus={rec.revenus} />
         <MisDeCote lignes={misDeCote} />
