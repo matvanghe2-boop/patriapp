@@ -1,4 +1,5 @@
 import { useState, useMemo, useId, useEffect } from "react";
+import { useSousOnglet } from "../lib/useHashRoute";
 import {
   NotebookPen, Pencil, X, Check, Search, ArchiveRestore, ClipboardCheck, Wallet, FileSignature, SendHorizonal,
   Camera, BookOpenCheck, Trash2, ShieldAlert, Scale, ChevronDown, Trophy, History,
@@ -848,7 +849,7 @@ export default function StrategieLogs({
   const aujourdhui = todayIso();
 
   // ─── Sous-onglets & passerelles Thèse ⇄ Opérations ──────────────────────
-  const [subTab, setSubTab] = useState("theses"); // "theses" | "journal" | "bilan"
+  const [subTab, setSubTab] = useSousOnglet(["theses", "journal", "bilan"], "theses");
   const [presetOperation, setPresetOperation] = useState(null); // { asset, type } pour ouvrir la modale d'opération pré-remplie
   const [highlightTicker, setHighlightTicker] = useState(null);
 

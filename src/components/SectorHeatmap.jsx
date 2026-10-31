@@ -61,7 +61,7 @@ export default function SectorHeatmap({ positions = [], secteursManuels = {}, se
       resume={`${nbSecteurs} secteur(s)`}
     >
       {data.length === 0 ? (
-        <EmptyState>Ajoute une position pour voir sa répartition sectorielle.</EmptyState>
+        <EmptyState picto="graphique">Ajoute une position pour voir sa répartition sectorielle.</EmptyState>
       ) : (
         <div className="flex flex-col gap-3 mt-2">
           {/* Données de marché publiques : pas de montant personnel à masquer

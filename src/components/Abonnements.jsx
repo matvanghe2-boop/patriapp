@@ -1,4 +1,5 @@
 import { useMemo, useState, useId } from "react";
+import { useSousOnglet } from "../lib/useHashRoute";
 import {
   FileText, Repeat, AlertTriangle, CalendarDays, X, Check, Pencil, Trash2, Ban, RotateCcw, PiggyBank,
   Sparkles, Scissors, CircleCheck, Flag,
@@ -18,13 +19,8 @@ import { useToast } from "../lib/ToastContext";
 import {
   FREQUENCES, STATUTS, USAGES, CATEGORIES_ABO, statutDe, mensualiser, annualiser, prochainPrelevement,
   joursEntre, totaux, economiesRealisees, candidatsResiliation, valeurPlacee, rapprocherCompte, aboDepuisCharge,
+  statutContrat, dateLimiteResiliation,
 } from "../lib/abonnements";
-
-function addDays(iso, days) {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 function formatDateFr(iso) {
   if (!iso) return "—";
@@ -41,21 +37,8 @@ const CHAMP =
   "w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-cyan-400/60";
 
 // ─── Module 1 : Contrats & échéances ────────────────────────────────────────
-// Statut dérivé de : date de fin d'engagement + préavis de résiliation (jours).
-// deadline = date_fin - préavis. À partir de là, le contrat est "à résilier".
-function computeContractStatus(contract) {
-  const today = todayIso();
-  if (!contract.date_fin) return { key: "actif", label: "Actif", etat: "ok" };
-  if (contract.date_fin < today) return { key: "expire", label: "Expiré", etat: "neutre" };
-
-  const deadline = addDays(contract.date_fin, -(contract.preavis_jours || 0));
-  if (today >= deadline) return { key: "a_resilier", label: "À résilier", etat: "critique" };
-
-  const daysToDeadline = Math.round((new Date(`${deadline}T00:00:00`) - new Date(`${today}T00:00:00`)) / 86400000);
-  if (daysToDeadline <= 30) return { key: "a_renouveler", label: "À renouveler", etat: "attention" };
-
-  return { key: "actif", label: "Actif", etat: "ok" };
-}
+// Le statut (date limite = fin d'engagement − préavis) vit dans
+// lib/abonnements.js : le centre « À faire » du Dashboard le lit aussi.
 
 const CONTRACT_CATEGORIES = ["Bail / Logement", "Assurance", "Garantie", "Télécom / Internet", "Énergie", "Autre"];
 
@@ -176,8 +159,8 @@ function ContractsModule({ contracts, setContracts }) {
                 </li>
               );
             }
-            const status = computeContractStatus(c);
-            const deadline = c.date_fin ? addDays(c.date_fin, -(c.preavis_jours || 0)) : null;
+            const status = statutContrat(c);
+            const deadline = dateLimiteResiliation(c);
             const joursLimite = deadline ? joursEntre(todayIso(), deadline) : null;
             return (
               <li key={c.id} className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2.5">
@@ -716,7 +699,7 @@ export default function Abonnements({
 }) {
   const { showToast } = useToast();
   const [ignores, setIgnores] = usePersistentState("abonnementsIgnores", []);
-  const [onglet, setOnglet] = useState("abonnements");
+  const [onglet, setOnglet] = useSousOnglet(["abonnements", "calendrier", "contrats"], "abonnements");
 
   const rec = useMemo(() => recurrences(compteEnrichies), [compteEnrichies]);
   const { verifications, detectes } = useMemo(
@@ -726,7 +709,7 @@ export default function Abonnements({
   const avecReleve = compteEnrichies.length > 0;
   const tauxPct = sim?.bourse?.rate ?? 6;
   const contratsATraiter = useMemo(
-    () => contracts.filter((c) => ["a_resilier", "a_renouveler"].includes(computeContractStatus(c).key)).length,
+    () => contracts.filter((c) => ["a_resilier", "a_renouveler"].includes(statutContrat(c).key)).length,
     [contracts]
   );
   const nbEnCours = subs.filter((s) => statutDe(s) !== "resilie").length;

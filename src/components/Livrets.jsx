@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useId } from "react";
+import { useSousOnglet } from "../lib/useHashRoute";
+import OngletsGlissants from "./OngletsGlissants";
 import { PiggyBank, ShieldCheck, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, guessEnvelope, todayIso, lireNombre, pctPlain, nombre } from "../lib/finance";
@@ -8,6 +10,7 @@ import RatesHub from "./RatesHub";
 import EtatVide from "./EtatVide";
 import MouvementsLivrets from "./MouvementsLivrets";
 import { ajouterMouvement, retirerMouvement, interetsQuinzaines } from "../lib/livretsMouvements";
+import { plafondLegal } from "../lib/plafondsLivrets";
 
 // ─── Known high-yield alternatives for the arbitrage engine ──────────────────
 const MARKET_ALTERNATIVES = [
@@ -16,18 +19,6 @@ const MARKET_ALTERNATIVES = [
   { name: "LDDS", rate: 0.017, condition: "Plafond 12 000 €", plafond: 12000 },
 ];
 
-// ─── Plafonds légaux connus (pour l'alerte de saturation) ─────────────────────
-const LEGAL_CEILINGS = {
-  "livret a": 22950, "ldds": 12000, "lep": 10000, "livret jeune": 1600,
-  "pel": 61200, "cel": 15300,
-};
-function guessLegalLimit(name) {
-  const key = (name || "").toLowerCase().trim();
-  for (const [k, v] of Object.entries(LEGAL_CEILINGS)) {
-    if (key.includes(k)) return v;
-  }
-  return null;
-}
 
 // ─── Historique du matelas de sécurité (texte seul, pas de graphique) ────────
 /**
@@ -102,7 +93,7 @@ function SaturationAlert({ livrets }) {
   const flagged = useMemo(() => {
     return livrets
       .map((l) => {
-        const limit = l.limit || guessLegalLimit(l.name);
+        const limit = l.limit || plafondLegal(l.name);
         if (!limit) return null;
         const ratio = l.balance / limit;
         if (ratio < 0.85) return null;
@@ -145,7 +136,7 @@ function NextDepositAdvisor({ livrets }) {
   const ranked = useMemo(() => {
     return livrets
       .map((l) => {
-        const limit = l.limit || guessLegalLimit(l.name);
+        const limit = l.limit || plafondLegal(l.name);
         const room = limit ? Math.max(0, limit - l.balance) : Infinity;
         return { ...l, limit, room };
       })
@@ -184,7 +175,7 @@ function NextDepositAdvisor({ livrets }) {
       </div>
 
       {allocation.result.length === 0 ? (
-        <EmptyState>Tous tes livrets sont au plafond — envisage l'onglet Bourse pour ce montant.</EmptyState>
+        <EmptyState picto="epargne">Tous tes livrets sont au plafond — envisage l'onglet Bourse pour ce montant.</EmptyState>
       ) : (
         <div className="space-y-1.5 mt-3">
           {allocation.result.map((l, i) => (
@@ -291,7 +282,7 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
 
           {/* Envelopes list */}
           {enveloppes.length === 0 ? (
-            <EmptyState>Aucune enveloppe — segmente ton épargne par usage pour mieux piloter.</EmptyState>
+            <EmptyState picto="epargne">Aucune enveloppe — segmente ton épargne par usage pour mieux piloter.</EmptyState>
           ) : (
             <div className="space-y-2 mt-2">
               {enveloppes.map((e, i) => {
@@ -491,7 +482,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => nudge(-50)}
-              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-400 transition-opacity"
+              className="revele-survol text-slate-500 hover:text-rose-400"
               title="−50 €"
             >
               <Minus size={12} />
@@ -502,11 +493,11 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
               title="Modifier le solde"
             >
               {eur(l.balance)}
-              <Pencil size={10} className="opacity-0 group-hover:opacity-100 text-slate-500" />
+              <Pencil size={10} className="revele-survol text-slate-500" aria-hidden="true" />
             </button>
             <button
               onClick={() => nudge(50)}
-              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-emerald-400 transition-opacity"
+              className="revele-survol text-slate-500 hover:text-emerald-400"
               title="+50 €"
             >
               <Plus size={12} />
@@ -558,7 +549,7 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
         ) : (
           <button
             onClick={() => { setGoalDraft(l.goal ?? ""); setShowGoalEdit(true); }}
-            className="text-micro text-slate-500 hover:text-violet-400 border border-transparent hover:border-violet-400/30 rounded-full px-2 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+            className="revele-survol text-micro text-slate-500 hover:text-violet-400 border border-transparent hover:border-violet-400/30 rounded-full px-2 py-0.5 transition-colors"
           >
             <Target size={10} className="inline mr-1" />
             {hasGoal ? "Modifier objectif" : "Fixer objectif"}
@@ -579,7 +570,7 @@ export default function Livrets({
 }) {
   const { showToast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
-  const [subTab, setSubTab] = useState("mes-livrets"); // "mes-livrets" | "taux"
+  const [subTab, setSubTab] = useSousOnglet(["mes-livrets", "taux"], "mes-livrets");
 
   const addLivret = (v) =>
     setLivrets((l) => [
@@ -629,27 +620,18 @@ export default function Livrets({
         <p className="text-sm text-slate-500 mt-1">Capital garanti : livrets réglementés et fonds en euros. Le compte courant a son propre onglet.</p>
       </div>
 
-      {/* Sous-onglets */}
-      <div className="relative flex items-center gap-2 border-b border-slate-800 pb-1">
-        <button
-          onClick={() => setSubTab("mes-livrets")}
-          aria-current={subTab === "mes-livrets" ? "page" : undefined}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "mes-livrets" ? "text-indigo-300 border-b-2 border-indigo-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <PiggyBank size={14} /> Mes livrets
-        </button>
-        <button
-          onClick={() => setSubTab("taux")}
-          aria-current={subTab === "taux" ? "page" : undefined}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "taux" ? "text-indigo-300 border-b-2 border-indigo-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <Percent size={14} /> Taux
-        </button>
-      </div>
+      {/* Sous-onglets — même barre glissante que les autres pages, et le
+          sous-onglet ouvert vit dans l'URL (voir useSousOnglet). */}
+      <OngletsGlissants
+        className="teinte-indigo"
+        ariaLabel="Sections de Livrets & Épargne"
+        actif={subTab}
+        onChange={setSubTab}
+        onglets={[
+          { id: "mes-livrets", libelle: "Mes livrets", icone: PiggyBank },
+          { id: "taux", libelle: "Taux", icone: Percent },
+        ]}
+      />
 
       {subTab === "taux" && <RatesHub livrets={livrets} />}
 

@@ -98,7 +98,7 @@ export default function ScenariosProjet({ scenarios = [], onChange, courant }) {
       </form>
 
       {scenarios.length === 0 ? (
-        <EmptyState>
+        <EmptyState picto="objectifs">
           Aucun projet mis de côté. Enregistre une configuration pour la comparer plus tard.
         </EmptyState>
       ) : (

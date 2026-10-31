@@ -1,18 +1,9 @@
-import { useState, useMemo, useId, useEffect } from "react";
-import {
-  ResponsiveContainer, Tooltip,
-  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceDot,
-} from "recharts";
-import {
-  TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight,
-  Target, AlertCircle, Clock, ChevronDown, ChevronUp, Zap, ListChecks, ArrowRight, Scale, Sparkles,
-} from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { ResponsiveContainer, Tooltip, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, ReferenceDot } from "recharts";
+import { TrendingUp, PiggyBank, Landmark, Wallet, ArrowUpRight, ArrowDownRight, Scale } from "lucide-react";
 import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, ChampNumerique, CARD_THEMES } from "./ui";
-import {
-  eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore,
-  computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition, lireNombre, nombre } from "../lib/finance";
+import { eur, pct, pctPlain, compact, uid, guessEnvelope, ENVELOPE_META, computeDiversificationScore, computeInvestedCapital, investedCapitalAsOf, todayIso, netWorthDelta, projectMonthly, valeurPosition, lireNombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
-import { useMaintenant, joursDepuis } from "../lib/useMaintenant";
 import { joursDeLAnnee, semainesAgitees } from "../lib/retrospective";
 import { useToast } from "../lib/ToastContext";
 import { exportToExcel, exportToPDF } from "../lib/exportReport";
@@ -26,547 +17,38 @@ import ProchainesEcheances from "./ProchainesEcheances";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { AnneauRepartition, CalendrierAnnuel, CourbeEvolution } from "./graphiques";
-import { serieSparkline, marqueursOperations, decrireOperation, NATURES_MARQUEUR } from "../lib/marqueursCourbe";
+import { serieSparkline, marqueursOperations, NATURES_MARQUEUR } from "../lib/marqueursCourbe";
 import { FileDown, FileSpreadsheet, PieChart as PieIcon, SlidersHorizontal } from "lucide-react";
 import { Disposition, Bloc, PersonnaliserDashboard } from "./DispositionDashboard";
 import { ResumeCompteCourant, SanteFinanciere } from "./BlocsCompteDashboard";
 import { DISPOSITION_DEFAUT } from "../lib/dispositionDashboard";
 import { decouperParPoche, COULEURS_POCHES } from "../lib/patrimoineParPoche";
 import { recordAAnnoncer, objectifsAAnnoncer, plusHautHistorique } from "../lib/records";
-
-function formatDateFr(iso) {
-  if (!iso) return "—";
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-// ─── Time filter config ────────────────────────────────────────────────────────
-const TIME_FILTERS = [
-  { key: "1M", label: "1M", months: 1 },
-  { key: "6M", label: "6M", months: 6 },
-  { key: "1Y", label: "1Y", months: 12 },
-  { key: "ALL", label: "ALL", months: null },
-];
-
-function getMonthsAgo(months) {
-  const d = new Date();
-  d.setMonth(d.getMonth() - months);
-  return d;
-}
-
-// ─── Plafonds légaux connus (réutilisé ici pour détecter les livrets pleins) ──
-const LEGAL_CEILINGS = {
-  "livret a": 22950, "ldds": 12000, "lep": 10000, "livret jeune": 1600,
-  "pel": 61200, "cel": 15300,
-};
-function guessLegalLimit(name) {
-  const key = (name || "").toLowerCase().trim();
-  for (const [k, v] of Object.entries(LEGAL_CEILINGS)) {
-    if (key.includes(k)) return v;
-  }
-  return null;
-}
-
-/**
- * Marqueur du dernier point mesuré d'une série recharts.
- *
- * recharts appelle ce composant pour CHAQUE point ; on ne rend quelque chose
- * que sur le dernier qui porte une valeur. Retourner `null` ailleurs est la
- * façon prévue de ne rien dessiner — un `dot={false}` global empêcherait de
- * distinguer ce point-là.
- */
-function PointFinal({ cx, cy, index, serie }) {
-  const dernier = serie ? serie.map((d) => d.value).lastIndexOf(serie.filter((d) => d.value != null).slice(-1)[0]?.value) : -1;
-  if (index !== dernier || cx == null || cy == null) return null;
-  return (
-    <g>
-      <circle cx={cx} cy={cy} r={8} fill="#10b981" opacity={0.18} />
-      <circle cx={cx} cy={cy} r={4} fill="#10b981" />
-    </g>
-  );
-}
-
-// ─── Panneau d'actions prioritaires ────────────────────────────────────────────
-// Consolide des signaux qui n'existent nulle part ailleurs dans l'app (pas de
-// doublon avec la StagnationBadge ni avec les alertes déjà présentes dans
-// Bourse/Livrets) : plafonds de livrets saturés, cash PEA dormant, matelas de
-// sécurité insuffisant.
-function PriorityActions({ livrets, bourse, matelasMois, tauxReference = 0 }) {
-  const actions = useMemo(() => {
-    const list = [];
-
-    (livrets || []).forEach((l) => {
-      const limit = l.limit || guessLegalLimit(l.name);
-      if (limit && l.balance / limit >= 0.95) {
-        list.push({
-          id: `livret-${l.id}`,
-          icon: AlertCircle,
-          tone: "amber",
-          text: `${l.name} est proche ou au plafond — orienter les prochains versements ailleurs.`,
-        });
-      }
-    });
-
-    const cashPocket = bourse?.cash_pocket || 0;
-    const bourseValue = (bourse?.positions || []).reduce((s, p) => s + valeurPosition(p), 0);
-    if (cashPocket > 500 && bourseValue > 0 && cashPocket / (cashPocket + bourseValue) > 0.15) {
-      list.push({
-        id: "cash-dormant",
-        icon: Wallet,
-        tone: "violet",
-        /*
-         * Le manque à gagner, et pas seulement le montant détenu.
-         *
-         * « 2 400 € dorment » se supporte très bien ; « ils te coûtent 146 €
-         * par an » beaucoup moins. C'est le second chiffre qui fait agir, et
-         * il se calcule à partir de données déjà présentes — la performance
-         * réalisée du portefeuille sert de coût d'opportunité, faute de mieux
-         * et parce qu'elle est propre à l'utilisateur.
-         */
-        text: `${eur(cashPocket, 0)} de cash dorment sur ton PEA — environ ${eur(
-          cashPocket * (Math.max(0, tauxReference) / 100),
-          0
-        )} de manque à gagner par an.`,
-        sensitive: true,
-      });
-    }
-
-    if (matelasMois != null && matelasMois < 3) {
-      list.push({
-        id: "matelas-faible",
-        icon: PiggyBank,
-        tone: "rose",
-        text: `Matelas de sécurité de ${nombre(matelasMois, 1)} mois seulement — viser au moins 3 mois de dépenses.`,
-      });
-    }
-
-    return list;
-  }, [livrets, bourse, matelasMois, tauxReference]);
-
-  if (actions.length === 0) return null;
-
-  const toneClass = { amber: "text-amber-300 bg-amber-400/10", violet: "text-violet-300 bg-violet-400/10", rose: "text-rose-300 bg-rose-400/10" };
-
-  return (
-    <Card accent={CARD_THEMES.emerald}>
-      <CardLabel icon={ListChecks}>À faire</CardLabel>
-      <div className="space-y-1.5 mt-2">
-        {actions.map((a) => (
-          <div key={a.id} className="flex items-center gap-3 text-sm rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
-            <span className={`rounded-full p-1.5 shrink-0 ${toneClass[a.tone]}`}>
-              <a.icon size={14} />
-            </span>
-            <span className={`text-slate-300 flex-1 ${a.sensitive ? "ghost-blur" : ""}`}>{a.text}</span>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-// ─── Accueil d'un patrimoine encore vierge ────────────────────────────────────
-// L'app démarrait sur un patrimoine de démonstration (Livret A à 7 000 €,
-// 30 parts de CW8) que rien ne signalait comme fictif. Elle démarre désormais
-// vide, et cette carte explique quoi faire — avec le jeu d'exemple accessible,
-// mais nommé pour ce qu'il est.
-function OnboardingCard({ onLoadDemo }) {
-  return (
-    <Card accent={CARD_THEMES.emerald}>
-      <CardLabel icon={Sparkles}>Bienvenue</CardLabel>
-      <p className="text-sm text-slate-300 mt-1">
-        Ton patrimoine est encore vide. Commence par renseigner tes supports d'épargne dans
-        « Livrets &amp; Épargne », puis tes positions dans « PEA &amp; Bourse » — ce tableau de bord
-        se remplit tout seul ensuite.
-      </p>
-      <button
-        onClick={onLoadDemo}
-        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-100 border border-slate-700 hover:border-slate-500 rounded-lg px-3.5 py-2 transition-colors mt-4"
-      >
-        <ArrowRight size={14} aria-hidden="true" /> Charger un jeu d'exemple
-      </button>
-      <p className="text-micro text-slate-500 mt-3">
-        Le jeu d'exemple contient un an d'historique et des chiffres inventés, à des fins de
-        démonstration uniquement.
-        Tu pourras tout effacer depuis « Réinitialiser », dans le menu.
-      </p>
-    </Card>
-  );
-}
-
-// ─── Profil mensuel lu sur les relevés ───────────────────────────────────────
-/**
- * Dès qu'un relevé de compte courant est importé, revenus et dépenses ne se
- * saisissent plus : ce sont les moyennes réelles des derniers mois, hors
- * mouvements entre ses comptes et opérations mises à part. Le profil saisi
- * reste stocké et reprend la main si les relevés sont retirés.
- */
-function ProfilReel({ profile }) {
-  const mois = (profile.periode || []).map((m) => {
-    const [a, n] = m.split("-").map(Number);
-    return new Date(a, n - 1, 1).toLocaleDateString("fr-FR", { month: "long" });
-  });
-  const periode =
-    mois.length > 1 ? `moyenne de ${mois[0]} à ${mois[mois.length - 1]}` : mois.length === 1 ? `mois de ${mois[0]}` : "";
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <CardLabel icon={Wallet}>Profil mensuel</CardLabel>
-        <div className="text-sm text-slate-400">
-          Revenus <Montant valeur={profile.monthly_income} decimales={0} className="text-slate-100" /> / mois
-        </div>
-        <div className="text-sm text-slate-400">
-          Dépenses <Montant valeur={profile.monthly_expenses} decimales={0} className="text-slate-100" /> / mois
-        </div>
-      </div>
-      <p className="text-xs text-slate-500">
-        Calculé sur tes relevés de compte courant{periode ? `, ${periode}` : ""} — hors virements entre tes comptes et
-        opérations ponctuelles mises à part.{" "}
-        <a href="#/compte" className="text-emerald-300 hover:underline">
-          Voir le compte courant
-        </a>
-      </p>
-    </div>
-  );
-}
-
-// ─── Fraîcheur du profil mensuel ──────────────────────────────────────────────
-const PROFILE_STALE_DAYS = 120;
-
-function ProfileFreshness({ updatedAt, history = [] }) {
-  const [showHistory, setShowHistory] = useState(false);
-  // Instant figé pour ce rendu (voir useMaintenant) : `Date.now()` appelé ici
-  // rendait le composant impur et laissait le badge périmé indéfiniment.
-  const maintenant = useMaintenant();
-
-  if (!updatedAt) {
-    return (
-      <p className="text-micro text-slate-500 mt-3">
-        Renseigne ton revenu et tes dépenses : le taux d'épargne et le matelas de sécurité en
-        dépendent.
-      </p>
-    );
-  }
-
-  const days = joursDepuis(updatedAt, maintenant);
-  const stale = days >= PROFILE_STALE_DAYS;
-  const previous = history.slice(0, -1).slice(-6).reverse();
-
-  return (
-    <div className="mt-3 pt-3 border-t border-slate-800">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className={`flex items-center gap-1.5 text-micro ${stale ? "text-amber-300" : "text-slate-500"}`}>
-          {stale ? <AlertCircle size={11} aria-hidden="true" /> : <Clock size={11} aria-hidden="true" />}
-          {days === 0
-            ? "Mis à jour aujourd'hui"
-            : stale
-              ? `Inchangé depuis ${days} jours — vérifie que c'est toujours d'actualité`
-              : `Mis à jour il y a ${days} jour${days > 1 ? "s" : ""}`}
-        </span>
-        {previous.length > 0 && (
-          <button
-            onClick={() => setShowHistory((s) => !s)}
-            className="flex items-center gap-1 text-micro text-emerald-300/70 hover:text-emerald-300"
-          >
-            {showHistory ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
-            Historique
-          </button>
-        )}
-      </div>
-
-      {showHistory && previous.length > 0 && (
-        <ul className="mt-2 space-y-1">
-          {previous.map((h) => (
-            <li key={h.date} className="flex items-center justify-between text-micro text-slate-500">
-              <span className="font-data tabular-nums">{formatDateFr(h.date)}</span>
-              <span className="font-data tabular-nums ghost-blur">
-                {eur(h.monthly_income)} − {eur(h.monthly_expenses)} ={" "}
-                <span className="text-slate-300">{eur(h.monthly_income - h.monthly_expenses)}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-// ─── Badge de fraîcheur des cours ─────────────────────────────────────────────
-// Mesure la date de dernière actualisation des COURS (bourse.pricesUpdatedAt),
-// et non celle de l'historique de patrimoine : ce dernier étant alimenté
-// automatiquement à chaque ouverture de l'app, le badge affichait
-// invariablement « Actualisé aujourd'hui » et ses autres états étaient
-// inatteignables.
-function StagnationBadge({ pricesUpdatedAt, hasPositions }) {
-  // Même raison que dans ProfileFreshness : ce badge annonce la fraîcheur des
-  // cours, il ne peut pas se contenter d'un instant lu pendant le rendu.
-  const maintenant = useMaintenant();
-  if (!hasPositions) return null;
-  if (!pricesUpdatedAt) {
-    return (
-      <span className="flex items-center gap-1.5 text-micro border rounded-full px-2.5 py-1 text-slate-500 border-slate-700 bg-slate-900/50">
-        <Clock size={10} aria-hidden="true" />
-        Cours jamais actualisés
-      </span>
-    );
-  }
-  const diffDays = joursDepuis(pricesUpdatedAt, maintenant);
-  const color =
-    diffDays === 0 ? "text-emerald-400 border-emerald-400/30 bg-emerald-400/5"
-    : diffDays <= 3 ? "text-amber-300 border-amber-400/30 bg-amber-400/5"
-    : "text-rose-400 border-rose-400/30 bg-rose-400/5";
-  const label =
-    diffDays === 0 ? "Cours actualisés aujourd'hui"
-    : diffDays === 1 ? "Cours actualisés hier"
-    : `Cours vieux de ${diffDays} jours`;
-  return (
-    <span className={`flex items-center gap-1.5 text-micro border rounded-full px-2.5 py-1 ${color}`}>
-      <Clock size={10} aria-hidden="true" />
-      {label}
-    </span>
-  );
-}
-
-// ─── Time filter buttons ──────────────────────────────────────────────────────
-function TimeFilterBar({ active, onChange }) {
-  return (
-    <div className="flex items-center gap-1">
-      {TIME_FILTERS.map((f) => (
-        <button
-          key={f.key}
-          onClick={() => onChange(f.key)}
-          className={`text-micro font-medium px-2.5 py-1 rounded-lg transition-colors ${
-            active === f.key
-              ? "bg-amber-400/20 text-amber-300 border border-amber-400/40"
-              : "text-slate-500 hover:text-slate-300 border border-transparent"
-          }`}
-        >
-          {f.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─── Allocation target panel ──────────────────────────────────────────────────
-function AllocationTarget({ target, setTarget, livretsTotal, bourseTotal }) {
-  // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
-  // des identifiants uniques même si ce formulaire est monté deux fois.
-  const idsChamps = useId();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(target);
-  const total = livretsTotal + bourseTotal;
-  if (total === 0) return null;
-
-  const currentBoursePct = total > 0 ? (bourseTotal / total) * 100 : 0;
-  const currentLivretsPct = 100 - currentBoursePct;
-  const targetBoursePct = target.bourse;
-  const targetLivretsPct = 100 - targetBoursePct;
-
-  const gapBourse = currentBoursePct - targetBoursePct;
-  const absGap = Math.abs(gapBourse);
-
-  // Compute next investment suggestion
-  const nextAmount = 500;
-  let suggestion = null;
-  if (absGap > 2) {
-    if (gapBourse < 0) {
-      suggestion = `Pour te rapprocher de ta cible, oriente tes prochains ${eur(nextAmount)} vers ton PEA/Bourse.`;
-    } else {
-      suggestion = `Pour te rapprocher de ta cible, oriente tes prochains ${eur(nextAmount)} vers tes livrets.`;
-    }
-  }
-
-  const save = () => {
-    setTarget(draft);
-    setEditing(false);
-  };
-
-  return (
-    <div className="mt-4 pt-4 border-t border-slate-800">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 text-xs text-slate-500 uppercase tracking-wider">
-          <Target size={11} />
-          Allocation cible
-        </div>
-        <button
-          onClick={() => setEditing((e) => !e)}
-          className="flex items-center gap-1 text-micro text-amber-300/70 hover:text-amber-300"
-        >
-          {editing ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          {editing ? "Fermer" : "Définir ma cible"}
-        </button>
-      </div>
-
-      {/* Bars: Current vs Target */}
-      <div className="space-y-2.5">
-        {/* Épargne sécurisée */}
-        <div>
-          <div className="flex justify-between text-micro text-slate-500 mb-1">
-            <span>Épargne sécurisée</span>
-            <span>
-              <span className="text-slate-300 font-data">{pctPlain(currentLivretsPct, 0)}</span>
-              <span className="text-slate-500 mx-1">→</span>
-              <span className="text-teal-400 font-data">{pctPlain(targetLivretsPct, 0)}</span>
-            </span>
-          </div>
-          <div className="relative h-2 rounded-full bg-slate-800 overflow-visible">
-            <div
-              className="absolute top-0 left-0 h-2 rounded-full bg-teal-400/50 transition-all"
-              style={{ width: `${currentLivretsPct}%` }}
-            />
-            <div
-              className="absolute top-0 left-0 h-2 rounded-full border-2 border-teal-400 bg-transparent transition-all"
-              style={{ width: `${targetLivretsPct}%` }}
-            />
-          </div>
-        </div>
-        {/* Bourse */}
-        <div>
-          <div className="flex justify-between text-micro text-slate-500 mb-1">
-            <span>Bourse (PEA)</span>
-            <span>
-              <span className="text-slate-300 font-data">{pctPlain(currentBoursePct, 0)}</span>
-              <span className="text-slate-500 mx-1">→</span>
-              <span className="text-amber-400 font-data">{pctPlain(targetBoursePct, 0)}</span>
-            </span>
-          </div>
-          <div className="relative h-2 rounded-full bg-slate-800 overflow-visible">
-            <div
-              className="absolute top-0 left-0 h-2 rounded-full bg-amber-400/50 transition-all"
-              style={{ width: `${currentBoursePct}%` }}
-            />
-            <div
-              className="absolute top-0 left-0 h-2 rounded-full border-2 border-amber-400 bg-transparent transition-all"
-              style={{ width: `${targetBoursePct}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Ecart */}
-      {absGap > 2 && (
-        <div className="flex items-start gap-2 mt-3 text-micro text-amber-300/80 bg-amber-400/5 border border-amber-400/15 rounded-lg px-3 py-2">
-          <Zap size={11} className="mt-0.5 shrink-0" />
-          <span>{suggestion}</span>
-        </div>
-      )}
-      {absGap <= 2 && absGap >= 0 && (
-        <div className="flex items-center gap-2 mt-3 text-micro text-emerald-400/80 bg-emerald-400/5 border border-emerald-400/15 rounded-lg px-3 py-2">
-          <Target size={11} />
-          Ton allocation est conforme à ta cible. ✓
-        </div>
-      )}
-
-      {/* Edit slider */}
-      {editing && (
-        <div className="mt-4 p-3 rounded-xl border border-slate-700 bg-slate-950">
-          <label htmlFor={`${idsChamps}-part-bourse-cible`} className="text-micro text-slate-500 block mb-2">
-            Part Bourse cible : <span className="text-amber-300 font-data">{draft.bourse}%</span>
-          </label>
-          <input id={`${idsChamps}-part-bourse-cible`}
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={draft.bourse}
-            onChange={(e) => setDraft({ bourse: parseInt(e.target.value) })}
-            className="w-full"
-          />
-          <div className="flex justify-between text-micro text-slate-500 mt-1">
-            <span>100% Livrets</span>
-            <span>100% Bourse</span>
-          </div>
-          <button
-            onClick={save}
-            className="mt-3 w-full text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-4 py-1.5 transition-colors"
-          >
-            Enregistrer la cible
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Custom tooltip for chart with projection ─────────────────────────────────
-// L'abscisse de la courbe est une clé d'indice (voir `chartData`) : le libellé
-// lisible se relit donc sur le point lui-même, pas sur `label`.
-function ChartTooltip({ active, payload, marqueursParCle }) {
-  if (!active || !payload?.length) return null;
-  const point = payload[0]?.payload;
-  const marqueur = marqueursParCle?.[point?.cle];
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
-      <div className="text-slate-400 mb-1">{point?.label}</div>
-      {payload.map((p) => (
-        <div key={p.dataKey} className="flex items-center gap-2 font-data tabular-nums">
-          <span className="w-2 h-2 rounded-full" style={{ background: p.color || p.stroke }} />
-          <span className="text-slate-400">{p.name} :</span>
-          <span className={`ghost-blur ${p.name?.includes("Projection") ? "text-amber-300/70" : "text-slate-100"}`}>
-            {eur(p.value)}
-          </span>
-        </div>
-      ))}
-      {marqueur && (
-        <div className="pt-1.5 mt-1.5 border-t border-slate-800 space-y-0.5">
-          {marqueur.natures.map(({ nature, ops }) =>
-            ops.map((op, i) => (
-              <div key={`${nature}-${i}`} className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: NATURES_MARQUEUR[nature].couleur }} />
-                <span className="text-slate-300 ghost-blur">{decrireOperation(op)}</span>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Pastilles d'opérations posées sur la courbe du patrimoine net.
- *
- * Même dessin que sur la courbe du portefeuille (onglet Performance) : une
- * pastille par nature, EMPILÉES vers le haut quand un même relevé en reçoit
- * plusieurs — un versement suivi d'un achat le même jour est le cas le plus
- * courant, et deux pastilles superposées n'en laisseraient voir qu'une.
- *
- * Le `<title>` donne l'infobulle native au survol de la pastille elle-même ;
- * l'infobulle du graphique reprend le même détail pour qui survole la courbe.
- */
-function PastilleOperations({ cx, cy, marqueur }) {
-  if (cx == null || cy == null || !marqueur) return null;
-  return (
-    <g>
-      {marqueur.natures.map(({ nature, ops }, i) => {
-        const { couleur } = NATURES_MARQUEUR[nature];
-        const y = cy - i * 11;
-        return (
-          <g key={nature}>
-            <circle cx={cx} cy={y} r={6} fill={couleur} fillOpacity={0.22} />
-            <circle cx={cx} cy={y} r={3.4} fill={couleur} stroke="#020617" strokeWidth={1.4} />
-            <title>{`${formatDateFr(marqueur.date)} — ${ops.map(decrireOperation).join(" · ")}`}</title>
-          </g>
-        );
-      })}
-    </g>
-  );
-}
-
-// Le relevé quotidien du patrimoine net a été remonté au niveau de <App>
-// (voir src/lib/useDailySnapshot.js) : ici, il ne se déclenchait que si
-// l'utilisateur ouvrait cet onglet-là dans la journée.
+import CentreAFaire from "./CentreAFaire";
+import { usePatrimoine } from "../lib/PatrimoineContext";
+import { TIME_FILTERS, getMonthsAgo, PointFinal, TimeFilterBar, ChartTooltip, PastilleOperations } from "./CourbePatrimoineOutils";
+import OnboardingCard from "./CarteBienvenue";
+import { ProfilReel, ProfileFreshness, formatDateFr } from "./ProfilMensuelOutils";
+import StagnationBadge from "./BadgeFraicheurCours";
+import AllocationTarget from "./AllocationCible";
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
-export default function Dashboard({
-  profile, setProfile, patrimoineBrut, patrimoineNet, bourseGainAbs, bourseGainPct,
-  epargneMensuelle, tauxEpargne, dettes, setDettes, dettesTotal,
-  historyPast, setHistoryPast, livretsTotal, bourseTotal,
-  livrets, bourse, matelasMois, setLastSnapshotDate,
-  cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
-  objectifs, setObjectifs, bourseHistory = [], contracts = [], evenementsMarche = [],
-  compteSolde = null, matelasCompteCourant = 0, compteEnrichies = [], compteOperations = [], compteReleves = [],
-  budgetReel = null,
-}) {
+/**
+ * Tableau de bord. Il lit l'état patrimonial dans le contexte
+ * (`usePatrimoine`) au lieu de recevoir l'état complet de l'application en
+ * props : ce dont il dépend se lit ici, d'un coup d'œil.
+ */
+export default function Dashboard() {
+  const {
+    profile, setProfile, patrimoineBrut, patrimoineNet, bourseGainAbs, bourseGainPct,
+    epargneMensuelle, tauxEpargne, dettes, setDettes, dettesTotal,
+    historyPast, setHistoryPast, livretsTotal, bourseTotal,
+    livrets, bourse, matelasMois, setLastSnapshotDate,
+    cash, livretsAvgRate, sim, isEmpty, loadDemoData, profileHistory,
+    objectifs, setObjectifs, bourseHistory = [], contracts = [], evenementsMarche = [],
+    compteSolde = null, matelasCompteCourant = 0, compteEnrichies = [], compteOperations = [], compteReleves = [],
+    budgetReel = null, strategyNotes = [], subs = [],
+  } = usePatrimoine();
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
   const [timeFilter, setTimeFilter] = useState("ALL");
@@ -958,13 +440,17 @@ export default function Dashboard({
         />
       </Bloc>
 
-      {/* Actions prioritaires cross-onglets */}
+      {/* Tout ce qui demande une action, tous onglets confondus */}
       <Bloc id="actions">
-      <PriorityActions
+      <CentreAFaire
         livrets={livrets}
         bourse={bourse}
         matelasMois={matelasMois}
         tauxReference={bourseGainPct}
+        strategyNotes={strategyNotes}
+        subs={subs}
+        contracts={contracts}
+        compteEnrichies={compteEnrichies}
       />
       </Bloc>
 
@@ -1585,7 +1071,7 @@ export default function Dashboard({
           </div>
         )}
         {dettes.length === 0 ? (
-          <EmptyState>Aucun passif déclaré — le patrimoine net est égal au patrimoine brut.</EmptyState>
+          <EmptyState picto="liquidites">Aucun passif déclaré — le patrimoine net est égal au patrimoine brut.</EmptyState>
         ) : (
           <div className="mt-2 divide-y divide-slate-800">
             {dettes.map((d) => (

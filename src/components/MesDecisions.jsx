@@ -114,7 +114,7 @@ function CarteVentes({ ventes, erreur }) {
       {!ventes ? (
         <Chargement erreur={erreur} />
       ) : ventes.ventes.length === 0 ? (
-        <EmptyState>Aucune vente dans le journal : rien à relire pour l&apos;instant.</EmptyState>
+        <EmptyState picto="operations">Aucune vente dans le journal : rien à relire pour l&apos;instant.</EmptyState>
       ) : (
         <>
           {ventes.nbComptees > 0 && (

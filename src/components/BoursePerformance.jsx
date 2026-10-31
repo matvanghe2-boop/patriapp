@@ -491,7 +491,7 @@ export default function PerformanceTab({
 
       {!hasEnoughHistory ? (
         <Card accent={CARD_THEMES.violet}>
-          <EmptyState>
+          <EmptyState picto="graphique">
             {bourseHistory.length === 0
               ? "Aucun suivi encore — clique sur « Actualiser le suivi » pour démarrer."
               : `Suivi démarré le ${formatDateShort(bourseHistory[0].date)} — reviens dans les prochains jours.`}
@@ -792,7 +792,7 @@ export default function PerformanceTab({
             </div>
 
             {!hasEnoughBase100 ? (
-              <EmptyState>Comparaison disponible après plusieurs jours de suivi.</EmptyState>
+              <EmptyState picto="graphique">Comparaison disponible après plusieurs jours de suivi.</EmptyState>
             ) : (
               <div className="h-96 mt-2">
                 <ResponsiveContainer width="100%" height="100%">

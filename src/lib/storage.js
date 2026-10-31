@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import { supabase, isSupabaseConfigured, supabaseConfig } from "./supabaseClient";
+import { migrer, VERSION_DONNEES } from "./migrations";
 import {
   subscribeSync,
   getSyncState,
@@ -25,10 +26,12 @@ const TABLE = "kv_store";
 const DEBOUNCE_MS = 800;
 const MAX_PUSH_ATTEMPTS = 4;
 
+// Toute valeur qui entre dans l'application passe par `migrer` : lecture
+// locale, réception du cloud, restauration d'une sauvegarde (voir migrations.js).
 function readLocal(key, initialValue) {
   try {
     const raw = localStorage.getItem(PREFIX + key);
-    return raw ? JSON.parse(raw) : initialValue;
+    return raw ? migrer(key, JSON.parse(raw)) : initialValue;
   } catch {
     return initialValue;
   }
@@ -345,8 +348,9 @@ function applyCloudRow(key, row) {
   const localUpdatedAt = readLocalUpdatedAt(key);
   if (localUpdatedAt && row.updated_at && row.updated_at <= localUpdatedAt) return;
 
-  writeLocal(key, row.value, row.updated_at);
-  latestValues.set(key, { value: row.value, updatedAt: row.updated_at });
+  const valeur = migrer(key, row.value);
+  writeLocal(key, valeur, row.updated_at);
+  latestValues.set(key, { value: valeur, updatedAt: row.updated_at });
   // La valeur locale vient d'être remplacée par celle du cloud : il n'y a plus
   // rien à y repousser, et la laisser marquée « à écrire » ferait renvoyer au
   // serveur ce qu'on vient d'en recevoir.
@@ -355,7 +359,7 @@ function applyCloudRow(key, row) {
   // version appelait le setter sans ce témoin, si bien qu'une valeur reçue du
   // cloud était aussitôt ré-horodatée « maintenant » par l'effet de
   // persistance et repoussée vers le serveur comme une modification locale.
-  diffuser(key, row.value);
+  diffuser(key, valeur);
   markSynced(key);
 }
 
@@ -602,10 +606,11 @@ export function usePersistentState(key, initialValue) {
         data && (!localUpdatedAt || (data.updated_at && data.updated_at > localUpdatedAt));
 
       if (cloudIsNewer) {
+        const valeur = migrer(key, data.value);
         skipNextPush.current = true;
-        setState(data.value);
-        writeLocal(key, data.value, data.updated_at);
-        latestValues.set(key, { value: data.value, updatedAt: data.updated_at });
+        setState(valeur);
+        writeLocal(key, valeur, data.updated_at);
+        latestValues.set(key, { value: valeur, updatedAt: data.updated_at });
         markSynced(key);
       } else {
         // Rien en cloud (premier appareil), ou version locale plus récente :
@@ -724,7 +729,9 @@ export function useManualRefresh() {
 }
 
 export function exportAllData(keys) {
-  const dump = {};
+  // La version de forme des données : une version plus ancienne de l'app
+  // refusera de restaurer ce qu'elle ne saurait pas lire.
+  const dump = { __versionDonnees: VERSION_DONNEES };
   keys.forEach((k) => {
     const raw = localStorage.getItem(PREFIX + k);
     if (raw) {

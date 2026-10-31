@@ -2560,6 +2560,17 @@
   .bouton-focus { opacity: 1; }
 }
 
+/* Actions révélées au survol — mais seulement là où le survol EXISTE.
+   `group-hover:opacity-100` les cachait aussi au doigt, où rien ne les
+   révèle jamais : modifier une position ou retirer un titre de la watchlist
+   était introuvable sur téléphone. Le focus clavier les révèle aussi : un
+   bouton atteint à la tabulation ne doit pas rester invisible. */
+@media (hover: hover) and (pointer: fine) {
+  .revele-survol { opacity: 0; transition: opacity 0.15s ease; }
+  .group:hover .revele-survol,
+  .group:focus-within .revele-survol { opacity: 1; }
+}
+
 /* ═══════════════════ AIDE-MÉMOIRE DES RACCOURCIS ══════════════════════════ */
 .raccourcis-liste {
   display: grid;

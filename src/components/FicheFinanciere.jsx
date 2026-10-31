@@ -519,7 +519,7 @@ export default function FicheFinanciere({ symbole, devise, onFiche }) {
           Comptes annuels publiés{historique.length > 0 ? ` — ${historique.length} exercices` : ""}
         </CardLabel>
         {historique.length === 0 ? (
-          <EmptyState>Aucun compte annuel publié pour ce support (fréquent sur les ETF et les fonds).</EmptyState>
+          <EmptyState picto="graphique">Aucun compte annuel publié pour ce support (fréquent sur les ETF et les fonds).</EmptyState>
         ) : (
           <>
             <GraphiqueHistorique historique={historique} />

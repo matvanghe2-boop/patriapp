@@ -473,7 +473,7 @@ Passer à un schéma relationnel (tables `positions`, `operations`, `livrets`…
 
 ## 🛠️ Pour aller plus loin
 
-- Découper `Bourse.jsx` (~1 100 lignes), `Dashboard.jsx` (~970) et `ProChart.jsx` (~820) en sous-composants, et les faire lire `usePatrimoine()` au lieu de recevoir l'état complet en props
+- Poursuivre le découpage : `Bourse.jsx` (~880 lignes, logique réseau dans `useSuiviBourse`) et `Dashboard.jsx` (~1 120) lisent désormais `usePatrimoine()` ; restent `ProChart.jsx` (~850), `FinancialCalendar.jsx` (~1 190) et les autres pages, qui reçoivent encore l'état complet en props
 - Passer à un schéma Supabase relationnel (voir ci-dessus)
 - Support multi-devises (l'euro est aujourd'hui codé en dur dans le formatage et le parsing PDF)
 - Virtualisation des longues listes d'opérations

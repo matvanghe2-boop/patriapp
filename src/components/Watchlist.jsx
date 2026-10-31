@@ -358,7 +358,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
       {error && <p className="text-micro text-amber-300/80 mb-3">{error}</p>}
 
       {watchlist.length === 0 ? (
-        <EmptyState>Aucun produit suivi — ajoute une valeur que tu envisages d'acheter.</EmptyState>
+        <EmptyState picto="bourse" titre="Watchlist vide">Ajoute une valeur que tu envisages d'acheter pour suivre son cours et ses performances.</EmptyState>
       ) : isInitialLoad ? (
         <SkeletonTable rows={Math.min(watchlist.length, 5)} columns={7} />
       ) : (
@@ -451,7 +451,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                     <td data-label="1 an" className={cellClass(m?.y1)}>{fmtPct(m?.y1)}</td>
                     <td data-label="5 ans" className={cellClass(m?.y5)}>{fmtPct(m?.y5)}</td>
                     <td className="py-3 text-right">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="revele-survol">
                         <IconTrash onClick={() => removeItem(w.id)} />
                       </div>
                     </td>

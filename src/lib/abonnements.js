@@ -239,6 +239,32 @@ export function rappelsEssais(subs = [], aujourdhui = todayIso(), { joursAvant =
     });
 }
 
+// ─── Contrats ────────────────────────────────────────────────────────────────
+
+/** Dernier jour pour envoyer sa résiliation : la fin d'engagement moins le préavis. */
+export function dateLimiteResiliation(contrat) {
+  if (!contrat?.date_fin) return null;
+  const preavis = lireNombre(contrat.preavis_jours) ?? 0;
+  const d = new Date(`${contrat.date_fin}T00:00:00`);
+  d.setDate(d.getDate() - preavis);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Statut d'un contrat. La date qui compte n'est pas la fin du contrat mais la
+ * date limite de résiliation : passée, il est « à résilier » (trop tard pour
+ * cette échéance, s'il n'est pas déjà fait) ; à moins de 30 jours, « à
+ * renouveler » — c'est le moment de décider.
+ */
+export function statutContrat(contrat, aujourdhui = todayIso()) {
+  if (!contrat?.date_fin) return { key: "actif", label: "Actif", etat: "ok" };
+  if (contrat.date_fin < aujourdhui) return { key: "expire", label: "Expiré", etat: "neutre" };
+  const limite = dateLimiteResiliation(contrat);
+  if (aujourdhui >= limite) return { key: "a_resilier", label: "À résilier", etat: "critique", limite };
+  if (joursEntre(aujourdhui, limite) <= 30) return { key: "a_renouveler", label: "À renouveler", etat: "attention", limite };
+  return { key: "actif", label: "Actif", etat: "ok", limite };
+}
+
 // ─── Rapprochement avec le relevé ────────────────────────────────────────────
 
 /** Mots trop génériques pour identifier un marchand. */

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, BarChart3 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer, ReferenceLine } from "recharts";
 import { eur, pctPlain } from "../lib/finance";
-import { Card, CardLabel, EmptyState } from "./ui";
+import { Card, CardLabel, EmptyState, PastilleEtat } from "./ui";
 import AssetLogo from "./AssetLogo";
 
 function formatDateShortFr(iso) {
@@ -85,9 +85,9 @@ export function buildAssetStats(operations, positions) {
 }
 
 const STATUT_BADGE = {
-  en_position: { label: "En position", cls: "bg-cyan-500/10 border-cyan-500/30 text-cyan-300" },
-  cloturee: { label: "Clôturée", cls: "bg-slate-500/10 border-slate-500/30 text-slate-400" },
-  inconnu: { label: "Historique", cls: "bg-amber-500/10 border-amber-500/30 text-amber-300" },
+  en_position: { label: "En position", etat: "ok" },
+  cloturee: { label: "Clôturée", etat: "neutre" },
+  inconnu: { label: "Historique", etat: "attention" },
 };
 
 function PerformanceTooltip({ active, payload }) {
@@ -137,8 +137,8 @@ export default function AssetStats({ bourse }) {
 
   if (rows.length === 0) {
     return (
-      <EmptyState>
-        Aucune opération enregistrée pour l'instant. Les statistiques par actif apparaîtront ici dès qu'un ordre sera importé ou saisi manuellement.
+      <EmptyState picto="operations" titre="Aucune opération">
+        Les statistiques par actif apparaîtront ici dès qu'un ordre sera importé ou saisi manuellement.
       </EmptyState>
     );
   }
@@ -220,9 +220,7 @@ export default function AssetStats({ bourse }) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-data font-semibold text-slate-100 truncate">{r.label}</span>
-                      <span className={`shrink-0 text-micro font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${badge.cls}`}>
-                        {badge.label}
-                      </span>
+                      <PastilleEtat etat={badge.etat} className="shrink-0">{badge.label}</PastilleEtat>
                     </div>
                     <p className="text-micro text-slate-500 mt-0.5">
                       {r.currentQty > 0 ? `${r.currentQty} titres en portefeuille` : `${r.nbOperations} ordre(s) historisé(s)`}

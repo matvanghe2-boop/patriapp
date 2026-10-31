@@ -1,4 +1,6 @@
 import { useMemo, useState, lazy, Suspense } from "react";
+import { useSousOnglet } from "../lib/useHashRoute";
+import OngletsGlissants from "./OngletsGlissants";
 import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark, Rocket } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 import { Card, CardLabel, SliderField, CustomTooltip, PageGlow, CARD_THEMES, SkeletonCard, SkeletonChart } from "./ui";
@@ -42,7 +44,7 @@ export default function Simulation({
   horizonScenarios, setHorizonScenarios,
   horizonDernierBilan, setHorizonDernierBilan,
 }) {
-  const [subTab, setSubTab] = useState("projection"); // "projection" | "immobilier" | "projet"
+  const [subTab, setSubTab] = useSousOnglet(["projection", "immobilier", "projet"], "projection");
   const livretsCapital = sim.livrets.capital ?? livretsTotal;
   const livretsRate = sim.livrets.rate ?? Math.max(livretsAvgRate, 0.5);
   const bourseCapital = sim.bourse.capital ?? bourseTotal;
@@ -186,36 +188,19 @@ export default function Simulation({
           identité rose, la projection son ambre. */}
       {subTab === "projection" && <PageGlow color="amber" />}
 
-      {/* Sous-onglets */}
-      <div className="relative flex items-center gap-2 border-b border-slate-800 pb-1">
-        <button
-          onClick={() => setSubTab("projection")}
-          aria-current={subTab === "projection" ? "page" : undefined}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "projection" ? "text-amber-300 border-b-2 border-amber-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <Calculator size={14} /> Projection
-        </button>
-        <button
-          onClick={() => setSubTab("immobilier")}
-          aria-current={subTab === "immobilier" ? "page" : undefined}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "immobilier" ? "text-rose-300 border-b-2 border-rose-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <Landmark size={14} /> Immobilier &amp; Crédit
-        </button>
-        <button
-          onClick={() => setSubTab("projet")}
-          aria-current={subTab === "projet" ? "page" : undefined}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-t-lg transition-colors ${
-            subTab === "projet" ? "text-violet-300 border-b-2 border-violet-400" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          <Rocket size={14} /> Projet
-        </button>
-      </div>
+      {/* Sous-onglets — même barre glissante que les autres pages, et le
+          sous-onglet ouvert vit dans l'URL (voir useSousOnglet). */}
+      <OngletsGlissants
+        className="teinte-amber"
+        ariaLabel="Sections de Simulation"
+        actif={subTab}
+        onChange={setSubTab}
+        onglets={[
+          { id: "projection", libelle: "Projection", icone: Calculator },
+          { id: "immobilier", libelle: "Immobilier & Crédit", icone: Landmark },
+          { id: "projet", libelle: "Projet", icone: Rocket },
+        ]}
+      />
 
       {subTab === "projet" && (
         <Suspense
