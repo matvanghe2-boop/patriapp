@@ -24,6 +24,7 @@ import { NavButton, SkeletonCard } from "./components/ui";
 import { theme } from "./lib/themes";
 import GlobalSearch from "./components/GlobalSearch";
 import Notifications from "./components/Notifications";
+import NotionDuJour from "./components/NotionDuJour";
 import SyncIndicator from "./components/SyncIndicator";
 import BackupReminder from "./components/BackupReminder";
 import EtatSourceMarche from "./components/EtatSourceMarche";
@@ -633,6 +634,7 @@ export default function App() {
           >
             <MessageCircleQuestion size={16} aria-hidden="true" />
           </button>
+          <NotionDuJour />
           <SyncIndicator />
           <Notifications
             reminders={patrimoine.reminders}

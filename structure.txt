@@ -209,6 +209,7 @@ src/components/MouvementsDepuisReleve.jsx
 src/components/MouvementsLivrets.jsx
 src/components/MouvementsLivrets.test.jsx
 src/components/Notifications.jsx
+src/components/NotionDuJour.jsx
 src/components/Objectifs.jsx
 src/components/Objectifs.test.jsx
 src/components/OngletsGlissants.jsx
@@ -363,6 +364,9 @@ src/lib/marqueursCourbe.js
 src/lib/marqueursCourbe.test.js
 src/lib/migrations.js
 src/lib/netWorth.test.js
+src/lib/notionDuJour.js
+src/lib/notionDuJour.test.js
+src/lib/notionsCatalogue.js
 src/lib/objectifs.js
 src/lib/objectifs.test.js
 src/lib/pairs.js
