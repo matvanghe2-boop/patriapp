@@ -1,6 +1,7 @@
 import { lireNombre } from "./finance";
 import { FREQUENCES, STATUTS } from "./abonnements";
 import { STATUTS_THESE } from "./theses";
+import { normaliserCoffre } from "./coffre";
 
 /**
  * Migrations des données stockées.
@@ -106,6 +107,15 @@ export const ETAPES = {
         const v = Number(p.valeur ?? p.net ?? p.total);
         return Number.isFinite(v) ? { ...p, value: v } : p;
       }),
+    },
+  ],
+  coffre: [
+    {
+      version: 3,
+      // Posée dès la création de la clé, pour que les évolutions suivantes du
+      // coffre aient un point d'entrée (voir COFFRE_SPEC.md, §6).
+      description: "Liste de documents, fichiers, notes et réglages présents",
+      migrer: normaliserCoffre,
     },
   ],
 };

@@ -31,9 +31,10 @@
 
 /**
  * Identifiants de thème valides. Un par onglet ; `lime` est celui du Compte
- * courant, ajouté en dernier pour ne renuméroter aucun des six autres.
+ * courant, ajouté en dernier pour ne renuméroter aucun des six autres, et
+ * `fuchsia` celui du Coffre, ajouté après lui pour la même raison.
  */
-export const THEME_IDS = ["emerald", "indigo", "violet", "amber", "rose", "cyan", "lime"];
+export const THEME_IDS = ["emerald", "indigo", "violet", "amber", "rose", "cyan", "lime", "fuchsia"];
 
 /**
  * Recettes d'usage. Elles sont identiques pour les six thèmes : c'est

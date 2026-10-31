@@ -46,3 +46,34 @@ create policy "Users can manage their own data"
 -- Si la commande échoue, c'est qu'une ligne ne respecte pas déjà la règle :
 --   select id, user_id, key from kv_store where id <> user_id::text || ':' || key;
 -- ─────────────────────────────────────────────────────────────────────────────
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- COFFRE À PAPIERS (voir COFFRE_SPEC.md, §4.2)
+--
+-- Bucket privé pour les fichiers du coffre. Ils y arrivent DÉJÀ CHIFFRÉS par
+-- le navigateur : Supabase ne voit que des blocs d'octets nommés
+-- « <user_id>/<identifiant>.bin ». 20 Mo par fichier au plus.
+--
+-- À exécuter une fois, comme le reste du fichier. Rejouable sans risque.
+-- ─────────────────────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('coffre', 'coffre', false, 20971520)
+on conflict (id) do nothing;
+
+-- Chaque utilisateur ne voit, n'envoie et ne supprime QUE son dossier
+-- « <user_id>/ ». Pas de politique UPDATE : un fichier n'est jamais modifié,
+-- il est remplacé (nouvel envoi, puis suppression de l'ancien).
+drop policy if exists "coffre: lire ses fichiers" on storage.objects;
+create policy "coffre: lire ses fichiers"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'coffre' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "coffre: envoyer ses fichiers" on storage.objects;
+create policy "coffre: envoyer ses fichiers"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'coffre' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "coffre: supprimer ses fichiers" on storage.objects;
+create policy "coffre: supprimer ses fichiers"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'coffre' and (storage.foldername(name))[1] = auth.uid()::text);
