@@ -186,9 +186,11 @@ src/components/Immobilier.jsx
 src/components/ImportReleve.jsx
 src/components/IndicesWidget.jsx
 src/components/InflationPerso.jsx
+src/components/InteretsFinAnnee.jsx
 src/components/LecturePublication.jsx
 src/components/LecturePublication.test.jsx
 src/components/Livrets.jsx
+src/components/LivretsReglementes.jsx
 src/components/Login.jsx
 src/components/Marche.jsx
 src/components/MemeArgentEtf.jsx
@@ -235,6 +237,7 @@ src/components/ReglagesApparence.jsx
 src/components/ReglagesChiffrement.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
+src/components/ReglagesLivret.jsx
 src/components/RendementsMensuels.jsx
 src/components/ReparationJournal.jsx
 src/components/ResumePublications.jsx
@@ -316,6 +319,8 @@ src/lib/doublonsAbonnements.js
 src/lib/doublonsAbonnements.test.js
 src/lib/echeances.js
 src/lib/echeances.test.js
+src/lib/epargne.js
+src/lib/epargne.test.js
 src/lib/exportOperations.js
 src/lib/exportOperations.test.js
 src/lib/exportReport.js

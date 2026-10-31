@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useId } from "react";
 import { useSousOnglet } from "../lib/useHashRoute";
 import OngletsGlissants from "./OngletsGlissants";
-import { PiggyBank, ShieldCheck, Lightbulb, Target, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
-import { Card, CardLabel, GhostButton, IconTrash, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
+import { PiggyBank, ShieldCheck, Target, Trash2, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
+import { Card, CardLabel, GhostButton, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, guessEnvelope, todayIso, lireNombre, pctPlain, nombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
 import { useToast } from "../lib/ToastContext";
@@ -11,14 +11,16 @@ import EtatVide from "./EtatVide";
 import MouvementsLivrets from "./MouvementsLivrets";
 import { ajouterMouvement, retirerMouvement, interetsQuinzaines } from "../lib/livretsMouvements";
 import { plafondLegal } from "../lib/plafondsLivrets";
-
-// ─── Known high-yield alternatives for the arbitrage engine ──────────────────
-const MARKET_ALTERNATIVES = [
-  { name: "LEP (Livret d'Épargne Populaire)", rate: 0.034, condition: "Éligible si revenu fiscal ≤ 21 393 €", plafond: 10000 },
-  { name: "Livret boosté (offre promotionnelle)", rate: 0.04, condition: "3 à 6 mois selon banque", plafond: null },
-  { name: "LDDS", rate: 0.017, condition: "Plafond 12 000 €", plafond: 12000 },
-];
-
+import {
+  projectionVirement, verifierVirement, dateObjectif, serieSoldeLivret, serieVarie, rendementReel, manqueMatelas,
+  enveloppesEnDepassement, ageFiscal, deMot,
+} from "../lib/epargne";
+import { inflationOfficielle } from "../lib/inflation";
+import { Sparkline } from "./graphiques";
+import MenuActions from "./MenuActions";
+import ReglagesLivret from "./ReglagesLivret";
+import InteretsFinAnnee from "./InteretsFinAnnee";
+import LivretsReglementes from "./LivretsReglementes";
 
 // ─── Historique du matelas de sécurité (texte seul, pas de graphique) ────────
 /**
@@ -211,12 +213,12 @@ const ENVELOPPE_COLORS = [
   { bg: "bg-sky-400/15 border-sky-400/30 text-sky-300", dot: "bg-sky-400" },
 ];
 
-function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
+function Ventilation({ livretsTotal, livrets = [], enveloppes, setEnveloppes }) {
   // Chaque étiquette est reliée à son champ (voir C-05) : `useId` garantit
   // des identifiants uniques même si ce formulaire est monté deux fois.
   const idsChamps = useId();
   const [showAdd, setShowAdd] = useState(false);
-  const [draft, setDraft] = useState({ label: "", amount: "" });
+  const [draft, setDraft] = useState({ label: "", amount: "", livretId: "" });
   const [expanded, setExpanded] = useState(true);
 
   const totalTagged = enveloppes.reduce((s, e) => s + e.amount, 0);
@@ -226,14 +228,25 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
     if (!draft.label || !draft.amount) return;
     setEnveloppes((prev) => [
       ...prev,
-      { id: uid(), label: draft.label, amount: lireNombre(draft.amount) ?? 0, colorIdx: prev.length % ENVELOPPE_COLORS.length },
+      {
+        id: uid(),
+        label: draft.label,
+        amount: lireNombre(draft.amount) ?? 0,
+        colorIdx: prev.length % ENVELOPPE_COLORS.length,
+        livretId: draft.livretId || null,
+      },
     ]);
-    setDraft({ label: "", amount: "" });
+    setDraft({ label: "", amount: "", livretId: "" });
     setShowAdd(false);
   };
   const removeEnv = (id) => setEnveloppes((prev) => prev.filter((e) => e.id !== id));
   const updateEnv = (id, amount) =>
     setEnveloppes((prev) => prev.map((e) => e.id === id ? { ...e, amount: lireNombre(amount) ?? 0 } : e));
+  const rattacher = (id, livretId) =>
+    setEnveloppes((prev) => prev.map((e) => (e.id === id ? { ...e, livretId: livretId || null } : e)));
+  // Le total peut tenir alors qu'un livret ne le peut pas : 3 000 € réservés
+  // au voyage sur un Livret A qui n'en contient que 2 000.
+  const depassements = enveloppesEnDepassement(enveloppes, livrets);
 
   return (
     <Card accent={CARD_THEMES.indigo}>
@@ -291,7 +304,20 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                 return (
                   <div key={e.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${colors.bg}`}>
                     <span className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
-                    <span className="flex-1 text-sm font-medium">{e.label}</span>
+                    <span className="flex-1 min-w-0 text-sm font-medium truncate">{e.label}</span>
+                    {livrets.length > 0 && (
+                      <select
+                        aria-label={`Livret qui porte « ${e.label} »`}
+                        value={e.livretId || ""}
+                        onChange={(ev) => rattacher(e.id, ev.target.value)}
+                        className="max-w-[8rem] bg-black/20 border border-white/10 rounded-lg px-1.5 py-1 text-micro focus:outline-none focus:border-white/30"
+                      >
+                        <option value="">Tous livrets</option>
+                        {livrets.map((l) => (
+                          <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                      </select>
+                    )}
                     <span className="text-micro opacity-60 font-data">{pctPlain(pct, 0)}</span>
                     <input
                       type="number"
@@ -320,6 +346,17 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
             </div>
           )}
 
+          {depassements.map((d) => (
+            <p key={d.livret.id} className="mt-2 flex items-start gap-2 rounded-lg border border-rose-400/30 bg-rose-500/5 px-3 py-2 text-xs text-rose-200">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>
+                Les enveloppes rattachées à {d.livret.name} totalisent <span className="ghost-blur">{eur(d.total)}</span>, pour{" "}
+                <span className="ghost-blur">{eur(d.livret.balance)}</span> sur le livret :{" "}
+                <span className="ghost-blur">{eur(d.depassement)}</span> réservés n'existent pas.
+              </span>
+            </p>
+          ))}
+
           {/* Add envelope inline form */}
           {showAdd && (
             <div className="mt-3 flex items-end gap-2 p-3 rounded-xl border border-amber-400/20 bg-slate-950">
@@ -343,6 +380,22 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 font-data tabular-nums focus:outline-none focus:border-amber-400/60"
                 />
               </div>
+              {livrets.length > 0 && (
+                <div className="w-36">
+                  <label htmlFor={`${idsChamps}-livret`} className="text-micro text-slate-500 block mb-1">Sur quel livret</label>
+                  <select
+                    id={`${idsChamps}-livret`}
+                    value={draft.livretId}
+                    onChange={(e) => setDraft((d) => ({ ...d, livretId: e.target.value }))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-amber-400/60"
+                  >
+                    <option value="">Tous livrets</option>
+                    {livrets.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <button onClick={addEnv} className="text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg px-3 py-1.5">Ajouter</button>
               <button onClick={() => setShowAdd(false)} className="text-slate-500 hover:text-slate-300 py-1.5"><X size={14} /></button>
             </div>
@@ -353,70 +406,19 @@ function Ventilation({ livretsTotal, enveloppes, setEnveloppes }) {
   );
 }
 
-// ─── Arbitrage optimizer ──────────────────────────────────────────────────────
-function ArbitrageOptimizer({ livrets }) {
-  const suggestions = useMemo(() => {
-    const results = [];
-    livrets.forEach((livret) => {
-      MARKET_ALTERNATIVES.forEach((alt) => {
-        if (alt.rate > livret.rate) {
-          const transferable = alt.plafond
-            ? Math.min(livret.balance, alt.plafond)
-            : Math.min(livret.balance, 5000);
-          if (transferable <= 0) return;
-          const gainAnnuel = transferable * (alt.rate - livret.rate);
-          if (gainAnnuel < 5) return; // not worth showing trivial gains
-          results.push({
-            id: `${livret.id}-${alt.name}`,
-            from: livret.name,
-            fromRate: livret.rate,
-            to: alt.name,
-            toRate: alt.rate,
-            amount: transferable,
-            gainAnnuel,
-            condition: alt.condition,
-          });
-        }
-      });
-    });
-    // Sort by best gain first
-    return results.sort((a, b) => b.gainAnnuel - a.gainAnnuel).slice(0, 3);
-  }, [livrets]);
-
-  if (suggestions.length === 0) return null;
-
-  return (
-    <Card accent={CARD_THEMES.indigo}>
-      <CardLabel icon={Lightbulb}>Optimisateur de rendement</CardLabel>
-      <div className="space-y-3 mt-2">
-        {suggestions.map((s) => (
-          <div
-            key={s.id}
-            className="flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3"
-          >
-            <Lightbulb size={14} className="text-amber-300 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-slate-200 leading-relaxed">
-                En déplaçant{" "}
-                <span className="font-data font-semibold text-amber-300 ghost-blur">{eur(s.amount)}</span>{" "}
-                de ton <span className="text-slate-300">{s.from}</span> ({pctPlain((s.fromRate * 100), 2)}) vers{" "}
-                <span className="text-slate-300">{s.to}</span> ({pctPlain((s.toRate * 100), 2)}), tu gagnes{" "}
-                <span className="font-data font-semibold text-emerald-400 ghost-blur">+{eur(s.gainAnnuel)} / an</span>.
-              </p>
-              <p className="text-micro text-slate-500 mt-1">{s.condition}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="text-micro text-slate-500 mt-3">
-        Les taux alternatifs sont indicatifs. Vérifie les conditions d'éligibilité auprès de ton établissement bancaire.
-      </p>
-    </Card>
-  );
-}
-
 // ─── Livret row with smart progress bar ──────────────────────────────────────
-function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) {
+const dateMois = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
+const dateJour = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+
+function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement, onReglages, compteEnrichies = [] }) {
+  const [reglages, setReglages] = useState(false);
+  const aujourdhui = todayIso();
+  const serie = useMemo(() => serieSoldeLivret(l, { aujourdhui }), [l, aujourdhui]);
+  const projection = projectionVirement(l, { aujourdhui });
+  const controle = l.virement ? verifierVirement(l, compteEnrichies) : null;
+  const objectif = dateObjectif(l, { aujourdhui });
+  const age = ageFiscal(l, { aujourdhui });
+  const boostActif = l.boost?.fin && l.boost.fin >= aujourdhui;
   const [showGoalEdit, setShowGoalEdit] = useState(false);
   const [goalDraft, setGoalDraft] = useState(l.goal ?? "");
   const [editingBalance, setEditingBalance] = useState(false);
@@ -456,12 +458,31 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
     onMouvement(l.id, { date: todayIso(), nature: delta > 0 ? "depot" : "retrait", montant: Math.abs(delta) });
 
   return (
+    <>
     <tr className="group">
       <td data-label="Support" className="py-3 pr-3 text-slate-200 font-medium">
         {l.name}
         <span className="ml-2 text-micro uppercase tracking-wide text-indigo-300/70 border border-indigo-400/30 rounded-full px-1.5 py-0.5 align-middle">
           {l.envelope || guessEnvelope(l.name)}
         </span>
+        {(l.fiscalise || l.boost || age) && (
+          <span className="block mt-1 text-micro font-normal text-slate-500">
+            {l.fiscalise && l.tauxBrut != null && <>brut {pctPlain(l.tauxBrut, 2)} avant flat tax</>}
+            {l.fiscalise && l.tauxBrut != null && (l.boost || age) && " · "}
+            {l.boost && (
+              <span className={boostActif ? "text-amber-300/90" : "etat-critique"}>
+                {boostActif ? `boosté jusqu'au ${dateJour(l.boost.fin)}` : `boost terminé le ${dateJour(l.boost.fin)}`}
+              </span>
+            )}
+            {l.boost && age && " · "}
+            {age && (
+              <>
+                {age.type === "AV" ? "assurance-vie" : "PEL"} de {age.ans} an{age.ans > 1 ? "s" : ""}
+                {age.prochain && <> — {age.prochain.ans} ans le {dateJour(age.prochain.date)} : {age.prochain.texte}</>}
+              </>
+            )}
+          </span>
+        )}
       </td>
       <td data-label="Capital" className="py-3 pr-3">
         {editingBalance ? (
@@ -504,6 +525,10 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
             </button>
           </div>
         )}
+        {/* Douze mois de solde, reconstitués depuis les mouvements datés. */}
+        {serieVarie(serie) && (
+          <Sparkline valeurs={serie.map((p) => p.solde)} largeur={88} hauteur={20} className="mt-1 text-indigo-300/80" />
+        )}
       </td>
       <td data-label="Taux net" className="py-3 pr-3 font-data tabular-nums text-amber-300/90">{pctPlain((l.rate * 100), 2)}</td>
       <td data-label="Intérêts / an" className="py-3 pr-3 font-data tabular-nums text-emerald-400 ghost-blur">{eur(l.balance * l.rate)}</td>
@@ -516,6 +541,19 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
           />
         ) : (
           <span className="text-micro text-slate-500">—</span>
+        )}
+        {projection && (
+          <span className="block text-micro text-slate-400 mt-1">
+            Virement de {eur(projection.montant)}/mois le {l.virement.jour}
+            {projection.datePlafond && !projection.atteint && <> · plafond atteint en {dateMois(projection.datePlafond)}</>}
+            {projection.atteint && <span className="etat-critique"> · plafond atteint, redirige le virement</span>}
+          </span>
+        )}
+        {controle?.statut === "vu" && (
+          <span className="block text-micro etat-ok mt-0.5">Repéré sur ton relevé le {dateJour(controle.date)}</span>
+        )}
+        {controle?.statut === "absent" && (
+          <span className="block text-micro etat-attention mt-0.5">Pas repéré sur ton relevé {deMot(dateMois(`${controle.mois}-01`))}</span>
         )}
         {/* Goal / limit labels */}
         <div className="flex items-center gap-2 mt-1">
@@ -532,6 +570,13 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
         </div>
       </td>
       <td data-label="Objectif projet" className="py-3 pr-3">
+        {objectif && !showGoalEdit && (
+          <span className="block text-micro text-violet-300/90 mb-1">
+            {objectif.atteint
+              ? "Objectif atteint"
+              : `Atteint vers ${dateMois(objectif.date)}, au rythme de ${eur(objectif.rythme)}/mois${objectif.source === "virement" ? " (virement)" : ""}`}
+          </span>
+        )}
         {showGoalEdit ? (
           <div className="flex items-center gap-1">
             <input
@@ -557,9 +602,31 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
         )}
       </td>
       <td className="py-3 text-right">
-        <IconTrash onClick={() => onRemove(l.id)} />
+        <MenuActions
+          className="flex justify-end"
+          libelle={`Actions sur ${l.name}`}
+          actions={[
+            { libelle: "Réglages : taux, virement, ouverture", icone: Pencil, onClick: () => setReglages(true) },
+            { libelle: "Supprimer", icone: Trash2, onClick: () => onRemove(l.id), danger: true },
+          ]}
+        />
       </td>
     </tr>
+    {reglages && (
+      <tr>
+        <td colSpan={7} className="pb-3">
+          <ReglagesLivret
+            livret={l}
+            onAnnuler={() => setReglages(false)}
+            onEnregistrer={(v) => {
+              onReglages(l.id, v);
+              setReglages(false);
+            }}
+          />
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 
@@ -567,6 +634,9 @@ function LivretRow({ l, onRemove, onUpdateGoal, onUpdateBalance, onMouvement }) 
 export default function Livrets({
   livrets, setLivrets, matelasMois, livretsTotal, livretsAvgRate,
   enveloppes, setEnveloppes,
+  // Lus sur le compte courant : matelas « mois les plus chers », argent qui
+  // dort au-delà d'un mois de dépenses, et relevé pour vérifier les virements.
+  matelasMoisPrudent = null, depensesMoisReference = null, matelasCompteCourant = 0, compteEnrichies = [],
 }) {
   const { showToast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
@@ -605,10 +675,16 @@ export default function Livrets({
     );
   const enregistrerMouvement = (id, mouvement) =>
     setLivrets((l) => l.map((x) => (x.id === id ? ajouterMouvement(x, { id: uid(), ...mouvement }) : x)));
+  // Réglages d'une ligne (taux, boost, virement, ouverture) : fusionnés tels
+  // quels, un réglage vidé valant `null`.
+  const reglerLivret = (id, reglages) => setLivrets((l) => l.map((x) => (x.id === id ? { ...x, ...reglages } : x)));
   const supprimerMouvement = (id, idMouvement) =>
     setLivrets((l) => l.map((x) => (x.id === id ? retirerMouvement(x, idMouvement) : x)));
 
   const totalInterets = livrets.reduce((s, l) => s + l.balance * l.rate, 0);
+  const inflation = inflationOfficielle();
+  const reel = rendementReel({ tauxMoyenPct: livretsAvgRate, inflationPct: inflation.tauxPct, total: livretsTotal });
+  const matelasPrudent = manqueMatelas({ depensesMoisReference, disponible: livretsTotal + matelasCompteCourant });
 
   return (
     <div className="relative space-y-6">
@@ -659,6 +735,19 @@ export default function Livrets({
                 <div className="font-display text-lg text-slate-50">{nombre(matelasMois, 1)} mois</div>
                 <div className="text-micro text-slate-500">de dépenses couvertes</div>
                 <MatelasTrendBadge matelasMois={matelasMois} />
+                {/* Le même matelas compté sur les mois les plus chers : un
+                    budget irrégulier se protège avec ceux-là, pas avec un
+                    mois moyen. */}
+                {matelasMoisPrudent != null && matelasPrudent && (
+                  <div className="text-micro text-slate-400 mt-1">
+                    {nombre(matelasMoisPrudent, 1)} mois de tes mois les plus chers
+                    {matelasPrudent.manque > 0 ? (
+                      <span className="etat-attention ghost-blur"> · il manque {eur(matelasPrudent.manque)} pour 3 mois</span>
+                    ) : (
+                      <span className="etat-ok"> · 3 mois couverts</span>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -667,6 +756,21 @@ export default function Livrets({
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total épargne sécurisée</div>
           <div className="font-display text-xl text-slate-50 ghost-blur">{eur(livretsTotal)}</div>
           <div className="text-xs text-indigo-300/80 mt-0.5">Taux moyen {pctPlain(livretsAvgRate, 2)}</div>
+          {livretsTotal > 0 && (
+            <div className="text-micro text-slate-500 mt-1">
+              Après inflation ({pctPlain(inflation.tauxPct, 1)}, {inflation.source}) :{" "}
+              <span className={reel.reelPct < 0 ? "etat-attention" : "etat-ok"}>
+                {reel.reelPct > 0 ? "+" : ""}
+                {pctPlain(reel.reelPct, 2)}
+              </span>
+              {", soit "}
+              <span className="ghost-blur">
+                {reel.euros >= 0 ? "+" : "−"}
+                {eur(Math.abs(reel.euros))}
+              </span>{" "}
+              de pouvoir d'achat par an
+            </div>
+          )}
         </Card>
         <Card accent={CARD_THEMES.indigo}>
           <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Intérêts estimés / an</div>
@@ -691,6 +795,9 @@ export default function Livrets({
 
       {/* Alerte de saturation des plafonds */}
       <SaturationAlert livrets={livrets} />
+
+      {/* De janvier à mars : les intérêts de l'année écoulée à enregistrer. */}
+      <InteretsFinAnnee livrets={livrets} onMouvement={enregistrerMouvement} />
 
       {/* Livrets table — la carte des mouvements suit juste après. */}
       <Card accent={CARD_THEMES.indigo}>
@@ -724,7 +831,16 @@ export default function Livrets({
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {livrets.map((l) => (
-                  <LivretRow key={l.id} l={l} onRemove={removeLivret} onUpdateGoal={updateGoal} onUpdateBalance={updateBalance} onMouvement={enregistrerMouvement} />
+                  <LivretRow
+                    key={l.id}
+                    l={l}
+                    onRemove={removeLivret}
+                    onUpdateGoal={updateGoal}
+                    onUpdateBalance={updateBalance}
+                    onMouvement={enregistrerMouvement}
+                    onReglages={reglerLivret}
+                    compteEnrichies={compteEnrichies}
+                  />
                 ))}
               </tbody>
             </table>
@@ -757,11 +873,11 @@ export default function Livrets({
       {/* Simulateur : où placer mon prochain versement */}
       <NextDepositAdvisor livrets={livrets} />
 
-      {/* Ventilation des enveloppes */}
-      <Ventilation livretsTotal={livretsTotal} enveloppes={enveloppes ?? []} setEnveloppes={setEnveloppes} />
+      {/* Livret A, LDDS, LEP : détenus ou non, droit au LEP, prochaine révision. */}
+      <LivretsReglementes livrets={livrets} argentQuiDort={matelasCompteCourant} />
 
-      {/* Arbitrage optimizer */}
-      <ArbitrageOptimizer livrets={livrets} />
+      {/* Ventilation des enveloppes */}
+      <Ventilation livretsTotal={livretsTotal} livrets={livrets} enveloppes={enveloppes ?? []} setEnveloppes={setEnveloppes} />
       </>
       )}
     </div>

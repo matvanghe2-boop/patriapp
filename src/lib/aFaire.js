@@ -3,6 +3,7 @@ import { plafondLegal } from "./plafondsLivrets";
 import { alertesPanique, aRelire, resultatsARelire } from "./theses";
 import { recurrences } from "./analyseCompte";
 import { rapprocherCompte, statutContrat, statutDe, joursEntre, prochainPrelevement } from "./abonnements";
+import { boostsAFinir, interetsFinAnnee, projectionVirement, verifierVirement, deMot } from "./epargne";
 
 /**
  * Le centre « À faire » du Dashboard.
@@ -141,7 +142,65 @@ export function elementsAFaire({
   }
 
   // ── Épargne et liquidités ────────────────────────────────────────────────
+  for (const b of boostsAFinir(livrets, { aujourdhui })) {
+    const apres = pctPlain(b.tauxApres * 100, 2);
+    ajouter({
+      id: `boost-${b.livret.id}`,
+      urgence: b.jours < 0 ? "critique" : "attention",
+      type: "epargne",
+      texte:
+        b.jours < 0
+          ? `Le taux boosté de ${b.livret.name} est terminé depuis le ${dateCourte(b.fin)} : passe-le à ${apres} dans ses réglages.`
+          : `Le taux boosté de ${b.livret.name} se termine le ${dateCourte(b.fin)}, puis ${apres}.`,
+      lien: { onglet: "livrets" },
+    });
+  }
+
+  const interets = interetsFinAnnee(livrets, { aujourdhui }).filter((x) => x.verse == null);
+  if (interets.length > 0) {
+    const total = interets.reduce((s, x) => s + x.estime, 0);
+    ajouter({
+      id: `interets-${interets[0].annee}`,
+      urgence: "info",
+      type: "epargne",
+      texte: `Intérêts ${interets[0].annee} à enregistrer sur ${interets.length} livret${interets.length > 1 ? "s" : ""} (environ ${eur(total, 2)}).`,
+      lien: { onglet: "livrets" },
+      sensible: true,
+    });
+  }
+
+  // Un livret dont le virement programmé bute sur le plafond est signalé par
+  // le virement, pas une seconde fois par la jauge de remplissage.
+  const parVirement = new Set();
   for (const l of livrets || []) {
+    const projection = projectionVirement(l, { aujourdhui });
+    if (!projection) continue;
+    if (projection.atteint || (projection.moisRestants != null && projection.moisRestants <= 2)) {
+      parVirement.add(l.id);
+      ajouter({
+        id: `virement-plafond-${l.id}`,
+        urgence: projection.atteint ? "critique" : "attention",
+        type: "epargne",
+        texte: projection.atteint
+          ? `${l.name} est au plafond : redirige ton virement de ${eur(projection.montant)} par mois.`
+          : `Ton virement vers ${l.name} atteindra le plafond en ${new Date(`${projection.datePlafond}T00:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}.`,
+        lien: { onglet: "livrets" },
+      });
+    }
+    const controle = verifierVirement(l, compteEnrichies);
+    if (controle.statut === "absent") {
+      ajouter({
+        id: `virement-absent-${l.id}`,
+        urgence: "attention",
+        type: "epargne",
+        texte: `Virement de ${eur(projection.montant)} vers ${l.name} pas repéré sur ton relevé ${deMot(new Date(`${controle.mois}-01T00:00:00`).toLocaleDateString("fr-FR", { month: "long" }))}.`,
+        lien: { onglet: "livrets" },
+      });
+    }
+  }
+
+  for (const l of livrets || []) {
+    if (parVirement.has(l.id)) continue;
     const plafond = l.limit || plafondLegal(l.name);
     if (plafond && l.balance / plafond >= 0.95) {
       ajouter({
