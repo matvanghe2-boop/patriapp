@@ -85,3 +85,13 @@ export async function dessinerPagesPdf(octets, { largeur = 600, maxPages = 20 } 
     await chargement.destroy();
   }
 }
+
+/**
+ * Texte brut d'un PDF, page après page, lu sur l'appareil : c'est ce que le
+ * coffre parcourt pour proposer des dates (voir datesDocument.js). Un PDF
+ * scanné sans couche texte rend une chaîne vide, et le coffre ne propose rien.
+ */
+export async function texteDuPdf(fichier) {
+  const pages = await extrairePagesPdf(fichier);
+  return pages.map((items) => items.map((it) => it.str).join(" ")).join("\n");
+}

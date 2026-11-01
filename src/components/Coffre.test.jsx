@@ -16,6 +16,23 @@ let utilisateur = { id: "u1" };
 
 vi.mock("../lib/AuthContext", () => ({ useAuth: () => ({ user: utilisateur }) }));
 
+// Fichiers reçus par « Partager » (Cache Storage, absent de jsdom).
+let partage = [];
+const oublierPartage = vi.fn(async () => {
+  partage = [];
+});
+vi.mock("../lib/partageCoffre", () => ({
+  fichiersPartages: async () => partage,
+  oublierPartage: () => oublierPartage(),
+}));
+
+// pdf.js ne tourne pas sous jsdom : le texte du PDF est fourni par le test.
+let textePdf = "";
+vi.mock("../lib/lirePdf", () => ({
+  texteDuPdf: async () => textePdf,
+  dessinerPagesPdf: async () => ({ canvases: [], total: 0 }),
+}));
+
 vi.mock("../lib/supabaseClient", () => ({
   isSupabaseConfigured: true,
   supabaseConfig: { url: "https://test.supabase.co", anonKey: "cle-anon" },
@@ -70,6 +87,9 @@ beforeEach(() => {
   lignesCloud.clear();
   objets.clear();
   utilisateur = { id: "u1" };
+  partage = [];
+  textePdf = "";
+  oublierPartage.mockClear();
   _resetStorageCache();
   vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true })));
   URL.createObjectURL = vi.fn(() => "blob:apercu");
@@ -106,7 +126,7 @@ describe("Coffre — un papier de bout en bout", () => {
     await utilisateurEvt.click(await screen.findByRole("button", { name: /Ranger un premier papier/ }));
     const fenetre = await screen.findByRole("dialog");
     await utilisateurEvt.upload(
-      within(fenetre).getByLabelText("Fichier à ranger"),
+      within(fenetre).getByLabelText("Fichiers à ranger"),
       new File([CONTENU], "carte.png", { type: "image/png" })
     );
     await utilisateurEvt.selectOptions(within(fenetre).getByLabelText("Type"), "passeport");
@@ -145,7 +165,7 @@ describe("Coffre — un papier de bout en bout", () => {
     await utilisateurEvt.click(await screen.findByRole("button", { name: /Ranger un premier papier/ }));
     const fenetre = await screen.findByRole("dialog");
     await utilisateurEvt.upload(
-      within(fenetre).getByLabelText("Fichier à ranger"),
+      within(fenetre).getByLabelText("Fichiers à ranger"),
       new File(["x"], "archive.zip", { type: "application/zip" })
     );
     expect(within(fenetre).getByRole("alert")).toHaveTextContent(/Format non pris en charge/);
@@ -242,5 +262,66 @@ describe("Coffre — échéances et réglages", () => {
 
     await utilisateurEvt.click(screen.getByRole("tab", { name: /Documents/ }));
     expect(screen.queryByRole("region", { name: "À traiter" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Coffre — plusieurs fichiers, partage et dates du PDF", () => {
+  beforeEach(async () => {
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("range recto et verso dans un même document, puis retire l'un des deux", async () => {
+    const utilisateurEvt = userEvent.setup();
+    monter();
+    await utilisateurEvt.click(await screen.findByRole("button", { name: /Ranger un premier papier/ }));
+    const fenetre = await screen.findByRole("dialog");
+    await utilisateurEvt.upload(within(fenetre).getByLabelText("Fichiers à ranger"), [
+      new File(["RECTO"], "recto.png", { type: "image/png" }),
+      new File(["VERSO"], "verso.png", { type: "image/png" }),
+    ]);
+    const choisis = within(fenetre).getByRole("list", { name: "Fichiers choisis" });
+    expect(within(choisis).getAllByRole("listitem")).toHaveLength(2);
+    await utilisateurEvt.click(within(fenetre).getByRole("button", { name: "Chiffrer et ranger" }));
+
+    await waitFor(() => expect(objets.size).toBe(2));
+    await utilisateurEvt.click(await screen.findByRole("button", { name: /Carte d'identité/ }));
+    const fichiers = await screen.findByRole("group", { name: "Fichiers du document" });
+    expect(within(fichiers).getByRole("button", { name: "verso.png" })).toBeInTheDocument();
+
+    await utilisateurEvt.click(within(fichiers).getByRole("button", { name: "Retirer ce fichier" }));
+    const confirmation = await screen.findByRole("alertdialog");
+    await utilisateurEvt.click(within(confirmation).getByRole("button", { name: "Retirer" }));
+    await waitFor(() => expect(objets.size).toBe(1));
+    expect(screen.queryByRole("group", { name: "Fichiers du document" })).not.toBeInTheDocument();
+  });
+
+  it("ouvre le formulaire sur un fichier partagé, propose ses dates, puis vide la file", async () => {
+    const utilisateurEvt = userEvent.setup();
+    partage = [new File(["%PDF"], "attestation.pdf", { type: "application/pdf" })];
+    textePdf = "Attestation d'assurance habitation, établie le 01/10/2026, valable jusqu'au 30/09/2027.";
+    monter();
+
+    const fenetre = await screen.findByRole("dialog");
+    expect(within(fenetre).getByText("attestation.pdf")).toBeInTheDocument();
+    await utilisateurEvt.selectOptions(within(fenetre).getByLabelText("Type"), "attestation_assurance");
+    await utilisateurEvt.click(await within(fenetre).findByRole("button", { name: "30/09/2027" }));
+    await utilisateurEvt.click(within(fenetre).getByRole("button", { name: "01/10/2026" }));
+    expect(within(fenetre).getByLabelText("Valable jusqu'au")).toHaveValue("2027-09-30");
+    expect(within(fenetre).getByLabelText("Date du document")).toHaveValue("2026-10-01");
+
+    await utilisateurEvt.click(within(fenetre).getByRole("button", { name: "Chiffrer et ranger" }));
+    await waitFor(() => expect(objets.size).toBe(1));
+    expect(oublierPartage).toHaveBeenCalled();
+    expect(await screen.findByText("Attestation d'assurance")).toBeInTheDocument();
+  });
+
+  it("vide aussi la file quand on renonce au partage", async () => {
+    const utilisateurEvt = userEvent.setup();
+    partage = [new File(["x"], "photo.jpg", { type: "image/jpeg" })];
+    monter();
+    const fenetre = await screen.findByRole("dialog");
+    await utilisateurEvt.click(within(fenetre).getByRole("button", { name: "Annuler" }));
+    expect(oublierPartage).toHaveBeenCalled();
+    expect(objets.size).toBe(0);
   });
 });
