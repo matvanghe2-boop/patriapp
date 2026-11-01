@@ -49,6 +49,7 @@ import {
   nouveauDocument,
   normaliserSaisie,
   contratLie,
+  documentsAJeter,
 } from "../lib/coffre";
 import { rangerFichier, supprimerFichiers, ErreurCoffre } from "../lib/coffreFichiers";
 import { evenementAgenda, lienGoogleAgenda, fichierIcs, marquerAgenda } from "../lib/coffreAgenda";
@@ -193,6 +194,8 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
   const maintenant = useMaintenant();
   const aujourdhui = todayIso(new Date(maintenant));
   const [recherche, setRecherche] = useState("");
+  // Liste réduite aux papiers dont la durée de conservation est écoulée.
+  const [seulementAJeter, setSeulementAJeter] = useState(false);
   // null : fermé ; { document: null } : ajout ; { document } : modification.
   const [formulaire, setFormulaire] = useState(null);
   // Papier ou objet demandé depuis ailleurs (palette Ctrl+K, Abonnements),
@@ -223,9 +226,17 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
   );
 
   const documents = coffre.documents;
+  const aJeter = useMemo(() => documentsAJeter(documents, aujourdhui), [documents, aujourdhui]);
+  const filtreAJeter = seulementAJeter && aJeter.length > 0;
   const { aTraiter, groupes } = useMemo(
-    () => organiserDocuments(filtrerDocuments(documents, recherche), coffre.reglages, aujourdhui, contracts),
-    [documents, recherche, coffre.reglages, aujourdhui, contracts]
+    () =>
+      organiserDocuments(
+        filtrerDocuments(filtreAJeter ? aJeter : documents, recherche),
+        coffre.reglages,
+        aujourdhui,
+        contracts
+      ),
+    [documents, aJeter, filtreAJeter, recherche, coffre.reglages, aujourdhui, contracts]
   );
   const aTraiterTous = useMemo(
     () => organiserDocuments(documents, coffre.reglages, aujourdhui, contracts).aTraiter.length,
@@ -555,6 +566,24 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/40"
                 />
               </label>
+
+              {aJeter.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-300">
+                  <p>
+                    {aJeter.length} papier{aJeter.length > 1 ? "s ont" : " a"} dépassé{" "}
+                    {aJeter.length > 1 ? "leur" : "sa"} durée de conservation conseillée : tu peux t'en
+                    séparer.
+                  </p>
+                  <button
+                    type="button"
+                    aria-pressed={filtreAJeter}
+                    onClick={() => setSeulementAJeter((v) => !v)}
+                    className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:border-fuchsia-400/60"
+                  >
+                    {filtreAJeter ? "Tout afficher" : aJeter.length > 1 ? "Les voir" : "Le voir"}
+                  </button>
+                </div>
+              )}
 
               {aTraiter.length === 0 && groupes.length === 0 && (
                 <p className="text-sm text-slate-500">Aucun document ne correspond à « {recherche} ».</p>

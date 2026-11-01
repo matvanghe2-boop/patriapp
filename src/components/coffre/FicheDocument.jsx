@@ -10,6 +10,8 @@ import {
   dateFr,
   echeanceEnClair,
   formatTaille,
+  conservationDocument,
+  SOURCE_CONSERVATION,
 } from "../../lib/coffre";
 import { ouvrirFichier } from "../../lib/coffreFichiers";
 import { cleChiffrementActive } from "../../lib/storage";
@@ -87,6 +89,7 @@ function Contenu({
   const type = typeDe(doc.type);
   const statut = statutDocument(doc, reglages, aujourdhui, contrat);
   const agenda = etatAgenda(doc, evenement);
+  const conservation = conservationDocument(doc, aujourdhui);
 
   const infos = [
     statut.echeance && {
@@ -128,6 +131,20 @@ function Contenu({
         </dl>
       )}
       {doc.notes && <p className="text-sm text-slate-300 whitespace-pre-wrap">{doc.notes}</p>}
+
+      {conservation && (
+        <p className={`text-micro ${conservation.depassee ? "text-amber-300" : "text-slate-500"}`}>
+          Conservation : {conservation.libelle}{" "}
+          <a
+            href={SOURCE_CONSERVATION.url}
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-dotted hover:text-slate-300"
+          >
+            Durées indicatives de service-public.fr
+          </a>
+        </p>
+      )}
 
       {contrat && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/5 px-3 py-2 text-sm">

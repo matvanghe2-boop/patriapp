@@ -471,3 +471,40 @@ describe("Coffre — ouverture demandée depuis ailleurs", () => {
     expect(await screen.findByRole("dialog", { name: "Modifier l'objet" })).toBeInTheDocument();
   });
 });
+
+describe("Coffre — durées de conservation", () => {
+  beforeEach(async () => {
+    localStorage.setItem(
+      "patrimoine:coffre",
+      JSON.stringify({
+        version: 1,
+        documents: [
+          { id: "r", type: "releve_bancaire", titre: "Relevé 2019", dateDocument: "2019-01-31", recurrence: null, notes: "", fichiers: [] },
+          { id: "d", type: "diplome", titre: "Licence", recurrence: null, notes: "", fichiers: [] },
+        ],
+        objets: [],
+        reglages: { delais: {}, titreAgendaNeutre: false },
+      })
+    );
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("signale les papiers à jeter, les filtre, et l'explique dans la fiche", async () => {
+    const u = userEvent.setup();
+    monter();
+    expect(await screen.findByText(/1 papier a dépassé sa durée de conservation conseillée/)).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Le voir" }));
+    expect(screen.queryByRole("button", { name: /Licence/ })).not.toBeInTheDocument();
+
+    await u.click(screen.getByRole("button", { name: /Relevé 2019/ }));
+    const fiche = await screen.findByRole("dialog", { name: "Relevé 2019" });
+    expect(within(fiche).getByText(/écoulée depuis le 31\/01\/2024/)).toBeInTheDocument();
+    expect(within(fiche).getByRole("link", { name: /service-public/ })).toHaveAttribute(
+      "href",
+      "https://www.service-public.gouv.fr/particuliers/vosdroits/F19134"
+    );
+    await u.click(within(fiche).getByRole("button", { name: "Fermer" }));
+    await u.click(screen.getByRole("button", { name: "Tout afficher" }));
+    expect(await screen.findByRole("button", { name: /Licence/ })).toBeInTheDocument();
+  });
+});

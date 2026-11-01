@@ -22,6 +22,8 @@ export const CATEGORIES = [
   { id: "logement", libelle: "Logement" },
   { id: "etudes", libelle: "Études" },
   { id: "impots", libelle: "Impôts" },
+  { id: "banque", libelle: "Banque" },
+  { id: "travail", libelle: "Travail" },
   { id: "autre", libelle: "Autre" },
 ];
 
@@ -148,6 +150,20 @@ export const TYPES = [
     id: "declaration_impots",
     libelle: "Déclaration de revenus",
     categorie: "impots",
+    echeance: null,
+    rappelJours: null,
+  },
+  {
+    id: "releve_bancaire",
+    libelle: "Relevé bancaire",
+    categorie: "banque",
+    echeance: null,
+    rappelJours: null,
+  },
+  {
+    id: "bulletin_salaire",
+    libelle: "Bulletin de salaire",
+    categorie: "travail",
     echeance: null,
     rappelJours: null,
   },
@@ -393,6 +409,114 @@ export const espaceUtilise = (documents) =>
     (total, d) => total + (d.fichiers || []).reduce((s, f) => s + (Number(f.taille) || 0), 0),
     0
   );
+
+// ─── Durées de conservation ─────────────────────────────────────────────────
+//
+// Combien de temps garder un papier, d'après la fiche « Durée de conservation
+// des papiers » de service-public.gouv.fr (F19134, vérifiée le 13 octobre
+// 2026). Ce sont des durées MINIMALES et INDICATIVES : la page elle-même
+// rappelle qu'un document peut devoir servir plus longtemps, par exemple de
+// preuve dans un litige. Le coffre en tire seulement « tu peux t'en séparer » ;
+// il ne supprime jamais rien de lui-même.
+//
+// Les pièces d'identité ne figurent pas sur la page : elles se gardent
+// jusqu'à leur remplacement.
+
+export const SOURCE_CONSERVATION = {
+  url: "https://www.service-public.gouv.fr/particuliers/vosdroits/F19134",
+  verifieeLe: "2026-10-13",
+};
+
+/**
+ * Règle de conservation par type :
+ *  · `vie`, `retraite`, `remplacement` : pas de date de fin ;
+ *  · `impots` : jusqu'au 31 décembre de la 2e année après l'avis ;
+ *  · `ans` : n ans à partir de la date du document ;
+ *  · `facture` : 5 ans après l'achat, et au moins jusqu'à la fin de garantie ;
+ *  · `apresFin` : n ans après une fin (location, contrat), prise sur
+ *    l'échéance du document quand elle la représente.
+ */
+const CONSERVATION = {
+  cni: { regle: "remplacement" },
+  passeport: { regle: "remplacement" },
+  permis: { regle: "remplacement" },
+  identite_autre: { regle: "remplacement" },
+  carte_vitale: { regle: "remplacement" },
+  tiers_payant: { regle: "remplacement" },
+  contrat_assurance: { regle: "apresFin", ans: 2, fin: "la résiliation du contrat" },
+  attestation_assurance: { regle: "ans", ans: 2 },
+  facture: { regle: "facture" },
+  bail: { regle: "apresFin", ans: 3, fin: "la fin de la location", echeanceEstLaFin: true },
+  quittance: { regle: "apresFin", ans: 3, fin: "la fin de la location" },
+  etat_des_lieux: { regle: "apresFin", ans: 3, fin: "la fin de la location" },
+  diplome: { regle: "vie" },
+  releve_notes: { regle: "vie" },
+  avis_imposition: { regle: "impots" },
+  declaration_impots: { regle: "impots" },
+  releve_bancaire: { regle: "ans", ans: 5 },
+  bulletin_salaire: { regle: "retraite" },
+};
+
+/**
+ * Durée de conservation conseillée pour un document.
+ * @returns {{ libelle: string, jusquau: string|null, depassee: boolean } | null}
+ *   `null` : pas de règle connue pour ce type.
+ */
+export function conservationDocument(doc, aujourdhui = todayIso()) {
+  const regle = CONSERVATION[doc?.type];
+  if (!regle) return null;
+  const sansDate = (libelle) => ({ libelle, jusquau: null, depassee: false });
+  const jusqua = (iso) =>
+    iso < aujourdhui
+      ? {
+          libelle: `Durée de conservation conseillée écoulée depuis le ${dateFr(iso)} : tu peux t'en séparer.`,
+          jusquau: iso,
+          depassee: true,
+        }
+      : { libelle: `À garder au moins jusqu'au ${dateFr(iso)}.`, jusquau: iso, depassee: false };
+  const date = dateValide(doc.dateDocument) ? doc.dateDocument : null;
+
+  switch (regle.regle) {
+    case "vie":
+      return sansDate("À garder toute ta vie.");
+    case "retraite":
+      return sansDate("À garder jusqu'à ta retraite, le temps de faire valoir tous tes droits.");
+    case "remplacement":
+      return sansDate("À garder jusqu'à son remplacement.");
+    case "impots":
+      return date
+        ? jusqua(`${Number(date.slice(0, 4)) + 2}-12-31`)
+        : sansDate(
+            "À garder jusqu'au 31 décembre de la 2e année après l'avis : renseigne sa date pour la calculer."
+          );
+    case "ans":
+      return date
+        ? jusqua(ajouterAns(date, regle.ans))
+        : sansDate(`À garder ${regle.ans} ans à partir de sa date : renseigne-la pour la calculer.`);
+    case "facture": {
+      const bornes = [date && ajouterAns(date, 5), dateValide(doc.echeance) ? doc.echeance : null].filter(
+        Boolean
+      );
+      if (bornes.length === 0) {
+        return sansDate(
+          "À garder 5 ans après l'achat, et jusqu'à la fin de la garantie : renseigne la date d'achat."
+        );
+      }
+      return jusqua(bornes.sort().at(-1));
+    }
+    case "apresFin":
+      if (regle.echeanceEstLaFin && dateValide(doc.echeance) && doc.recurrence !== "annuelle") {
+        return jusqua(ajouterAns(doc.echeance, regle.ans));
+      }
+      return sansDate(`À garder jusqu'à ${regle.fin}, puis ${regle.ans} ans.`);
+    default:
+      return null;
+  }
+}
+
+/** Documents dont la durée de conservation conseillée est écoulée. */
+export const documentsAJeter = (documents, aujourdhui = todayIso()) =>
+  documents.filter((d) => conservationDocument(d, aujourdhui)?.depassee);
 
 // ─── Rappels hors de l'onglet ───────────────────────────────────────────────
 //

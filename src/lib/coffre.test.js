@@ -3,7 +3,8 @@ import {
   TYPES, CATEGORIES, typeDe, verifierFichier, TAILLE_MAX_FICHIER, ajouterAns, ajouterJours, prochaineEcheance,
   delaiRappel, statutDocument, echeanceEnClair, garantieParDefaut, filtrerDocuments, organiserDocuments,
   espaceUtilise, normaliserSaisie, nouveauDocument, normaliserCoffre, COFFRE_VIDE, contratLie,
-  echeancesDuCoffre, aFaireDuCoffre, rappelsCoffreDus, acquitterRappelCoffre,
+  echeancesDuCoffre, aFaireDuCoffre, rappelsCoffreDus, acquitterRappelCoffre, conservationDocument,
+  documentsAJeter,
 } from "./coffre";
 import { migrer, VERSION_DONNEES } from "./migrations";
 
@@ -283,5 +284,58 @@ describe("rappels hors de l'onglet", () => {
     expect(echeancesDuCoffre(null)).toEqual([]);
     expect(aFaireDuCoffre({ documents: "?" })).toEqual([]);
     expect(rappelsCoffreDus(undefined)).toEqual([]);
+  });
+});
+
+describe("durées de conservation (service-public.fr, F19134)", () => {
+  const c = (champs, aujourdhui = AUJOURDHUI) => conservationDocument(doc(champs), aujourdhui);
+
+  it("impôts : jusqu'au 31 décembre de la 2e année après l'avis", () => {
+    expect(c({ type: "avis_imposition", dateDocument: "2024-08-01" })).toMatchObject({
+      jusquau: "2026-12-31",
+      depassee: false,
+    });
+    expect(c({ type: "avis_imposition", dateDocument: "2023-08-01" })).toMatchObject({
+      jusquau: "2025-12-31",
+      depassee: true,
+    });
+    expect(c({ type: "declaration_impots" }).jusquau).toBeNull();
+  });
+
+  it("relevé bancaire : 5 ans ; attestation d'assurance : 2 ans", () => {
+    expect(c({ type: "releve_bancaire", dateDocument: "2021-11-01" })).toMatchObject({ jusquau: "2026-11-01", depassee: true });
+    expect(c({ type: "attestation_assurance", dateDocument: "2025-09-01" })).toMatchObject({ jusquau: "2027-09-01", depassee: false });
+  });
+
+  it("facture : 5 ans après l'achat, ou jusqu'à la fin de garantie si elle est plus tardive", () => {
+    expect(c({ type: "facture", dateDocument: "2020-03-01", echeance: "2022-03-01" }).jusquau).toBe("2025-03-01");
+    expect(c({ type: "facture", dateDocument: "2024-03-01", echeance: "2031-03-01" }).jusquau).toBe("2031-03-01");
+    expect(c({ type: "facture" }).libelle).toMatch(/renseigne la date d'achat/);
+  });
+
+  it("bail : 3 ans après sa fin ; quittance : 3 ans après la fin de la location, sans date calculable", () => {
+    expect(c({ type: "bail", echeance: "2022-06-30" })).toMatchObject({ jusquau: "2025-06-30", depassee: true });
+    expect(c({ type: "quittance", dateDocument: "2020-01-01" })).toMatchObject({
+      jusquau: null,
+      libelle: "À garder jusqu'à la fin de la location, puis 3 ans.",
+    });
+    expect(c({ type: "contrat_assurance", echeance: "2020-01-01", recurrence: "annuelle" }).jusquau).toBeNull();
+  });
+
+  it("sans date de fin : toute la vie, jusqu'à la retraite, jusqu'au remplacement", () => {
+    expect(c({ type: "diplome" }).libelle).toBe("À garder toute ta vie.");
+    expect(c({ type: "bulletin_salaire", dateDocument: "2001-01-01" }).depassee).toBe(false);
+    expect(c({ type: "passeport", echeance: "2001-01-01" }).libelle).toBe("À garder jusqu'à son remplacement.");
+    expect(c({ type: "autre" })).toBeNull();
+    expect(c({ type: "certificat_scolarite" })).toBeNull();
+  });
+
+  it("liste les papiers dont on peut se séparer", () => {
+    const documents = [
+      doc({ id: "a", type: "releve_bancaire", dateDocument: "2019-01-01" }),
+      doc({ id: "b", type: "releve_bancaire", dateDocument: "2025-01-01" }),
+      doc({ id: "c", type: "diplome" }),
+    ];
+    expect(documentsAJeter(documents, AUJOURDHUI).map((d) => d.id)).toEqual(["a"]);
   });
 });
