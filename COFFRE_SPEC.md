@@ -467,9 +467,10 @@ Le partage n'existe que pour l'appli **installée** sur l'écran d'accueil
 (Chrome sur Android ; pas sur iPhone). Il n'a pas besoin de la caméra. Entre
 leur réception et leur rangement, les fichiers partagés sont en clair dans le
 cache du navigateur, sur l'appareil, comme le fichier d'origine dans l'appli
-qui les a partagés. À noter : `vercel.json` interdit actuellement la
-caméra (`Permissions-Policy: camera=()`), ce qui compte pour le scanner intégré
-envisagé plus tard.
+qui les a partagés. La caméra est autorisée à Patrium seul
+(`Permissions-Policy: camera=(self)` dans `vercel.json`) depuis la correction
+du transfert par QR codes : un scanner intégré, s'il voit le jour, n'aura rien
+à changer de ce côté.
 
 **À savoir côté utilisateur** : le scanner de Google Drive enregistre le scan
 en clair dans Drive. Mieux vaut une appli de scan qui enregistre sur le
