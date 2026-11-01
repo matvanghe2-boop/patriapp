@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Pencil, Trash2, CalendarPlus, CalendarCheck, Repeat } from "lucide-react";
+import { Download, Pencil, Trash2, CalendarPlus, CalendarCheck, Repeat, Package } from "lucide-react";
 import Modal from "../Modal";
 import { PastilleEtat } from "../ui";
 import {
@@ -37,6 +37,7 @@ export default function FicheDocument({
   onModifier,
   onSupprimer,
   onRetirerFichier,
+  onAjouterObjet,
 }) {
   return (
     <Modal
@@ -59,6 +60,7 @@ export default function FicheDocument({
           onModifier={onModifier}
           onSupprimer={onSupprimer}
           onRetirerFichier={onRetirerFichier}
+          onAjouterObjet={onAjouterObjet}
         />
       )}
     </Modal>
@@ -76,6 +78,7 @@ function Contenu({
   onModifier,
   onSupprimer,
   onRetirerFichier,
+  onAjouterObjet,
 }) {
   const [index, setIndex] = useState(0);
   const fichiers = doc.fichiers || [];
@@ -219,6 +222,16 @@ function Contenu({
             >
               <Download size={14} aria-hidden="true" />
               Télécharger
+            </button>
+          )}
+          {doc.type === "facture" && onAjouterObjet && (
+            <button
+              type="button"
+              onClick={() => onAjouterObjet(doc)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-fuchsia-400/60"
+            >
+              <Package size={14} aria-hidden="true" />
+              Ajouter à l'inventaire
             </button>
           )}
           <button

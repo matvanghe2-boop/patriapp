@@ -5,10 +5,9 @@
 > impôts — avec leurs dates d'échéance et des rappels dans l'agenda du
 > téléphone.
 >
-> Statut : **spec validée le 2026-10-31. Jalons 1 (coffre de base), 2
-> (rappels), 3 (partage Android, dates suggérées), 4 (code de secours) et 5
-> (hors ligne, ménage, archive) livrés, en attente du bloc SQL à exécuter
-> dans Supabase.**
+> Statut : **les six jalons sont livrés (PR #16 à #21, à merger dans l'ordre).
+> Reste une action manuelle : exécuter le bloc « COFFRE À PAPIERS » de
+> `sql/schema.sql` dans Supabase.**
 > Cadrage fait le 2026-10-31 (décisions au §14).
 > Dernière mise à jour : 2026-10-31
 
@@ -54,7 +53,8 @@ papiers eux-mêmes.
 - **Pas de scanner intégré** dans un premier temps : le scanner du téléphone
   fait mieux (recadrage, redressement, contraste) et l'on partage le résultat
   vers le coffre.
-- **Pas d'inventaire des objets** dans un premier temps (jalon 6).
+- **Pas de cote de revente** pour les objets de l'inventaire (jalon 6) : une
+  vétusté indicative par catégorie, que l'on peut remplacer à la main.
 - **Pas d'accès d'urgence pour un proche** pour l'instant (§11).
 
 ### Intégration
@@ -70,7 +70,8 @@ Patrium
  └── Coffre                    ← nouveau, #/coffre
       ├── Documents            (liste, par catégorie)
       ├── Échéances            (ce qui arrive, rappels d'agenda)   — jalon 2
-      └── Réglages             (délais par type, agenda, espace)   — jalon 2
+      ├── Objets               (inventaire, garanties, valeur)     — jalon 6
+      └── Réglages             (délais, agenda, appareil, stockage, archive)
 ```
 
 Le coffre réutilise :
@@ -539,6 +540,56 @@ explicite. Les URL `blob:` sont révoquées à la fermeture de la fiche.
 
 ---
 
+## 10 bis. Inventaire des objets (jalon 6)
+
+Ce que l'on possède et qui a de la valeur (ordinateur, téléphone,
+électroménager, vélo, meubles), dans le champ `objets` de la clé `coffre` :
+chiffré dans le cloud, synchronisé, repris par l'archive.
+
+```js
+{
+  id: "obj_…",
+  nom: "Lave-linge Bosch",
+  categorie: "electromenager",   // voir le tableau ci-dessous
+  dateAchat: "2025-05-10",
+  prix: 599,                     // prix d'achat, en euros
+  valeurManuelle: null,          // valeur du jour saisie ; sinon estimée
+  garantieFin: null,             // utile sans facture liée
+  factureId: "doc_…",            // document du coffre (une facture, le plus souvent)
+  numeroSerie: "",
+  notes: "",
+}
+```
+
+**Garantie** : l'échéance de la facture liée (fin de garantie), sinon la date
+saisie, sinon la garantie légale de deux ans à partir de la date d'achat.
+
+**Valeur du jour** : une vétusté **indicative**, appliquée chaque année au prix
+d'achat, avec un plancher. Une valeur saisie l'emporte toujours. Ce n'est ni
+une cote de revente ni la grille d'un assureur : c'est un ordre de grandeur
+pour choisir le montant de biens à assurer, et l'écran le dit.
+
+| Catégorie | Vétusté par an | Plancher |
+|---|---|---|
+| Informatique | 25 % | 10 % du prix |
+| Téléphonie | 30 % | 10 % |
+| Image et son | 20 % | 10 % |
+| Électroménager | 15 % | 10 % |
+| Mobilier | 10 % | 10 % |
+| Vélo et mobilité | 15 % | 10 % |
+| Bijoux, montres, objets de valeur | 0 % | — |
+| Autre | 15 % | 10 % |
+
+L'écran « Objets » affiche le nombre d'objets, le total des prix d'achat et la
+valeur du jour (masqués en mode Ghost, comme tout montant de Patrium), puis la
+liste par valeur décroissante, avec la garantie et un lien vers la facture. La
+fiche d'une facture propose « Ajouter à l'inventaire », qui préremplit le nom,
+la date d'achat et le lien. Les objets ne créent pas de rappel : c'est la
+facture qui porte l'échéance de garantie. Ils n'entrent pas non plus dans le
+patrimoine net de Patrium, qui ne compte que des actifs financiers.
+
+---
+
 ## 11. Sécurité et confidentialité
 
 ### Modèle de menace
@@ -605,14 +656,18 @@ L'effet ne dépend plus que de `open`.
 
 ## 12. Jalons
 
+Les six jalons sont livrés, une PR chacun, chacune posée sur la précédente :
+#16 (jalon 1), #17 (2), #18 (3), #19 (4), #20 (5), #21 (6). Merger #16 fait
+basculer #17 sur `main`, et ainsi de suite.
+
 | # | Jalon | Contenu | Tests |
 |---|---|---|---|
 | **1** | **Coffre de base** | Onglet lazy « Coffre » (+ feuille Plus, + palette de commandes) ; écrans prérequis (§5) ; SQL du bucket et des politiques ; `coffreFichiers.js` (Kf, format §3.2, envoi, téléchargement, suppression) ; `coffre.js` (modèle, types §7, statuts) ; ajout par sélecteur et glisser-déposer ; liste groupée avec statuts ; fiche avec aperçu image et PDF ; téléchargement ; modification ; suppression ; « Verrouiller cet appareil » ; clé `coffre` dans `STORAGE_KEYS` avec sa migration. | Aller-retour chiffrer/déchiffrer ; mauvaise clé et octet altéré → erreur ; enveloppe de Kf ; statuts et dates de rappel (bords : aujourd'hui, 29 février, récurrence) ; composant : prérequis, ajout → liste → suppression avec Supabase simulé. |
 | 2 | Rappels | Source `documents` dans `prochainesEcheances` ; lien Google Agenda par document ; export `.ics` ; titre neutre ; réglages des délais ; « rappel à mettre à jour ». | Contenu du lien et du `.ics` (dates, RRULE, échappement) ; intégration aux échéances. |
 | 3 | Arrivée des papiers | `share_target` et raccourci ; file d'attente du service worker ; suggestion de dates PDF ; plusieurs fichiers par document. | Analyse des dates (formats, mots-clés) ; file d'attente du partage. |
 | 4 | Code de secours | Configuration de chiffrement v2 ; création et impression du code ; réouverture par le code ; changement de phrase. | Migration v1 → v2 sans perte ; mauvaise phrase et mauvais code ; ancienne configuration toujours lisible. |
-| 5 | Hors ligne et ménage | Cache local chiffré (IndexedDB) pour consulter sans réseau ; espace utilisé ; nettoyage des orphelins dans « Santé des données ». | Cache : rien en clair ; détection des orphelins. |
-| 6 | Inventaire des objets | Objets avec prix, date d'achat, garantie, valeur de revente, liés à leur facture. | À préciser au moment voulu. |
+| 5 | Hors ligne et ménage | Cache local chiffré (IndexedDB) pour consulter sans réseau ; espace utilisé ; ménage des orphelins (Réglages → Stockage) ; archive de sauvegarde et restauration (§4.4, §4.5). | Cache : rien en clair ; règle des 24 h pour les orphelins ; archive illisible, restauration sans écrasement. |
+| 6 | Inventaire des objets | Sous-onglet « Objets » : prix, date d'achat, catégorie, numéro de série, facture liée, garantie, valeur du jour ; totaux pour l'assurance ; « Ajouter à l'inventaire » depuis une facture (§10 bis). | Vétusté et plancher ; garantie (facture, saisie, légale) ; totaux et tri ; saisie ; migration et archive. |
 
 Chaque jalon est une PR distincte. Le merge dans `main` déclenche la mise en
 production sur Vercel, et l'auto-merge reste désactivé.
@@ -644,7 +699,7 @@ Aucun. Les points soulevés au cadrage ont été tranchés à la validation
 | Documents | Identité ; assurances et mutuelle ; factures et garanties ; logement, études, impôts |
 | Canal des rappels | Agenda du téléphone (plus les échéances de Patrium) |
 | Délai des rappels | Selon le type de document, réglable |
-| Inventaire des objets | Plus tard (jalon 6) |
+| Inventaire des objets | Jalon 6 : vétusté indicative par catégorie, valeur saisie prioritaire, garantie tirée de la facture liée |
 | Menaces prioritaires | Vol ou perte du téléphone ; fuite chez l'hébergeur |
 | Verrouillage | Ouvert sur l'appareil ; le code du téléphone suffit (choix assumé) |
 | Phrase oubliée | Code de secours |
