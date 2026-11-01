@@ -20,7 +20,7 @@ function isDue(r) {
  * lib/alertes.js) et s'affichent aux côtés des rappels manuels. Elles ne sont
  * pas supprimables ici : on supprime l'alerte, pas sa notification.
  */
-export default function Notifications({ reminders = [], setReminders, alertes = [], onAcquitterAlerte, onAcquitterBilan, onAcquitterEssai, onAcquitterAgenda }) {
+export default function Notifications({ reminders = [], setReminders, alertes = [], onAcquitterAlerte, onAcquitterBilan, onAcquitterEssai, onAcquitterAgenda, onAcquitterCoffre }) {
   const [open, setOpen] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [draft, setDraft] = useState({ label: "", type: "monthly", day: 5, date: "" });
@@ -112,6 +112,12 @@ export default function Notifications({ reminders = [], setReminders, alertes = 
     }
     if (r.type === "agenda") {
       onAcquitterAgenda?.(r.agendaId);
+      return;
+    }
+    // Papier du coffre : l'acquittement retient la date de rappel vue, pour
+    // qu'un contrat reconduit sonne de nouveau l'année suivante.
+    if (r.type === "coffre") {
+      onAcquitterCoffre?.(r.docId, r.rappel);
       return;
     }
     setReminders((list) =>

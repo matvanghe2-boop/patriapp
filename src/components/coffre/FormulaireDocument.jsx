@@ -36,6 +36,7 @@ const VIDE = {
   recurrence: null,
   rappelJours: "",
   notes: "",
+  contratId: "",
 };
 
 const depuisDocument = (doc) => ({
@@ -46,9 +47,10 @@ const depuisDocument = (doc) => ({
   recurrence: doc.recurrence ?? null,
   rappelJours: doc.rappelJours ?? "",
   notes: doc.notes || "",
+  contratId: doc.contratId || "",
 });
 
-export default function FormulaireDocument({ ouvert, initial, onFermer, onEnregistrer }) {
+export default function FormulaireDocument({ ouvert, initial, contracts = [], onFermer, onEnregistrer }) {
   const [enCours, setEnCours] = useState(false);
   const titreFenetre = initial ? "Modifier le document" : "Ranger un document";
 
@@ -66,6 +68,7 @@ export default function FormulaireDocument({ ouvert, initial, onFermer, onEnregi
       {ouvert && (
         <Formulaire
           initial={initial}
+          contracts={contracts}
           titreFenetre={titreFenetre}
           enCours={enCours}
           setEnCours={setEnCours}
@@ -77,7 +80,7 @@ export default function FormulaireDocument({ ouvert, initial, onFermer, onEnregi
   );
 }
 
-function Formulaire({ initial, titreFenetre, enCours, setEnCours, onFermer, onEnregistrer }) {
+function Formulaire({ initial, contracts, titreFenetre, enCours, setEnCours, onFermer, onEnregistrer }) {
   const ids = useId();
   const modification = !!initial;
   const [v, setV] = useState(() => (initial ? depuisDocument(initial) : VIDE));
@@ -259,6 +262,28 @@ function Formulaire({ initial, titreFenetre, enCours, setEnCours, onFermer, onEn
           />
           Se renouvelle chaque année
         </label>
+        {type.liableAbonnements && contracts.length > 0 && (
+          <div className="sm:col-span-2">
+            <label htmlFor={`${ids}-contrat`} className={ETIQUETTE}>
+              Suivi dans Abonnements
+            </label>
+            <select id={`${ids}-contrat`} value={v.contratId} onChange={champ("contratId")} className={CHAMP}>
+              <option value="">Non : le coffre gère son rappel</option>
+              {contracts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label || "Contrat sans nom"}
+                  {c.date_fin ? ` — fin le ${dateFr(c.date_fin)}` : ""}
+                </option>
+              ))}
+            </select>
+            {v.contratId && (
+              <p className="mt-1 text-micro text-slate-500">
+                Les dates de ce contrat font foi, et Abonnements rappelle déjà son préavis : le coffre ne
+                créera pas de second rappel.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div>

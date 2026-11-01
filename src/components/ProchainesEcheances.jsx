@@ -1,9 +1,11 @@
 import { useMemo } from "react";
-import { CalendarClock, Coins, FileText, Target, CheckCircle2 } from "lucide-react";
+import { CalendarClock, Coins, FileText, Target, CheckCircle2, Vault } from "lucide-react";
 import { Card, CardLabel } from "./ui";
 import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { prochainesEcheances } from "../lib/echeances";
+import { usePersistentState } from "../lib/storage";
+import { COFFRE_VIDE } from "../lib/coffre";
 
 /**
  * Prochaines échéances — Dashboard.
@@ -25,6 +27,7 @@ const ICONES = {
   preavis: FileText,
   contrat: FileText,
   objectif: Target,
+  papier: Vault,
 };
 
 /** « dans 3 jours », « demain », « aujourd'hui ». */
@@ -45,9 +48,12 @@ export default function ProchainesEcheances({
   objectifs = [],
   patrimoineNet = 0,
 }) {
+  // Lu ici plutôt que reçu : le coffre appartient à son onglet, et le
+  // Dashboard n'a aucune raison de le connaître (même choix que CentreAFaire).
+  const [coffre] = usePersistentState("coffre", COFFRE_VIDE);
   const echeances = useMemo(
-    () => prochainesEcheances({ evenements, contracts, objectifs, patrimoineNet }),
-    [evenements, contracts, objectifs, patrimoineNet]
+    () => prochainesEcheances({ evenements, contracts, objectifs, patrimoineNet, coffre }),
+    [evenements, contracts, objectifs, patrimoineNet, coffre]
   );
 
   return (
@@ -56,8 +62,8 @@ export default function ProchainesEcheances({
 
       {echeances.length === 0 ? (
         <EtatVide picto="calendrier" titre="Rien dans les six prochaines semaines">
-          Dividendes attendus, fins d'engagement, préavis de résiliation et échéances d'objectifs
-          apparaîtront ici dès qu'une date approche.
+          Dividendes attendus, fins d'engagement, préavis de résiliation, échéances d'objectifs et
+          papiers du coffre apparaîtront ici dès qu'une date approche.
         </EtatVide>
       ) : (
         <ul className="flex flex-col gap-1.5 mt-2">

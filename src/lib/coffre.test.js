@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   TYPES, CATEGORIES, typeDe, verifierFichier, TAILLE_MAX_FICHIER, ajouterAns, ajouterJours, prochaineEcheance,
   delaiRappel, statutDocument, echeanceEnClair, garantieParDefaut, filtrerDocuments, organiserDocuments,
-  espaceUtilise, normaliserSaisie, nouveauDocument, normaliserCoffre, COFFRE_VIDE,
+  espaceUtilise, normaliserSaisie, nouveauDocument, normaliserCoffre, COFFRE_VIDE, contratLie,
+  echeancesDuCoffre, aFaireDuCoffre, rappelsCoffreDus, acquitterRappelCoffre,
 } from "./coffre";
 import { migrer, VERSION_DONNEES } from "./migrations";
 
@@ -162,6 +163,7 @@ describe("saisie", () => {
       recurrence: null,
       rappelJours: null,
       notes: "n° 12AB",
+      contratId: null,
     });
     expect(normaliserSaisie({ type: "inconnu", rappelJours: "45" })).toMatchObject({ type: "autre", rappelJours: 45 });
     expect(normaliserSaisie({ type: "cni", rappelJours: "-3" }).rappelJours).toBeNull();
@@ -198,5 +200,88 @@ describe("migration de la clé « coffre »", () => {
 
   it("fait passer la version des données à 3", () => {
     expect(VERSION_DONNEES).toBe(3);
+  });
+});
+
+describe("contrats liés à Abonnements", () => {
+  const contrat = { id: "c1", label: "Assurance habitation", date_fin: "2027-01-01", preavis_jours: 30 };
+
+  it("ne lie que les types prévus pour, et seulement à un contrat qui existe encore", () => {
+    expect(contratLie(doc({ type: "contrat_assurance", contratId: "c1" }), [contrat])).toBe(contrat);
+    expect(contratLie(doc({ type: "bail", contratId: "c1" }), [contrat])).toBe(contrat);
+    expect(contratLie(doc({ type: "passeport", contratId: "c1" }), [contrat])).toBeNull();
+    expect(contratLie(doc({ type: "contrat_assurance", contratId: "supprime" }), [contrat])).toBeNull();
+    expect(normaliserSaisie({ type: "passeport", contratId: "c1" }).contratId).toBeNull();
+    expect(normaliserSaisie({ type: "contrat_assurance", contratId: "c1" }).contratId).toBe("c1");
+  });
+
+  it("prend la fin du contrat pour échéance et sa date limite de résiliation pour rappel", () => {
+    const papier = doc({ type: "contrat_assurance", echeance: "2030-06-01", recurrence: "annuelle", contratId: "c1" });
+    const s = statutDocument(papier, {}, "2026-12-05", contrat);
+    expect(s).toMatchObject({ echeance: "2027-01-01", rappel: "2026-12-02", statut: "a_prevoir" });
+  });
+});
+
+describe("rappels hors de l'onglet", () => {
+  const coffre = {
+    ...COFFRE_VIDE,
+    documents: [
+      doc({ id: "pass", type: "passeport", titre: "Passeport", echeance: "2027-02-01" }),
+      doc({ id: "cni", type: "cni", titre: "Carte d'identité", echeance: "2026-12-01" }),
+      doc({ id: "lave", type: "facture", titre: "Lave-linge", echeance: "2026-10-20" }),
+      doc({ id: "vieux", type: "facture", titre: "Vieux grille-pain", echeance: "2025-01-01" }),
+      doc({ id: "lie", type: "contrat_assurance", titre: "Habitation", echeance: "2026-11-20", contratId: "c1" }),
+      doc({ id: "dip", type: "diplome", titre: "Bac" }),
+    ],
+  };
+  const contracts = [{ id: "c1", label: "Habitation", date_fin: "2026-11-20", preavis_jours: 10 }];
+
+  it("donne à « Prochaines échéances » la date où agir, puis l'échéance une fois le rappel passé", () => {
+    const liste = echeancesDuCoffre(coffre, { contracts, aujourdhui: "2026-10-01" });
+    const pass = liste.find((e) => e.id === "coffre-pass");
+    expect(pass).toMatchObject({ date: "2026-10-04", jours: 3, type: "papier", libelle: "Lancer le renouvellement — Passeport" });
+    expect(pass.detail).toBe("échéance le 01/02/2027");
+    const lave = liste.find((e) => e.id === "coffre-lave");
+    expect(lave).toMatchObject({ date: "2026-10-20", libelle: "Échéance — Lave-linge" });
+    // La carte d'identité a passé son rappel et son échéance est à plus de six semaines : elle est dans
+    // « À faire », pas ici. Le contrat lié est dans Abonnements, le diplôme n'a pas de date, la vieille
+    // facture est passée.
+    expect(liste.map((e) => e.id).sort()).toEqual(["coffre-lave", "coffre-pass"]);
+  });
+
+  it("alimente « À faire » : à prévoir, et échu depuis moins d'un mois", () => {
+    const liste = aFaireDuCoffre(coffre, { contracts, aujourdhui: AUJOURDHUI });
+    const parId = Object.fromEntries(liste.map((e) => [e.id, e]));
+    expect(parId["coffre-cni"]).toMatchObject({ urgence: "attention", type: "papier", lien: { onglet: "coffre", sous: "echeances" } });
+    expect(parId["coffre-cni"].texte).toMatch(/^Carte d'identité : lancer le renouvellement — échéance le 1 déc/);
+    expect(parId["coffre-lave"]).toMatchObject({ urgence: "critique" });
+    expect(parId["coffre-lave"].texte).toMatch(/échu depuis le 20 oct/);
+    expect(parId["coffre-vieux"]).toBeUndefined();
+    expect(parId["coffre-lie"]).toBeUndefined();
+    // Le passeport expire le 1er février : son délai de quatre mois est entamé depuis le 4 octobre.
+    expect(parId["coffre-pass"]).toMatchObject({ urgence: "attention" });
+  });
+
+  it("passe en urgent la dernière semaine", () => {
+    const liste = aFaireDuCoffre(coffre, { contracts, aujourdhui: "2026-11-25" });
+    expect(liste.find((e) => e.id === "coffre-cni").urgence).toBe("critique");
+  });
+
+  it("notifie une fois par date de rappel, jusqu'à l'acquittement", () => {
+    const dus = rappelsCoffreDus(coffre, { contracts, aujourdhui: AUJOURDHUI });
+    expect(dus.map((r) => r.docId)).toEqual(["pass", "cni"]);
+    const cni = dus[1];
+    expect(cni).toMatchObject({ id: "coffre-cni-2026-08-03", type: "coffre", rappel: "2026-08-03" });
+    expect(cni.label).toBe("Carte d'identité : lancer le renouvellement (échéance le 01/12/2026)");
+
+    const acquitte = acquitterRappelCoffre(coffre, "cni", "2026-08-03");
+    expect(rappelsCoffreDus(acquitte, { contracts, aujourdhui: AUJOURDHUI }).map((r) => r.docId)).toEqual(["pass"]);
+    expect(acquitte.documents.find((d) => d.id === "pass")).toBe(coffre.documents[0]);
+  });
+
+  it("ne plante pas sur un coffre absent ou abîmé", () => {
+    expect(echeancesDuCoffre(null)).toEqual([]);
+    expect(aFaireDuCoffre({ documents: "?" })).toEqual([]);
+    expect(rappelsCoffreDus(undefined)).toEqual([]);
   });
 });

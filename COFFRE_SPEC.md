@@ -5,8 +5,8 @@
 > impôts — avec leurs dates d'échéance et des rappels dans l'agenda du
 > téléphone.
 >
-> Statut : **spec validée le 2026-10-31. Jalon 1 livré (coffre de base),
-> en attente du bloc SQL à exécuter dans Supabase.**
+> Statut : **spec validée le 2026-10-31. Jalon 1 (coffre de base) et jalon 2
+> (rappels) livrés, en attente du bloc SQL à exécuter dans Supabase.**
 > Cadrage fait le 2026-10-31 (décisions au §14).
 > Dernière mise à jour : 2026-10-31
 
@@ -283,7 +283,10 @@ c'est la clé K de Patrium qui enveloppe les clés de fichier.
           cle: { __chiffre: 1, iv: "…", donnees: "…" }, // Kf enveloppée par K
         },
       ],
+      contratId: null,                // contrat d'Abonnements lié (contrat d'assurance, bail) — jalon 2
       agendaAjouteLe: null,           // date du dernier ajout à l'agenda (jalon 2)
+      agendaDate: null,               // date et titre du rappel posé, pour repérer un rappel à mettre à jour
+      rappelVu: null,                 // date de rappel dont la notification a été acquittée
       creeLe: "2026-11-02T10:12:00.000Z",
       modifieLe: "2026-11-02T10:12:00.000Z",
     },
@@ -344,12 +347,27 @@ modèle de `echeances.js`.
 
 ### 8.1 Dans Patrium
 
-`prochainesEcheances()` reçoit une nouvelle source, `documents`. Comme pour
+`prochainesEcheances()` reçoit une nouvelle source, `coffre`. Comme pour
 les préavis de contrat, **la date retenue est celle où il faut agir** (la date
-de rappel), avec l'échéance en détail : « Passeport : lancer le
-renouvellement — expire le 11/03/2031 ». Les documents remontent ainsi dans
-« Prochaines échéances », le centre « À faire » et les notifications
-qu'affiche déjà Patrium quand il est ouvert.
+de rappel), avec l'échéance en détail : « Lancer le renouvellement —
+Passeport », échéance le 11/03/2031. Une fois le rappel passé, c'est
+l'échéance elle-même qui s'affiche quand elle approche. Les documents
+remontent ainsi dans :
+
+- **« Prochaines échéances »** (fenêtre de six semaines) ;
+- **le centre « À faire »** : « à prévoir » en attention (urgent la dernière
+  semaine), « échu » en urgent pendant 30 jours après l'échéance, puis plus
+  rien : une garantie terminée depuis un an n'appelle aucune action ;
+- **les notifications** que Patrium affiche quand il est ouvert, une par date
+  de rappel, jusqu'à l'acquittement (`rappelVu`). Un contrat reconduit sonne
+  donc de nouveau l'année suivante.
+
+Les métadonnées étant en clair sur l'appareil, ces rappels fonctionnent même
+coffre verrouillé. Un document **lié à un contrat d'Abonnements** n'y figure
+pas : Abonnements rappelle déjà son préavis.
+
+Le calcul vit dans `coffre.js` (`echeancesDuCoffre`, `aFaireDuCoffre`,
+`rappelsCoffreDus`).
 
 ### 8.2 Dans l'agenda du téléphone
 
@@ -362,15 +380,26 @@ pas envoyer de rappel lui-même. C'est l'agenda du téléphone qui s'en charge.
   un contrat récurrent). Sur Android, le lien s'ouvre dans l'appli Agenda. Un
   enregistrement, et c'est fait.
 - **Tout d'un coup** : « Exporter en .ics », pour importer depuis
-  l'ordinateur (Google Agenda → Paramètres → Importer). Sur Android, l'appli
-  Google Agenda n'ouvre pas les fichiers `.ics` ; c'est à vérifier sur ton
-  téléphone au jalon 2.
-- **Titre** : « Passeport à renouveler (expire le 11/03/2031) », ou
-  « Papier à renouveler — voir le coffre » si le réglage `titreAgendaNeutre`
-  est actif. Jamais de numéro ni de note dans l'agenda.
-- Le document garde la date du dernier ajout (`agendaAjouteLe`). Si
-  l'échéance change ensuite, le coffre signale « rappel d'agenda à mettre à
-  jour ».
+  l'ordinateur (Google Agenda → Paramètres → Importer et exporter). Une
+  alarme à 9 h le jour du rappel, un identifiant stable par document. Sur
+  Android, l'appli Google Agenda n'ouvre pas les fichiers `.ics` : c'est le
+  bouton par document qui sert sur le téléphone.
+- **Titre** : « Passeport — lancer le renouvellement (échéance le
+  11/03/2031) » ; pour un contrat reconduit, « (échéance chaque année le
+  01/01) » ; pour un contrat lié à Abonnements, « dernier jour pour
+  résilier ». Avec le réglage `titreAgendaNeutre` : « Papier à renouveler —
+  voir le coffre Patrium ». Jamais de numéro ni de note dans l'agenda.
+- **Rappel déjà passé** : l'événement est posé à aujourd'hui (un événement
+  dans le passé ne préviendrait personne). Un papier déjà échu n'a pas de
+  rappel : c'est le nouveau qu'il faut ranger.
+- Le document retient la date et le titre du rappel posé (`agendaAjouteLe`,
+  `agendaDate`). Si l'échéance, le délai ou le titre changent ensuite, le
+  coffre signale « Mettre à jour l'agenda ». Pour un contrat annuel, seuls le
+  jour et le mois comptent, puisque la récurrence fait revenir le rappel.
+
+Le sous-onglet **« Échéances »** liste les papiers datés avec l'état de leur
+rappel ; le sous-onglet **« Réglages »** porte les délais par type et le titre
+neutre. Le code est dans `coffreAgenda.js`.
 
 ---
 

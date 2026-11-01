@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Pencil, Trash2 } from "lucide-react";
+import { Download, Pencil, Trash2, CalendarPlus, CalendarCheck, Repeat } from "lucide-react";
 import Modal from "../Modal";
 import { PastilleEtat } from "../ui";
 import {
@@ -14,6 +14,8 @@ import {
 import { ouvrirFichier } from "../../lib/coffreFichiers";
 import { cleChiffrementActive } from "../../lib/storage";
 import { dessinerPagesPdf } from "../../lib/lirePdf";
+import { etatAgenda } from "../../lib/coffreAgenda";
+import { allerVers } from "../../lib/useHashRoute";
 
 /**
  * Fiche d'un document du coffre : ses informations, l'aperçu de son fichier
@@ -28,6 +30,9 @@ export default function FicheDocument({
   userId,
   reglages,
   aujourdhui,
+  contrat = null,
+  evenement = null,
+  onAgenda,
   onFermer,
   onModifier,
   onSupprimer,
@@ -47,6 +52,9 @@ export default function FicheDocument({
           userId={userId}
           reglages={reglages}
           aujourdhui={aujourdhui}
+          contrat={contrat}
+          evenement={evenement}
+          onAgenda={onAgenda}
           onModifier={onModifier}
           onSupprimer={onSupprimer}
         />
@@ -55,20 +63,34 @@ export default function FicheDocument({
   );
 }
 
-function Contenu({ doc, userId, reglages, aujourdhui, onModifier, onSupprimer }) {
+function Contenu({
+  doc,
+  userId,
+  reglages,
+  aujourdhui,
+  contrat,
+  evenement,
+  onAgenda,
+  onModifier,
+  onSupprimer,
+}) {
   const [index, setIndex] = useState(0);
   const fichiers = doc.fichiers || [];
   const fichier = fichiers[Math.min(index, fichiers.length - 1)] || null;
   const dechiffre = useFichierDechiffre(userId, fichier);
   const type = typeDe(doc.type);
-  const statut = statutDocument(doc, reglages, aujourdhui);
+  const statut = statutDocument(doc, reglages, aujourdhui, contrat);
+  const agenda = etatAgenda(doc, evenement);
 
   const infos = [
     statut.echeance && {
       terme: type.echeance || "Échéance",
       valeur: `${dateFr(statut.echeance)} · ${echeanceEnClair(statut)}${doc.recurrence === "annuelle" ? " · chaque année" : ""}`,
     },
-    statut.rappel && { terme: "À prévoir à partir du", valeur: dateFr(statut.rappel) },
+    statut.rappel && {
+      terme: contrat ? "Résiliation possible jusqu'au" : "À prévoir à partir du",
+      valeur: dateFr(statut.rappel),
+    },
     doc.dateDocument && {
       terme: doc.type === "facture" ? "Date d'achat" : "Date du document",
       valeur: dateFr(doc.dateDocument),
@@ -100,6 +122,50 @@ function Contenu({ doc, userId, reglages, aujourdhui, onModifier, onSupprimer })
         </dl>
       )}
       {doc.notes && <p className="text-sm text-slate-300 whitespace-pre-wrap">{doc.notes}</p>}
+
+      {contrat && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/5 px-3 py-2 text-sm">
+          <span className="text-slate-300">
+            Suivi dans Abonnements : {contrat.label || "contrat"}. Ses dates font foi, et son préavis y est
+            déjà rappelé.
+          </span>
+          <button
+            type="button"
+            onClick={() => allerVers("abonnements", "contrats")}
+            className="inline-flex items-center gap-1.5 text-xs text-cyan-300 hover:underline"
+          >
+            <Repeat size={14} aria-hidden="true" />
+            Voir le contrat
+          </button>
+        </div>
+      )}
+
+      {evenement && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 px-3 py-2 text-sm">
+          <span className={agenda === "a_mettre_a_jour" ? "text-amber-300" : "text-slate-400"}>
+            {agenda === "absent" && "Pas encore de rappel dans ton agenda."}
+            {agenda === "a_jour" &&
+              `Rappel posé dans ton agenda le ${dateFr(doc.agendaAjouteLe.slice(0, 10))}.`}
+            {agenda === "a_mettre_a_jour" && "Les dates ont changé depuis le rappel posé dans ton agenda."}
+          </span>
+          <button
+            type="button"
+            onClick={() => onAgenda(doc)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-400/60 px-3 py-1.5 text-xs text-fuchsia-200 hover:bg-slate-800/60"
+          >
+            {agenda === "a_jour" ? (
+              <CalendarCheck size={14} aria-hidden="true" />
+            ) : (
+              <CalendarPlus size={14} aria-hidden="true" />
+            )}
+            {agenda === "absent"
+              ? "Ajouter à l'agenda"
+              : agenda === "a_jour"
+                ? "Rouvrir dans l'agenda"
+                : "Mettre à jour l'agenda"}
+          </button>
+        </div>
+      )}
 
       {fichiers.length > 1 && (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Fichiers du document">

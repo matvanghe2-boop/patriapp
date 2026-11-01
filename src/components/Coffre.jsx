@@ -9,12 +9,18 @@ import {
   ChevronRight,
   FileText,
   Image as IconeImage,
+  CalendarClock,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Card, PageGlow, PastilleEtat, GhostButton, CARD_THEMES } from "./ui";
 import EtatVide from "./EtatVide";
 import ReglagesChiffrement from "./ReglagesChiffrement";
 import FormulaireDocument from "./coffre/FormulaireDocument";
 import FicheDocument from "./coffre/FicheDocument";
+import VueEcheances from "./coffre/VueEcheances";
+import ReglagesCoffre from "./coffre/ReglagesCoffre";
+import OngletsGlissants from "./OngletsGlissants";
+import { useSousOnglet } from "../lib/useHashRoute";
 import { useAuth } from "../lib/AuthContext";
 import { useToast } from "../lib/ToastContext";
 import { useConfirm } from "../lib/ConfirmContext";
@@ -39,8 +45,10 @@ import {
   typeDe,
   nouveauDocument,
   normaliserSaisie,
+  contratLie,
 } from "../lib/coffre";
 import { rangerFichier, supprimerFichiers, ErreurCoffre } from "../lib/coffreFichiers";
+import { evenementAgenda, lienGoogleAgenda, fichierIcs, marquerAgenda } from "../lib/coffreAgenda";
 
 /**
  * Onglet « Coffre » : les papiers importants, chiffrés de bout en bout
@@ -58,7 +66,7 @@ const QUOTA_OCTETS = 1024 * 1024 * 1024;
 const boutonPrincipal =
   "inline-flex items-center gap-2 rounded-lg bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-950 text-sm font-semibold px-4 py-2 disabled:opacity-50";
 
-export default function Coffre() {
+export default function Coffre({ contracts = [] }) {
   const { user } = useAuth();
   const etat = useEtatChiffrement();
   const [chiffrementOuvert, setChiffrementOuvert] = useState(false);
@@ -113,7 +121,7 @@ export default function Coffre() {
       </Prerequis>
     );
   } else {
-    contenu = <CoffreOuvert userId={user.id} />;
+    contenu = <CoffreOuvert userId={user.id} contracts={contracts} />;
   }
 
   return (
@@ -161,7 +169,7 @@ function Prerequis({ icone: Icone, titre, children, action }) {
   );
 }
 
-function CoffreOuvert({ userId }) {
+function CoffreOuvert({ userId, contracts }) {
   const [valeur, setCoffre] = usePersistentState("coffre", COFFRE_VIDE);
   const coffre = estCoffre(valeur) ? valeur : COFFRE_VIDE;
   const { showToast } = useToast();
@@ -172,11 +180,16 @@ function CoffreOuvert({ userId }) {
   // null : fermé ; { document: null } : ajout ; { document } : modification.
   const [formulaire, setFormulaire] = useState(null);
   const [ouvertId, setOuvertId] = useState(null);
+  const [onglet, setOnglet] = useSousOnglet(["documents", "echeances", "reglages"], "documents");
 
   const documents = coffre.documents;
   const { aTraiter, groupes } = useMemo(
-    () => organiserDocuments(filtrerDocuments(documents, recherche), coffre.reglages, aujourdhui),
-    [documents, recherche, coffre.reglages, aujourdhui]
+    () => organiserDocuments(filtrerDocuments(documents, recherche), coffre.reglages, aujourdhui, contracts),
+    [documents, recherche, coffre.reglages, aujourdhui, contracts]
+  );
+  const aTraiterTous = useMemo(
+    () => organiserDocuments(documents, coffre.reglages, aujourdhui, contracts).aTraiter.length,
+    [documents, coffre.reglages, aujourdhui, contracts]
   );
   const ouvert = documents.find((d) => d.id === ouvertId) || null;
   const espace = espaceUtilise(documents);
@@ -239,6 +252,48 @@ function CoffreOuvert({ userId }) {
     }
   };
 
+  const evenementDe = (doc) =>
+    evenementAgenda(doc, coffre.reglages, { aujourdhui, contrat: contratLie(doc, contracts) });
+
+  /**
+   * Ouvre Google Agenda sur le rappel pré-rempli et retient qu'il a été posé.
+   * On ne peut pas savoir si l'utilisateur l'a bien enregistré : l'écran des
+   * échéances permet de le rouvrir à tout moment.
+   */
+  const ajouterAgenda = (doc) => {
+    const evt = evenementDe(doc);
+    if (!evt) return;
+    window.open(lienGoogleAgenda(evt), "_blank", "noopener,noreferrer");
+    modifierDocuments((liste) => liste.map((d) => (d.id === doc.id ? marquerAgenda(d, evt) : d)));
+  };
+
+  const exporterIcs = () => {
+    const evenements = new Map(documents.map((doc) => [doc.id, evenementDe(doc)]).filter(([, evt]) => evt));
+    if (evenements.size === 0) return;
+    const url = URL.createObjectURL(
+      new Blob([fichierIcs([...evenements.values()])], { type: "text/calendar;charset=utf-8" })
+    );
+    const lien = document.createElement("a");
+    lien.href = url;
+    lien.download = "coffre-rappels.ics";
+    document.body.appendChild(lien);
+    lien.click();
+    lien.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    modifierDocuments((liste) =>
+      liste.map((d) => (evenements.has(d.id) ? marquerAgenda(d, evenements.get(d.id)) : d))
+    );
+    showToast({
+      message: `${evenements.size} rappel${evenements.size > 1 ? "s" : ""} exporté${evenements.size > 1 ? "s" : ""} : importe le fichier dans ton agenda.`,
+    });
+  };
+
+  const changerReglages = (f) =>
+    setCoffre((c) => {
+      const base = estCoffre(c) ? c : COFFRE_VIDE;
+      return { ...base, reglages: f(base.reglages || COFFRE_VIDE.reglages) };
+    });
+
   const verrouiller = async () => {
     const ok = await confirm({
       title: "Verrouiller cet appareil ?",
@@ -263,70 +318,103 @@ function CoffreOuvert({ userId }) {
         </div>
       </EnTete>
 
-      {documents.length === 0 ? (
-        <Card>
-          <EtatVide
-            picto="coffre"
-            titre="Ton coffre est vide"
-            action={
-              <button
-                type="button"
-                onClick={() => setFormulaire({ document: null })}
-                className={boutonPrincipal}
+      <OngletsGlissants
+        className="teinte-fuchsia"
+        avecPanneaux
+        ariaLabel="Sections du coffre"
+        actif={onglet}
+        onChange={setOnglet}
+        onglets={[
+          { id: "documents", libelle: "Documents", icone: FileText },
+          { id: "echeances", libelle: "Échéances", icone: CalendarClock, badge: aTraiterTous || undefined },
+          { id: "reglages", libelle: "Réglages", icone: SlidersHorizontal },
+        ]}
+      />
+
+      <div
+        role="tabpanel"
+        id={`panneau-${onglet}`}
+        aria-labelledby={`onglet-${onglet}`}
+        className="space-y-6"
+      >
+        {onglet === "echeances" && (
+          <VueEcheances
+            coffre={coffre}
+            contracts={contracts}
+            aujourdhui={aujourdhui}
+            onAgenda={ajouterAgenda}
+            onExporter={exporterIcs}
+            onOuvrir={setOuvertId}
+          />
+        )}
+        {onglet === "reglages" && <ReglagesCoffre reglages={coffre.reglages} onChange={changerReglages} />}
+        {onglet === "documents" &&
+          (documents.length === 0 ? (
+            <Card>
+              <EtatVide
+                picto="coffre"
+                titre="Ton coffre est vide"
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setFormulaire({ document: null })}
+                    className={boutonPrincipal}
+                  >
+                    <Plus size={16} />
+                    Ranger un premier papier
+                  </button>
+                }
               >
-                <Plus size={16} />
-                Ranger un premier papier
-              </button>
-            }
-          >
-            Carte d'identité, attestation d'assurance, facture d'un achat sous garantie : ajoute le PDF ou la
-            photo, et sa date d'échéance. Le coffre te dira quand t'en occuper.
-          </EtatVide>
-        </Card>
-      ) : (
-        <>
-          <label className="relative block">
-            <span className="sr-only">Rechercher dans le coffre</span>
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              value={recherche}
-              onChange={(e) => setRecherche(e.target.value)}
-              placeholder="Rechercher : passeport, mutuelle, lave-linge…"
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/40"
-            />
-          </label>
+                Carte d'identité, attestation d'assurance, facture d'un achat sous garantie : ajoute le PDF ou
+                la photo, et sa date d'échéance. Le coffre te dira quand t'en occuper.
+              </EtatVide>
+            </Card>
+          ) : (
+            <>
+              <label className="relative block">
+                <span className="sr-only">Rechercher dans le coffre</span>
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={recherche}
+                  onChange={(e) => setRecherche(e.target.value)}
+                  placeholder="Rechercher : passeport, mutuelle, lave-linge…"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/40"
+                />
+              </label>
 
-          {aTraiter.length === 0 && groupes.length === 0 && (
-            <p className="text-sm text-slate-500">Aucun document ne correspond à « {recherche} ».</p>
-          )}
+              {aTraiter.length === 0 && groupes.length === 0 && (
+                <p className="text-sm text-slate-500">Aucun document ne correspond à « {recherche} ».</p>
+              )}
 
-          {aTraiter.length > 0 && (
-            <Section titre="À traiter" entrees={aTraiter} onOuvrir={setOuvertId} accent />
-          )}
-          {groupes.map((g) => (
-            <Section
-              key={g.categorie.id}
-              titre={g.categorie.libelle}
-              entrees={g.entrees}
-              onOuvrir={setOuvertId}
-            />
+              {aTraiter.length > 0 && (
+                <Section titre="À traiter" entrees={aTraiter} onOuvrir={setOuvertId} accent />
+              )}
+              {groupes.map((g) => (
+                <Section
+                  key={g.categorie.id}
+                  titre={g.categorie.libelle}
+                  entrees={g.entrees}
+                  onOuvrir={setOuvertId}
+                />
+              ))}
+
+              <p className="text-micro text-slate-500">
+                {documents.length} document{documents.length > 1 ? "s" : ""} · {formatTaille(espace)} sur 1 Go
+                {espace > QUOTA_OCTETS * 0.8 && " — l'espace gratuit de Supabase arrive à sa limite"}
+              </p>
+            </>
           ))}
-
-          <p className="text-micro text-slate-500">
-            {documents.length} document{documents.length > 1 ? "s" : ""} · {formatTaille(espace)} sur 1 Go
-            {espace > QUOTA_OCTETS * 0.8 && " — l'espace gratuit de Supabase arrive à sa limite"}
-          </p>
-        </>
-      )}
+      </div>
 
       <FormulaireDocument
         ouvert={formulaire !== null}
         initial={formulaire?.document || null}
+        contracts={contracts}
         onFermer={() => setFormulaire(null)}
         onEnregistrer={enregistrer}
       />
@@ -335,6 +423,9 @@ function CoffreOuvert({ userId }) {
         userId={userId}
         reglages={coffre.reglages}
         aujourdhui={aujourdhui}
+        contrat={ouvert ? contratLie(ouvert, contracts) : null}
+        evenement={ouvert ? evenementDe(ouvert) : null}
+        onAgenda={ajouterAgenda}
         onFermer={() => setOuvertId(null)}
         onModifier={(doc) => {
           setOuvertId(null);
