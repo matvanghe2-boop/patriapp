@@ -275,6 +275,8 @@ src/components/TransfertAppareil.jsx
 src/components/Watchlist.jsx
 src/components/coffre/FicheDocument.jsx
 src/components/coffre/FormulaireDocument.jsx
+src/components/coffre/ReglagesCoffre.jsx
+src/components/coffre/VueEcheances.jsx
 src/components/gestes.jsx
 src/components/graphiques.jsx
 src/components/graphiques.test.jsx
@@ -317,6 +319,8 @@ src/lib/chiffrement.js
 src/lib/chiffrement.test.js
 src/lib/coffre.js
 src/lib/coffre.test.js
+src/lib/coffreAgenda.js
+src/lib/coffreAgenda.test.js
 src/lib/coffreFichiers.js
 src/lib/coffreFichiers.test.js
 src/lib/compact.test.js

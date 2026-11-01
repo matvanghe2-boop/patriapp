@@ -16,6 +16,7 @@ import { useRappelsCalendrier } from "./lib/useRappelsCalendrier";
 import { useBilanRappel } from "./lib/useBilanRappel";
 import { rappelsEssais } from "./lib/abonnements";
 import { evenementsAgenda, rappelsAgenda } from "./lib/agendaFinancier";
+import { COFFRE_VIDE, rappelsCoffreDus, acquitterRappelCoffre } from "./lib/coffre";
 import { sauvegardeTropRecente } from "./lib/migrations";
 import { useHashRoute } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
@@ -245,6 +246,18 @@ export default function App() {
   const acquitterAgenda = React.useCallback(
     (id) => setAgendaVus((l) => [...new Set([...(Array.isArray(l) ? l : []), id])].slice(-200)),
     [setAgendaVus]
+  );
+
+  // Papiers du coffre arrivés à leur date de rappel. Les métadonnées sont en
+  // clair sur l'appareil : le rappel sonne même coffre verrouillé.
+  const [coffre, setCoffre] = usePersistentState("coffre", COFFRE_VIDE);
+  const rappelsCoffre = useMemo(
+    () => rappelsCoffreDus(coffre, { contracts: patrimoine.contracts }),
+    [coffre, patrimoine.contracts]
+  );
+  const acquitterCoffre = React.useCallback(
+    (docId, rappel) => setCoffre((c) => acquitterRappelCoffre(c, docId, rappel)),
+    [setCoffre]
   );
   const acquitterEssai = React.useCallback(
     (id) => setSubs((l) => (l || []).map((s) => (s.id === id ? { ...s, rappelEssaiVu: s.fin_essai } : s))),
@@ -651,10 +664,11 @@ export default function App() {
           <Notifications
             reminders={patrimoine.reminders}
             setReminders={patrimoine.setReminders}
-            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier, ...rappelsEssaisDus, ...rappelsAgendaDus]}
+            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier, ...rappelsEssaisDus, ...rappelsAgendaDus, ...rappelsCoffre]}
             onAcquitterAlerte={acquitterAlerte}
             onAcquitterEssai={acquitterEssai}
             onAcquitterAgenda={acquitterAgenda}
+            onAcquitterCoffre={acquitterCoffre}
             onAcquitterBilan={acquitterBilan}
           />
           {/* En mode local (sans compte), il n'y a rien à déconnecter. */}

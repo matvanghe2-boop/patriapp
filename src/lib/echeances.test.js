@@ -104,6 +104,48 @@ describe("prochainesEcheances", () => {
     expect(liste[0].detail).toBe("40\u202f% atteint");
   });
 
+  it("mêle les papiers du coffre au reste, triés par date, sans doubler un contrat lié", () => {
+    const liste = prochainesEcheances(
+      {
+        contracts: [{ id: "c1", label: "Habitation", date_fin: "2026-07-01", preavis_jours: 20 }],
+        coffre: {
+          documents: [
+            { id: "p", type: "passeport", titre: "Passeport", echeance: "2026-10-10" },
+            { id: "h", type: "contrat_assurance", titre: "Habitation", contratId: "c1" },
+          ],
+          reglages: { delais: {} },
+        },
+      },
+      { aujourdhui: AUJ }
+    );
+    expect(liste.map((e) => [e.id, e.date])).toEqual([
+      ["preavis-c1", "2026-06-11"],
+      ["coffre-p", "2026-06-12"],
+    ]);
+    expect(liste[1]).toMatchObject({ type: "papier", urgence: "attention" });
+  });
+
+  it("mêle les papiers du coffre au reste, triés par date, sans doubler un contrat lié", () => {
+    const liste = prochainesEcheances(
+      {
+        contracts: [{ id: "c1", label: "Habitation", date_fin: "2026-07-01", preavis_jours: 20 }],
+        coffre: {
+          documents: [
+            { id: "p", type: "passeport", titre: "Passeport", echeance: "2026-10-10" },
+            { id: "h", type: "contrat_assurance", titre: "Habitation", contratId: "c1" },
+          ],
+          reglages: { delais: {} },
+        },
+      },
+      { aujourdhui: AUJ }
+    );
+    expect(liste.map((e) => [e.id, e.date])).toEqual([
+      ["preavis-c1", "2026-06-11"],
+      ["coffre-p", "2026-06-12"],
+    ]);
+    expect(liste[1]).toMatchObject({ type: "papier", urgence: "attention" });
+  });
+
   it("ne rend rien sans source", () => {
     expect(prochainesEcheances({}, { aujourdhui: AUJ })).toEqual([]);
     expect(prochainesEcheances(undefined, { aujourdhui: AUJ })).toEqual([]);

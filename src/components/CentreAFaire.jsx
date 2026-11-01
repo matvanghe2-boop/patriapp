@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { ListChecks, NotebookPen, FileText, Repeat, PiggyBank, Wallet, ChevronRight, CircleCheck, Stethoscope } from "lucide-react";
+import { ListChecks, NotebookPen, FileText, Repeat, PiggyBank, Wallet, ChevronRight, CircleCheck, Stethoscope, Vault } from "lucide-react";
 import { Card, CardLabel, PastilleEtat, CARD_THEMES } from "./ui";
 import { elementsAFaire } from "../lib/aFaire";
 import { allerVers } from "../lib/useHashRoute";
 import { usePersistentState } from "../lib/storage";
+import { COFFRE_VIDE } from "../lib/coffre";
 
 /**
  * Centre « À faire » — tout ce qui demande une action, tous onglets
@@ -15,7 +16,7 @@ import { usePersistentState } from "../lib/storage";
  * essais et prélèvements du relevé restaient invisibles depuis l'accueil.
  */
 
-const ICONES = { these: NotebookPen, contrat: FileText, abonnement: Repeat, epargne: PiggyBank, bourse: Wallet, donnees: Stethoscope };
+const ICONES = { these: NotebookPen, contrat: FileText, abonnement: Repeat, epargne: PiggyBank, bourse: Wallet, donnees: Stethoscope, papier: Vault };
 
 /** Ouvre un panneau de l'application (voir l'écouteur dans App.jsx). */
 export const ouvrirPanneau = (id) => window.dispatchEvent(new CustomEvent("patrium:ouvrir", { detail: id }));
@@ -35,17 +36,18 @@ export default function CentreAFaire({
   // de résultats y sont, et une thèse se relit après elles.
   const [evenements] = usePersistentState("calendrierEvenements", []);
   const [avances] = usePersistentState("avances", []);
+  const [coffre] = usePersistentState("coffre", COFFRE_VIDE);
   const [tout, setTout] = useState(false);
 
   const elements = useMemo(
     () =>
       elementsAFaire({
         livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies, series, ignores,
-        evenements, enveloppes, objectifs, compteReleves, patrimoineNet, avances,
+        evenements, enveloppes, objectifs, compteReleves, patrimoineNet, avances, coffre,
       }),
     [
       livrets, bourse, matelasMois, tauxReference, strategyNotes, subs, contracts, compteEnrichies, series, ignores,
-      evenements, enveloppes, objectifs, compteReleves, patrimoineNet, avances,
+      evenements, enveloppes, objectifs, compteReleves, patrimoineNet, avances, coffre,
     ]
   );
   const affiches = tout ? elements : elements.slice(0, VISIBLES);

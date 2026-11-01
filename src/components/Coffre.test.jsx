@@ -163,3 +163,84 @@ describe("Coffre — un papier de bout en bout", () => {
     expect(localStorage.getItem("patrimoine:__cleChiffrement")).toBeNull();
   });
 });
+
+describe("Coffre — échéances et réglages", () => {
+  const coffreDeDepart = () => ({
+    version: 1,
+    documents: [
+      {
+        id: "doc_p",
+        type: "passeport",
+        titre: "Passeport",
+        echeance: ajouterJours(todayIso(), 30),
+        recurrence: null,
+        notes: "n° 12AB",
+        fichiers: [],
+      },
+      { id: "doc_d", type: "diplome", titre: "Baccalauréat", recurrence: null, notes: "", fichiers: [] },
+    ],
+    reglages: { delais: {}, titreAgendaNeutre: false },
+  });
+
+  beforeEach(async () => {
+    localStorage.setItem("patrimoine:coffre", JSON.stringify(coffreDeDepart()));
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("pose le rappel dans Google Agenda, puis le signale comme posé", async () => {
+    const utilisateurEvt = userEvent.setup();
+    const ouvrir = vi.fn();
+    vi.stubGlobal("open", ouvrir);
+    monter();
+
+    await utilisateurEvt.click(await screen.findByRole("tab", { name: /Échéances/ }));
+    expect(screen.getByText("1 rappel à poser ou à mettre à jour.")).toBeInTheDocument();
+    const liste = screen.getByRole("list", { name: "Échéances des papiers" });
+    expect(within(liste).queryByText("Baccalauréat")).not.toBeInTheDocument();
+
+    await utilisateurEvt.click(within(liste).getByRole("button", { name: "Ajouter à l'agenda : Passeport" }));
+    const url = new URL(ouvrir.mock.calls[0][0]);
+    expect(url.hostname).toBe("calendar.google.com");
+    expect(url.searchParams.get("text")).toMatch(/^Passeport — lancer le renouvellement/);
+    expect(ouvrir.mock.calls[0][0]).not.toContain("12AB");
+
+    expect(await within(liste).findByRole("button", { name: "Rouvrir dans l'agenda : Passeport" })).toBeInTheDocument();
+    expect(screen.queryByText(/à poser ou à mettre à jour/)).not.toBeInTheDocument();
+  });
+
+  it("exporte tous les rappels dans un fichier .ics", async () => {
+    const utilisateurEvt = userEvent.setup();
+    // jsdom ne sait pas « télécharger » : le clic sur le lien est neutralisé.
+    const telecharger = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    monter();
+    await utilisateurEvt.click(await screen.findByRole("tab", { name: /Échéances/ }));
+    await utilisateurEvt.click(screen.getByRole("button", { name: /Exporter en \.ics/ }));
+
+    const blob = URL.createObjectURL.mock.calls.at(-1)[0];
+    const ics = await blob.text();
+    expect(ics).toMatch(/^BEGIN:VCALENDAR/);
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+    expect(ics).toContain("SUMMARY:Passeport — lancer le renouvellement");
+    expect(await screen.findByText(/1 rappel exporté/)).toBeInTheDocument();
+    expect(telecharger).toHaveBeenCalledTimes(1);
+    telecharger.mockRestore();
+  });
+
+  it("applique un délai réglé par type, et le titre neutre", async () => {
+    const utilisateurEvt = userEvent.setup();
+    monter();
+    // Le passeport expire dans un mois : avec le délai proposé (quatre mois), il est à traiter.
+    expect(await screen.findByRole("region", { name: "À traiter" })).toBeInTheDocument();
+
+    await utilisateurEvt.click(screen.getByRole("tab", { name: /Réglages/ }));
+    await utilisateurEvt.type(screen.getByLabelText(/^Passeport/), "10");
+    await utilisateurEvt.click(screen.getByLabelText(/Titre neutre dans l'agenda/));
+    await waitFor(() => {
+      const enregistre = JSON.parse(localStorage.getItem("patrimoine:coffre"));
+      expect(enregistre.reglages).toEqual({ delais: { passeport: 10 }, titreAgendaNeutre: true });
+    });
+
+    await utilisateurEvt.click(screen.getByRole("tab", { name: /Documents/ }));
+    expect(screen.queryByRole("region", { name: "À traiter" })).not.toBeInTheDocument();
+  });
+});

@@ -1,5 +1,5 @@
 import { todayIso, uid } from "./finance";
-import { joursAvant } from "./echeances";
+import { joursEntre, dateLimiteResiliation } from "./abonnements";
 
 /**
  * Coffre à papiers — le modèle (voir COFFRE_SPEC.md, §6 et §7).
@@ -28,17 +28,34 @@ export const CATEGORIES = [
 /**
  * Types de documents. `echeance` est le libellé de la date qui compte (`null` :
  * le type n'en a pas) ; `rappelJours` le délai de rappel par défaut, que les
- * réglages ou le document lui-même peuvent remplacer.
+ * réglages ou le document lui-même peuvent remplacer ; `action` ce qu'il y a à
+ * faire quand le rappel tombe — c'est la phrase des rappels d'agenda et du
+ * centre « À faire ».
  */
 export const TYPES = [
-  { id: "cni", libelle: "Carte d'identité", categorie: "identite", echeance: "Expire le", rappelJours: 120 },
-  { id: "passeport", libelle: "Passeport", categorie: "identite", echeance: "Expire le", rappelJours: 120 },
+  {
+    id: "cni",
+    libelle: "Carte d'identité",
+    categorie: "identite",
+    echeance: "Expire le",
+    rappelJours: 120,
+    action: "Lancer le renouvellement",
+  },
+  {
+    id: "passeport",
+    libelle: "Passeport",
+    categorie: "identite",
+    echeance: "Expire le",
+    rappelJours: 120,
+    action: "Lancer le renouvellement",
+  },
   {
     id: "permis",
     libelle: "Permis de conduire",
     categorie: "identite",
     echeance: "Fin de validité du titre",
     rappelJours: 90,
+    action: "Renouveler le titre",
   },
   { id: "carte_vitale", libelle: "Carte Vitale", categorie: "identite", echeance: null, rappelJours: null },
   {
@@ -47,6 +64,7 @@ export const TYPES = [
     categorie: "identite",
     echeance: "Expire le",
     rappelJours: 90,
+    action: "Lancer le renouvellement",
   },
   {
     id: "contrat_assurance",
@@ -55,6 +73,10 @@ export const TYPES = [
     echeance: "Échéance annuelle",
     rappelJours: 60,
     recurrence: "annuelle",
+    action: "Comparer avant la reconduction",
+    // Un contrat a souvent déjà sa date de préavis dans Abonnements : le lier
+    // évite un second rappel pour la même échéance (voir `contratLie`).
+    liableAbonnements: true,
   },
   {
     id: "attestation_assurance",
@@ -62,6 +84,7 @@ export const TYPES = [
     categorie: "assurances",
     echeance: "Valable jusqu'au",
     rappelJours: 21,
+    action: "Demander la nouvelle attestation",
   },
   {
     id: "tiers_payant",
@@ -69,6 +92,7 @@ export const TYPES = [
     categorie: "assurances",
     echeance: "Valable jusqu'au",
     rappelJours: 21,
+    action: "Demander la nouvelle carte",
   },
   // Garantie légale de conformité : deux ans à compter de la livraison.
   {
@@ -78,8 +102,17 @@ export const TYPES = [
     echeance: "Fin de garantie",
     rappelJours: 30,
     garantieAns: 2,
+    action: "Vérifier l'appareil avant la fin de garantie",
   },
-  { id: "bail", libelle: "Bail", categorie: "logement", echeance: "Fin du bail", rappelJours: 60 },
+  {
+    id: "bail",
+    libelle: "Bail",
+    categorie: "logement",
+    echeance: "Fin du bail",
+    rappelJours: 60,
+    action: "Renouveler ou donner congé",
+    liableAbonnements: true,
+  },
   {
     id: "quittance",
     libelle: "Quittance de loyer",
@@ -102,6 +135,7 @@ export const TYPES = [
     categorie: "etudes",
     echeance: "Valable jusqu'au",
     rappelJours: 21,
+    action: "Demander le nouveau certificat",
   },
   {
     id: "avis_imposition",
@@ -117,7 +151,14 @@ export const TYPES = [
     echeance: null,
     rappelJours: null,
   },
-  { id: "autre", libelle: "Autre document", categorie: "autre", echeance: "Échéance", rappelJours: 30 },
+  {
+    id: "autre",
+    libelle: "Autre document",
+    categorie: "autre",
+    echeance: "Échéance",
+    rappelJours: 30,
+    action: "S'en occuper",
+  },
 ];
 
 const TYPES_PAR_ID = Object.fromEntries(TYPES.map((t) => [t.id, t]));
@@ -221,6 +262,19 @@ export function delaiRappel(doc, reglages = {}) {
 }
 
 /**
+ * Contrat d'Abonnements auquel un document est lié, s'il existe encore.
+ *
+ * Un contrat d'assurance ou un bail est souvent déjà suivi dans Abonnements,
+ * avec sa date de fin et son préavis. Le lier fait de ces dates la référence :
+ * le coffre range le papier, Abonnements garde le rappel, et la même échéance
+ * n'est pas signalée deux fois.
+ */
+export function contratLie(doc, contracts = []) {
+  if (!doc?.contratId || !typeDe(doc.type).liableAbonnements) return null;
+  return (contracts || []).find((c) => c?.id === doc.contratId) || null;
+}
+
+/**
  * Statut d'un document à une date donnée.
  *
  *  · `aucune`    : pas d'échéance ;
@@ -228,14 +282,22 @@ export function delaiRappel(doc, reglages = {}) {
  *  · `a_prevoir` : la date de rappel est atteinte, l'échéance est à venir ;
  *  · `a_jour`    : sinon.
  *
+ * Avec un contrat lié (voir `contratLie`), l'échéance est sa date de fin et le
+ * rappel tombe à sa date limite de résiliation, comme dans Abonnements.
+ *
  * @returns {{ statut, echeance, rappel, jours }} `jours` : jours avant l'échéance.
  */
-export function statutDocument(doc, reglages, aujourdhui = todayIso()) {
-  const echeance = prochaineEcheance(doc, aujourdhui);
+export function statutDocument(doc, reglages, aujourdhui = todayIso(), contrat = null) {
+  const parContrat = !!contrat && dateValide(contrat.date_fin);
+  const echeance = parContrat ? contrat.date_fin : prochaineEcheance(doc, aujourdhui);
   if (!echeance) return { statut: "aucune", echeance: null, rappel: null, jours: null };
-  const jours = joursAvant(echeance, aujourdhui);
-  const delai = delaiRappel(doc, reglages);
-  const rappel = delai == null ? null : ajouterJours(echeance, -delai);
+  const jours = joursEntre(aujourdhui, echeance);
+  const delai = parContrat ? null : delaiRappel(doc, reglages);
+  const rappel = parContrat
+    ? dateLimiteResiliation(contrat)
+    : delai == null
+      ? null
+      : ajouterJours(echeance, -delai);
   let statut = "a_jour";
   if (jours < 0) statut = "expire";
   else if (rappel && rappel <= aujourdhui) statut = "a_prevoir";
@@ -280,7 +342,7 @@ export function garantieParDefaut(type, dateAchat) {
 const sansAccent = (s) =>
   String(s || "")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
 /** Documents dont le titre, le type, la catégorie, les notes ou un nom de fichier contiennent tous les mots cherchés. */
@@ -306,8 +368,11 @@ export function filtrerDocuments(documents, recherche) {
  * Organise la liste : ce qui demande d'agir (à prévoir, échu) en tête, par
  * échéance la plus proche ; le reste groupé par catégorie, par titre.
  */
-export function organiserDocuments(documents, reglages, aujourdhui = todayIso()) {
-  const entrees = documents.map((doc) => ({ doc, ...statutDocument(doc, reglages, aujourdhui) }));
+export function organiserDocuments(documents, reglages, aujourdhui = todayIso(), contracts = []) {
+  const entrees = documents.map((doc) => ({
+    doc,
+    ...statutDocument(doc, reglages, aujourdhui, contratLie(doc, contracts)),
+  }));
   const aAgir = (e) => e.statut === "a_prevoir" || e.statut === "expire";
   const parTitre = (a, b) => a.doc.titre.localeCompare(b.doc.titre, "fr");
 
@@ -329,6 +394,129 @@ export const espaceUtilise = (documents) =>
     0
   );
 
+// ─── Rappels hors de l'onglet ───────────────────────────────────────────────
+//
+// Le coffre ne garde pas ses échéances pour lui : elles remontent dans
+// « Prochaines échéances » et le centre « À faire » du Dashboard, et dans les
+// notifications que Patrium affiche quand il est ouvert (COFFRE_SPEC.md, §8.1).
+// Les métadonnées sont en clair sur l'appareil, comme le reste de Patrium :
+// ces rappels fonctionnent donc même coffre verrouillé, sans toucher à un
+// seul fichier.
+
+/** Ce qu'il y a à faire quand le rappel d'un document tombe. */
+export const actionDe = (doc) => typeDe(doc?.type).action || "S'en occuper";
+
+const dateCourte = (iso) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+
+/**
+ * Pendant combien de jours après l'échéance le centre « À faire » signale un
+ * papier échu. Au-delà, il reste marqué « Échu » dans le coffre, sans revenir
+ * chaque jour sur l'accueil : une garantie terminée depuis un an n'appelle
+ * plus aucune action.
+ */
+export const JOURS_SIGNALEMENT_ECHU = 30;
+
+/**
+ * Documents datés, avec leur statut. Ceux qui sont liés à un contrat
+ * d'Abonnements sont écartés : Abonnements signale déjà leur préavis.
+ */
+function documentsDates(coffre, contracts, aujourdhui) {
+  if (!estCoffre(coffre)) return [];
+  return coffre.documents
+    .filter((doc) => doc && !contratLie(doc, contracts))
+    .map((doc) => ({ doc, ...statutDocument(doc, coffre.reglages, aujourdhui) }))
+    .filter((e) => e.echeance);
+}
+
+/**
+ * Entrées pour « Prochaines échéances », dans la forme de `prochainesEcheances`.
+ * Comme pour un préavis, la date retenue est celle où il faut AGIR (le
+ * rappel), l'échéance passant en détail ; une fois le rappel passé, c'est
+ * l'échéance elle-même qui s'affiche quand elle approche.
+ */
+export function echeancesDuCoffre(
+  coffre,
+  { contracts = [], aujourdhui = todayIso(), fenetreJours = 42 } = {}
+) {
+  const liste = [];
+  for (const e of documentsDates(coffre, contracts, aujourdhui)) {
+    const joursRappel = e.rappel ? joursEntre(aujourdhui, e.rappel) : null;
+    if (joursRappel != null && joursRappel >= 0 && joursRappel <= fenetreJours) {
+      liste.push({
+        id: `coffre-${e.doc.id}`,
+        date: e.rappel,
+        jours: joursRappel,
+        type: "papier",
+        libelle: `${actionDe(e.doc)} — ${e.doc.titre}`,
+        detail: `échéance le ${dateFr(e.echeance)}`,
+      });
+    } else if (e.jours >= 0 && e.jours <= fenetreJours) {
+      liste.push({
+        id: `coffre-${e.doc.id}`,
+        date: e.echeance,
+        jours: e.jours,
+        type: "papier",
+        libelle: `Échéance — ${e.doc.titre}`,
+        detail: typeDe(e.doc.type).libelle,
+      });
+    }
+  }
+  return liste;
+}
+
+/** Lignes du centre « À faire » : papiers à prévoir, et papiers échus depuis moins d'un mois. */
+export function aFaireDuCoffre(coffre, { contracts = [], aujourdhui = todayIso() } = {}) {
+  const liste = [];
+  const lien = { onglet: "coffre", sous: "echeances" };
+  for (const e of documentsDates(coffre, contracts, aujourdhui)) {
+    if (e.statut === "a_prevoir") {
+      liste.push({
+        id: `coffre-${e.doc.id}`,
+        urgence: e.jours <= 7 ? "critique" : "attention",
+        type: "papier",
+        texte: `${e.doc.titre} : ${actionDe(e.doc).toLowerCase()} — échéance le ${dateCourte(e.echeance)}.`,
+        lien,
+      });
+    } else if (e.statut === "expire" && -e.jours <= JOURS_SIGNALEMENT_ECHU) {
+      liste.push({
+        id: `coffre-${e.doc.id}`,
+        urgence: "critique",
+        type: "papier",
+        texte: `${e.doc.titre} est échu depuis le ${dateCourte(e.echeance)} : range le nouveau dans le coffre.`,
+        lien,
+      });
+    }
+  }
+  return liste;
+}
+
+/**
+ * Notifications de Patrium ouvert : une par document à prévoir, jusqu'à ce
+ * qu'elle soit acquittée. L'acquittement retient la date de rappel vue
+ * (`rappelVu`) : l'année suivante, un contrat récurrent sonne de nouveau.
+ */
+export function rappelsCoffreDus(coffre, { contracts = [], aujourdhui = todayIso() } = {}) {
+  return documentsDates(coffre, contracts, aujourdhui)
+    .filter((e) => e.statut === "a_prevoir" && e.doc.rappelVu !== e.rappel)
+    .map((e) => ({
+      id: `coffre-${e.doc.id}-${e.rappel}`,
+      docId: e.doc.id,
+      rappel: e.rappel,
+      type: "coffre",
+      source: "coffre",
+      label: `${e.doc.titre} : ${actionDe(e.doc).toLowerCase()} (échéance le ${dateFr(e.echeance)})`,
+    }));
+}
+
+export function acquitterRappelCoffre(coffre, docId, rappel) {
+  if (!estCoffre(coffre)) return coffre;
+  return {
+    ...coffre,
+    documents: coffre.documents.map((d) => (d?.id === docId ? { ...d, rappelVu: rappel } : d)),
+  };
+}
+
 // ─── Forme des données ──────────────────────────────────────────────────────
 
 export const COFFRE_VIDE = { version: 1, documents: [], reglages: { delais: {}, titreAgendaNeutre: false } };
@@ -348,6 +536,7 @@ export function normaliserSaisie(saisie = {}) {
     recurrence: saisie.recurrence === "annuelle" ? "annuelle" : null,
     rappelJours: Number.isFinite(rappel) && rappel >= 0 ? rappel : null,
     notes: String(saisie.notes || "").trim(),
+    contratId: typeDe(type).liableAbonnements && saisie.contratId ? String(saisie.contratId) : null,
   };
 }
 
@@ -357,6 +546,8 @@ export function nouveauDocument(saisie, fichiers = [], maintenant = new Date().t
     ...normaliserSaisie(saisie),
     fichiers,
     agendaAjouteLe: null,
+    agendaDate: null,
+    rappelVu: null,
     creeLe: maintenant,
     modifieLe: maintenant,
   };
