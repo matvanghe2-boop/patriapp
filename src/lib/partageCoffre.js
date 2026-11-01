@@ -27,15 +27,19 @@ export async function fichiersPartages() {
   for (const requete of requetes) {
     const reponse = await cache.match(requete);
     if (!reponse) continue;
-    const blob = await reponse.blob();
-    const type = reponse.headers.get("Content-Type") || blob.type || "application/octet-stream";
+    // Octets bruts plutôt que `reponse.blob()` : un ArrayBuffer est accepté
+    // par tout constructeur de File. Le Blob d'une Response ne l'est pas
+    // toujours hors du navigateur — sous jsdom avec Node 22, il devenait le
+    // texte « [object Blob] ».
+    const octets = await reponse.arrayBuffer();
+    const type = reponse.headers.get("Content-Type") || "application/octet-stream";
     let nom = "document partagé";
     try {
       nom = decodeURIComponent(reponse.headers.get("X-Nom-Fichier") || nom);
     } catch {
       /* nom mal encodé : on garde le nom par défaut */
     }
-    fichiers.push(new File([blob], nom, { type }));
+    fichiers.push(new File([octets], nom, { type }));
   }
   return fichiers;
 }
