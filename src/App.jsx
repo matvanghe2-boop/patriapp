@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, Suspense, lazy } from "react";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
   Repeat, CreditCard, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation, LockKeyhole,
-  MessageCircleQuestion, Bug, Stethoscope, FlaskConical, FolderSync, Smartphone,
+  MessageCircleQuestion, Bug, Stethoscope, FlaskConical, FolderSync, Smartphone, Vault,
 } from "lucide-react";
 import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
@@ -62,6 +62,7 @@ const CHARGEURS = {
   simulation: () => import("./components/Simulation"),
   strategie: () => import("./components/StrategieLogs"),
   abonnements: () => import("./components/Abonnements"),
+  coffre: () => import("./components/Coffre"),
 };
 const Dashboard = lazy(CHARGEURS.dashboard);
 const CompteCourant = lazy(CHARGEURS.compte);
@@ -70,6 +71,7 @@ const Bourse = lazy(CHARGEURS.bourse);
 const Simulation = lazy(CHARGEURS.simulation);
 const StrategieLogs = lazy(CHARGEURS.strategie);
 const Abonnements = lazy(CHARGEURS.abonnements);
+const Coffre = lazy(CHARGEURS.coffre);
 const TransfertAppareil = lazy(() => import("./components/TransfertAppareil"));
 
 /**
@@ -112,6 +114,8 @@ function prechargerOnglets(ongletCourant) {
 // depuis la fusion d'Immobilier dans Simulation.
 // Compte courant vient juste après le Dashboard : c'est l'écran qu'on ouvre le
 // plus souvent, et il garde ainsi sa place dans la barre basse du mobile.
+// Le Coffre ferme la marche : on y range un papier de temps en temps, il vit
+// donc dans la feuille « Plus » du mobile (voir COFFRE_SPEC.md).
 const TABS = [
   { id: "dashboard", label: "Dashboard", shortLabel: "Accueil", icon: LayoutDashboard, theme: "emerald", Page: Dashboard },
   { id: "compte", label: "Compte courant", shortLabel: "Compte", icon: CreditCard, theme: "lime", Page: CompteCourant },
@@ -120,6 +124,7 @@ const TABS = [
   { id: "simulation", label: "Simulation", shortLabel: "Simuler", icon: Calculator, theme: "amber", Page: Simulation },
   { id: "strategie", label: "Stratégie & Logs", shortLabel: "Stratégie", icon: NotebookPen, theme: "rose", Page: StrategieLogs },
   { id: "abonnements", label: "Abonnements", shortLabel: "Abos", icon: Repeat, theme: "cyan", Page: Abonnements },
+  { id: "coffre", label: "Coffre", shortLabel: "Coffre", icon: Vault, theme: "fuchsia", Page: Coffre },
 ];
 
 const TAB_IDS = TABS.map((t) => t.id);
@@ -440,7 +445,7 @@ export default function App() {
     const ok = await confirm({
       title: "Tout réinitialiser ?",
       message: user
-        ? "Toutes tes données seront effacées : livrets, portefeuille, historique, abonnements — sur cet appareil ET sur ton compte, donc sur tous tes appareils. Cette action est irréversible : pense à exporter une sauvegarde avant."
+        ? "Toutes tes données seront effacées : livrets, portefeuille, historique, abonnements, papiers du coffre — sur cet appareil ET sur ton compte, donc sur tous tes appareils. Cette action est irréversible : pense à exporter une sauvegarde avant."
         : "Toutes les données de cet appareil seront effacées : livrets, portefeuille, historique, abonnements. Cette action est irréversible — pense à exporter une sauvegarde avant.",
       confirmLabel: "Effacer définitivement",
       danger: true,
@@ -450,7 +455,14 @@ export default function App() {
     // rechargement qui suit reprenait les données depuis Supabase (le local
     // n'ayant plus d'horodatage, la version cloud gagnait l'arbitrage) et la
     // réinitialisation n'avait aucun effet visible pour un compte connecté.
+    // Les fichiers du coffre partent en premier : effacer leurs métadonnées
+    // sans eux laisserait des scans de pièces d'identité dans le stockage.
+    // Chargé à la demande, comme l'onglet Coffre lui-même.
     try {
+      if (user) {
+        const { viderCoffreCloud } = await import("./lib/coffreFichiers");
+        await viderCoffreCloud(user.id);
+      }
       await clearCloudData(STORAGE_KEYS);
     } catch {
       showToast({ type: "error", message: "Effacement cloud impossible — données locales conservées." });

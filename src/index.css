@@ -1177,6 +1177,9 @@
    frôle aucune des six autres : l'émeraude du Dashboard est à 70° et l'ambre
    de Simulation à 38°, là où sarcelle et orange n'en sont qu'à 15. */
 .teinte-lime    { --teinte-h: 84; --teinte-s: 81%; --l-sombre: 66%; --l-clair: 26%; --teinte-2-h: 142; --teinte-2-s: 71%; }
+/* Coffre. Le dernier grand écart libre du cercle est entre le violet (252°)
+   et le rose (353°) : à 300°, le fuchsia est à près de 50° de chacun. */
+.teinte-fuchsia { --teinte-h: 300; --teinte-s: 80%; --l-sombre: 78%; --l-clair: 38%; --teinte-2-h: 325; --teinte-2-s: 85%; }
 .teinte-teal   { --teinte-h: 171; --teinte-s: 77%; --l-sombre: 64.3%; --l-clair: 25%; --teinte-2-h: 188; --teinte-2-s: 86%; }
 .teinte-orange  { --teinte-h: 31; --teinte-s: 97%; --l-sombre: 72.4%; --l-clair: 33%; --teinte-2-h: 43; --teinte-2-s: 96%; }
 

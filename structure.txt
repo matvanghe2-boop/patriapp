@@ -13,6 +13,7 @@ La description commentée de l'arborescence se trouve dans README.md.
 .prettierignore
 .prettierrc.json
 .vercelignore
+COFFRE_SPEC.md
 HORIZON_SPEC.md
 README.md
 api/_lib/auth.js
@@ -156,6 +157,8 @@ src/components/CashPocketCard.jsx
 src/components/CentreAFaire.jsx
 src/components/ChartFocusModal.jsx
 src/components/ClasserOperations.jsx
+src/components/Coffre.jsx
+src/components/Coffre.test.jsx
 src/components/CommuniqueDepose.jsx
 src/components/ComparaisonPairs.jsx
 src/components/ComparateurRattachement.jsx
@@ -270,6 +273,8 @@ src/components/Timeline.jsx
 src/components/TrajectoireObjectif.jsx
 src/components/TransfertAppareil.jsx
 src/components/Watchlist.jsx
+src/components/coffre/FicheDocument.jsx
+src/components/coffre/FormulaireDocument.jsx
 src/components/gestes.jsx
 src/components/graphiques.jsx
 src/components/graphiques.test.jsx
@@ -310,6 +315,10 @@ src/lib/cascade.test.js
 src/lib/categorisationAssistee.js
 src/lib/chiffrement.js
 src/lib/chiffrement.test.js
+src/lib/coffre.js
+src/lib/coffre.test.js
+src/lib/coffreFichiers.js
+src/lib/coffreFichiers.test.js
 src/lib/compact.test.js
 src/lib/compositionEtf.js
 src/lib/compteCourant.js

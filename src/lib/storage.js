@@ -837,6 +837,27 @@ export function useEtatChiffrement() {
 }
 
 /**
+ * Clé de chiffrement de cet appareil, ou `null` si le chiffrement est inactif
+ * ou l'appareil verrouillé. Le coffre à papiers en enveloppe ses clés de
+ * fichier (voir coffreFichiers.js).
+ */
+export async function cleChiffrementActive() {
+  await cleChargee;
+  return chiffrement.config ? chiffrement.cle : null;
+}
+
+/**
+ * Oublie la clé de cet appareil : la phrase secrète sera redemandée. Les
+ * données déjà présentes sur l'appareil restent lisibles par Patrium ; ce
+ * sont la synchronisation et les fichiers du coffre qui se ferment.
+ */
+export function verrouillerCetAppareil() {
+  if (!chiffrement.config) return;
+  oublierCleLocale();
+  notifierChiffrement();
+}
+
+/**
  * Réécrit dans le cloud toutes les clés connues de cet appareil, avec leur
  * horodatage d'origine — chiffrées ou en clair selon l'état courant. Renvoie
  * le nombre d'échecs.
