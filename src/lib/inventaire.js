@@ -1,4 +1,4 @@
-import { todayIso, uid, lireNombre } from "./finance";
+import { todayIso, uid, lireSaisieNombre } from "./finance";
 import { dateValide, ajouterAns, typeDe } from "./coffre";
 
 /**
@@ -114,8 +114,7 @@ export function trierObjets(objets = [], aujourdhui = todayIso()) {
 
 const montant = (v) => {
   if (v === "" || v == null) return null;
-  // « 1 299,99 » : les espaces de milliers (y compris insécables) sont retirés.
-  const n = typeof v === "number" ? v : lireNombre(String(v).replace(/\s/g, ""));
+  const n = lireSaisieNombre(typeof v === "number" ? v : String(v));
   return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 };
 
