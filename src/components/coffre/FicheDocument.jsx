@@ -36,6 +36,7 @@ export default function FicheDocument({
   onFermer,
   onModifier,
   onSupprimer,
+  onRetirerFichier,
 }) {
   return (
     <Modal
@@ -57,6 +58,7 @@ export default function FicheDocument({
           onAgenda={onAgenda}
           onModifier={onModifier}
           onSupprimer={onSupprimer}
+          onRetirerFichier={onRetirerFichier}
         />
       )}
     </Modal>
@@ -73,6 +75,7 @@ function Contenu({
   onAgenda,
   onModifier,
   onSupprimer,
+  onRetirerFichier,
 }) {
   const [index, setIndex] = useState(0);
   const fichiers = doc.fichiers || [];
@@ -180,6 +183,15 @@ function Contenu({
               {f.nom}
             </button>
           ))}
+          {fichier && (
+            <button
+              type="button"
+              onClick={() => onRetirerFichier(doc, fichier)}
+              className="rounded-lg px-2 py-1 text-micro text-rose-300 hover:underline"
+            >
+              Retirer ce fichier
+            </button>
+          )}
         </div>
       )}
 

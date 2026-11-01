@@ -1,5 +1,5 @@
-import { useId, useState } from "react";
-import { Upload } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { Upload, X, FileText, Image as IconeImage } from "lucide-react";
 import Modal from "../Modal";
 import {
   CATEGORIES,
@@ -12,21 +12,30 @@ import {
   dureeEnClair,
   dateFr,
 } from "../../lib/coffre";
+import { texteDuPdf } from "../../lib/lirePdf";
+import { suggererDates } from "../../lib/datesDocument";
 
 /**
  * Ajout et modification d'un document du coffre.
  *
- * À l'ajout, le fichier est obligatoire : il est chiffré puis envoyé par
- * `onEnregistrer`, qui peut échouer (réseau, bucket absent) — l'erreur
- * s'affiche alors ici, formulaire intact, pour réessayer sans tout ressaisir.
- * La modification ne touche qu'aux informations : remplacer le fichier, c'est
- * supprimer le document et en ranger un nouveau.
+ * À l'ajout, au moins un fichier est obligatoire ; on peut en joindre
+ * plusieurs (recto et verso, contrat et conditions générales). Ils sont
+ * chiffrés puis envoyés par `onEnregistrer`, qui peut échouer (réseau, bucket
+ * absent) : l'erreur s'affiche alors ici, formulaire intact, pour réessayer
+ * sans tout ressaisir. En modification, les fichiers choisis s'AJOUTENT à
+ * ceux du document ; on en retire un depuis la fiche.
+ *
+ * Pour un PDF qui contient du texte, les dates qu'il mentionne sont proposées
+ * à côté des champs (voir datesDocument.js). La lecture se fait sur
+ * l'appareil, et rien n'est appliqué sans un clic.
  */
 
 const CHAMP =
   "w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/40";
 const ETIQUETTE = "block text-micro text-slate-500 mb-1";
 const ACCEPT = Object.keys(FORMATS_ACCEPTES).join(",");
+/** Au-delà, mieux vaut un PDF de plusieurs pages qu'une pile de photos. */
+export const MAX_FICHIERS = 10;
 
 const VIDE = {
   type: "cni",
@@ -50,7 +59,16 @@ const depuisDocument = (doc) => ({
   contratId: doc.contratId || "",
 });
 
-export default function FormulaireDocument({ ouvert, initial, contracts = [], onFermer, onEnregistrer }) {
+const memeFichier = (a, b) => a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
+
+export default function FormulaireDocument({
+  ouvert,
+  initial,
+  fichiersInitiaux = [],
+  contracts = [],
+  onFermer,
+  onEnregistrer,
+}) {
   const [enCours, setEnCours] = useState(false);
   const titreFenetre = initial ? "Modifier le document" : "Ranger un document";
 
@@ -68,6 +86,7 @@ export default function FormulaireDocument({ ouvert, initial, contracts = [], on
       {ouvert && (
         <Formulaire
           initial={initial}
+          fichiersInitiaux={fichiersInitiaux}
           contracts={contracts}
           titreFenetre={titreFenetre}
           enCours={enCours}
@@ -80,13 +99,36 @@ export default function FormulaireDocument({ ouvert, initial, contracts = [], on
   );
 }
 
-function Formulaire({ initial, contracts, titreFenetre, enCours, setEnCours, onFermer, onEnregistrer }) {
+/** Sépare les fichiers acceptables du premier problème rencontré. */
+function trier(liste) {
+  const valides = [];
+  let probleme = null;
+  for (const f of liste) {
+    const p = verifierFichier(f);
+    if (p) probleme = probleme || `${f.name} : ${p}`;
+    else valides.push(f);
+  }
+  return { valides, probleme };
+}
+
+function Formulaire({
+  initial,
+  fichiersInitiaux,
+  contracts,
+  titreFenetre,
+  enCours,
+  setEnCours,
+  onFermer,
+  onEnregistrer,
+}) {
   const ids = useId();
   const modification = !!initial;
   const [v, setV] = useState(() => (initial ? depuisDocument(initial) : VIDE));
-  const [fichier, setFichier] = useState(null);
-  const [erreur, setErreur] = useState(null);
+  const [depart] = useState(() => trier(fichiersInitiaux));
+  const [fichiers, setFichiers] = useState(() => depart.valides.slice(0, MAX_FICHIERS));
+  const [erreur, setErreur] = useState(depart.probleme);
   const [survol, setSurvol] = useState(false);
+  const [suggestions, setSuggestions] = useState(null);
 
   const type = typeDe(v.type);
   const champ = (cle) => (e) => setV((s) => ({ ...s, [cle]: e.target.value }));
@@ -95,28 +137,45 @@ function Formulaire({ initial, contracts, titreFenetre, enCours, setEnCours, onF
     setV((s) => ({ ...s, type: id, recurrence: typeDe(id).recurrence || null }));
   };
 
-  const choisir = (f) => {
-    if (!f) return;
-    const probleme = verifierFichier(f);
+  const ajouter = (liste) => {
+    const { valides, probleme } = trier([...(liste || [])]);
     setErreur(probleme);
-    setFichier(probleme ? null : f);
+    setFichiers((l) =>
+      [...l, ...valides.filter((f) => !l.some((x) => memeFichier(x, f)))].slice(0, MAX_FICHIERS)
+    );
   };
+  const retirer = (i) => setFichiers((l) => l.filter((_, j) => j !== i));
+
+  // Dates proposées, lues dans le premier PDF choisi.
+  const pdf = fichiers.find((f) => f.type === "application/pdf") || null;
+  useEffect(() => {
+    if (!pdf) return undefined;
+    let annule = false;
+    texteDuPdf(pdf)
+      .then((texte) => {
+        if (!annule) setSuggestions({ fichier: pdf, ...suggererDates(texte) });
+      })
+      .catch(() => {
+        /* PDF illisible : rien à proposer, la saisie reste possible */
+      });
+    return () => {
+      annule = true;
+    };
+  }, [pdf]);
+  const dates = suggestions && suggestions.fichier === pdf ? suggestions : null;
 
   const garantie = !v.echeance ? garantieParDefaut(v.type, v.dateDocument) : null;
 
   const soumettre = async (e) => {
     e.preventDefault();
-    if (!modification) {
-      const probleme = verifierFichier(fichier);
-      if (probleme) {
-        setErreur(probleme);
-        return;
-      }
+    if (!modification && fichiers.length === 0) {
+      setErreur(erreur || "Choisis au moins un fichier.");
+      return;
     }
     setEnCours(true);
     setErreur(null);
     try {
-      await onEnregistrer(v, fichier);
+      await onEnregistrer(v, fichiers);
       onFermer();
     } catch (err) {
       setErreur(err?.message || "L'enregistrement n'a pas abouti.");
@@ -125,49 +184,82 @@ function Formulaire({ initial, contracts, titreFenetre, enCours, setEnCours, onF
     }
   };
 
+  const nbExistants = initial?.fichiers?.length || 0;
+
   return (
     <form onSubmit={soumettre} className="p-5 space-y-4">
       <h2 className="font-display text-lg text-slate-50">{titreFenetre}</h2>
 
-      {!modification && (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setSurvol(true);
-          }}
-          onDragLeave={() => setSurvol(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setSurvol(false);
-            choisir(e.dataTransfer?.files?.[0]);
-          }}
-          className={`rounded-xl border border-dashed p-4 text-center transition-colors ${
-            survol ? "border-fuchsia-400 bg-fuchsia-400/10" : "border-slate-700"
-          }`}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setSurvol(true);
+        }}
+        onDragLeave={() => setSurvol(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setSurvol(false);
+          ajouter(e.dataTransfer?.files);
+        }}
+        className={`rounded-xl border border-dashed p-4 text-center transition-colors ${
+          survol ? "border-fuchsia-400 bg-fuchsia-400/10" : "border-slate-700"
+        }`}
+      >
+        <label
+          htmlFor={`${ids}-fichier`}
+          className="cursor-pointer flex flex-col items-center gap-1 text-sm text-slate-300"
         >
-          <label
-            htmlFor={`${ids}-fichier`}
-            className="cursor-pointer flex flex-col items-center gap-1 text-sm text-slate-300"
-          >
-            <Upload size={20} className="text-fuchsia-300" aria-hidden="true" />
-            {fichier ? (
-              <span className="text-slate-100">
-                {fichier.name} · {formatTaille(fichier.size)}
-              </span>
-            ) : (
-              <span>Choisir un PDF ou une photo</span>
-            )}
-            <span className="text-micro text-slate-500">ou glisse le fichier ici · 20 Mo au maximum</span>
-          </label>
-          <input
-            id={`${ids}-fichier`}
-            type="file"
-            accept={ACCEPT}
-            aria-label="Fichier à ranger"
-            className="sr-only"
-            onChange={(e) => choisir(e.target.files?.[0])}
-          />
-        </div>
+          <Upload size={20} className="text-fuchsia-300" aria-hidden="true" />
+          <span>
+            {modification
+              ? "Ajouter des fichiers à ce document (facultatif)"
+              : fichiers.length
+                ? "Ajouter un autre fichier : verso, page suivante…"
+                : "Choisir un PDF ou une photo"}
+          </span>
+          <span className="text-micro text-slate-500">
+            ou glisse les fichiers ici · 20 Mo par fichier
+            {modification && nbExistants > 0 && ` · le document en a déjà ${nbExistants}`}
+          </span>
+        </label>
+        <input
+          id={`${ids}-fichier`}
+          type="file"
+          multiple
+          accept={ACCEPT}
+          aria-label="Fichiers à ranger"
+          className="sr-only"
+          onChange={(e) => {
+            ajouter(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      {fichiers.length > 0 && (
+        <ul className="space-y-1" aria-label="Fichiers choisis">
+          {fichiers.map((f, i) => {
+            const Icone = f.type.startsWith("image/") ? IconeImage : FileText;
+            return (
+              <li
+                key={`${f.name}-${f.size}-${f.lastModified}`}
+                className="flex items-center gap-2 rounded-lg border border-slate-800 px-3 py-1.5 text-sm"
+              >
+                <Icone size={16} className="text-slate-500 shrink-0" aria-hidden="true" />
+                <span className="flex-1 min-w-0 truncate text-slate-200">{f.name}</span>
+                <span className="text-micro text-slate-500">{formatTaille(f.size)}</span>
+                <button
+                  type="button"
+                  onClick={() => retirer(i)}
+                  aria-label={`Retirer ${f.name}`}
+                  className="text-slate-500 hover:text-slate-200"
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -211,6 +303,11 @@ function Formulaire({ initial, contracts, titreFenetre, enCours, setEnCours, onF
             onChange={champ("dateDocument")}
             className={CHAMP}
           />
+          <Suggestions
+            dates={dates?.documents}
+            valeur={v.dateDocument}
+            onChoisir={(date) => setV((s) => ({ ...s, dateDocument: date }))}
+          />
         </div>
         <div>
           <label htmlFor={`${ids}-echeance`} className={ETIQUETTE}>
@@ -223,6 +320,11 @@ function Formulaire({ initial, contracts, titreFenetre, enCours, setEnCours, onF
             value={v.echeance}
             onChange={champ("echeance")}
             className={CHAMP}
+          />
+          <Suggestions
+            dates={dates?.echeances}
+            valeur={v.echeance}
+            onChoisir={(date) => setV((s) => ({ ...s, echeance: date }))}
           />
           {garantie && (
             <button
@@ -321,14 +423,36 @@ function Formulaire({ initial, contracts, titreFenetre, enCours, setEnCours, onF
           className="rounded-lg bg-fuchsia-400 hover:bg-fuchsia-300 text-slate-950 text-sm font-semibold px-4 py-2 disabled:opacity-50"
         >
           {enCours
-            ? modification
-              ? "Enregistrement…"
-              : "Chiffrement et envoi…"
+            ? fichiers.length
+              ? "Chiffrement et envoi…"
+              : "Enregistrement…"
             : modification
               ? "Enregistrer"
               : "Chiffrer et ranger"}
         </button>
       </div>
     </form>
+  );
+}
+
+/** Dates trouvées dans le PDF, proposées sous un champ. */
+function Suggestions({ dates, valeur, onChoisir }) {
+  const proposees = (dates || []).filter((s) => s.date !== valeur);
+  if (proposees.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      <span className="text-micro text-slate-500">Dans le PDF :</span>
+      {proposees.map((s) => (
+        <button
+          key={s.date}
+          type="button"
+          title={s.contexte}
+          onClick={() => onChoisir(s.date)}
+          className="rounded-md border border-fuchsia-400/40 px-1.5 py-0.5 text-micro font-data text-fuchsia-200 hover:bg-fuchsia-400/10"
+        >
+          {dateFr(s.date)}
+        </button>
+      ))}
+    </div>
   );
 }

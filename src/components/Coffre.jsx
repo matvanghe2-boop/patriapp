@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Lock,
@@ -49,6 +49,7 @@ import {
 } from "../lib/coffre";
 import { rangerFichier, supprimerFichiers, ErreurCoffre } from "../lib/coffreFichiers";
 import { evenementAgenda, lienGoogleAgenda, fichierIcs, marquerAgenda } from "../lib/coffreAgenda";
+import { fichiersPartages, oublierPartage } from "../lib/partageCoffre";
 
 /**
  * Onglet « Coffre » : les papiers importants, chiffrés de bout en bout
@@ -207,22 +208,88 @@ function CoffreOuvert({ userId, contracts }) {
    * échec en chemin laisse au pire un fichier chiffré sans référence, jamais
    * un document qui pointe vers un fichier absent.
    */
-  const enregistrer = async (saisie, fichier) => {
+  const rangerTous = async (fichiers) => {
+    if (fichiers.length === 0) return [];
+    const cleMaitresse = await cleChiffrementActive();
+    if (!cleMaitresse)
+      throw new ErreurCoffre("Le coffre s'est verrouillé : saisis ta phrase secrète, puis réessaie.");
+    const fiches = [];
+    try {
+      for (const fichier of fichiers) fiches.push(await rangerFichier({ userId, cleMaitresse, fichier }));
+    } catch (e) {
+      // Un envoi a échoué en route : les fichiers déjà partis n'ont plus de
+      // document, on les retire plutôt que de les laisser orphelins.
+      supprimerFichiers(
+        userId,
+        fiches.map((f) => f.id)
+      ).catch(() => {});
+      throw e;
+    }
+    return fiches;
+  };
+
+  const enregistrer = async (saisie, fichiers) => {
+    const fiches = await rangerTous(fichiers);
     if (formulaire?.document) {
       const id = formulaire.document.id;
       const modifieLe = new Date().toISOString();
       modifierDocuments((liste) =>
-        liste.map((d) => (d.id === id ? { ...d, ...normaliserSaisie(saisie), modifieLe } : d))
+        liste.map((d) =>
+          d.id === id
+            ? { ...d, ...normaliserSaisie(saisie), fichiers: [...(d.fichiers || []), ...fiches], modifieLe }
+            : d
+        )
       );
-      showToast({ message: "Document mis à jour." });
+      showToast({
+        message: fiches.length ? "Document mis à jour, fichiers ajoutés." : "Document mis à jour.",
+      });
       return;
     }
-    const cleMaitresse = await cleChiffrementActive();
-    if (!cleMaitresse)
-      throw new ErreurCoffre("Le coffre s'est verrouillé : saisis ta phrase secrète, puis réessaie.");
-    const fiche = await rangerFichier({ userId, cleMaitresse, fichier });
-    modifierDocuments((liste) => [...liste, nouveauDocument(saisie, [fiche])]);
+    modifierDocuments((liste) => [...liste, nouveauDocument(saisie, fiches)]);
     showToast({ message: "Document chiffré et rangé dans le coffre." });
+  };
+
+  // Fichiers reçus par « Partager » : le formulaire s'ouvre avec eux. La file
+  // d'attente est vidée à la fermeture, qu'ils aient été rangés ou non.
+  useEffect(() => {
+    let annule = false;
+    fichiersPartages()
+      .then((fichiers) => {
+        if (!annule && fichiers.length) setFormulaire({ document: null, fichiers, partage: true });
+      })
+      .catch(() => {});
+    return () => {
+      annule = true;
+    };
+  }, []);
+
+  const fermerFormulaire = () => {
+    if (formulaire?.partage) oublierPartage().catch(() => {});
+    setFormulaire(null);
+  };
+
+  const retirerFichier = async (doc, fichier) => {
+    const ok = await confirm({
+      title: `Retirer « ${fichier.nom} » ?`,
+      message: `Ce fichier sera effacé du coffre. Le document « ${doc.titre} » garde ses autres fichiers.`,
+      confirmLabel: "Retirer",
+      danger: true,
+    });
+    if (!ok) return;
+    modifierDocuments((liste) =>
+      liste.map((d) =>
+        d.id === doc.id ? { ...d, fichiers: (d.fichiers || []).filter((f) => f.id !== fichier.id) } : d
+      )
+    );
+    try {
+      await supprimerFichiers(userId, [fichier.id]);
+      showToast({ message: "Fichier retiré." });
+    } catch {
+      showToast({
+        type: "error",
+        message: "Fichier retiré du document, mais il n'a pas pu être effacé du stockage.",
+      });
+    }
   };
 
   const supprimer = async (doc) => {
@@ -415,7 +482,8 @@ function CoffreOuvert({ userId, contracts }) {
         ouvert={formulaire !== null}
         initial={formulaire?.document || null}
         contracts={contracts}
-        onFermer={() => setFormulaire(null)}
+        fichiersInitiaux={formulaire?.fichiers}
+        onFermer={fermerFormulaire}
         onEnregistrer={enregistrer}
       />
       <FicheDocument
@@ -432,6 +500,7 @@ function CoffreOuvert({ userId, contracts }) {
           setFormulaire({ document: doc });
         }}
         onSupprimer={supprimer}
+        onRetirerFichier={retirerFichier}
       />
     </>
   );

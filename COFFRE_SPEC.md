@@ -5,8 +5,9 @@
 > impôts — avec leurs dates d'échéance et des rappels dans l'agenda du
 > téléphone.
 >
-> Statut : **spec validée le 2026-10-31. Jalon 1 (coffre de base) et jalon 2
-> (rappels) livrés, en attente du bloc SQL à exécuter dans Supabase.**
+> Statut : **spec validée le 2026-10-31. Jalons 1 (coffre de base), 2
+> (rappels) et 3 (partage Android, dates suggérées) livrés, en attente du
+> bloc SQL à exécuter dans Supabase.**
 > Cadrage fait le 2026-10-31 (décisions au §14).
 > Dernière mise à jour : 2026-10-31
 
@@ -299,8 +300,9 @@ c'est la clé K de Patrium qui enveloppe les clés de fichier.
 ```
 
 Un document peut avoir **plusieurs fichiers** (recto et verso, contrat et
-conditions générales). L'interface du jalon 1 n'en envoie qu'un à la fois,
-mais le modèle les prévoit dès le départ.
+conditions générales), dix au plus par envoi. Depuis le jalon 3, le
+formulaire en accepte plusieurs à l'ajout ; en modification, les fichiers
+choisis s'ajoutent à ceux du document, et la fiche permet d'en retirer un.
 
 Une migration (`src/lib/migrations.js`) est enregistrée pour la clé `coffre`
 dès la version 1, afin que les évolutions suivantes aient un point d'entrée.
@@ -414,17 +416,24 @@ fonctionne sur ordinateur. Types acceptés : PDF, JPEG, PNG, WebP.
 ### 9.2 Jalon 3 : Partager vers le coffre (Android)
 
 - `manifest.json` déclare un `share_target` (`POST`, `multipart/form-data`,
-  fichiers PDF et images) vers `/partage`, et un raccourci « Coffre ».
-- `sw.js` intercepte le `POST /partage`, range les fichiers reçus dans
-  IndexedDB (en attente, le temps d'une redirection) et redirige vers
-  `/#/coffre?partage=1`.
-- Le coffre lit les fichiers en attente, ouvre le formulaire « Ranger ce
-  document », puis vide la file d'attente.
-- Le nom du cache du service worker est incrémenté, comme l'exige le
-  commentaire en tête de `sw.js`.
+  fichiers PDF et images) vers `/partage`, et un raccourci « Coffre à
+  papiers » (appui long sur l'icône).
+- `sw.js` intercepte le `POST /partage` et range les fichiers reçus (dix au
+  plus) dans le cache `patrium-partage`, le temps d'une redirection vers
+  `/#/coffre/documents?partage=1`. Ce cache ne suit pas la version du
+  service worker, qui passe à `patrium-v5` : une mise à jour ne perd pas un
+  partage.
+- À l'ouverture, le coffre lit les fichiers en attente (`partageCoffre.js`),
+  ouvre le formulaire avec eux, puis **vide la file à la fermeture** du
+  formulaire, qu'ils aient été rangés ou non.
+- Coffre verrouillé ou compte déconnecté : les fichiers attendent que le
+  coffre s'ouvre.
 
-Le partage n'existe que pour l'appli **installée** sur l'écran d'accueil. Il
-n'a pas besoin de la caméra. À noter : `vercel.json` interdit actuellement la
+Le partage n'existe que pour l'appli **installée** sur l'écran d'accueil
+(Chrome sur Android ; pas sur iPhone). Il n'a pas besoin de la caméra. Entre
+leur réception et leur rangement, les fichiers partagés sont en clair dans le
+cache du navigateur, sur l'appareil, comme le fichier d'origine dans l'appli
+qui les a partagés. À noter : `vercel.json` interdit actuellement la
 caméra (`Permissions-Policy: camera=()`), ce qui compte pour le scanner intégré
 envisagé plus tard.
 
@@ -434,12 +443,18 @@ téléphone, puis supprimer le scan d'origine une fois rangé dans le coffre.
 
 ### 9.3 Jalon 3 : suggestion de dates
 
-Pour un PDF qui contient du texte : `extrairePagesPdf` (sur l'appareil), puis
-détection des dates (`12/03/2031`, `12.03.2031`, `12 mars 2031`). Celles qui
-sont proches de mots-clés (« expire », « valable jusqu'au », « échéance »,
-« garantie », « date d'effet ») sont classées en premier. Elles sont
-**proposées**, jamais appliquées sans un clic. Pas de suggestion pour une
-photo (pas d'OCR, par choix).
+Pour un PDF qui contient du texte : `texteDuPdf` (pdf.js, sur l'appareil),
+puis détection des dates (`datesDocument.js`) : `12/03/2031`, `12.03.2031`,
+`12/03/31`, `2031-03-12`, `12 mars 2031`, `1er sept. 2028`. Le mot le plus
+proche dans les 50 caractères qui précèdent décide du champ : « expire »,
+« valable jusqu'au », « échéance », « garantie »… pour l'échéance ;
+« délivré », « établi le », « facture », « date d'effet »… pour la date du
+document. Sans indice, une date future va à l'échéance et une date passée à
+la date du document, plus bas dans la liste.
+
+Les dates sont **proposées** sous chaque champ, quatre au plus, avec leur
+contexte au survol, et ne s'appliquent qu'au clic. Pas de suggestion pour une
+photo (pas d'OCR, par choix), ni pour un PDF scanné sans couche texte.
 
 ---
 
@@ -504,6 +519,7 @@ explicite. Les URL `blob:` sont révoquées à la fermeture de la fiche.
 | Sauvegarde JSON partagée par erreur | **Les fichiers, oui** | Les clés de fichier y sont enveloppées par K. Les titres et les dates, en revanche, y sont en clair. |
 | Google Agenda | **Non** (choix assumé) | Il voit le titre et la date du rappel. Un titre neutre est possible ; jamais de numéro ni de note. |
 | Appli de scan d'Android | Hors du coffre | Elle peut garder une copie du scan (voir §9.2). |
+| Fichier partagé en attente | **Non** (sur l'appareil seulement) | En clair dans le cache `patrium-partage` jusqu'à la fermeture du formulaire, qui le vide. |
 | Phrase oubliée **et** appareil perdu | **Pas avant le jalon 4** | Le code de secours y répond. D'ici là, la phrase est la seule clé. |
 | Script malveillant injecté dans la page | Atténué | La CSP existante (`script-src 'self'`) l'empêche. |
 

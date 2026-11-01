@@ -29,8 +29,14 @@
 // v3 : orbit-splash.js rapatrié à son tour (écran de chargement du réseau).
 // v4 : polices réduites au latin, et surtout FIN DU skipWaiting automatique
 //      (voir plus bas) — la mise à jour est désormais proposée, pas imposée.
-const VERSION = "patrium-v4";
+// v5 : réception du partage Android vers le coffre à papiers (voir plus bas).
+const VERSION = "patrium-v5";
 const CACHE_COQUILLE = `${VERSION}-coquille`;
+
+// Fichiers reçus par « Partager », en attente que l'onglet Coffre les range
+// (voir src/lib/partageCoffre.js, qui porte le même nom). Ce cache ne suit pas
+// la version : une mise à jour de l'application ne doit pas perdre un partage.
+const CACHE_PARTAGE = "patrium-partage";
 
 // Le strict minimum pour afficher quelque chose hors ligne. Les fragments
 // (chunks) générés par Vite portent un nom haché à chaque build : les lister
@@ -72,7 +78,9 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((noms) => Promise.all(noms.filter((n) => !n.startsWith(VERSION)).map((n) => caches.delete(n))))
+      .then((noms) =>
+        Promise.all(noms.filter((n) => !n.startsWith(VERSION) && n !== CACHE_PARTAGE).map((n) => caches.delete(n)))
+      )
       .then(() => self.clients.claim())
   );
 });
@@ -96,11 +104,48 @@ function estCoquille(url) {
   );
 }
 
+/**
+ * Partage Android vers le coffre à papiers (`share_target` du manifest).
+ *
+ * Le système envoie les fichiers en `POST /partage`. On les range tels quels
+ * dans CACHE_PARTAGE (dix au plus), puis on ouvre l'onglet Coffre, qui les
+ * chiffre et vide aussitôt ce cache. Un partage illisible ne bloque pas
+ * l'ouverture de l'application : le coffre s'ouvre simplement sans rien.
+ */
+async function recevoirPartage(request) {
+  try {
+    const donnees = await request.formData();
+    const fichiers = donnees.getAll("fichiers").filter((f) => f && typeof f === "object" && "size" in f);
+    const cache = await caches.open(CACHE_PARTAGE);
+    const arrivee = Date.now();
+    await Promise.all(
+      fichiers.slice(0, 10).map((f, i) =>
+        cache.put(
+          `/__partage/${arrivee}-${i}`,
+          new Response(f, {
+            headers: {
+              "Content-Type": f.type || "application/octet-stream",
+              "X-Nom-Fichier": encodeURIComponent(f.name || `partage-${i + 1}`),
+            },
+          })
+        )
+      )
+    );
+  } catch {
+    /* rien de lisible : le coffre s'ouvrira sans fichier en attente */
+  }
+  return Response.redirect(new URL("/#/coffre/documents?partage=1", self.location.origin).href, 303);
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET") return;
-
   const url = new URL(request.url);
+
+  if (request.method === "POST" && url.origin === self.location.origin && url.pathname === "/partage") {
+    event.respondWith(recevoirPartage(request));
+    return;
+  }
+  if (request.method !== "GET") return;
 
   // Les données de marché ne doivent jamais être servies depuis un cache local.
   if (url.pathname.startsWith("/api/")) return;

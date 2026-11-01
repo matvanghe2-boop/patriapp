@@ -10,5 +10,28 @@
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Coffre à papiers",
+      "short_name": "Coffre",
+      "description": "Ranger ou retrouver un papier",
+      "url": "/#/coffre",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "share_target": {
+    "action": "/partage",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "titre",
+      "files": [
+        {
+          "name": "fichiers",
+          "accept": ["application/pdf", "image/jpeg", "image/png", "image/webp", ".pdf", ".jpg", ".jpeg", ".png", ".webp"]
+        }
+      ]
+    }
+  }
 }

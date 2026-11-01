@@ -330,6 +330,8 @@ src/lib/compteCourant.test.js
 src/lib/contexteDonnees.js
 src/lib/correlations.js
 src/lib/correlations.test.js
+src/lib/datesDocument.js
+src/lib/datesDocument.test.js
 src/lib/decisions.js
 src/lib/decisions.test.js
 src/lib/decumulation.js
@@ -384,6 +386,8 @@ src/lib/objectifs.js
 src/lib/objectifs.test.js
 src/lib/pairs.js
 src/lib/pairs.test.js
+src/lib/partageCoffre.js
+src/lib/partageCoffre.test.js
 src/lib/patrimoineParPoche.js
 src/lib/patrimoineParPoche.test.js
 src/lib/performanceComparee.js
