@@ -506,6 +506,7 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
         {onglet === "objets" && (
           <VueObjets
             coffre={coffre}
+            userId={userId}
             aujourdhui={aujourdhui}
             onAjouter={() => setFormulaireObjet({ objet: null })}
             onModifier={(objet) => setFormulaireObjet({ objet })}

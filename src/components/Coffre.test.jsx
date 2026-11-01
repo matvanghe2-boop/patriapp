@@ -508,3 +508,59 @@ describe("Coffre — durées de conservation", () => {
     expect(await screen.findByRole("button", { name: /Licence/ })).toBeInTheDocument();
   });
 });
+
+describe("Coffre — dossier sinistre", () => {
+  beforeEach(async () => {
+    localStorage.setItem(
+      "patrimoine:coffre",
+      JSON.stringify({
+        version: 1,
+        documents: [],
+        objets: [
+          { id: "o1", nom: "Ordinateur portable", categorie: "informatique", prix: 1200, notes: "" },
+          { id: "o2", nom: "Vélo", categorie: "mobilite", prix: 800, notes: "" },
+        ],
+        reglages: { delais: {}, titreAgendaNeutre: false },
+      })
+    );
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("ouvre une page imprimable avec les seuls biens cochés", async () => {
+    const u = userEvent.setup();
+    const ecrit = [];
+    const fenetre = {
+      document: { write: (h) => ecrit.push(h), open: vi.fn(), close: vi.fn() },
+      focus: vi.fn(),
+      print: vi.fn(),
+    };
+    vi.stubGlobal("open", vi.fn(() => fenetre));
+    monter();
+
+    await u.click(await screen.findByRole("tab", { name: /Objets/ }));
+    await u.click(screen.getByRole("button", { name: "Dossier sinistre" }));
+    const modale = await screen.findByRole("dialog", { name: "Dossier sinistre" });
+    const preparer = within(modale).getByRole("button", { name: "Préparer le dossier" });
+    expect(preparer).toBeDisabled();
+    await u.click(within(modale).getByLabelText("Vélo"));
+    await u.click(preparer);
+
+    await waitFor(() => expect(fenetre.print).toHaveBeenCalled());
+    const page = ecrit.at(-1);
+    expect(page).toContain("Dossier sinistre — liste des biens");
+    expect(page).toContain("Vélo");
+    expect(page).not.toContain("Ordinateur portable");
+  });
+
+  it("prévient si le navigateur bloque la fenêtre", async () => {
+    const u = userEvent.setup();
+    vi.stubGlobal("open", vi.fn(() => null));
+    monter();
+    await u.click(await screen.findByRole("tab", { name: /Objets/ }));
+    await u.click(screen.getByRole("button", { name: "Dossier sinistre" }));
+    const modale = await screen.findByRole("dialog", { name: "Dossier sinistre" });
+    await u.click(within(modale).getByRole("button", { name: "Tout cocher" }));
+    await u.click(within(modale).getByRole("button", { name: "Préparer le dossier" }));
+    expect(await screen.findByText(/bloqué la fenêtre d'impression/)).toBeInTheDocument();
+  });
+});
