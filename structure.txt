@@ -123,6 +123,7 @@ src/App.test.jsx
 src/accessibilite.test.jsx
 src/classesCss.test.js
 src/components/Abonnements.jsx
+src/components/AbonnementsCoffre.test.jsx
 src/components/AbonnementsDetectes.jsx
 src/components/AddPositionPanel.jsx
 src/components/AgendaFinancier.jsx
@@ -155,6 +156,7 @@ src/components/CarteRepliable.test.jsx
 src/components/CascadeMensuelle.jsx
 src/components/CashPocketCard.jsx
 src/components/CentreAFaire.jsx
+src/components/ChampNumerique.test.jsx
 src/components/ChartFocusModal.jsx
 src/components/ClasserOperations.jsx
 src/components/Coffre.jsx
@@ -275,6 +277,7 @@ src/components/Timeline.jsx
 src/components/TrajectoireObjectif.jsx
 src/components/TransfertAppareil.jsx
 src/components/Watchlist.jsx
+src/components/coffre/DossierSinistre.jsx
 src/components/coffre/FicheDocument.jsx
 src/components/coffre/FormulaireDocument.jsx
 src/components/coffre/FormulaireObjet.jsx
@@ -332,6 +335,7 @@ src/lib/coffreCache.js
 src/lib/coffreCache.test.js
 src/lib/coffreFichiers.js
 src/lib/coffreFichiers.test.js
+src/lib/coffreNavigation.js
 src/lib/compact.test.js
 src/lib/compositionEtf.js
 src/lib/compteCourant.js
@@ -351,6 +355,8 @@ src/lib/dispositionDashboard.js
 src/lib/dispositionDashboard.test.js
 src/lib/dividendesAuto.js
 src/lib/dividendesAuto.test.js
+src/lib/dossierSinistre.js
+src/lib/dossierSinistre.test.js
 src/lib/doublonsAbonnements.js
 src/lib/doublonsAbonnements.test.js
 src/lib/echeances.js
