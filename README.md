@@ -376,7 +376,7 @@ Les en-têtes posés par `withApi` ne couvrent que `/api/*`. La **page**, elle, 
 | `X-Frame-Options: DENY` | doublon de `frame-ancestors` pour les navigateurs qui l'ignorent encore |
 | `X-Content-Type-Options: nosniff` | pas de deviner-le-type |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `Permissions-Policy` | caméra, micro et géolocalisation refusés — aucun n'est utilisé |
+| `Permissions-Policy` | caméra réservée à Patrium lui-même (`camera=(self)`), pour lire les QR codes de « Transférer vers un autre appareil » ; micro et géolocalisation refusés — aucun n'est utilisé |
 
 Trois assouplissements, et seulement trois :
 
