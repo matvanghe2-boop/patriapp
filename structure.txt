@@ -206,6 +206,7 @@ src/components/MenuActions.jsx
 src/components/MesDecisions.jsx
 src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
+src/components/Modal.test.jsx
 src/components/ModePresentation.jsx
 src/components/Montant.jsx
 src/components/MouvementsDepuisReleve.jsx
@@ -244,6 +245,7 @@ src/components/ReconstitutionCourbe.jsx
 src/components/Reequilibrage.jsx
 src/components/ReglagesApparence.jsx
 src/components/ReglagesChiffrement.jsx
+src/components/ReglagesChiffrement.test.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
 src/components/ReglagesLivret.jsx

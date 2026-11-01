@@ -96,11 +96,19 @@ export async function creerConfiguration(phrase) {
   };
 }
 
-/** Clé de la phrase si elle est la bonne, `null` sinon. */
+/**
+ * Clé de la phrase si elle est la bonne, `null` sinon.
+ *
+ * Deux formes de configuration coexistent (voir « Version 2 » plus bas) : sans
+ * enveloppe `phrase`, la clé SE DÉRIVE de la phrase, comme depuis le début ;
+ * avec, la phrase ouvre l'enveloppe qui contient la clé.
+ */
 export async function verifierPhrase(phrase, config) {
-  if (!config?.sel || !config?.temoin) return null;
+  if (!config?.temoin || (!config.phrase && !config.sel)) return null;
   try {
-    const cle = await deriverCle(phrase, config.sel, config.iterations);
+    const cle = config.phrase
+      ? await ouvrirEnveloppe(phrase, config.phrase)
+      : await deriverCle(phrase, config.sel, config.iterations);
     return (await dechiffrer(cle, config.temoin)) === TEMOIN ? cle : null;
   } catch {
     return null;
@@ -123,4 +131,88 @@ export async function exporterCle(cle) {
 
 export async function importerCle(texte) {
   return crypto.subtle.importKey("raw", depuisBase64(texte), { name: "AES-GCM" }, true, ["encrypt", "decrypt"]);
+}
+
+// ─── Version 2 : clé enveloppée, code de secours ────────────────────────────
+//
+// En version 1, la clé EST la dérivée de la phrase : oublier la phrase, c'est
+// perdre la clé, et changer de phrase obligerait à tout rechiffrer.
+//
+// La version 2 garde exactement la même clé — rien n'est rechiffré, le témoin
+// ne change pas — et la range dans des enveloppes : une ouverte par la phrase
+// (`phrase`), une ouverte par le code de secours (`secours`). N'importe
+// laquelle des deux rend la clé. Une configuration v1 n'a aucune enveloppe et
+// reste lisible telle quelle ; elle gagne :
+//
+//  · `secours` à la création d'un code de secours, sans toucher à la phrase ;
+//  · `phrase` au premier changement de phrase. Dès lors, l'ancienne phrase ne
+//    dérive plus rien d'utile : seule l'enveloppe fait foi.
+//
+// Le code de secours compte 25 caractères tirés d'un alphabet de 31 (environ
+// 124 bits) : comme la phrase, il passe par PBKDF2, et il est hors de portée
+// d'une recherche exhaustive.
+
+/** Sans I, L, O, 0 ni 1, qui se confondent à la lecture d'un papier. */
+const ALPHABET_SECOURS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const LONGUEUR_SECOURS = 25;
+
+/** Code de secours tiré au hasard, affiché en cinq groupes : « ABCDE-FGHJK-… ». */
+export function genererCodeSecours() {
+  let code = "";
+  // Tirage par rejet : pas de biais modulo vers les premiers caractères.
+  const limite = 256 - (256 % ALPHABET_SECOURS.length);
+  while (code.length < LONGUEUR_SECOURS) {
+    for (const octet of aleatoire(LONGUEUR_SECOURS * 2)) {
+      if (octet < limite && code.length < LONGUEUR_SECOURS) code += ALPHABET_SECOURS[octet % ALPHABET_SECOURS.length];
+    }
+  }
+  return code.match(/.{5}/g).join("-");
+}
+
+/** Ce que tape l'utilisateur, sans tirets, espaces ni minuscules. */
+export const normaliserCodeSecours = (saisie) =>
+  String(saisie || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+/** Enveloppe la clé avec un secret (phrase ou code) : `{ sel, iterations, cle }`. */
+async function envelopper(cle, secret) {
+  const sel = versBase64(aleatoire(16));
+  const cleDuSecret = await deriverCle(secret, sel);
+  const brute = versBase64(new Uint8Array(await crypto.subtle.exportKey("raw", cle)));
+  return { sel, iterations: ITERATIONS_PBKDF2, cle: await chiffrer(cleDuSecret, brute) };
+}
+
+/** Rend la clé d'une enveloppe ; lève une erreur si le secret n'est pas le bon. */
+async function ouvrirEnveloppe(secret, enveloppe) {
+  const cleDuSecret = await deriverCle(secret, enveloppe.sel, enveloppe.iterations);
+  return importerCle(await dechiffrer(cleDuSecret, enveloppe.cle));
+}
+
+/**
+ * Crée (ou remplace) le code de secours de la clé `cle`.
+ * @returns {Promise<{ code: string, config: object }>} le code, à montrer UNE
+ *   fois, et la configuration complétée de son enveloppe.
+ */
+export async function ajouterCodeSecours(cle, config) {
+  const code = genererCodeSecours();
+  const secours = { ...(await envelopper(cle, normaliserCodeSecours(code))), creeLe: new Date().toISOString() };
+  return { code, config: { ...config, version: 2, secours } };
+}
+
+/** Clé rendue par le code de secours s'il est le bon, `null` sinon. */
+export async function verifierCodeSecours(code, config) {
+  if (!config?.secours || !config?.temoin) return null;
+  try {
+    const cle = await ouvrirEnveloppe(normaliserCodeSecours(code), config.secours);
+    return (await dechiffrer(cle, config.temoin)) === TEMOIN ? cle : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Nouvelle phrase pour la même clé : seule l'enveloppe `phrase` change, aucune donnée n'est rechiffrée. */
+export async function remplacerPhrase(cle, nouvellePhrase, config) {
+  if (!(await cleCorrespond(cle, config))) throw new Error("Cette clé ne correspond pas à la configuration.");
+  return { ...config, version: 2, phrase: await envelopper(cle, nouvellePhrase) };
 }
