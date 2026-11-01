@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Lock,
@@ -53,6 +53,7 @@ import {
 import { rangerFichier, supprimerFichiers, ErreurCoffre } from "../lib/coffreFichiers";
 import { evenementAgenda, lienGoogleAgenda, fichierIcs, marquerAgenda } from "../lib/coffreAgenda";
 import { fichiersPartages, oublierPartage } from "../lib/partageCoffre";
+import { prendreDemande, abonnerDemandes } from "../lib/coffreNavigation";
 import { nouvelObjet, normaliserObjet, objetDepuisFacture } from "../lib/inventaire";
 import VueObjets from "./coffre/VueObjets";
 import FormulaireObjet from "./coffre/FormulaireObjet";
@@ -194,10 +195,32 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
   const [recherche, setRecherche] = useState("");
   // null : fermé ; { document: null } : ajout ; { document } : modification.
   const [formulaire, setFormulaire] = useState(null);
-  const [ouvertId, setOuvertId] = useState(null);
+  // Papier ou objet demandé depuis ailleurs (palette Ctrl+K, Abonnements),
+  // pris à l'ouverture de l'onglet ; voir coffreNavigation.js.
+  const [demandeInitiale] = useState(prendreDemande);
+  const [ouvertId, setOuvertId] = useState(demandeInitiale?.document ?? null);
   const [onglet, setOnglet] = useSousOnglet(["documents", "echeances", "objets", "reglages"], "documents");
   // null : fermé ; { objet: null, saisie? } : ajout ; { objet } : modification.
-  const [formulaireObjet, setFormulaireObjet] = useState(null);
+  const [formulaireObjet, setFormulaireObjet] = useState(() => {
+    const objet = demandeInitiale?.objet && (coffre.objets || []).find((o) => o.id === demandeInitiale.objet);
+    return objet ? { objet } : null;
+  });
+
+  // Demande arrivée pendant que l'onglet est déjà affiché.
+  const coffreRef = useRef(coffre);
+  useEffect(() => {
+    coffreRef.current = coffre;
+  });
+  useEffect(
+    () =>
+      abonnerDemandes(() => {
+        const d = prendreDemande();
+        if (d?.document) setOuvertId(d.document);
+        const objet = d?.objet && (coffreRef.current.objets || []).find((o) => o.id === d.objet);
+        if (objet) setFormulaireObjet({ objet });
+      }),
+    []
+  );
 
   const documents = coffre.documents;
   const { aTraiter, groupes } = useMemo(

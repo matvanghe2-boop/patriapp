@@ -156,4 +156,28 @@ describe("index de recherche", () => {
     expect(parId["note-n"].libelle).toBe("AI.PA — Air Liquide");
     expect(index.find((i) => i.cle.includes("assurance"))).toBeTruthy();
   });
+
+  it("indexe les papiers et les objets du coffre, notes comprises, avec la fiche à ouvrir", () => {
+    const index = construireIndex({
+      coffre: {
+        documents: [
+          { id: "d", type: "passeport", titre: "Passeport", echeance: "2031-03-11", notes: "n° 12AB34567", fichiers: [] },
+        ],
+        objets: [{ id: "o", nom: "Lave-linge", categorie: "electromenager", numeroSerie: "WAN28", notes: "Darty" }],
+      },
+    });
+    const parId = Object.fromEntries(index.map((i) => [i.id, i]));
+    expect(parId["coffre-d"]).toMatchObject({
+      onglet: "coffre",
+      sous: "documents",
+      ouvrir: { document: "d" },
+      libelle: "Passeport",
+      detail: "Passeport · échéance 2031-03-11",
+    });
+    expect(parId["objet-o"]).toMatchObject({ sous: "objets", ouvrir: { objet: "o" }, detail: "Électroménager · WAN28" });
+    // Les notes se cherchent sans s'afficher.
+    expect(index.find((i) => i.cle.includes("12ab34567"))?.id).toBe("coffre-d");
+    expect(index.find((i) => i.cle.includes("darty"))?.id).toBe("objet-o");
+    expect(construireIndex({ coffre: null })).toEqual([]);
+  });
 });
