@@ -1,8 +1,10 @@
 import { useMemo, useState, useId } from "react";
-import { useSousOnglet } from "../lib/useHashRoute";
+import { useSousOnglet, allerVers } from "../lib/useHashRoute";
+import { COFFRE_VIDE, estCoffre, contratLie } from "../lib/coffre";
+import { demanderOuverture } from "../lib/coffreNavigation";
 import {
   FileText, Repeat, AlertTriangle, CalendarDays, X, Check, Pencil, Trash2, Ban, RotateCcw, PiggyBank,
-  Sparkles, Scissors, CircleCheck, Flag,
+  Sparkles, Scissors, CircleCheck, Flag, Vault,
 } from "lucide-react";
 import { Card, CardLabel, GhostButton, PageGlow, PastilleEtat, SectionRepliable, CARD_THEMES } from "./ui";
 import EtatVide from "./EtatVide";
@@ -106,6 +108,15 @@ function BoutonsFormulaire({ onAnnuler, libelle = "Enregistrer" }) {
 
 function ContractsModule({ contracts, setContracts }) {
   const { showToast } = useToast();
+  // Papiers du coffre liés à un contrat (contrat d'assurance, bail) : le lien
+  // se fait depuis le coffre, on le rend visible ici dans l'autre sens.
+  const [coffre] = usePersistentState("coffre", COFFRE_VIDE);
+  const papiersDe = (contrat) =>
+    (estCoffre(coffre) ? coffre.documents : []).filter((d) => contratLie(d, [contrat]));
+  const ouvrirPapier = (id) => {
+    demanderOuverture({ document: id });
+    allerVers("coffre", "documents");
+  };
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -174,6 +185,17 @@ function ContractsModule({ contracts, setContracts }) {
                       {c.category} · fin d'engagement {formatDateFr(c.date_fin)}
                       {c.notes && ` · ${c.notes}`}
                     </span>
+                    {papiersDe(c).map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => ouvrirPapier(d.id)}
+                        className="mt-1 inline-flex items-center gap-1 mr-3 text-micro text-fuchsia-300 hover:underline"
+                      >
+                        <Vault size={12} aria-hidden="true" />
+                        Dans le coffre : {d.titre}
+                      </button>
+                    ))}
                   </span>
                   <span className="shrink-0 text-right">
                     <span className="block text-micro text-slate-500">Résilier avant le</span>
