@@ -277,6 +277,7 @@ src/components/Watchlist.jsx
 src/components/coffre/FicheDocument.jsx
 src/components/coffre/FormulaireDocument.jsx
 src/components/coffre/ReglagesCoffre.jsx
+src/components/coffre/StockageCoffre.jsx
 src/components/coffre/VueEcheances.jsx
 src/components/gestes.jsx
 src/components/graphiques.jsx
@@ -322,6 +323,10 @@ src/lib/coffre.js
 src/lib/coffre.test.js
 src/lib/coffreAgenda.js
 src/lib/coffreAgenda.test.js
+src/lib/coffreArchive.js
+src/lib/coffreArchive.test.js
+src/lib/coffreCache.js
+src/lib/coffreCache.test.js
 src/lib/coffreFichiers.js
 src/lib/coffreFichiers.test.js
 src/lib/compact.test.js

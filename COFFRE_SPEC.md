@@ -6,8 +6,9 @@
 > téléphone.
 >
 > Statut : **spec validée le 2026-10-31. Jalons 1 (coffre de base), 2
-> (rappels), 3 (partage Android, dates suggérées) et 4 (code de secours)
-> livrés, en attente du bloc SQL à exécuter dans Supabase.**
+> (rappels), 3 (partage Android, dates suggérées), 4 (code de secours) et 5
+> (hors ligne, ménage, archive) livrés, en attente du bloc SQL à exécuter
+> dans Supabase.**
 > Cadrage fait le 2026-10-31 (décisions au §14).
 > Dernière mise à jour : 2026-10-31
 
@@ -237,11 +238,43 @@ en `connect-src`, et `blob:` en `img-src` pour l'aperçu des images.
   et sans référence, mais aucune métadonnée ne pointe vers un fichier absent.
 - **Suppression** : retirer les métadonnées, **puis** supprimer le fichier. Un
   échec laisse là aussi un orphelin.
-- Les orphelins se nettoient depuis « Santé des données » (jalon 5) : les
-  fichiers du dossier que plus aucun document ne référence.
-- **« Tout réinitialiser »** vide d'abord tout le dossier `coffre/<user_id>/`,
-  puis efface les données : sans cela, des scans de pièces d'identité
-  resteraient dans le stockage.
+- Les orphelins se nettoient dans **Réglages → Stockage** (« Vérifier le
+  stockage »), plutôt que dans « Santé des données », dont les contrôles
+  sont locaux et instantanés alors que celui-ci interroge le stockage. Ne
+  comptent que les fichiers non référencés **de plus de 24 heures** : un
+  fichier tout juste envoyé depuis un autre appareil peut précéder de
+  quelques instants la synchronisation de son document. La même vérification
+  signale les fichiers référencés mais absents du stockage, que seule une
+  archive peut rendre.
+- **« Tout réinitialiser »** vide d'abord tout le dossier `coffre/<user_id>/`
+  et les copies gardées sur l'appareil, puis efface les données : sans cela,
+  des scans de pièces d'identité resteraient dans le stockage.
+
+### 4.4 Hors ligne (jalon 5)
+
+Les octets **chiffrés** de chaque fichier ouvert ou rangé sont gardés dans
+IndexedDB (`coffreCache.js`), tels qu'ils sont dans le bucket. Sans réseau,
+la fiche les déchiffre depuis l'appareil : la carte de mutuelle reste
+consultable à la pharmacie. « Tout garder maintenant » copie d'un coup les
+fichiers manquants. Le réglage est propre à l'appareil (localStorage, hors
+synchronisation), actif par défaut, et demande au navigateur un stockage
+persistant. Sans IndexedDB, le coffre retélécharge simplement à chaque
+ouverture.
+
+### 4.5 Archive de sauvegarde (jalon 5)
+
+Les sauvegardes JSON de Patrium ne contiennent que les métadonnées du coffre.
+L'**archive** (`coffreArchive.js`, Réglages → Archive de sauvegarde) contient
+tout, sans rien de lisible : les métadonnées chiffrées par la clé de Patrium,
+et les fichiers tels qu'ils sont dans le stockage. On la range où l'on veut,
+hors de Supabase.
+
+La **restauration** demande la même clé (phrase ou code de secours ; la clé ne
+change pas avec la phrase). Elle renvoie d'abord dans le stockage chaque
+fichier référencé qui y manque, puis rend les documents absents du coffre.
+Rien de ce qui existe n'est écrasé : un document présent garde sa version
+actuelle. Une archive d'un autre compte, abîmée ou d'une version future est
+refusée avec un message clair.
 
 ---
 
@@ -598,12 +631,9 @@ dans `src/App.jsx`, `src/lib/storage.js` (`verrouillerCetAppareil`),
 
 ## 13. Points ouverts
 
-1. **Sauvegarde des fichiers.** Les sauvegardes JSON de Patrium ne contiennent
-   que les métadonnées. Faut-il une « exportation du coffre » (archive des
-   fichiers, toujours chiffrés) contre une suppression accidentelle ou
-   malveillante ? Proposé : au jalon 5.
-
-Les autres points ont été tranchés à la validation (§14).
+Aucun. Les points soulevés au cadrage ont été tranchés à la validation
+(§14) ; la sauvegarde des fichiers a pris la forme de l'archive du jalon 5
+(§4.5).
 
 ---
 

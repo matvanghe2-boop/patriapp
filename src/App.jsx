@@ -474,6 +474,9 @@ export default function App() {
       if (user) {
         const { viderCoffreCloud } = await import("./lib/coffreFichiers");
         await viderCoffreCloud(user.id);
+        // Copies chiffrées gardées pour la consultation hors ligne.
+        const { viderCache } = await import("./lib/coffreCache");
+        await viderCache();
       }
       await clearCloudData(STORAGE_KEYS);
     } catch {

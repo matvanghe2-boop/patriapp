@@ -26,7 +26,13 @@ vi.mock("./supabaseClient", () => ({
           return { error: null };
         },
         list: async (dossier) => ({
-          data: [...objets.keys()].filter((c) => c.startsWith(`${dossier}/`)).map((c) => ({ name: c.slice(dossier.length + 1) })),
+          data: [...objets.keys()]
+            .filter((c) => c.startsWith(`${dossier}/`))
+            .map((c) => ({
+              name: c.slice(dossier.length + 1),
+              metadata: { size: objets.get(c).length },
+              created_at: "2026-10-01T08:00:00.000Z",
+            })),
           error: null,
         }),
       }),
@@ -36,7 +42,7 @@ vi.mock("./supabaseClient", () => ({
 
 const {
   chiffrerFichier, dechiffrerFichier, rangerFichier, ouvrirFichier, supprimerFichiers, viderCoffreCloud,
-  messageErreurStockage, cheminFichier, ErreurCoffre,
+  messageErreurStockage, cheminFichier, ErreurCoffre, listerFichiersCloud, orphelinsDuStockage,
 } = await import("./coffreFichiers");
 
 const encodeur = new TextEncoder();
@@ -134,5 +140,29 @@ describe("messageErreurStockage", () => {
     expect(messageErreurStockage({ message: "The object exceeded the maximum allowed size" })).toMatch(/20 Mo/);
     expect(messageErreurStockage({ message: "Failed to fetch" })).toMatch(/réseau/);
     expect(messageErreurStockage({ message: "Teapot" })).toMatch(/Teapot/);
+  });
+});
+
+describe("ménage du stockage", () => {
+  const fichier = () => new File([encodeur.encode(TEXTE)], "passeport.pdf", { type: "application/pdf" });
+
+  it("liste les fichiers du dossier avec leur taille et leur date", async () => {
+    const fiche = await rangerFichier({ userId: "u1", cleMaitresse: cle, fichier: fichier() });
+    objets.set("u1/.emptyFolderPlaceholder", new Uint8Array());
+    expect(await listerFichiersCloud("u1")).toEqual([
+      { id: fiche.id, taille: encodeur.encode(TEXTE).length + 29, creeLe: "2026-10-01T08:00:00.000Z" },
+    ]);
+  });
+
+  it("ne tient pour orphelins que les fichiers non référencés de plus de 24 heures", () => {
+    const documents = [{ id: "d", fichiers: [{ id: "f_garde" }] }];
+    const cloud = [
+      { id: "f_garde", taille: 10, creeLe: "2026-10-01T08:00:00.000Z" },
+      { id: "f_vieux", taille: 20, creeLe: "2026-10-01T08:00:00.000Z" },
+      { id: "f_recent", taille: 30, creeLe: "2026-11-02T07:00:00.000Z" },
+      { id: "f_sans_date", taille: 40, creeLe: null },
+    ];
+    const orphelins = orphelinsDuStockage(documents, cloud, { maintenant: Date.parse("2026-11-02T10:00:00.000Z") });
+    expect(orphelins.map((o) => o.id)).toEqual(["f_vieux"]);
   });
 });

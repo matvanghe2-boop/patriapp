@@ -59,6 +59,12 @@ vi.mock("../lib/supabaseClient", () => ({
           chemins.forEach((c) => objets.delete(c));
           return { error: null };
         },
+        list: async (dossier) => ({
+          data: [...objets.keys()]
+            .filter((c) => c.startsWith(`${dossier}/`))
+            .map((c) => ({ name: c.slice(dossier.length + 1), metadata: { size: objets.get(c).length } })),
+          error: null,
+        }),
       }),
     },
     auth: {
@@ -323,5 +329,48 @@ describe("Coffre — plusieurs fichiers, partage et dates du PDF", () => {
     await utilisateurEvt.click(within(fenetre).getByRole("button", { name: "Annuler" }));
     expect(oublierPartage).toHaveBeenCalled();
     expect(objets.size).toBe(0);
+  });
+});
+
+describe("Coffre — archive de sauvegarde", () => {
+  beforeEach(async () => {
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("exporte une archive, puis la restaure après la suppression d'un papier", async () => {
+    const u = userEvent.setup();
+    const telecharger = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    monter();
+
+    await u.click(await screen.findByRole("button", { name: /Ranger un premier papier/ }));
+    const fenetre = await screen.findByRole("dialog");
+    await u.upload(within(fenetre).getByLabelText("Fichiers à ranger"), new File([CONTENU], "carte.png", { type: "image/png" }));
+    await u.click(within(fenetre).getByRole("button", { name: "Chiffrer et ranger" }));
+    await waitFor(() => expect(objets.size).toBe(1));
+
+    await u.click(screen.getByRole("tab", { name: /Réglages/ }));
+    await u.click(screen.getByRole("button", { name: /Exporter l'archive/ }));
+    await screen.findByText(/Archive enregistrée/);
+    const archive = await URL.createObjectURL.mock.calls.at(-1)[0].text();
+    expect(archive).not.toContain("carte.png");
+
+    await u.click(screen.getByRole("tab", { name: /Documents/ }));
+    await u.click(await screen.findByRole("button", { name: /Carte d'identité/ }));
+    await u.click(await screen.findByRole("button", { name: "Supprimer" }));
+    await u.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Supprimer" }));
+    await waitFor(() => expect(objets.size).toBe(0));
+
+    await u.click(screen.getByRole("tab", { name: /Réglages/ }));
+    await u.upload(
+      screen.getByLabelText("Archive à restaurer"),
+      new File([archive], "coffre.patrium-coffre.json", { type: "application/json" })
+    );
+    await u.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Restaurer" }));
+    expect(await screen.findByText("1 document restauré, 1 fichier renvoyé.")).toBeInTheDocument();
+    expect(objets.size).toBe(1);
+
+    await u.click(screen.getByRole("tab", { name: /Documents/ }));
+    expect(await screen.findByRole("button", { name: /Carte d'identité/ })).toBeInTheDocument();
+    telecharger.mockRestore();
   });
 });

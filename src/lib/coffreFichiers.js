@@ -1,5 +1,6 @@
 import { chiffrer, dechiffrer, versBase64, depuisBase64 } from "./chiffrement";
 import { supabase } from "./supabaseClient";
+import { lireEnCache, mettreEnCache, retirerDuCache } from "./coffreCache";
 
 /**
  * Coffre à papiers — chiffrement et stockage des fichiers (COFFRE_SPEC.md, §3
@@ -109,6 +110,16 @@ function bucket() {
   return supabase.storage.from(BUCKET);
 }
 
+/** Envoie des octets DÉJÀ CHIFFRÉS sous l'identifiant donné (nouvel envoi ou restauration d'archive). */
+export async function envoyerOctets(userId, id, octets) {
+  const { error } = await bucket().upload(cheminFichier(userId, id), new Blob([octets]), {
+    contentType: "application/octet-stream",
+    upsert: false,
+  });
+  if (error) throw new ErreurCoffre(messageErreurStockage(error));
+  await mettreEnCache(id, octets);
+}
+
 /**
  * Chiffre un fichier et l'envoie.
  * @returns {Promise<object>} sa fiche pour les métadonnées du document : `{ id, nom, mime, taille, cle }`.
@@ -116,19 +127,27 @@ function bucket() {
 export async function rangerFichier({ userId, cleMaitresse, fichier }) {
   const { octets, cle } = await chiffrerFichier(cleMaitresse, new Uint8Array(await fichier.arrayBuffer()));
   const id = `f_${crypto.randomUUID()}`;
-  const { error } = await bucket().upload(cheminFichier(userId, id), new Blob([octets]), {
-    contentType: "application/octet-stream",
-    upsert: false,
-  });
-  if (error) throw new ErreurCoffre(messageErreurStockage(error));
+  await envoyerOctets(userId, id, octets);
   return { id, nom: fichier.name, mime: fichier.type, taille: fichier.size, cle };
 }
 
-/** Télécharge et déchiffre un fichier du coffre ; rend un `Blob` de son type d'origine. */
-export async function ouvrirFichier({ userId, cleMaitresse, fichier }) {
-  const { data, error } = await bucket().download(cheminFichier(userId, fichier.id));
+/**
+ * Octets chiffrés d'un fichier : depuis l'appareil s'il y est gardé, sinon
+ * depuis le stockage (et gardés au passage, si le réglage le permet).
+ */
+export async function octetsChiffres(userId, fichierId) {
+  const local = await lireEnCache(fichierId);
+  if (local) return local;
+  const { data, error } = await bucket().download(cheminFichier(userId, fichierId));
   if (error) throw new ErreurCoffre(messageErreurStockage(error));
-  const clair = await dechiffrerFichier(cleMaitresse, fichier.cle, new Uint8Array(await data.arrayBuffer()));
+  const octets = new Uint8Array(await data.arrayBuffer());
+  await mettreEnCache(fichierId, octets);
+  return octets;
+}
+
+/** Ouvre et déchiffre un fichier du coffre ; rend un `Blob` de son type d'origine. */
+export async function ouvrirFichier({ userId, cleMaitresse, fichier }) {
+  const clair = await dechiffrerFichier(cleMaitresse, fichier.cle, await octetsChiffres(userId, fichier.id));
   return new Blob([clair], { type: fichier.mime || "application/octet-stream" });
 }
 
@@ -136,6 +155,54 @@ export async function supprimerFichiers(userId, ids) {
   if (!ids.length) return;
   const { error } = await bucket().remove(ids.map((id) => cheminFichier(userId, id)));
   if (error) throw new ErreurCoffre(messageErreurStockage(error));
+  await retirerDuCache(ids);
+}
+
+/**
+ * Tous les fichiers du dossier de l'utilisateur dans le stockage :
+ * `{ id, taille, creeLe }`. Le bucket jamais créé se lit comme un dossier vide.
+ */
+export async function listerFichiersCloud(userId) {
+  const PAGE = 1000;
+  const fichiers = [];
+  for (let offset = 0; offset < 100 * PAGE; offset += PAGE) {
+    const { data, error } = await bucket().list(userId, { limit: PAGE, offset });
+    if (error && /bucket not found/i.test(error.message || "")) return [];
+    if (error) throw new ErreurCoffre(messageErreurStockage(error));
+    for (const o of data || []) {
+      if (!o?.name?.endsWith(".bin")) continue;
+      fichiers.push({
+        id: o.name.slice(0, -".bin".length),
+        taille: Number(o.metadata?.size) || 0,
+        creeLe: o.created_at || null,
+      });
+    }
+    if (!data || data.length < PAGE) break;
+  }
+  return fichiers;
+}
+
+/**
+ * Fichiers du stockage qu'aucun document ne référence plus (envoi interrompu,
+ * suppression dont la seconde moitié a échoué).
+ *
+ * Seuls ceux de plus de 24 heures comptent : un fichier tout juste envoyé
+ * depuis un autre appareil peut précéder de quelques instants la
+ * synchronisation de son document. Le prendre pour un orphelin ferait effacer
+ * un papier qu'on vient de ranger.
+ */
+export function orphelinsDuStockage(
+  documents,
+  fichiersCloud,
+  { maintenant = Date.now(), delaiHeures = 24 } = {}
+) {
+  const references = new Set(documents.flatMap((d) => (d?.fichiers || []).map((f) => f.id)));
+  const limite = maintenant - delaiHeures * 3600 * 1000;
+  return fichiersCloud.filter((f) => {
+    if (references.has(f.id)) return false;
+    const date = f.creeLe ? Date.parse(f.creeLe) : NaN;
+    return Number.isFinite(date) && date < limite;
+  });
 }
 
 /**

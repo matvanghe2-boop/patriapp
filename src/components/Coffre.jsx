@@ -20,6 +20,7 @@ import FormulaireDocument from "./coffre/FormulaireDocument";
 import FicheDocument from "./coffre/FicheDocument";
 import VueEcheances from "./coffre/VueEcheances";
 import ReglagesCoffre from "./coffre/ReglagesCoffre";
+import StockageCoffre from "./coffre/StockageCoffre";
 import OngletsGlissants from "./OngletsGlissants";
 import { useSousOnglet } from "../lib/useHashRoute";
 import { useAuth } from "../lib/AuthContext";
@@ -439,7 +440,12 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
             onOuvrir={setOuvertId}
           />
         )}
-        {onglet === "reglages" && <ReglagesCoffre reglages={coffre.reglages} onChange={changerReglages} />}
+        {onglet === "reglages" && (
+          <>
+            <ReglagesCoffre reglages={coffre.reglages} onChange={changerReglages} />
+            <StockageCoffre userId={userId} coffre={coffre} setCoffre={setCoffre} />
+          </>
+        )}
         {onglet === "documents" &&
           (documents.length === 0 ? (
             <Card>
