@@ -6,8 +6,8 @@
 > téléphone.
 >
 > Statut : **spec validée le 2026-10-31. Jalons 1 (coffre de base), 2
-> (rappels) et 3 (partage Android, dates suggérées) livrés, en attente du
-> bloc SQL à exécuter dans Supabase.**
+> (rappels), 3 (partage Android, dates suggérées) et 4 (code de secours)
+> livrés, en attente du bloc SQL à exécuter dans Supabase.**
 > Cadrage fait le 2026-10-31 (décisions au §14).
 > Dernière mise à jour : 2026-10-31
 
@@ -520,21 +520,44 @@ explicite. Les URL `blob:` sont révoquées à la fermeture de la fiche.
 | Google Agenda | **Non** (choix assumé) | Il voit le titre et la date du rappel. Un titre neutre est possible ; jamais de numéro ni de note. |
 | Appli de scan d'Android | Hors du coffre | Elle peut garder une copie du scan (voir §9.2). |
 | Fichier partagé en attente | **Non** (sur l'appareil seulement) | En clair dans le cache `patrium-partage` jusqu'à la fermeture du formulaire, qui le vide. |
-| Phrase oubliée **et** appareil perdu | **Pas avant le jalon 4** | Le code de secours y répond. D'ici là, la phrase est la seule clé. |
+| Phrase oubliée **et** appareil perdu | **Oui, avec le code de secours** | Le code rouvre la clé et fait choisir une nouvelle phrase. Sans code créé, la phrase reste la seule clé. |
+| Code de secours trouvé par un tiers | **Non** | Il ouvre tout, comme la phrase : à ranger comme un double de clé, et à remplacer s'il a pu être vu. |
 | Script malveillant injecté dans la page | Atténué | La CSP existante (`script-src 'self'`) l'empêche. |
 
 ### Code de secours (jalon 4)
 
-À la création, un code aléatoire (128 bits, affiché en groupes lisibles, à
-imprimer ou à noter) **enveloppe la clé maîtresse K**. Avec ce code, on rouvre
-le coffre et on choisit une nouvelle phrase.
+Un code aléatoire de 25 caractères (alphabet de 31 signes sans I, L, O, 0 ni
+1, soit environ 124 bits), affiché en cinq groupes (« ABCDE-FGHJK-… »),
+**enveloppe la clé maîtresse K**. Il n'est montré qu'une fois, à noter sur
+papier, hors du coffre et de Patrium ; seule son enveloppe part dans le cloud.
+Avec ce code, un appareil verrouillé se rouvre, et une nouvelle phrase
+remplace aussitôt l'ancienne.
 
-Cela fait évoluer la configuration de chiffrement de Patrium vers une
-**version 2** : K n'est plus dérivée directement de la phrase, elle est
-enveloppée deux fois, par une clé tirée de la phrase et par une clé tirée du
-code de secours. La migration est sans perte : la K actuelle (exportable)
-devient la clé maîtresse, et seules ses enveloppes sont créées. Tout Patrium en
-profite, et changer de phrase devient possible sans tout rechiffrer.
+La configuration de chiffrement de Patrium passe en **version 2**, sans rien
+rechiffrer : K reste la même, et le témoin aussi.
+
+- **Création du code** : la configuration gagne une enveloppe `secours`
+  (sel, itérations, K chiffrée par la clé tirée du code). La phrase continue
+  de dériver K comme avant. Créer un nouveau code remplace l'enveloppe, et
+  l'ancien code cesse de servir.
+- **Changement de phrase** (appareil déverrouillé, ou après le code) : la
+  configuration gagne une enveloppe `phrase`. Dès lors, la phrase ouvre
+  l'enveloppe au lieu de dériver K, et l'ancienne phrase ne sert plus à rien.
+- **Les autres appareils** gardent K : rien ne change pour eux. Une version de
+  Patrium antérieure au jalon 4 ne saurait pas lire une enveloppe `phrase`, et
+  demanderait en vain l'ancienne phrase ; l'application se met à jour d'elle-même.
+
+Le panneau « Chiffrement de bout en bout » porte ces trois gestes. Le coffre
+affiche un bandeau tant qu'aucun code n'a été créé, et l'écran « Coffre
+verrouillé » rappelle que le code existe. Le code se trouve dans
+`chiffrement.js` (« Version 2 ») et `storage.js` (`creerCodeSecours`,
+`changerPhraseSecrete`, `deverrouillerAvecCodeSecours`).
+
+**Correction en passant** : `Modal` relançait son effet de focus à chaque
+nouveau `onClose`, donc à chaque frappe dans un champ dont l'état vivait chez
+le parent. Le focus sautait sur « Fermer » et une espace refermait la fenêtre,
+ce qui rendait la saisie d'une phrase secrète quasi impossible au clavier.
+L'effet ne dépend plus que de `open`.
 
 ### Plus tard
 

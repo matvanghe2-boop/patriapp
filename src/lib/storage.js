@@ -18,6 +18,9 @@ import {
   cleCorrespond,
   exporterCle,
   importerCle,
+  ajouterCodeSecours,
+  verifierCodeSecours,
+  remplacerPhrase,
 } from "./chiffrement";
 
 const PREFIX = "patrimoine:";
@@ -106,10 +109,15 @@ const CLE_LOCALE_CHIFFREMENT = "patrimoine:__cleChiffrement";
 
 let chiffrement = { config: null, cle: null, operationEnCours: false };
 const abonnesChiffrement = new Set();
-let etatChiffrement = { actif: false, verrouille: false };
+let etatChiffrement = { actif: false, verrouille: false, codeSecours: null };
 
 function notifierChiffrement() {
-  etatChiffrement = { actif: !!chiffrement.config, verrouille: !!chiffrement.config && !chiffrement.cle };
+  etatChiffrement = {
+    actif: !!chiffrement.config,
+    verrouille: !!chiffrement.config && !chiffrement.cle,
+    // Date de création du code de secours, `null` s'il n'y en a pas.
+    codeSecours: chiffrement.config?.secours?.creeLe || null,
+  };
   abonnesChiffrement.forEach((f) => f());
 }
 
@@ -966,6 +974,72 @@ export async function desactiverChiffrement() {
     chiffrement.operationEnCours = false;
     notifierChiffrement();
   }
+}
+
+// ─── Code de secours et changement de phrase (version 2, voir chiffrement.js) ─
+//
+// Aucune de ces opérations ne rechiffre de donnée : la clé reste la même, seule
+// la configuration gagne ou remplace une enveloppe. Les autres appareils, qui
+// gardent cette clé, ne voient donc aucune différence.
+
+/** Écrit une configuration de chiffrement dans le cloud, puis l'adopte ici. */
+async function ecrireConfiguration(userId, config) {
+  chiffrement.operationEnCours = true;
+  try {
+    const { error } = await supabase.from(TABLE).upsert({
+      id: `${userId}:${CLE_CONFIG_CHIFFREMENT}`,
+      user_id: userId,
+      key: CLE_CONFIG_CHIFFREMENT,
+      value: config,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    chiffrement.config = config;
+  } finally {
+    chiffrement.operationEnCours = false;
+    notifierChiffrement();
+  }
+}
+
+async function cleDeverrouillee() {
+  const userId = await utilisateurConnecte();
+  if (!chiffrement.config) throw new Error("Le chiffrement n'est pas actif.");
+  if (!chiffrement.cle) throw new Error("Déverrouille d'abord cet appareil avec ta phrase secrète.");
+  return userId;
+}
+
+/**
+ * Crée le code de secours, ou le remplace : l'ancien cesse alors de servir.
+ * Rend le code en clair, à montrer une seule fois ; il n'est conservé nulle
+ * part, seule son enveloppe part dans le cloud.
+ */
+export async function creerCodeSecours() {
+  const userId = await cleDeverrouillee();
+  const { code, config } = await ajouterCodeSecours(chiffrement.cle, chiffrement.config);
+  await ecrireConfiguration(userId, config);
+  return code;
+}
+
+/** Change la phrase secrète sur un appareil déverrouillé. */
+export async function changerPhraseSecrete(nouvellePhrase) {
+  const userId = await cleDeverrouillee();
+  await ecrireConfiguration(userId, await remplacerPhrase(chiffrement.cle, nouvellePhrase, chiffrement.config));
+}
+
+/**
+ * Phrase oubliée : le code de secours rouvre la clé, et une nouvelle phrase la
+ * remplace aussitôt. `false` si le code n'est pas le bon.
+ */
+export async function deverrouillerAvecCodeSecours(code, nouvellePhrase) {
+  const userId = await utilisateurConnecte();
+  const cle = await verifierCodeSecours(code, chiffrement.config);
+  if (!cle) return false;
+  await ecrireConfiguration(userId, await remplacerPhrase(cle, nouvellePhrase, chiffrement.config));
+  await garderCleLocale(cle);
+  notifierChiffrement();
+  hydratationCloud = null;
+  await pullAllFromCloud();
+  return true;
 }
 
 

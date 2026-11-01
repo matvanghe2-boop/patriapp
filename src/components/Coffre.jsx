@@ -11,6 +11,7 @@ import {
   Image as IconeImage,
   CalendarClock,
   SlidersHorizontal,
+  LifeBuoy,
 } from "lucide-react";
 import { Card, PageGlow, PastilleEtat, GhostButton, CARD_THEMES } from "./ui";
 import EtatVide from "./EtatVide";
@@ -119,10 +120,18 @@ export default function Coffre({ contracts = [] }) {
         }
       >
         <p>Saisis ta phrase secrète pour ouvrir le coffre et reprendre la synchronisation.</p>
+        {etat.codeSecours && <p>Phrase oubliée ? Le même écran te propose ton code de secours.</p>}
       </Prerequis>
     );
   } else {
-    contenu = <CoffreOuvert userId={user.id} contracts={contracts} />;
+    contenu = (
+      <CoffreOuvert
+        userId={user.id}
+        contracts={contracts}
+        sansCodeSecours={!etat.codeSecours}
+        onChiffrement={ouvrirChiffrement}
+      />
+    );
   }
 
   return (
@@ -170,7 +179,7 @@ function Prerequis({ icone: Icone, titre, children, action }) {
   );
 }
 
-function CoffreOuvert({ userId, contracts }) {
+function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffrement }) {
   const [valeur, setCoffre] = usePersistentState("coffre", COFFRE_VIDE);
   const coffre = estCoffre(valeur) ? valeur : COFFRE_VIDE;
   const { showToast } = useToast();
@@ -384,6 +393,22 @@ function CoffreOuvert({ userId, contracts }) {
           </button>
         </div>
       </EnTete>
+
+      {sansCodeSecours && (
+        <div className="relative flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-100">
+          <p className="flex items-start gap-2">
+            <LifeBuoy size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
+            Pas encore de code de secours : si tu oublies ta phrase secrète, ton coffre sera perdu.
+          </p>
+          <button
+            type="button"
+            onClick={onChiffrement}
+            className="rounded-lg border border-amber-400/50 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-400/10"
+          >
+            Créer un code de secours
+          </button>
+        </div>
+      )}
 
       <OngletsGlissants
         className="teinte-fuchsia"

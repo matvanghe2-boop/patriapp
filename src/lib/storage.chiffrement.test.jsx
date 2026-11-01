@@ -5,7 +5,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
-import { creerConfiguration, chiffrer, estChiffre } from "./chiffrement";
+import {
+  creerConfiguration, chiffrer, estChiffre, ajouterCodeSecours, verifierCodeSecours, verifierPhrase,
+  normaliserCodeSecours,
+} from "./chiffrement";
 
 let lignesCloud = [];
 let upserts = [];
@@ -34,7 +37,7 @@ vi.mock("./supabaseClient", () => ({
 
 const {
   usePersistentState, useEtatChiffrement, activerChiffrement, deverrouillerChiffrement, desactiverChiffrement,
-  _resetStorageCache,
+  creerCodeSecours, changerPhraseSecrete, deverrouillerAvecCodeSecours, _resetStorageCache,
 } = await import("./storage");
 
 function Sonde() {
@@ -127,5 +130,82 @@ describe("chiffrement de la synchronisation", () => {
     const donnee = upserts.find((u) => u.key === "profile");
     expect(donnee.value).toBe("EN CLAIR");
     expect(screen.getByTestId("etat")).toHaveTextContent("inactif");
+  });
+});
+
+describe("code de secours et changement de phrase", () => {
+  const derniereConfig = () => [...upserts].reverse().find((u) => u.key === "__chiffrement")?.value;
+
+  beforeEach(() => {
+    localStorage.clear();
+    lignesCloud = [];
+    upserts = [];
+    _resetStorageCache();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("crée le code de secours : seule son enveloppe part dans le cloud", async () => {
+    render(<Sonde />);
+    await act(() => activerChiffrement("phrase secrète de test"));
+    upserts = [];
+    let code;
+    await act(async () => {
+      code = await creerCodeSecours();
+    });
+    const config = derniereConfig();
+    expect(config.version).toBe(2);
+    expect(config.secours.creeLe).toBeTruthy();
+    expect(JSON.stringify(upserts)).not.toContain(normaliserCodeSecours(code));
+    expect(await verifierCodeSecours(code, config)).not.toBeNull();
+    // Rien n'est rechiffré : seule la configuration a été réécrite.
+    expect(upserts.filter((u) => u.key !== "__chiffrement")).toEqual([]);
+  });
+
+  it("change de phrase sur un appareil déverrouillé, sans rechiffrer les données", async () => {
+    render(<Sonde />);
+    await act(() => activerChiffrement("ancienne phrase"));
+    upserts = [];
+    await act(() => changerPhraseSecrete("nouvelle phrase"));
+    const config = derniereConfig();
+    expect(await verifierPhrase("nouvelle phrase", config)).not.toBeNull();
+    expect(await verifierPhrase("ancienne phrase", config)).toBeNull();
+    expect(upserts.filter((u) => u.key !== "__chiffrement")).toEqual([]);
+    expect(screen.getByTestId("etat")).toHaveTextContent("actif");
+  });
+
+  it("refuse de créer un code sur un appareil verrouillé", async () => {
+    const { config } = await creerConfiguration("bonne phrase");
+    lignesCloud = [{ key: "__chiffrement", value: config, updated_at: HIER }];
+    render(<Sonde />);
+    await waitFor(() => expect(screen.getByTestId("etat")).toHaveTextContent("verrouille"));
+    await expect(creerCodeSecours()).rejects.toThrow(/Déverrouille/);
+  });
+
+  it("phrase oubliée : le code rouvre l'appareil et une nouvelle phrase remplace l'ancienne", async () => {
+    const { cle, config } = await creerConfiguration("phrase oubliée");
+    const { code, config: avecCode } = await ajouterCodeSecours(cle, config);
+    lignesCloud = [
+      { key: "__chiffrement", value: avecCode, updated_at: HIER },
+      { key: "profile", value: await chiffrer(cle, "VALEUR DU CLOUD"), updated_at: AUJOURDHUI },
+    ];
+    render(<Sonde />);
+    await waitFor(() => expect(screen.getByTestId("etat")).toHaveTextContent("verrouille"));
+
+    expect(await deverrouillerAvecCodeSecours("AAAAA-AAAAA-AAAAA-AAAAA-AAAAA", "nouvelle phrase")).toBe(false);
+    await act(async () => {
+      expect(await deverrouillerAvecCodeSecours(code, "nouvelle phrase")).toBe(true);
+    });
+    await waitFor(() => expect(screen.getByTestId("valeur")).toHaveTextContent("VALEUR DU CLOUD"));
+    expect(screen.getByTestId("etat")).toHaveTextContent("actif");
+
+    const nouvelle = derniereConfig();
+    expect(await verifierPhrase("nouvelle phrase", nouvelle)).not.toBeNull();
+    expect(await verifierPhrase("phrase oubliée", nouvelle)).toBeNull();
+    // Le code reste valable pour une prochaine fois.
+    expect(await verifierCodeSecours(code, nouvelle)).not.toBeNull();
   });
 });

@@ -56,6 +56,17 @@ export default function Modal({
 }) {
   const panelRef = useRef(null);
 
+  // `onClose` est souvent une fonction recréée à chaque rendu du parent. S'il
+  // figurait dans les dépendances de l'effet ci-dessous, chaque frappe dans un
+  // champ dont l'état vit chez ce parent relancerait l'effet : le focus
+  // revenait au premier élément de la modale (le bouton « Fermer ») après le
+  // premier caractère, et une espace refermait la fenêtre. La dernière version
+  // est donc lue dans une référence, et l'effet ne dépend plus que de `open`.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return undefined;
 
@@ -74,7 +85,7 @@ export default function Modal({
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (e.key !== "Tab") return;
@@ -106,7 +117,7 @@ export default function Modal({
       document.body.style.paddingRight = paddingInitial;
       dejaFocalise?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
