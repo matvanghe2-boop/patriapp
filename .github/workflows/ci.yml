@@ -7,15 +7,23 @@ on:
 
 jobs:
   verify:
+    name: verify (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    # Deux versions de Node, et pas une. Vite 8 exige ^20.19 || >=22.12 ; Node
+    # 22 est la version LTS de référence. Mais le poste de développement tourne
+    # sous Node 24, et un test peut passer sur l'un et échouer sur l'autre :
+    # c'est arrivé avec le coffre à papiers, où jsdom ne lisait pas sous Node 22
+    # un Blob qui passait sous Node 24. Les deux versions tournent donc en
+    # parallèle, et un écart se voit avant le merge, pas après.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24"]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          # Vite 8 exige ^20.19 || >=22.12. Node 22 est la version LTS courante
-          # et évite l'avertissement de dépréciation que GitHub émet désormais
-          # pour les actions restées sur Node 20.
-          node-version: "22"
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       - run: npm run lint

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lireNombre } from "./finance";
+import { lireNombre, lireSaisieNombre } from "./finance";
 
 describe("lireNombre", () => {
   it("lit un nombre ordinaire", () => {
@@ -47,5 +47,33 @@ describe("lireNombre", () => {
     expect(lireNombre([])).toBeNull();
     expect(lireNombre(NaN)).toBeNull();
     expect(lireNombre(Infinity)).toBeNull();
+  });
+});
+
+describe("lireSaisieNombre", () => {
+  it("lit un montant écrit à la française, espaces et symbole compris", () => {
+    expect(lireSaisieNombre("1 299,99")).toBe(1299.99);
+    expect(lireSaisieNombre("1 299,99 €")).toBe(1299.99);
+    expect(lireSaisieNombre("2 100")).toBe(2100);
+    expect(lireSaisieNombre("€ 45")).toBe(45);
+    expect(lireSaisieNombre("3,5 %")).toBe(3.5);
+  });
+
+  it("devine le séparateur décimal quand point et virgule coexistent", () => {
+    expect(lireSaisieNombre("1.234,56")).toBe(1234.56);
+    expect(lireSaisieNombre("1,234.56")).toBe(1234.56);
+  });
+
+  it("garde les refus de lireNombre pour ce qui n'est pas un nombre", () => {
+    expect(lireSaisieNombre("")).toBeNull();
+    expect(lireSaisieNombre("12abc")).toBeNull();
+    expect(lireSaisieNombre("1,234,56")).toBeNull();
+    expect(lireSaisieNombre(12)).toBe(12);
+    expect(lireSaisieNombre(null)).toBeNull();
+  });
+
+  it("laisse lireNombre strict : il lit aussi des données", () => {
+    expect(lireNombre("1 234")).toBeNull();
+    expect(lireSaisieNombre("1 234")).toBe(1234);
   });
 });

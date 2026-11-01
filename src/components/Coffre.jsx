@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Lock,
@@ -49,10 +49,12 @@ import {
   nouveauDocument,
   normaliserSaisie,
   contratLie,
+  documentsAJeter,
 } from "../lib/coffre";
 import { rangerFichier, supprimerFichiers, ErreurCoffre } from "../lib/coffreFichiers";
 import { evenementAgenda, lienGoogleAgenda, fichierIcs, marquerAgenda } from "../lib/coffreAgenda";
 import { fichiersPartages, oublierPartage } from "../lib/partageCoffre";
+import { prendreDemande, abonnerDemandes } from "../lib/coffreNavigation";
 import { nouvelObjet, normaliserObjet, objetDepuisFacture } from "../lib/inventaire";
 import VueObjets from "./coffre/VueObjets";
 import FormulaireObjet from "./coffre/FormulaireObjet";
@@ -192,17 +194,49 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
   const maintenant = useMaintenant();
   const aujourdhui = todayIso(new Date(maintenant));
   const [recherche, setRecherche] = useState("");
+  // Liste réduite aux papiers dont la durée de conservation est écoulée.
+  const [seulementAJeter, setSeulementAJeter] = useState(false);
   // null : fermé ; { document: null } : ajout ; { document } : modification.
   const [formulaire, setFormulaire] = useState(null);
-  const [ouvertId, setOuvertId] = useState(null);
+  // Papier ou objet demandé depuis ailleurs (palette Ctrl+K, Abonnements),
+  // pris à l'ouverture de l'onglet ; voir coffreNavigation.js.
+  const [demandeInitiale] = useState(prendreDemande);
+  const [ouvertId, setOuvertId] = useState(demandeInitiale?.document ?? null);
   const [onglet, setOnglet] = useSousOnglet(["documents", "echeances", "objets", "reglages"], "documents");
   // null : fermé ; { objet: null, saisie? } : ajout ; { objet } : modification.
-  const [formulaireObjet, setFormulaireObjet] = useState(null);
+  const [formulaireObjet, setFormulaireObjet] = useState(() => {
+    const objet = demandeInitiale?.objet && (coffre.objets || []).find((o) => o.id === demandeInitiale.objet);
+    return objet ? { objet } : null;
+  });
+
+  // Demande arrivée pendant que l'onglet est déjà affiché.
+  const coffreRef = useRef(coffre);
+  useEffect(() => {
+    coffreRef.current = coffre;
+  });
+  useEffect(
+    () =>
+      abonnerDemandes(() => {
+        const d = prendreDemande();
+        if (d?.document) setOuvertId(d.document);
+        const objet = d?.objet && (coffreRef.current.objets || []).find((o) => o.id === d.objet);
+        if (objet) setFormulaireObjet({ objet });
+      }),
+    []
+  );
 
   const documents = coffre.documents;
+  const aJeter = useMemo(() => documentsAJeter(documents, aujourdhui), [documents, aujourdhui]);
+  const filtreAJeter = seulementAJeter && aJeter.length > 0;
   const { aTraiter, groupes } = useMemo(
-    () => organiserDocuments(filtrerDocuments(documents, recherche), coffre.reglages, aujourdhui, contracts),
-    [documents, recherche, coffre.reglages, aujourdhui, contracts]
+    () =>
+      organiserDocuments(
+        filtrerDocuments(filtreAJeter ? aJeter : documents, recherche),
+        coffre.reglages,
+        aujourdhui,
+        contracts
+      ),
+    [documents, aJeter, filtreAJeter, recherche, coffre.reglages, aujourdhui, contracts]
   );
   const aTraiterTous = useMemo(
     () => organiserDocuments(documents, coffre.reglages, aujourdhui, contracts).aTraiter.length,
@@ -472,6 +506,7 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
         {onglet === "objets" && (
           <VueObjets
             coffre={coffre}
+            userId={userId}
             aujourdhui={aujourdhui}
             onAjouter={() => setFormulaireObjet({ objet: null })}
             onModifier={(objet) => setFormulaireObjet({ objet })}
@@ -532,6 +567,24 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-400/40"
                 />
               </label>
+
+              {aJeter.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-300">
+                  <p>
+                    {aJeter.length} papier{aJeter.length > 1 ? "s ont" : " a"} dépassé{" "}
+                    {aJeter.length > 1 ? "leur" : "sa"} durée de conservation conseillée : tu peux t'en
+                    séparer.
+                  </p>
+                  <button
+                    type="button"
+                    aria-pressed={filtreAJeter}
+                    onClick={() => setSeulementAJeter((v) => !v)}
+                    className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:border-fuchsia-400/60"
+                  >
+                    {filtreAJeter ? "Tout afficher" : aJeter.length > 1 ? "Les voir" : "Le voir"}
+                  </button>
+                </div>
+              )}
 
               {aTraiter.length === 0 && groupes.length === 0 && (
                 <p className="text-sm text-slate-500">Aucun document ne correspond à « {recherche} ».</p>

@@ -377,6 +377,38 @@ Le calcul (`statutDocument`, `dateRappel`, `prochaineEcheance` pour la
 récurrence) vit dans `src/lib/coffre.js`, en fonctions pures testées, sur le
 modèle de `echeances.js`.
 
+Deux types ont été ajoutés après le jalon 6, parce que la page officielle des
+durées de conservation les couvre : **Relevé bancaire** (catégorie Banque) et
+**Bulletin de salaire** (catégorie Travail), sans échéance ni rappel.
+
+### 7 bis. Durées de conservation
+
+Combien de temps garder un papier, d'après la fiche « Durée de conservation
+des papiers » de [service-public.gouv.fr](https://www.service-public.gouv.fr/particuliers/vosdroits/F19134)
+(vérifiée le 13 octobre 2026). Ce sont des durées **minimales et indicatives** :
+la page rappelle qu'un document peut servir plus longtemps, par exemple de
+preuve dans un litige.
+
+| Papier | À garder | Calculé à partir de |
+|---|---|---|
+| Avis d'imposition, déclaration de revenus | Jusqu'au 31 décembre de la 2e année après l'avis | Date du document |
+| Relevé bancaire | 5 ans | Date du document |
+| Facture | 5 ans après l'achat, et au moins jusqu'à la fin de garantie | Date d'achat, échéance |
+| Attestation d'assurance | 2 ans | Date du document |
+| Contrat d'assurance ou mutuelle | Jusqu'à sa résiliation, puis 2 ans | Texte seul (fin inconnue) |
+| Bail | 3 ans après la fin de la location | Échéance (fin du bail) |
+| Quittance, état des lieux | 3 ans après la fin de la location | Texte seul |
+| Diplôme, relevé de notes | Toute la vie | — |
+| Bulletin de salaire | Jusqu'à la retraite | — |
+| Pièces d'identité, carte Vitale, carte de tiers payant | Jusqu'à leur remplacement (absentes de la page) | — |
+| Certificat de scolarité, autre document | Pas de règle | — |
+
+La fiche du papier affiche sa durée, avec un lien vers la source. La liste
+signale les papiers dont la durée conseillée est écoulée (« tu peux t'en
+séparer ») et permet de n'afficher qu'eux. **Rien n'est jamais supprimé
+automatiquement** : c'est à l'utilisateur de décider (`conservationDocument`
+et `documentsAJeter` dans `coffre.js`).
+
 ---
 
 ## 8. Rappels (jalon 2)
@@ -589,6 +621,29 @@ la date d'achat et le lien. Les objets ne créent pas de rappel : c'est la
 facture qui porte l'échéance de garantie. Ils n'entrent pas non plus dans le
 patrimoine net de Patrium, qui ne compte que des actifs financiers.
 
+**Dossier sinistre** (`dossierSinistre.js`) : depuis l'onglet « Objets », on
+coche les biens touchés. Une page imprimable s'ouvre, à enregistrer en PDF
+pour l'assureur : liste avec prix et valeur, total, champs à remplir (assuré,
+contrat, date et nature du sinistre), puis une fiche par bien (numéro de
+série, garantie, facture) avec l'aperçu de sa facture, déchiffré sur
+l'appareil. La page ne contient aucun script : la fenêtre hérite de la
+politique de contenu de Patrium, et c'est l'application qui lance
+l'impression. La fenêtre est ouverte dans le clic, avant le déchiffrement,
+pour ne pas être prise pour une fenêtre surgissante.
+
+### 10 ter. Le coffre ailleurs dans Patrium
+
+- **Recherche Ctrl+K** : la palette de commandes indexe les papiers (titre,
+  type, échéance ; notes et noms de fichiers cherchés sans s'afficher) et les
+  objets. Choisir une ligne ouvre directement la fiche ou l'objet.
+- **Abonnements** : un contrat affiche les papiers du coffre qui lui sont liés
+  (« Dans le coffre : … »), et un clic ouvre leur fiche.
+
+L'identifiant à ouvrir ne peut pas passer par l'URL, que `useHashRoute`
+normalise en retirant tout ce qui suit le sous-onglet. Il passe par un petit
+canal en mémoire (`coffreNavigation.js`) : l'onglet Coffre prend la demande à
+son ouverture, ou aussitôt s'il est déjà affiché.
+
 ---
 
 ## 11. Sécurité et confidentialité
@@ -672,6 +727,11 @@ basculer #17 sur `main`, et ainsi de suite.
 
 Chaque jalon est une PR distincte. Le merge dans `main` déclenche la mise en
 production sur Vercel, et l'auto-merge reste désactivé.
+
+**Après les jalons**, une PR d'améliorations a ajouté : la recherche Ctrl+K et
+le lien retour depuis Abonnements (§10 ter), les durées de conservation (§7
+bis), le dossier sinistre (§10 bis), la saisie des montants avec espaces
+(« 1 299,99 € », `lireSaisieNombre`), et une CI sous Node 22 **et** Node 24.
 
 **Fichiers prévus au jalon 1** : `src/components/Coffre.jsx` (onglet),
 `src/components/coffre/*` (liste, formulaire, fiche, prérequis),

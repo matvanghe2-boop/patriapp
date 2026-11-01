@@ -316,11 +316,12 @@ export default function App() {
         subs: patrimoine.subs,
         contracts: patrimoine.contracts,
         compteEnrichies: patrimoine.compteEnrichies,
+        coffre,
       }),
     [
       patrimoine.livrets, patrimoine.bourse, patrimoine.dettes, patrimoine.watchlist,
       patrimoine.strategyNotes, patrimoine.enveloppes, patrimoine.objectifs,
-      patrimoine.subs, patrimoine.contracts, patrimoine.compteEnrichies,
+      patrimoine.subs, patrimoine.contracts, patrimoine.compteEnrichies, coffre,
     ]
   );
 

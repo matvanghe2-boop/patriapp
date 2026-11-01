@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useId } from "react";
 import { Plus, Trash2, X, Lock, ChevronDown, Maximize2 } from "lucide-react";
-import { eur, lireNombre } from "../lib/finance";
+import { eur, lireNombre, lireSaisieNombre } from "../lib/finance";
 import Modal from "./Modal";
 import { theme as themeDe, CARD_THEMES, GHOST_THEMES } from "../lib/themes";
 import EtatVide from "./EtatVide";
@@ -518,7 +518,8 @@ export function ChampNumerique({
   }
 
   const valider = () => {
-    const lu = lireNombre(brouillon);
+    // Lecture tolérante : « 2 100 » ou « 1 299,99 € » sont des saisies valides.
+    const lu = lireSaisieNombre(brouillon);
     const retenu = brouillon.trim() === "" ? valeurSiVide : lu;
     if (retenu == null) {
       // Saisie inexploitable : on revient à la valeur en place plutôt que

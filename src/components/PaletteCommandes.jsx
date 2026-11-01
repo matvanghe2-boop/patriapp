@@ -4,6 +4,9 @@ import { Search, CornerDownLeft } from "lucide-react";
 import { eur, valeurPosition } from "../lib/finance";
 import { useApparence } from "../lib/ApparenceContext";
 import { vibrer } from "../lib/haptique";
+import { typeDe } from "../lib/coffre";
+import { categorieObjet } from "../lib/inventaire";
+import { demanderOuverture } from "../lib/coffreNavigation";
 
 /**
  * Palette de commandes (Ctrl/⌘ + K).
@@ -52,9 +55,13 @@ export function construireIndex({
   subs = [],
   contracts = [],
   compteEnrichies = [],
+  coffre = null,
 }) {
   const items = [];
-  const pousser = (o) => items.push({ ...o, cle: sansAccent(`${o.libelle} ${o.categorie} ${o.detail}`) });
+  // `motsCles` élargit la recherche sans s'afficher : les notes d'un papier
+  // (un numéro, une agence) le retrouvent sans encombrer la ligne.
+  const pousser = (o) =>
+    items.push({ ...o, cle: sansAccent(`${o.libelle} ${o.categorie} ${o.detail} ${o.motsCles || ""}`) });
 
   livrets.forEach((l) =>
     pousser({ id: `livret-${l.id}`, onglet: "livrets", categorie: "Livret", libelle: l.name, detail: eur(l.balance) })
@@ -127,6 +134,33 @@ export function construireIndex({
       detail: `${op.date} · ${eur((op.montant || 0) / 100, 2)}`,
     })
   );
+  // Coffre à papiers : les métadonnées sont lisibles sur l'appareil, comme le
+  // reste de Patrium. Choisir une ligne ouvre directement la fiche du papier,
+  // ou l'objet dans l'inventaire (voir coffreNavigation.js).
+  (coffre?.documents || []).forEach((d) =>
+    pousser({
+      id: `coffre-${d.id}`,
+      onglet: "coffre",
+      sous: "documents",
+      ouvrir: { document: d.id },
+      categorie: "Coffre",
+      libelle: d.titre || typeDe(d.type).libelle,
+      detail: [typeDe(d.type).libelle, d.echeance ? `échéance ${d.echeance}` : ""].filter(Boolean).join(" · "),
+      motsCles: [d.notes, ...(d.fichiers || []).map((f) => f.nom)].join(" "),
+    })
+  );
+  (coffre?.objets || []).forEach((o) =>
+    pousser({
+      id: `objet-${o.id}`,
+      onglet: "coffre",
+      sous: "objets",
+      ouvrir: { objet: o.id },
+      categorie: "Objet",
+      libelle: o.nom,
+      detail: [categorieObjet(o.categorie).libelle, o.numeroSerie].filter(Boolean).join(" · "),
+      motsCles: o.notes || "",
+    })
+  );
   return items;
 }
 
@@ -179,7 +213,10 @@ export default function PaletteCommandes({ ouvert, onFermer, index = [], actions
   const choisir = (r) => {
     vibrer("navigation", haptique);
     if (r.estAction) r.executer?.();
-    else onNaviguer?.(r.onglet, r.sous);
+    else {
+      if (r.ouvrir) demanderOuverture(r.ouvrir);
+      onNaviguer?.(r.onglet, r.sous);
+    }
     onFermer?.();
   };
 

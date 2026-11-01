@@ -76,6 +76,7 @@ vi.mock("../lib/supabaseClient", () => ({
 
 const { _resetStorageCache, activerChiffrement } = await import("../lib/storage");
 const { default: Coffre } = await import("./Coffre");
+const { demanderOuverture } = await import("../lib/coffreNavigation");
 
 const monter = () =>
   render(
@@ -433,5 +434,133 @@ describe("Coffre — inventaire des objets", () => {
     await u.click(await screen.findByRole("button", { name: "Retirer de l'inventaire" }));
     await u.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Retirer" }));
     expect(await screen.findByText("Aucun objet dans l'inventaire")).toBeInTheDocument();
+  });
+});
+
+describe("Coffre — ouverture demandée depuis ailleurs", () => {
+  beforeEach(async () => {
+    localStorage.setItem(
+      "patrimoine:coffre",
+      JSON.stringify({
+        version: 1,
+        documents: [
+          { id: "doc_a", type: "cni", titre: "Carte d'identité", recurrence: null, notes: "", fichiers: [] },
+          { id: "doc_b", type: "diplome", titre: "Baccalauréat", recurrence: null, notes: "", fichiers: [] },
+        ],
+        objets: [{ id: "obj_v", nom: "Vélo", categorie: "mobilite", prix: 800, notes: "" }],
+        reglages: { delais: {}, titreAgendaNeutre: false },
+      })
+    );
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("ouvre à l'arrivée le papier demandé avant l'ouverture de l'onglet", async () => {
+    demanderOuverture({ document: "doc_b" });
+    monter();
+    expect(await screen.findByRole("dialog", { name: "Baccalauréat" })).toBeInTheDocument();
+  });
+
+  it("ouvre un papier ou un objet demandé pendant que l'onglet est affiché", async () => {
+    monter();
+    await screen.findByRole("button", { name: /Carte d'identité/ });
+    act(() => demanderOuverture({ document: "doc_a" }));
+    const fiche = await screen.findByRole("dialog", { name: "Carte d'identité" });
+    expect(fiche).toBeInTheDocument();
+    await userEvent.setup().click(within(fiche).getByRole("button", { name: "Fermer" }));
+    act(() => demanderOuverture({ objet: "obj_v" }));
+    expect(await screen.findByRole("dialog", { name: "Modifier l'objet" })).toBeInTheDocument();
+  });
+});
+
+describe("Coffre — durées de conservation", () => {
+  beforeEach(async () => {
+    localStorage.setItem(
+      "patrimoine:coffre",
+      JSON.stringify({
+        version: 1,
+        documents: [
+          { id: "r", type: "releve_bancaire", titre: "Relevé 2019", dateDocument: "2019-01-31", recurrence: null, notes: "", fichiers: [] },
+          { id: "d", type: "diplome", titre: "Licence", recurrence: null, notes: "", fichiers: [] },
+        ],
+        objets: [],
+        reglages: { delais: {}, titreAgendaNeutre: false },
+      })
+    );
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("signale les papiers à jeter, les filtre, et l'explique dans la fiche", async () => {
+    const u = userEvent.setup();
+    monter();
+    expect(await screen.findByText(/1 papier a dépassé sa durée de conservation conseillée/)).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Le voir" }));
+    expect(screen.queryByRole("button", { name: /Licence/ })).not.toBeInTheDocument();
+
+    await u.click(screen.getByRole("button", { name: /Relevé 2019/ }));
+    const fiche = await screen.findByRole("dialog", { name: "Relevé 2019" });
+    expect(within(fiche).getByText(/écoulée depuis le 31\/01\/2024/)).toBeInTheDocument();
+    expect(within(fiche).getByRole("link", { name: /service-public/ })).toHaveAttribute(
+      "href",
+      "https://www.service-public.gouv.fr/particuliers/vosdroits/F19134"
+    );
+    await u.click(within(fiche).getByRole("button", { name: "Fermer" }));
+    await u.click(screen.getByRole("button", { name: "Tout afficher" }));
+    expect(await screen.findByRole("button", { name: /Licence/ })).toBeInTheDocument();
+  });
+});
+
+describe("Coffre — dossier sinistre", () => {
+  beforeEach(async () => {
+    localStorage.setItem(
+      "patrimoine:coffre",
+      JSON.stringify({
+        version: 1,
+        documents: [],
+        objets: [
+          { id: "o1", nom: "Ordinateur portable", categorie: "informatique", prix: 1200, notes: "" },
+          { id: "o2", nom: "Vélo", categorie: "mobilite", prix: 800, notes: "" },
+        ],
+        reglages: { delais: {}, titreAgendaNeutre: false },
+      })
+    );
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("ouvre une page imprimable avec les seuls biens cochés", async () => {
+    const u = userEvent.setup();
+    const ecrit = [];
+    const fenetre = {
+      document: { write: (h) => ecrit.push(h), open: vi.fn(), close: vi.fn() },
+      focus: vi.fn(),
+      print: vi.fn(),
+    };
+    vi.stubGlobal("open", vi.fn(() => fenetre));
+    monter();
+
+    await u.click(await screen.findByRole("tab", { name: /Objets/ }));
+    await u.click(screen.getByRole("button", { name: "Dossier sinistre" }));
+    const modale = await screen.findByRole("dialog", { name: "Dossier sinistre" });
+    const preparer = within(modale).getByRole("button", { name: "Préparer le dossier" });
+    expect(preparer).toBeDisabled();
+    await u.click(within(modale).getByLabelText("Vélo"));
+    await u.click(preparer);
+
+    await waitFor(() => expect(fenetre.print).toHaveBeenCalled());
+    const page = ecrit.at(-1);
+    expect(page).toContain("Dossier sinistre — liste des biens");
+    expect(page).toContain("Vélo");
+    expect(page).not.toContain("Ordinateur portable");
+  });
+
+  it("prévient si le navigateur bloque la fenêtre", async () => {
+    const u = userEvent.setup();
+    vi.stubGlobal("open", vi.fn(() => null));
+    monter();
+    await u.click(await screen.findByRole("tab", { name: /Objets/ }));
+    await u.click(screen.getByRole("button", { name: "Dossier sinistre" }));
+    const modale = await screen.findByRole("dialog", { name: "Dossier sinistre" });
+    await u.click(within(modale).getByRole("button", { name: "Tout cocher" }));
+    await u.click(within(modale).getByRole("button", { name: "Préparer le dossier" }));
+    expect(await screen.findByText(/bloqué la fenêtre d'impression/)).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
-import { useMemo } from "react";
-import { Plus, FileText, ChevronRight, Package } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, FileText, ChevronRight, Package, Printer } from "lucide-react";
+import DossierSinistre from "./DossierSinistre";
 import { Card, PastilleEtat } from "../ui";
 import EtatVide from "../EtatVide";
 import Montant from "../Montant";
@@ -28,7 +29,8 @@ const boutonPrincipal =
 const moisAnnee = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { month: "2-digit", year: "numeric" });
 
-export default function VueObjets({ coffre, aujourdhui, onAjouter, onModifier, onOuvrirDocument }) {
+export default function VueObjets({ coffre, userId, aujourdhui, onAjouter, onModifier, onOuvrirDocument }) {
+  const [dossierOuvert, setDossierOuvert] = useState(false);
   const objets = useMemo(() => trierObjets(coffre.objets || [], aujourdhui), [coffre.objets, aujourdhui]);
   const totaux = useMemo(
     () => totauxInventaire(coffre.objets || [], aujourdhui),
@@ -78,10 +80,20 @@ export default function VueObjets({ coffre, aujourdhui, onAjouter, onModifier, o
               </dd>
             </div>
           </dl>
-          <button type="button" onClick={onAjouter} className={boutonPrincipal}>
-            <Plus size={16} aria-hidden="true" />
-            Ajouter un objet
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setDossierOuvert(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-fuchsia-400/60"
+            >
+              <Printer size={16} aria-hidden="true" />
+              Dossier sinistre
+            </button>
+            <button type="button" onClick={onAjouter} className={boutonPrincipal}>
+              <Plus size={16} aria-hidden="true" />
+              Ajouter un objet
+            </button>
+          </div>
         </div>
         <p className="mt-3 text-micro text-slate-500">
           Valeur du jour : estimation indicative, par une vétusté annuelle selon la catégorie (informatique 25
@@ -106,6 +118,15 @@ export default function VueObjets({ coffre, aujourdhui, onAjouter, onModifier, o
           />
         ))}
       </ul>
+
+      <DossierSinistre
+        ouvert={dossierOuvert}
+        objets={objets}
+        documents={coffre.documents}
+        userId={userId}
+        aujourdhui={aujourdhui}
+        onFermer={() => setDossierOuvert(false)}
+      />
     </>
   );
 }

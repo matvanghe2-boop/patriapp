@@ -115,6 +115,33 @@ export function lireNombre(valeur) {
 }
 
 /**
+ * Lecture d'un nombre TAPÉ (ou collé) par l'utilisateur dans un champ libre.
+ *
+ * `lireNombre` reste strict à dessein : il lit aussi des données, où « 1 234 »
+ * ne doit pas être deviné. Mais un champ de saisie reçoit ce que les gens
+ * écrivent, et un montant français s'écrit « 1 299,99 € », ou se colle depuis
+ * un site bancaire avec des espaces insécables. Refuser ces saisies ramenait
+ * silencieusement le champ à sa valeur précédente.
+ *
+ * Cette lecture retire donc, avant de passer la main à `lireNombre` :
+ *  · les espaces, y compris insécables (séparateurs de milliers) ;
+ *  · un symbole « € » ou « % » en tête ou en fin ;
+ *  · les séparateurs de milliers quand point et virgule coexistent : le
+ *    dernier des deux est le séparateur décimal (« 1.234,56 » comme
+ *    « 1,234.56 »).
+ *
+ * @returns {number|null}
+ */
+export function lireSaisieNombre(valeur) {
+  if (typeof valeur !== "string") return lireNombre(valeur);
+  let texte = valeur.replace(/\s/g, "").replace(/^[€%]+|[€%]+$/g, "");
+  if (texte.includes(".") && texte.includes(",")) {
+    texte = texte.lastIndexOf(",") > texte.lastIndexOf(".") ? texte.replace(/\./g, "") : texte.replace(/,/g, "");
+  }
+  return lireNombre(texte);
+}
+
+/**
  * Montant abrégé, avec l'ordre de grandeur adapté à la valeur.
  *
  * L'ancienne version divisait systématiquement par mille et suffixait « k€ » :
