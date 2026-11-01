@@ -276,9 +276,11 @@ src/components/TransfertAppareil.jsx
 src/components/Watchlist.jsx
 src/components/coffre/FicheDocument.jsx
 src/components/coffre/FormulaireDocument.jsx
+src/components/coffre/FormulaireObjet.jsx
 src/components/coffre/ReglagesCoffre.jsx
 src/components/coffre/StockageCoffre.jsx
 src/components/coffre/VueEcheances.jsx
+src/components/coffre/VueObjets.jsx
 src/components/gestes.jsx
 src/components/graphiques.jsx
 src/components/graphiques.test.jsx
@@ -371,6 +373,8 @@ src/lib/horizonClient.js
 src/lib/ideesIaLecture.test.js
 src/lib/indexConstituents.js
 src/lib/inflation.js
+src/lib/inventaire.js
+src/lib/inventaire.test.js
 src/lib/jeuExemple.js
 src/lib/jeuExemple.test.js
 src/lib/journalErreurs.js

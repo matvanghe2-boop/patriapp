@@ -8,7 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { ToastProvider } from "../lib/ToastContext";
 import { ConfirmProvider } from "../lib/ConfirmContext";
 import { todayIso } from "../lib/finance";
-import { ajouterJours } from "../lib/coffre";
+import { ajouterJours, ajouterAns } from "../lib/coffre";
 
 const lignesCloud = new Map();
 const objets = new Map();
@@ -372,5 +372,66 @@ describe("Coffre — archive de sauvegarde", () => {
     await u.click(screen.getByRole("tab", { name: /Documents/ }));
     expect(await screen.findByRole("button", { name: /Carte d'identité/ })).toBeInTheDocument();
     telecharger.mockRestore();
+  });
+});
+
+describe("Coffre — inventaire des objets", () => {
+  const achat = ajouterJours(todayIso(), -100);
+
+  beforeEach(async () => {
+    localStorage.setItem(
+      "patrimoine:coffre",
+      JSON.stringify({
+        version: 1,
+        documents: [
+          {
+            id: "doc_f",
+            type: "facture",
+            titre: "Lave-linge Bosch",
+            dateDocument: achat,
+            echeance: ajouterAns(achat, 2),
+            recurrence: null,
+            notes: "",
+            fichiers: [],
+          },
+        ],
+        objets: [],
+        reglages: { delais: {}, titreAgendaNeutre: false },
+      })
+    );
+    await act(() => activerChiffrement("phrase secrète du test"));
+  });
+
+  it("crée un objet depuis sa facture, l'affiche avec sa garantie, puis le retire", async () => {
+    const u = userEvent.setup();
+    monter();
+
+    await u.click(await screen.findByRole("button", { name: /Lave-linge Bosch/ }));
+    await u.click(await screen.findByRole("button", { name: "Ajouter à l'inventaire" }));
+    const fenetre = await screen.findByRole("dialog", { name: "Ajouter un objet" });
+    expect(within(fenetre).getByLabelText("Objet")).toHaveValue("Lave-linge Bosch");
+    expect(within(fenetre).getByLabelText("Date d'achat")).toHaveValue(achat);
+    expect(within(fenetre).getByLabelText("Facture dans le coffre")).toHaveValue("doc_f");
+    await u.selectOptions(within(fenetre).getByLabelText("Catégorie"), "electromenager");
+    await u.type(within(fenetre).getByLabelText("Prix d'achat (€)"), "600");
+    expect(within(fenetre).getByText(/d'après la facture liée/)).toBeInTheDocument();
+    await u.click(within(fenetre).getByRole("button", { name: "Enregistrer" }));
+
+    await u.click(screen.getByRole("tab", { name: /Objets/ }));
+    const liste = await screen.findByRole("list", { name: "Objets de l'inventaire" });
+    expect(within(liste).getByText("Lave-linge Bosch")).toBeInTheDocument();
+    expect(within(liste).getByText(/^Garantie →/)).toBeInTheDocument();
+    expect(within(liste).getByText("estimée")).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("patrimoine:coffre")).objets[0]).toMatchObject({
+      nom: "Lave-linge Bosch",
+      categorie: "electromenager",
+      prix: 600,
+      factureId: "doc_f",
+    });
+
+    await u.click(within(liste).getByRole("button", { name: /^Lave-linge Bosch/ }));
+    await u.click(await screen.findByRole("button", { name: "Retirer de l'inventaire" }));
+    await u.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Retirer" }));
+    expect(await screen.findByText("Aucun objet dans l'inventaire")).toBeInTheDocument();
   });
 });

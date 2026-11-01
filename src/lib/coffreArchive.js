@@ -82,15 +82,24 @@ export async function lireArchive(texte, cleMaitresse) {
 
 /**
  * Fusionne l'archive dans le coffre actuel, sans rien écraser : les documents
- * de l'archive qui manquent reviennent ; ceux qui existent encore gardent leur
- * version actuelle, plus récente.
+ * et les objets de l'archive qui manquent reviennent ; ceux qui existent
+ * encore gardent leur version actuelle, plus récente.
  */
 export function fusionnerCoffres(actuel, archive) {
-  const presents = new Set(actuel.documents.map((d) => d.id));
-  const revenus = archive.documents.filter((d) => d?.id && !presents.has(d.id));
+  const manquants = (liste, reference) => {
+    const presents = new Set((reference || []).map((x) => x?.id));
+    return (liste || []).filter((x) => x?.id && !presents.has(x.id));
+  };
+  const revenus = manquants(archive.documents, actuel.documents);
+  const objets = manquants(archive.objets, actuel.objets);
   return {
-    coffre: { ...actuel, documents: [...actuel.documents, ...revenus] },
+    coffre: {
+      ...actuel,
+      documents: [...actuel.documents, ...revenus],
+      objets: [...(actuel.objets || []), ...objets],
+    },
     documentsRestaures: revenus.length,
+    objetsRestaures: objets.length,
   };
 }
 

@@ -519,7 +519,13 @@ export function acquitterRappelCoffre(coffre, docId, rappel) {
 
 // ─── Forme des données ──────────────────────────────────────────────────────
 
-export const COFFRE_VIDE = { version: 1, documents: [], reglages: { delais: {}, titreAgendaNeutre: false } };
+export const COFFRE_VIDE = {
+  version: 1,
+  documents: [],
+  // Inventaire des objets (jalon 6, voir inventaire.js).
+  objets: [],
+  reglages: { delais: {}, titreAgendaNeutre: false },
+};
 
 export const estCoffre = (v) => !!v && typeof v === "object" && Array.isArray(v.documents);
 
@@ -580,6 +586,8 @@ export function normaliserCoffre(valeur) {
     });
     if (change) m.documents = documents;
   }
+
+  if (!Array.isArray(valeur.objets)) m.objets = [];
 
   const r = valeur.reglages;
   if (!r || typeof r !== "object" || Array.isArray(r)) {

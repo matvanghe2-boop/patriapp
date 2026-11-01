@@ -12,6 +12,7 @@ import {
   CalendarClock,
   SlidersHorizontal,
   LifeBuoy,
+  Package,
 } from "lucide-react";
 import { Card, PageGlow, PastilleEtat, GhostButton, CARD_THEMES } from "./ui";
 import EtatVide from "./EtatVide";
@@ -52,6 +53,9 @@ import {
 import { rangerFichier, supprimerFichiers, ErreurCoffre } from "../lib/coffreFichiers";
 import { evenementAgenda, lienGoogleAgenda, fichierIcs, marquerAgenda } from "../lib/coffreAgenda";
 import { fichiersPartages, oublierPartage } from "../lib/partageCoffre";
+import { nouvelObjet, normaliserObjet, objetDepuisFacture } from "../lib/inventaire";
+import VueObjets from "./coffre/VueObjets";
+import FormulaireObjet from "./coffre/FormulaireObjet";
 
 /**
  * Onglet « Coffre » : les papiers importants, chiffrés de bout en bout
@@ -191,7 +195,9 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
   // null : fermé ; { document: null } : ajout ; { document } : modification.
   const [formulaire, setFormulaire] = useState(null);
   const [ouvertId, setOuvertId] = useState(null);
-  const [onglet, setOnglet] = useSousOnglet(["documents", "echeances", "reglages"], "documents");
+  const [onglet, setOnglet] = useSousOnglet(["documents", "echeances", "objets", "reglages"], "documents");
+  // null : fermé ; { objet: null, saisie? } : ajout ; { objet } : modification.
+  const [formulaireObjet, setFormulaireObjet] = useState(null);
 
   const documents = coffre.documents;
   const { aTraiter, groupes } = useMemo(
@@ -365,6 +371,38 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
     });
   };
 
+  const modifierObjets = (f) =>
+    setCoffre((c) => {
+      const base = estCoffre(c) ? c : COFFRE_VIDE;
+      return { ...base, objets: f(base.objets || []) };
+    });
+
+  const enregistrerObjet = (saisie) => {
+    const objet = formulaireObjet?.objet;
+    if (objet) {
+      const modifieLe = new Date().toISOString();
+      modifierObjets((liste) =>
+        liste.map((o) => (o.id === objet.id ? { ...o, ...normaliserObjet(saisie), modifieLe } : o))
+      );
+      showToast({ message: "Objet mis à jour." });
+    } else {
+      modifierObjets((liste) => [...liste, nouvelObjet(saisie)]);
+      showToast({ message: "Objet ajouté à l'inventaire." });
+    }
+  };
+
+  const supprimerObjet = async (objet) => {
+    const ok = await confirm({
+      title: `Retirer « ${objet.nom} » de l'inventaire ?`,
+      message: "Sa facture, si elle est dans le coffre, y reste.",
+      confirmLabel: "Retirer",
+      danger: true,
+    });
+    if (!ok) return;
+    modifierObjets((liste) => liste.filter((o) => o.id !== objet.id));
+    setFormulaireObjet(null);
+  };
+
   const changerReglages = (f) =>
     setCoffre((c) => {
       const base = estCoffre(c) ? c : COFFRE_VIDE;
@@ -420,6 +458,7 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
         onglets={[
           { id: "documents", libelle: "Documents", icone: FileText },
           { id: "echeances", libelle: "Échéances", icone: CalendarClock, badge: aTraiterTous || undefined },
+          { id: "objets", libelle: "Objets", icone: Package },
           { id: "reglages", libelle: "Réglages", icone: SlidersHorizontal },
         ]}
       />
@@ -430,6 +469,15 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
         aria-labelledby={`onglet-${onglet}`}
         className="space-y-6"
       >
+        {onglet === "objets" && (
+          <VueObjets
+            coffre={coffre}
+            aujourdhui={aujourdhui}
+            onAjouter={() => setFormulaireObjet({ objet: null })}
+            onModifier={(objet) => setFormulaireObjet({ objet })}
+            onOuvrirDocument={setOuvertId}
+          />
+        )}
         {onglet === "echeances" && (
           <VueEcheances
             coffre={coffre}
@@ -532,6 +580,20 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
         }}
         onSupprimer={supprimer}
         onRetirerFichier={retirerFichier}
+        onAjouterObjet={(doc) => {
+          setOuvertId(null);
+          setFormulaireObjet({ objet: null, saisie: objetDepuisFacture(doc) });
+        }}
+      />
+      <FormulaireObjet
+        ouvert={formulaireObjet !== null}
+        objet={formulaireObjet?.objet || null}
+        saisie={formulaireObjet?.saisie}
+        documents={documents}
+        aujourdhui={aujourdhui}
+        onFermer={() => setFormulaireObjet(null)}
+        onEnregistrer={enregistrerObjet}
+        onSupprimer={supprimerObjet}
       />
     </>
   );
