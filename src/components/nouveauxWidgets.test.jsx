@@ -8,7 +8,7 @@
  * remaniement, alors qu'un titre manquant se voit tout de suite.
  */
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 
 import ProchainesEcheances from "./ProchainesEcheances";
 import SantePortefeuille from "./SantePortefeuille";
@@ -82,6 +82,17 @@ describe("SantePortefeuille", () => {
       <SantePortefeuille positions={[pos("AAA", 10, 100), pos("BBB", 1, 100), pos("CCC", 1, 100)]} />
     );
     expect(screen.getByText(/AAA pèse 83 %/)).toBeInTheDocument();
+  });
+
+  it("situe une société là où elle vend, et permet de revenir au siège", () => {
+    render(<SantePortefeuille positions={[pos("VU.PA", 10, 100, { type: "Action" }), pos("AI.PA", 10, 100, { type: "Action" })]} />);
+    // Chiffre d'affaires publié : la lecture par défaut, sources citées.
+    expect(screen.getByText("Exposition par zone")).toBeInTheDocument();
+    expect(screen.getByText("Non séparé par les sociétés")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "VusionGroup (2025)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Siège" }));
+    expect(screen.getByText("Exposition par pays")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Siège" })).toHaveAttribute("aria-pressed", "true");
   });
 });
 

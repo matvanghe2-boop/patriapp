@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ShieldCheck, Globe2 } from "lucide-react";
 import { CarteFocalisable, CardLabel, PastilleEtat } from "./ui";
 import EtatVide from "./EtatVide";
 import { AnneauProgression } from "./graphiques";
-import { santePortefeuille, expositionGeographique } from "../lib/portefeuilleSante";
+import { santePortefeuille, expositionGeographique, expositionParZone } from "../lib/portefeuilleSante";
 import { pctPlain, valeurPosition } from "../lib/finance";
 import { compositionDe } from "../lib/compositionEtf";
 import { estPaysAgrege } from "../lib/exposition";
@@ -47,6 +47,37 @@ function lignesPays(pays) {
 const dateLongue = (iso) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
+const COULEUR_BLOC = "#64748b";
+
+/** Une ligne de la carte : libellé, barre, part. */
+function BarreGeo({ nom, part, couleur }) {
+  return (
+    <div className="grid grid-cols-[8.5rem_1fr_2.6rem] gap-2 items-center">
+      <span className="text-micro text-slate-400 leading-tight">{nom}</span>
+      <span className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+        <span className="block h-full rounded-full" style={{ width: `${part}%`, background: couleur }} />
+      </span>
+      {/* Une décimale sous 1 % : une zone réelle mais petite ne doit pas
+          s'afficher « 0 % », comme si elle n'existait pas. */}
+      <span className="text-micro font-data tabular-nums text-slate-400 text-right">{pctPlain(part, part > 0 && part < 1 ? 1 : 0)}</span>
+    </div>
+  );
+}
+
+/**
+ * Deux lectures de l'exposition géographique, au choix.
+ *
+ * « Siège » range chaque société dans le pays de sa place de cotation : Vusion
+ * y est 100 % française. « Chiffre d'affaires » la range là où elle VEND, quand
+ * la société le publie — c'est la lecture par défaut dès qu'une ligne au moins
+ * est couverte, parce que c'est elle qui dit à quelles économies le
+ * portefeuille est exposé.
+ */
+const VUES_GEO = [
+  { id: "ca", libelle: "Chiffre d'affaires" },
+  { id: "siege", libelle: "Siège" },
+];
+
 export default function SantePortefeuille({ positions = [], secteursManuels = {} }) {
   const sante = useMemo(
     () => santePortefeuille(positions, { secteursManuels }),
@@ -62,6 +93,10 @@ export default function SantePortefeuille({ positions = [], secteursManuels = {}
     return [...vus.values()];
   }, [positions]);
   const geo = useMemo(() => expositionGeographique(positions), [positions]);
+  const parZone = useMemo(() => expositionParZone(positions), [positions]);
+  // `null` : pas encore choisi — le chiffre d'affaires dès qu'il est connu.
+  const [vueChoisie, setVueGeo] = useState(null);
+  const vueGeo = vueChoisie ?? (parZone.partChiffreAffaires > 0 ? "ca" : "siege");
 
   if (sante.score == null) {
     return (
@@ -130,8 +165,27 @@ export default function SantePortefeuille({ positions = [], secteursManuels = {}
 
       {/* ── Exposition géographique ──────────────────────────────────────── */}
       <div className="mt-4 pt-3 border-t border-slate-800">
-        <CardLabel icon={Globe2}>Exposition par pays</CardLabel>
-        {geo.pays.length === 0 ? (
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <CardLabel icon={Globe2}>{vueGeo === "ca" ? "Exposition par zone" : "Exposition par pays"}</CardLabel>
+          <div role="group" aria-label="Base de l'exposition géographique" className="inline-flex rounded-lg border border-slate-700 p-0.5">
+            {VUES_GEO.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                aria-pressed={vueGeo === v.id}
+                onClick={() => setVueGeo(v.id)}
+                className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                  vueGeo === v.id ? "bg-violet-500/15 text-violet-200" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {v.libelle}
+              </button>
+            ))}
+          </div>
+        </div>
+        {vueGeo === "ca" ? (
+          <ExpositionParZone expo={parZone} />
+        ) : geo.pays.length === 0 ? (
           <p className="text-micro text-slate-500 mt-1">
             Aucun pays connu : ces lignes sont des fonds hors catalogue, que l&apos;application ne
             décompose pas au jugé.
@@ -140,18 +194,7 @@ export default function SantePortefeuille({ positions = [], secteursManuels = {}
           <>
             <div className="flex flex-col gap-1.5 mt-2">
               {lignesPays(geo.pays).map((p, i) => (
-                <div key={p.nom} className="grid grid-cols-[6rem_1fr_2.6rem] gap-2 items-center">
-                  <span className="text-micro text-slate-400 truncate">{p.nom}</span>
-                  <span className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                    <span
-                      className="block h-full rounded-full"
-                      style={{ width: `${p.part}%`, background: COULEURS_PAYS[i % COULEURS_PAYS.length] }}
-                    />
-                  </span>
-                  <span className="text-micro font-data tabular-nums text-slate-400 text-right">
-                    {pctPlain(p.part, 0)}
-                  </span>
-                </div>
+                <BarreGeo key={p.nom} nom={p.nom} part={p.part} couleur={COULEURS_PAYS[i % COULEURS_PAYS.length]} />
               ))}
             </div>
             {/* D'où viennent ces pays : dit à l'écran, parce qu'une carte
@@ -191,5 +234,78 @@ export default function SantePortefeuille({ positions = [], secteursManuels = {}
         )}
       </div>
     </CarteFocalisable>
+  );
+}
+
+/**
+ * Exposition par zone, d'après le chiffre d'affaires publié.
+ *
+ * Les BLOCS — ce qu'une société ne sépare pas, comme « EMEA » — viennent à
+ * part, en gris, après les zones : mêlés à elles, ils passeraient pour une
+ * région de plus.
+ */
+function ExpositionParZone({ expo }) {
+  if (expo.zones.length === 0 && expo.blocs.length === 0) {
+    return (
+      <p className="text-micro text-slate-500 mt-1">
+        Aucune zone connue : ces lignes sont des fonds hors catalogue, que l&apos;application ne
+        décompose pas au jugé.
+      </p>
+    );
+  }
+  return (
+    <>
+      <div className="flex flex-col gap-1.5 mt-2">
+        {expo.zones.map((z, i) => (
+          <BarreGeo key={z.nom} nom={z.nom} part={z.part} couleur={COULEURS_PAYS[i % COULEURS_PAYS.length]} />
+        ))}
+      </div>
+      {expo.blocs.length > 0 && (
+        <>
+          <p className="text-micro text-slate-500 mt-3 mb-1.5">Non séparé par les sociétés</p>
+          <div className="flex flex-col gap-1.5">
+            {expo.blocs.map((b) => (
+              <BarreGeo key={b.nom} nom={b.nom} part={b.part} couleur={COULEUR_BLOC} />
+            ))}
+          </div>
+        </>
+      )}
+      {/* Sur quoi repose la carte : dit à l'écran, ligne par ligne d'origine. */}
+      <div className="flex flex-col gap-1 mt-2">
+        {expo.partChiffreAffaires > 0 && (
+          <p className="text-micro text-slate-500">
+            {pctPlain(expo.partChiffreAffaires, 0)} du portefeuille est réparti d&apos;après le chiffre
+            d&apos;affaires publié par la société :{" "}
+            {expo.societes.map((s, i) => (
+              <span key={s.ticker}>
+                {i > 0 && ", "}
+                <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.source} className="underline hover:text-slate-300">
+                  {s.societe} ({s.exercice})
+                </a>
+              </span>
+            ))}
+            .
+          </p>
+        )}
+        {expo.partSiege > 0 && (
+          <p className="text-micro text-slate-500">
+            {pctPlain(expo.partSiege, 0)} (ETF) est réparti d&apos;après le siège des sociétés de leur
+            indice : les fiches d&apos;indice ne publient pas de chiffre d&apos;affaires par zone.
+          </p>
+        )}
+        {expo.partCotation > 0 && (
+          <p className="text-micro text-slate-500">
+            {pctPlain(expo.partCotation, 0)} du portefeuille est situé d&apos;après sa place de cotation,
+            faute de chiffre d&apos;affaires publié au catalogue.
+          </p>
+        )}
+        {expo.partInconnue > 0 && (
+          <p className="text-micro text-amber-300/90">
+            {pctPlain(expo.partInconnue, 0)} du portefeuille n&apos;a pas de zone connue (fonds hors
+            catalogue). Ces lignes sont comptées à part, jamais réparties au prorata.
+          </p>
+        )}
+      </div>
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scoreRepartition, santePortefeuille, expositionGeographique } from "./portefeuilleSante";
+import { scoreRepartition, santePortefeuille, expositionGeographique, expositionParZone } from "./portefeuilleSante";
 
 /** Position minimale valorisable par `valeurPosition`. */
 const pos = (ticker, quantity, price, extra = {}) => ({
@@ -199,5 +199,39 @@ describe("expositionGeographique", () => {
 
   it("rend une carte vide sans position valorisable", () => {
     expect(expositionGeographique([])).toEqual({ pays: [], inconnu: 0, total: 0 });
+  });
+});
+
+describe("exposition par zone", () => {
+  const portefeuille = [
+    pos("VU.PA", 1, 1000, { type: "Action" }),
+    pos("DG.PA", 1, 1000, { type: "Action" }),
+    pos("SU.PA", 1, 1000, { type: "Action" }),
+    pos("AI.PA", 1, 1000, { type: "Action" }),
+    pos("PNAS.PA", 1, 1000, { type: "ETF" }),
+  ];
+
+  it("dit sur quoi repose chaque part, et le tout fait 100 %", () => {
+    const e = expositionParZone(portefeuille);
+    expect(e.partChiffreAffaires).toBeCloseTo(80, 6);
+    expect(e.partSiege).toBeCloseTo(20, 6);
+    expect(e.partCotation).toBe(0);
+    const tout = [...e.zones, ...e.blocs].reduce((s, z) => s + z.part, 0);
+    expect(tout).toBeCloseTo(100, 6);
+    expect(e.societes.map((s) => s.societe)).toEqual(["VusionGroup", "VINCI", "Schneider Electric", "Air Liquide"]);
+  });
+
+  it("tient les blocs à part des zones, et la France à sa vraie place", () => {
+    const e = expositionParZone(portefeuille);
+    expect(e.zones.map((z) => z.nom)).not.toContain("EMEA (France comprise)");
+    expect(e.blocs.map((b) => b.nom)).toContain("EMEA (France comprise)");
+    // France : Vinci et Air Liquide seulement — Vusion et Schneider ne la
+    // séparent pas, et la carte ne l'invente pas.
+    const france = e.zones.find((z) => z.nom === "France");
+    expect(france.part).toBeCloseTo(((30787 / 74599) * 1000 + (3264.7 / 26940.2) * 1000) / 50, 6);
+  });
+
+  it("rend une carte vide sans position valorisable", () => {
+    expect(expositionParZone([])).toEqual({ zones: [], blocs: [], inconnu: 0, total: 0, societes: [] });
   });
 });
