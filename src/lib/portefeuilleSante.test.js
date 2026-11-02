@@ -185,6 +185,18 @@ describe("expositionGeographique", () => {
     expect(e.partCotation).toBe(0);
   });
 
+  it("décompose un ETF Nasdaq-100 et garde son « Autres pays » en bloc", () => {
+    const e = expositionGeographique([
+      pos("PNAS.PA", 1, 800, { type: "ETF" }),
+      pos("AI.PA", 1, 200, { type: "Action" }),
+    ]);
+    expect(e.pays[0].nom).toBe("États-Unis");
+    expect(e.pays[0].part).toBeCloseTo((94.81 / 100.01) * 80, 6);
+    expect(e.pays.find((p) => p.nom === "France").part).toBeCloseTo(20, 6);
+    expect(e.pays.find((p) => p.agrege).nom).toBe("Autres pays");
+    expect(e.partIndice).toBeCloseTo(80, 6);
+  });
+
   it("rend une carte vide sans position valorisable", () => {
     expect(expositionGeographique([])).toEqual({ pays: [], inconnu: 0, total: 0 });
   });

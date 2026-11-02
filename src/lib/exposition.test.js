@@ -34,6 +34,8 @@ describe("catalogue des indices", () => {
   it("ne rattache un ETF qu'à un indice réellement au catalogue", () => {
     for (const indice of Object.values(ETF_INDICE)) expect(INDICES[indice]).toBeDefined();
     expect(compositionDe("cw8.pa").indice).toBe("MSCI World");
+    expect(compositionDe("PNAS.PA").indice).toBe("Nasdaq-100");
+    expect(compositionDe("PUST.PA").indice).toBe("Nasdaq-100");
     expect(compositionDe("XYZ.PA")).toBeNull();
   });
 });
@@ -59,6 +61,19 @@ describe("parts sectorielles", () => {
     expect(parts).toEqual([
       expect.objectContaining({ ticker: "AI.PA", secteur: "Matériaux", valeur: 500, etf: null }),
     ]);
+  });
+
+  it("décompose un ETF Nasdaq-100 selon son indice, même encore typé « Action »", () => {
+    // Ligne née du journal d'ordres : la décomposition dépend du ticker, pas
+    // du type, et vaut donc avant même que la cotation l'ait reclassée.
+    const parts = partsSectorielles([pos("PNAS.PA", 1000, { type: "Action" })]);
+    expect(parts.every((p) => p.etf?.indice === "Nasdaq-100")).toBe(true);
+    expect(parts.reduce((s, p) => s + p.valeur, 0)).toBeCloseTo(1000, 6);
+    const poids = poidsParSecteur([pos("PNAS.PA", 1000, { type: "ETF" })]);
+    expect(poids.Technologie).toBeCloseTo((59.65 / 100.01) * 100, 6);
+    expect(poids["Télécoms & médias"]).toBeCloseTo((15.08 / 100.01) * 100, 6);
+    expect(poids["Biens de consommation"]).toBeCloseTo(((10.03 + 5.67) / 100.01) * 100, 6);
+    expect(poids[NON_CLASSE]).toBeUndefined();
   });
 
   it("exprime les poids en pourcentage du total", () => {
@@ -89,6 +104,15 @@ describe("parts géographiques", () => {
     const { parts, inconnu } = partsGeographiques([pos("XYZ.PA", 100, { type: "ETF" })]);
     expect(parts).toEqual([]);
     expect(inconnu).toBe(100);
+  });
+
+  it("situe un ETF Nasdaq-100 coté à Paris aux États-Unis, pas en France", () => {
+    // Typé « Action », la ligne était rangée en France d'après son suffixe .PA.
+    const { parts, inconnu } = partsGeographiques([pos("PNAS.PA", 1000, { type: "Action" })]);
+    expect(inconnu).toBe(0);
+    expect(parts.every((p) => p.origine === "indice")).toBe(true);
+    expect(parts.find((p) => p.pays === "France")).toBeUndefined();
+    expect(parts.find((p) => p.pays === "États-Unis").valeur).toBeCloseTo((94.81 / 100.01) * 1000, 6);
   });
 
   it("préfère le pays enregistré à la place de cotation", () => {
