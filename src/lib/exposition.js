@@ -67,8 +67,12 @@ export function poidsParSecteur(positions = [], manuels = {}) {
   return Object.fromEntries(entrees.map(([s, v]) => [s, (v / total) * 100]));
 }
 
-/** Libellé du bloc agrégé que la fiche MSCI ne détaille pas. */
-export const PAYS_AGREGE = "Autres pays développés";
+/**
+ * Libellés des blocs agrégés que les fiches d'indice ne détaillent pas — un
+ * reste, pas un pays.
+ */
+export const PAYS_AGREGES = ["Autres pays développés", "Autres pays"];
+export const estPaysAgrege = (nom) => PAYS_AGREGES.includes(nom);
 
 /**
  * Parts géographiques.

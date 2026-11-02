@@ -378,6 +378,8 @@ src/lib/histoireTaux.test.js
 src/lib/historiqueDividendes.js
 src/lib/horizonClient.js
 src/lib/ideesIaLecture.test.js
+src/lib/identiteLigne.js
+src/lib/identiteLigne.test.js
 src/lib/indexConstituents.js
 src/lib/inflation.js
 src/lib/inventaire.js

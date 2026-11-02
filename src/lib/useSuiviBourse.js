@@ -4,6 +4,7 @@ import { fetchQuotes, fetchTauxChange, fetchHistory, fetchScreen } from "./api";
 import { majDividendeAuto, repartitionMensuelle, dividendesAVerifier } from "./dividendesAuto";
 import { plagePour, joursManquants, reconstituer, indexerClotures, datesCotees, ABSENCE_MAX_JOURS, recalculerReleves, appliquerRecalcul } from "./rattrapage";
 import { BENCHMARKS, CLES_INDICE } from "./benchmarks";
+import { identiteDepuisCotation } from "./identiteLigne";
 import { usePersistentState } from "./storage";
 import { useToast } from "./ToastContext";
 
@@ -81,6 +82,23 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
         message: `Dividende par action mis à jour : ${changes.join(", ")}.`,
         onUndo: () => setBourse(avant),
       });
+    }
+  };
+
+  /**
+   * Lignes que la cotation reclasse en fonds (voir identiteLigne.js), pour le
+   * dire : une ligne qui change de catégorie sans un mot ressemblerait à une
+   * donnée qui bouge toute seule.
+   */
+  const signalerReclassement = (cotationDe) => {
+    const changes = bourse.positions
+      .map((p) => {
+        const correctif = identiteDepuisCotation(p, cotationDe(p.ticker));
+        return correctif?.type ? `${p.ticker} → ${correctif.type}` : null;
+      })
+      .filter(Boolean);
+    if (changes.length > 0) {
+      showToast({ message: `Type corrigé d'après la source de marché : ${changes.join(", ")}.` });
     }
   };
 
@@ -162,6 +180,7 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
             const taux = devise === "EUR" ? 1 : tauxParDevise[devise] ?? p.fxRate ?? null;
             return {
               ...p,
+              ...identiteDepuisCotation(p, q),
               current_price: q.price,
               // Clôture de la veille CONSERVÉE sur la position : c'est elle qui
               // permet de calculer la variation du jour du portefeuille entier.
@@ -180,6 +199,7 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
       // Mettre à jour les données persistées (fusionner avec les existantes)
       setDailyData((prev) => ({ ...prev, ...newDailyData }));
       setSeriesCours(serieParTicker);
+      signalerReclassement((ticker) => quotes.find((x) => x.symbol === ticker));
       // Dividendes : lancés APRÈS les cours et sans les attendre — un échec
       // ici ne doit jamais faire échouer l'actualisation.
       completerDividendes(symbols);
@@ -200,9 +220,11 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
       const quotes = allSymbols.length > 0 ? await fetchQuotes(allSymbols) : [];
       const priceMap = {};
       const veilleMap = {};
+      const cotationMap = {};
       quotes.forEach((q) => {
         if (!q.ok) return;
         priceMap[q.symbol] = q.price;
+        cotationMap[q.symbol] = q;
         if (q.previousClose != null) veilleMap[q.symbol] = q.previousClose;
       });
 
@@ -226,6 +248,10 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
        * affiché sous la valeur du portefeuille, et le briefing du Dashboard,
        * n'étaient alors la variation de rien. Ce relevé tient les cotations
        * du jour : il les écrit.
+       *
+       * Et ce qu'elles disent de la ligne elle-même — un ETF né du journal
+       * d'ordres, typé « Action » par défaut, est reconnu ici, à l'ouverture
+       * de l'onglet, sans attendre qu'on presse « Actualiser les cours ».
        */
       if (Object.keys(veilleMap).length > 0 || Object.keys(priceMap).length > 0) {
         setBourse((b) => ({
@@ -235,12 +261,14 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
             veilleMap[p.ticker] != null || priceMap[p.ticker] != null
               ? {
                   ...p,
+                  ...identiteDepuisCotation(p, cotationMap[p.ticker]),
                   ...(veilleMap[p.ticker] != null ? { previousClose: veilleMap[p.ticker] } : {}),
                   ...(priceMap[p.ticker] != null ? { current_price: priceMap[p.ticker] } : {}),
                 }
               : p
           ),
         }));
+        signalerReclassement((ticker) => cotationMap[ticker]);
       }
 
       // Valorisation par `valeurPosition`, donc CONVERTIE en euros. L'ancien
@@ -401,6 +429,12 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
     const veilleManquante = bourse.positions.some(
       (p) => p.quantity && (p.previousClose == null || !(p.previousClose > 0))
     );
+    // Même chose pour une ligne qui n'a que son ticker pour nom : née du
+    // journal d'ordres, elle attend que la cotation lui dise ce qu'elle est
+    // (voir identiteLigne.js).
+    const identiteManquante = bourse.positions.some(
+      (p) => p.quantity && String(p.name ?? "").trim().toUpperCase() === String(p.ticker ?? "").trim().toUpperCase()
+    );
     // Effet de CHARGEMENT : Relevé de performance du jour au montage :
     // `captureSnapshot` lève son propre témoin de chargement avant d'interroger
     // le réseau. C'est la définition même d'un effet — synchroniser avec un
@@ -413,7 +447,7 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
     // Plus de `set-state-in-effect` à museler ici : les deux écritures d'état
     // partent désormais d'une continuation asynchrone, pas du corps de l'effet.
     rattraperHistorique().finally(() => {
-      if (!hasToday || veilleManquante) captureSnapshot(true);
+      if (!hasToday || veilleManquante || identiteManquante) captureSnapshot(true);
     });
     // Dividendes : vérifiés tout seuls, comme les cours, et non plus
     // seulement sur « Actualiser les cours » — qu'on ne presse presque jamais

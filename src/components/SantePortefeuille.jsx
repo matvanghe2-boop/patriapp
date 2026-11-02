@@ -6,7 +6,7 @@ import { AnneauProgression } from "./graphiques";
 import { santePortefeuille, expositionGeographique } from "../lib/portefeuilleSante";
 import { pctPlain, valeurPosition } from "../lib/finance";
 import { compositionDe } from "../lib/compositionEtf";
-import { PAYS_AGREGE } from "../lib/exposition";
+import { estPaysAgrege } from "../lib/exposition";
 
 /**
  * Santé du portefeuille et exposition géographique — onglet PEA & Bourse.
@@ -169,7 +169,7 @@ export default function SantePortefeuille({ positions = [], secteursManuels = {}
                   >
                     fiche de l&apos;indice au {dateLongue(c.date)}
                   </a>
-                  .{c.pays?.[PAYS_AGREGE] != null && " Les pays qu'elle ne détaille pas restent regroupés."}
+                  .{Object.keys(c.pays || {}).some(estPaysAgrege) && " Les pays qu'elle ne détaille pas restent regroupés."}
                 </p>
               ))}
               {geo.partCotation > 0 && (

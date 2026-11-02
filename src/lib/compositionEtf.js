@@ -12,10 +12,11 @@
  *  - Uniquement des chiffres PUBLIÉS, recopiés tels quels, avec leur source et
  *    leur date. Rien n'est estimé ni complété : la fiche MSCI ne détaille que
  *    cinq pays, le reste reste donc « Autres pays développés », en bloc.
- *  - Les libellés sont ceux de la source (GICS, en anglais) ; leur
- *    correspondance avec les secteurs de l'application est faite à part, dans
- *    `SECTEUR_GICS`, pour qu'on puisse toujours confronter le catalogue à la
- *    fiche d'origine ligne à ligne.
+ *  - Les secteurs sont ceux de la classification GICS, sous leur nom anglais ;
+ *    leur correspondance avec les secteurs de l'application est faite à part,
+ *    dans `SECTEUR_GICS`, pour qu'on puisse toujours confronter le catalogue à
+ *    la fiche d'origine ligne à ligne. Une fiche qui les nomme en français
+ *    garde son libellé d'origine en commentaire, en face.
  *  - Une composition dérive : à remettre à jour de temps en temps. La date est
  *    affichée à l'écran pour que son âge se voie.
  *
@@ -55,19 +56,53 @@ export const INDICES = {
       "Autres pays développés": 12.21,
     },
   },
+  "Nasdaq-100": {
+    // La fiche de Nasdaq ne publie que des industries ICB, sans pays ; celle
+    // d'Amundi publie les secteurs GICS ET les pays de l'indice.
+    source: "Nasdaq-100 — fiche Amundi PEA Nasdaq-100 UCITS ETF S-Acc (FR001400ZGR7), données de l'indice, Amundi",
+    url: "https://www.amundietf.fr/pdfDocuments/monthly-factsheet/FR001400ZGR7/FRA/FRA/INSTITUTIONNEL/ETF",
+    date: "2026-09-30",
+    // « Nombre de valeurs » de la fiche : 100 sociétés, dont Alphabet en deux
+    // classes d'actions.
+    constituants: 101,
+    // Somme : 100,01, arrondis de la fiche.
+    secteurs: {
+      "Information Technology": 59.65, // Technologies de l'info.
+      "Communication Services": 15.08, // Services de communication
+      "Consumer Discretionary": 10.03, // Conso Cyclique
+      "Consumer Staples": 5.67, // Conso non Cyclique
+      "Health Care": 3.83, // Santé
+      Industrials: 3.16, // Industrie
+      Utilities: 1.03, // Services publics
+      Materials: 0.92, // Matériaux
+      Energy: 0.45, // Énergie
+      Financials: 0.19, // Finance
+    },
+    // Somme : 100,01. Le dernier bloc est celui de la fiche, non détaillé.
+    pays: {
+      "États-Unis": 94.81,
+      Irlande: 1.79,
+      "Pays-Bas": 1.38,
+      Canada: 0.91,
+      "Royaume-Uni": 0.73,
+      "Autres pays": 0.39,
+    },
+  },
 };
 
 /**
- * ETF → indice répliqué. Ces ETF éligibles au PEA répliquent le MSCI World
- * de façon synthétique (par un contrat d'échange) : le panier qu'ils
- * détiennent physiquement est européen, mais l'exposition économique — celle
- * qui fait varier leur valeur — est celle de l'indice. C'est elle qui compte
- * pour savoir à quoi l'on est exposé.
+ * ETF → indice répliqué. Ces ETF éligibles au PEA répliquent leur indice de
+ * façon synthétique (par un contrat d'échange) : le panier qu'ils détiennent
+ * physiquement est européen, mais l'exposition économique — celle qui fait
+ * varier leur valeur — est celle de l'indice. C'est elle qui compte pour
+ * savoir à quoi l'on est exposé.
  */
 export const ETF_INDICE = {
   "CW8.PA": "MSCI World", // Amundi MSCI World Swap UCITS ETF
   "EWLD.PA": "MSCI World", // Amundi PEA Monde (MSCI World) UCITS ETF
   "WPEA.PA": "MSCI World", // iShares MSCI World Swap PEA UCITS ETF
+  "PNAS.PA": "Nasdaq-100", // Amundi PEA Nasdaq-100 UCITS ETF S-Acc
+  "PUST.PA": "Nasdaq-100", // Amundi PEA Nasdaq-100 UCITS ETF Acc
 };
 
 /** Secteurs GICS de la source → secteurs de l'application. */

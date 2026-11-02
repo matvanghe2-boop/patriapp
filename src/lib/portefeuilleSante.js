@@ -1,7 +1,7 @@
 import { lireNombre, valeurPosition, tauxPosition, pctPlain } from "./finance";
 import { NON_CLASSE } from "./sectors";
 import { compositionDe } from "./compositionEtf";
-import { valeurParSecteur, partsGeographiques, PAYS_AGREGE } from "./exposition";
+import { valeurParSecteur, partsGeographiques, estPaysAgrege } from "./exposition";
 
 /**
  * Santé du portefeuille — quatre risques, mesurés séparément.
@@ -224,7 +224,7 @@ export function expositionGeographique(positions = []) {
     partCotation: (parCotation / total) * 100,
     partIndice: (parIndice / total) * 100,
     pays: [...parPays.entries()]
-      .map(([nom, valeur]) => ({ nom, valeur, part: (valeur / total) * 100, agrege: nom === PAYS_AGREGE }))
+      .map(([nom, valeur]) => ({ nom, valeur, part: (valeur / total) * 100, agrege: estPaysAgrege(nom) }))
       .sort((a, b) => b.valeur - a.valeur),
   };
 }

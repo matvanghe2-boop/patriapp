@@ -31,6 +31,10 @@ async function handler(req, res) {
             currency: meta.currency,
             previousClose: meta.previousClose ?? meta.chartPreviousClose ?? null,
             name: meta.shortName || meta.longName || symbol,
+            // « ETF », « EQUITY », « MUTUALFUND »… : c'est lui qui permet de
+            // reconnaître un ETF né du journal d'ordres, typé « Action » faute
+            // de mieux (voir src/lib/identiteLigne.js).
+            instrumentType: meta.instrumentType || null,
           };
         });
       } catch (err) {
