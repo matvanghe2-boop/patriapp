@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { partsSectorielles, poidsParSecteur, partsGeographiques, estFonds } from "./exposition";
+import { partsSectorielles, poidsParSecteur, partsGeographiques, partsParZone, estFonds, BLOC_INDICE } from "./exposition";
 import { INDICES, ETF_INDICE, SECTEUR_GICS, compositionDe } from "./compositionEtf";
 import { secteurDe, SECTEUR_YAHOO, SECTOR_HEX, NON_CLASSE } from "./sectors";
 
@@ -119,5 +119,40 @@ describe("parts géographiques", () => {
     // Stellantis, société néerlandaise, se négocie à Paris.
     const { parts } = partsGeographiques([pos("STLAP.PA", 100, { pays: "Pays-Bas" })]);
     expect(parts[0]).toEqual(expect.objectContaining({ pays: "Pays-Bas", origine: "fiche" }));
+  });
+});
+
+describe("parts par zone", () => {
+  const somme = (parts) => parts.reduce((s, p) => s + p.valeur, 0);
+
+  it("ne range plus Vusion en France : ses deux blocs publiés, rien au jugé", () => {
+    const { parts } = partsParZone([pos("VU.PA", 1000, { type: "Action" })]);
+    expect(parts.every((p) => p.origine === "chiffre d'affaires" && p.bloc && !p.zone)).toBe(true);
+    expect(parts.find((p) => p.bloc === "Amériques + Asie-Pacifique").valeur).toBeCloseTo((1057.4 / 1472.0) * 1000, 6);
+    expect(somme(parts)).toBeCloseTo(1000, 6);
+  });
+
+  it("répartit Vinci selon son tableau par zone", () => {
+    const { parts } = partsParZone([pos("DG.PA", 1000)]);
+    const zone = (z) => somme(parts.filter((p) => p.zone === z));
+    expect(zone("France")).toBeCloseTo((30787 / 74599) * 1000, 6);
+    expect(zone("Europe hors France")).toBeCloseTo(((7362 + 6485 + 3780 + 3297 + 7587) / 74599) * 1000, 6);
+    expect(somme(parts.filter((p) => p.bloc === "Reste du monde"))).toBeCloseTo((3805 / 74599) * 1000, 6);
+  });
+
+  it("situe un ETF d'après le siège des sociétés de son indice", () => {
+    const { parts } = partsParZone([pos("PNAS.PA", 1000, { type: "ETF" }), pos("CW8.PA", 1000, { type: "ETF" })]);
+    expect(parts.every((p) => p.origine === "siège")).toBe(true);
+    const nasdaq = parts.filter((p) => p.ticker === "PNAS.PA");
+    expect(somme(nasdaq.filter((p) => p.zone === "Amériques"))).toBeCloseTo(((94.81 + 0.91) / 100.01) * 1000, 6);
+    // Le reste non détaillé d'une fiche reste un bloc.
+    expect(parts.filter((p) => p.bloc === BLOC_INDICE).map((p) => p.ticker)).toEqual(["PNAS.PA", "CW8.PA"]);
+  });
+
+  it("garde la place de cotation pour une action hors catalogue, et ne perd rien", () => {
+    const { parts, inconnu, total } = partsParZone([pos("SAP.DE", 100), pos("XYZ.PA", 50, { type: "ETF" })]);
+    expect(parts).toEqual([expect.objectContaining({ ticker: "SAP.DE", zone: "Europe hors France", origine: "cotation" })]);
+    expect(inconnu).toBe(50);
+    expect(total).toBe(150);
   });
 });

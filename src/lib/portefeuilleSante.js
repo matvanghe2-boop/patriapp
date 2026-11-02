@@ -1,7 +1,8 @@
 import { lireNombre, valeurPosition, tauxPosition, pctPlain } from "./finance";
 import { NON_CLASSE } from "./sectors";
 import { compositionDe } from "./compositionEtf";
-import { valeurParSecteur, partsGeographiques, estPaysAgrege } from "./exposition";
+import { valeurParSecteur, partsGeographiques, partsParZone, estPaysAgrege } from "./exposition";
+import { repartitionCaDe } from "./chiffreAffairesZones";
 
 /**
  * Santé du portefeuille — quatre risques, mesurés séparément.
@@ -226,5 +227,50 @@ export function expositionGeographique(positions = []) {
     pays: [...parPays.entries()]
       .map(([nom, valeur]) => ({ nom, valeur, part: (valeur / total) * 100, agrege: estPaysAgrege(nom) }))
       .sort((a, b) => b.valeur - a.valeur),
+  };
+}
+
+/**
+ * Exposition par zone, d'après le chiffre d'affaires publié des sociétés.
+ *
+ * Les zones viennent d'abord, de la plus grosse à la plus petite ; les BLOCS
+ * — ce que les sociétés ne séparent pas, comme « EMEA » — ensuite, à part :
+ * classés parmi les zones, ils passeraient pour une région de plus.
+ *
+ * Chaque origine a sa part, pour que l'écran dise sur quoi repose la carte :
+ * une société dont on connaît les ventes ne se lit pas comme une société
+ * rangée d'après sa place de cotation.
+ */
+export function expositionParZone(positions = []) {
+  const { parts, inconnu, total } = partsParZone(positions);
+  if (total <= 0) return { zones: [], blocs: [], inconnu: 0, total: 0, societes: [] };
+
+  const parZone = new Map();
+  const parBloc = new Map();
+  const parOrigine = new Map();
+  for (const part of parts) {
+    const cible = part.zone ? parZone : parBloc;
+    const cle = part.zone || part.bloc;
+    cible.set(cle, (cible.get(cle) || 0) + part.valeur);
+    parOrigine.set(part.origine, (parOrigine.get(part.origine) || 0) + part.valeur);
+  }
+  const lignes = (m) =>
+    [...m.entries()].map(([nom, valeur]) => ({ nom, valeur, part: (valeur / total) * 100 })).sort((a, b) => b.valeur - a.valeur);
+  const partDe = (origine) => ((parOrigine.get(origine) || 0) / total) * 100;
+
+  // Sociétés dont la répartition publiée a servi, pour en citer la source.
+  const societes = [...new Set(parts.filter((p) => p.origine === "chiffre d'affaires").map((p) => p.ticker))]
+    .map((ticker) => ({ ticker, ...repartitionCaDe(ticker) }));
+
+  return {
+    total,
+    inconnu,
+    zones: lignes(parZone),
+    blocs: lignes(parBloc),
+    partChiffreAffaires: partDe("chiffre d'affaires"),
+    partSiege: partDe("siège"),
+    partCotation: partDe("cotation"),
+    partInconnue: (inconnu / total) * 100,
+    societes,
   };
 }

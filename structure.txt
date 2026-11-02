@@ -323,6 +323,8 @@ src/lib/calendrierManuel.test.js
 src/lib/cascade.js
 src/lib/cascade.test.js
 src/lib/categorisationAssistee.js
+src/lib/chiffreAffairesZones.js
+src/lib/chiffreAffairesZones.test.js
 src/lib/chiffrement.js
 src/lib/chiffrement.test.js
 src/lib/coffre.js

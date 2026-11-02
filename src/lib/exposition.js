@@ -1,6 +1,7 @@
 import { valeurPosition } from "./finance";
 import { secteurDe, NON_CLASSE } from "./sectors";
 import { compositionDe, poidsSectorielsIndice, poidsPaysIndice } from "./compositionEtf";
+import { repartitionCaDe, partsDuChiffreAffaires, zoneDuPays } from "./chiffreAffairesZones";
 import { placeDuTicker } from "../../shared/eligibilitePea.js";
 
 /**
@@ -111,6 +112,67 @@ export function partsGeographiques(positions = []) {
     const place = estFonds(p) ? null : placeDuTicker(ticker);
     if (place?.pays) {
       parts.push({ ticker, pays: place.pays, valeur, origine: "cotation" });
+      continue;
+    }
+    inconnu += valeur;
+  }
+  return { parts, inconnu, total };
+}
+
+/** Bloc d'un indice dont la fiche ne détaille pas les pays. */
+export const BLOC_INDICE = "Autres pays (fiche d'indice)";
+
+/**
+ * Parts par ZONE, d'après le chiffre d'affaires quand il est publié.
+ *
+ * D'où vient la zone, dans cet ordre :
+ *  - « chiffre d'affaires » : la répartition publiée par la société (voir
+ *    chiffreAffairesZones.js) ;
+ *  - « siège » : pour un ETF au catalogue, le pays des sociétés de son indice.
+ *    Les fiches d'indice ne publient pas de chiffre d'affaires par zone : c'est
+ *    le mieux qu'on sache, et l'écran le dit ;
+ *  - « fiche », puis « cotation » : comme `partsGeographiques`.
+ *
+ * Une part porte SOIT une `zone`, SOIT un `bloc` — une ligne de la source qui
+ * chevauche plusieurs zones, gardée telle quelle.
+ */
+export function partsParZone(positions = []) {
+  const parts = [];
+  let inconnu = 0;
+  let total = 0;
+  const situer = (ticker, pays, valeur, origine) => {
+    const zone = zoneDuPays(pays);
+    parts.push(zone ? { ticker, zone, valeur, origine } : { ticker, bloc: pays, valeur, origine });
+  };
+  for (const p of positions || []) {
+    const valeur = valeurPosition(p);
+    if (!(valeur > 0)) continue;
+    total += valeur;
+    const ticker = String(p.ticker || "").toUpperCase();
+
+    const repartition = repartitionCaDe(ticker);
+    if (repartition) {
+      for (const { zone, bloc, part } of partsDuChiffreAffaires(repartition)) {
+        parts.push({ ticker, ...(zone ? { zone } : { bloc }), valeur: valeur * part, origine: "chiffre d'affaires" });
+      }
+      continue;
+    }
+    const composition = compositionDe(ticker);
+    if (composition) {
+      for (const [pays, part] of poidsPaysIndice(composition)) {
+        if (estPaysAgrege(pays)) parts.push({ ticker, bloc: BLOC_INDICE, valeur: valeur * part, origine: "siège" });
+        else situer(ticker, pays, valeur * part, "siège");
+      }
+      continue;
+    }
+    const enregistre = p.pays || p.country || null;
+    if (enregistre) {
+      situer(ticker, enregistre, valeur, "fiche");
+      continue;
+    }
+    const place = estFonds(p) ? null : placeDuTicker(ticker);
+    if (place?.pays) {
+      situer(ticker, place.pays, valeur, "cotation");
       continue;
     }
     inconnu += valeur;
