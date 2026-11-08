@@ -1078,6 +1078,11 @@ export async function clearCloudData(keys) {
 
 // ─── Chiffrement : interface publique ────────────────────────────────────────
 
+/** Valeur enregistrée sur cet appareil pour une clé, lue une fois, sans s'y abonner. */
+export function lireValeurLocale(key, defaut = null) {
+  return readLocal(key, defaut);
+}
+
 /** `{ actif, verrouille }` — verrouillé : chiffré dans le cloud, sans clé sur cet appareil. */
 export function useEtatChiffrement() {
   return useSyncExternalStore(
@@ -1116,7 +1121,7 @@ export function verrouillerCetAppareil() {
  * horodatage d'origine — chiffrées ou en clair selon l'état courant. Renvoie
  * le nombre d'échecs.
  */
-async function reecrireTout(userId) {
+async function reecrireTout(userId, horodatageCommun = null) {
   const cles = new Set(latestValues.keys());
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
@@ -1131,7 +1136,13 @@ async function reecrireTout(userId) {
     const entry = latestValues.get(key);
     const value = entry ? entry.value : readLocal(key, undefined);
     if (value === undefined) continue;
-    const updatedAt = entry?.updatedAt || readLocalUpdatedAt(key) || new Date().toISOString();
+    const updatedAt = horodatageCommun || entry?.updatedAt || readLocalUpdatedAt(key) || new Date().toISOString();
+    if (horodatageCommun) {
+      // La copie de cet appareil porte le même horodatage que ce qui part :
+      // sinon, plus ancienne que le cloud, elle se réadopterait elle-même.
+      writeLocal(key, value, updatedAt);
+      latestValues.set(key, { value, updatedAt });
+    }
     // Marquée « à écrire » : `pushToCloud` n'écrit que les clés en attente.
     dirtyKeys.add(key);
     if (!(await pushToCloud(key, value, userId, updatedAt))) echecs += 1;
@@ -1196,19 +1207,33 @@ export async function deverrouillerChiffrement(phrase) {
  * Désactive le chiffrement : réécriture en clair de tout, puis suppression de
  * la configuration — dans cet ordre, pour qu'aucune interruption ne laisse
  * des données chiffrées sans configuration pour les relire.
+ *
+ * L'APPAREIL QUI DÉSACTIVE FAIT FOI. Ses versions repartent avec l'horodatage
+ * de la désactivation, et non avec le leur : c'est ce qui les impose aux
+ * appareils restés verrouillés. Ceux-là ne lisaient rien du cloud depuis
+ * l'activation, mais continuaient d'écrire dans leur propre copie — une
+ * actualisation des cours suffisait à la dater d'aujourd'hui. Réécrites sous
+ * leur ancien horodatage, les données de cet appareil auraient paru plus
+ * anciennes que ces copies dépassées ; le téléphone les aurait ignorées, puis
+ * aurait renvoyé sa version par-dessus.
+ *
+ * Avant de les réécrire, on relit le cloud tant que la clé est encore là :
+ * une modification faite sur un autre appareil déverrouillé est ainsi
+ * adoptée ici, plutôt qu'effacée par la réécriture.
  */
 export async function desactiverChiffrement() {
   const userId = await utilisateurConnecte();
   if (chiffrement.config && !chiffrement.cle) {
     throw new Error("Déverrouille d'abord cet appareil avec ta phrase secrète.");
   }
+  await pullAllFromCloud();
   const cleAvant = chiffrement.cle;
   const configAvant = chiffrement.config;
   chiffrement.operationEnCours = true;
   try {
     chiffrement.config = null;
     chiffrement.cle = null;
-    const echecs = await reecrireTout(userId);
+    const echecs = await reecrireTout(userId, new Date().toISOString());
     if (echecs > 0) {
       // Rien n'est supprimé : la configuration reste, et la clé avec elle.
       chiffrement.config = configAvant;

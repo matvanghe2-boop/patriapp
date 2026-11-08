@@ -12,6 +12,9 @@ let etat = { actif: true, verrouille: false, codeSecours: null };
 const creerCodeSecours = vi.fn(async () => "ABCDE-FGHJK-MNPQR-STUVW-XYZ23");
 const changerPhraseSecrete = vi.fn(async () => {});
 const deverrouillerAvecCodeSecours = vi.fn(async () => true);
+const desactiverChiffrement = vi.fn(async () => 0);
+/** Coffre enregistré sur l'appareil, lu par l'avertissement de désactivation. */
+let coffreLocal = null;
 
 vi.mock("../lib/AuthContext", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
 vi.mock("../lib/supabaseClient", () => ({ isSupabaseConfigured: true }));
@@ -19,7 +22,8 @@ vi.mock("../lib/storage", () => ({
   useEtatChiffrement: () => etat,
   activerChiffrement: vi.fn(),
   deverrouillerChiffrement: vi.fn(),
-  desactiverChiffrement: vi.fn(),
+  desactiverChiffrement: () => desactiverChiffrement(),
+  lireValeurLocale: (cle) => (cle === "coffre" ? coffreLocal : null),
   creerCodeSecours: () => creerCodeSecours(),
   changerPhraseSecrete: (p) => changerPhraseSecrete(p),
   deverrouillerAvecCodeSecours: (c, p) => deverrouillerAvecCodeSecours(c, p),
@@ -116,5 +120,44 @@ describe("ReglagesChiffrement — phrase oubliée", () => {
     monter();
     expect(screen.queryByRole("button", { name: /Phrase oubliée/ })).not.toBeInTheDocument();
     expect(screen.getByText(/une phrase oubliée ne se récupère pas/)).toBeInTheDocument();
+  });
+});
+
+describe("ReglagesChiffrement — désactivation", () => {
+  beforeEach(() => {
+    coffreLocal = null;
+    desactiverChiffrement.mockClear();
+  });
+
+  it("prévient que cet appareil fait foi et que le coffre se referme, avec ses fichiers", async () => {
+    const u = userEvent.setup();
+    coffreLocal = {
+      documents: [
+        { id: "d1", fichiers: [{ id: "f1" }, { id: "f2" }] },
+        { id: "d2", fichiers: [{ id: "f3" }] },
+        { id: "d3", fichiers: [] },
+      ],
+    };
+    monter();
+    await u.click(screen.getByRole("button", { name: "Désactiver le chiffrement" }));
+    const confirmation = await screen.findByRole("alertdialog");
+    expect(confirmation).toHaveTextContent("CET appareil font foi");
+    expect(confirmation).toHaveTextContent("les 3 fichiers qu'il contient ne pourront plus être ouverts");
+
+    await u.click(within(confirmation).getByRole("button", { name: "Annuler" }));
+    expect(desactiverChiffrement).not.toHaveBeenCalled();
+  });
+
+  it("sans fichier rangé, dit seulement que le coffre se refermera, puis désactive", async () => {
+    const u = userEvent.setup();
+    coffreLocal = { documents: [{ id: "d1", fichiers: [] }] };
+    monter();
+    await u.click(screen.getByRole("button", { name: "Désactiver le chiffrement" }));
+    const confirmation = await screen.findByRole("alertdialog");
+    expect(confirmation).toHaveTextContent("Le coffre à papiers, qui a besoin du chiffrement, se refermera.");
+    expect(confirmation).not.toHaveTextContent("ne pourront plus");
+
+    await u.click(within(confirmation).getByRole("button", { name: "Désactiver" }));
+    expect(desactiverChiffrement).toHaveBeenCalledTimes(1);
   });
 });
