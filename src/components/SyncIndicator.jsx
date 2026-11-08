@@ -22,12 +22,18 @@ export default function SyncIndicator() {
   const relative = lastSyncedAt ? formatRelative(lastSyncedAt) : null;
 
   // Toujours actionnable, quel que soit l'état affiché : on relit le cloud
-  // (pour récupérer ce qu'un autre appareil a écrit) ET on repousse ce qui
-  // serait resté coincé localement (utile en cas d'échec).
+  // (pour récupérer ce qu'un autre appareil a écrit), PUIS on repousse ce qui
+  // serait resté coincé localement. Dans cet ordre, et non plus en parallèle :
+  // une poussée partie avant la relecture envoyait la copie de cet appareil
+  // avant même de savoir si le cloud en avait une plus récente.
   const handleClick = async () => {
     setRefreshing(true);
-    await Promise.all([manualRefresh(), retry()]);
-    setRefreshing(false);
+    try {
+      await manualRefresh();
+      await retry();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const VIEWS = {

@@ -46,6 +46,30 @@ vi.mock("../lib/supabaseClient", () => ({
         lignesCloud.set(ligne.key, ligne);
         return Promise.resolve({ error: null });
       },
+      // Écriture conditionnelle des données (voir `ecrireSiPlusRecente`) : la
+      // condition d'horodatage n'importe pas ici, seul le contenu écrit compte.
+      update: (champs) => {
+        let cle = null;
+        const constructeur = {
+          eq: (_colonne, id) => {
+            cle = String(id).split(":").slice(1).join(":");
+            return constructeur;
+          },
+          or: () => constructeur,
+          select: () => {
+            const ligne = lignesCloud.get(cle);
+            if (!ligne) return Promise.resolve({ data: [], error: null });
+            lignesCloud.set(cle, { ...ligne, ...champs });
+            return Promise.resolve({ data: [{ id: `u1:${cle}` }], error: null });
+          },
+        };
+        return constructeur;
+      },
+      insert: (ligne) => {
+        if (lignesCloud.has(ligne.key)) return Promise.resolve({ error: { code: "23505" } });
+        lignesCloud.set(ligne.key, ligne);
+        return Promise.resolve({ error: null });
+      },
       delete: () => ({ in: () => Promise.resolve({ error: null }) }),
     }),
     storage: {

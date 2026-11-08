@@ -167,7 +167,11 @@ export function PatrimoineProvider({ children }) {
   const [profileHistory, setProfileHistory] = usePersistentState("profileHistory", []);
   const [livrets, setLivrets] = usePersistentState("livrets", INITIAL_LIVRETS);
   const [dettes, setDettes] = usePersistentState("dettes", []);
-  const [bourse, setBourse] = usePersistentState("bourse", INITIAL_BOURSE);
+  // `setBourseAuto` : écritures automatiques (cours, clôture de la veille,
+  // type reconnu à la cotation, dividendes), qui ne doivent pas faire passer
+  // ce portefeuille pour plus récent que celui d'un autre appareil (voir
+  // `setAuto` dans storage.js).
+  const [bourse, setBourse, setBourseAuto] = usePersistentState("bourse", INITIAL_BOURSE);
   const [historyPast, setHistoryPast] = usePersistentState("historyPast", INITIAL_HISTORY_PAST);
   const [sim, setSim] = usePersistentState("sim", INITIAL_SIM);
   const [immo, setImmo] = usePersistentState("immo", INITIAL_IMMO);
@@ -404,7 +408,7 @@ export function PatrimoineProvider({ children }) {
   const value = useMemo(
     () => ({
       isEmpty, loadDemoData, profileHistory,
-      profile: profilEffectif, profileSaisi: profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
+      profile: profilEffectif, profileSaisi: profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse, setBourseAuto,
       historyPast, setHistoryPast, sim, setSim, immo, setImmo,
       bourseHistory, setBourseHistory, watchlist, setWatchlist,
       cash: cashEffectif, setCash, compteSolde, budgetReel, compteEnrichies, compteMouvements, enveloppes, setEnveloppes,
@@ -426,7 +430,7 @@ export function PatrimoineProvider({ children }) {
     }),
     [
       isEmpty, loadDemoData, profileHistory,
-      profilEffectif, profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse,
+      profilEffectif, profile, setProfile, livrets, setLivrets, dettes, setDettes, bourse, setBourse, setBourseAuto,
       historyPast, setHistoryPast, sim, setSim, immo, setImmo,
       bourseHistory, setBourseHistory, watchlist, setWatchlist,
       cashEffectif, setCash, compteSolde, budgetReel, compteEnrichies, compteMouvements, enveloppes, setEnveloppes,

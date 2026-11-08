@@ -89,6 +89,35 @@ function readLocalUpdatedAt(key) {
   }
 }
 
+/**
+ * Horodatages comparés comme des INSTANTS, et non comme des chaînes.
+ *
+ * Un même instant s'écrit de deux façons ici : `…30.120Z` quand l'appareil
+ * l'a produit (`toISOString`), `…30.12+00:00` quand il revient de Postgres,
+ * qui écrit le fuseau et rogne les zéros de fin. Comparées comme des chaînes,
+ * deux écritures du même instant paraissaient différentes — et la réparation
+ * des divergences (voir `pullAllFromCloud`) aurait repoussé la clé à chaque
+ * relecture.
+ */
+function instant(iso) {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? t : null;
+}
+
+/** `a` est strictement plus récent que `b` ; un horodatage absent est le plus ancien. */
+function plusRecent(a, b) {
+  const ta = instant(a);
+  const tb = instant(b);
+  if (ta == null) return false;
+  return tb == null || ta > tb;
+}
+
+/**
+ * Horodatage d'une écriture qui ne revendique aucune fraîcheur : l'appareil
+ * n'avait encore rien enregistré pour cette clé (voir `setAuto`).
+ */
+const EPOQUE = new Date(0).toISOString();
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ─── Chiffrement de bout en bout (optionnel) ─────────────────────────────────
@@ -216,38 +245,143 @@ function preChiffrer(key) {
  * définitivement absente d'un des appareils ; et un échec durable doit être
  * visible dans l'interface plutôt que noyé dans la console.
  */
+/**
+ * Écriture cloud CONDITIONNELLE : la ligne n'est remplacée que si sa version
+ * est plus ancienne que celle qu'on envoie (ou du même instant).
+ *
+ * C'était un `upsert`, c'est-à-dire un écrasement sans condition. Toute
+ * écriture d'un appareil en retard — le bouton de synchronisation qui
+ * repoussait tout, une poussée partie avant que le cloud n'ait été lu —
+ * remplaçait donc la version plus récente d'un autre appareil. Et elle le
+ * faisait avec son VIEIL horodatage : l'appareil à jour, plus récent que ce
+ * qu'il relisait, ne l'adoptait pas et ne repoussait rien non plus. Les deux
+ * appareils restaient séparés pour de bon, quelle que soit la synchronisation
+ * demandée — une ligne de portefeuille ajoutée sur l'ordinateur n'atteignait
+ * jamais le téléphone.
+ *
+ * La condition est évaluée par Postgres dans l'`UPDATE` lui-même : aucune
+ * fenêtre entre la vérification et l'écriture. Une clé encore absente du
+ * cloud passe par un `INSERT`, dont l'échec sur conflit (23505) signale qu'un
+ * autre appareil l'a créée entre-temps — avec une version que l'`UPDATE`
+ * n'avait pas le droit de remplacer.
+ */
+async function ecrireSiPlusRecente(ligne) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ value: ligne.value, updated_at: ligne.updated_at })
+    .eq("id", ligne.id)
+    // Guillemets : l'horodatage contient « : » et « . », réservés par la
+    // syntaxe des filtres `or` de PostgREST. Une ligne sans horodatage passe
+    // pour la plus ancienne.
+    .or(`updated_at.is.null,updated_at.lte."${ligne.updated_at}"`)
+    .select("id");
+  if (error) throw error;
+  if (data && data.length > 0) return "ecrite";
+  const { error: erreurInsertion } = await supabase.from(TABLE).insert(ligne);
+  if (!erreurInsertion) return "ecrite";
+  if (erreurInsertion.code === "23505") return "plus-recente-en-cloud";
+  throw erreurInsertion;
+}
+
+/** Ligne cloud d'une clé : `brute` telle qu'elle est stockée, `lisible` déchiffrée (ou `null`). */
+async function relireLigne(key, userId) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("key, value, updated_at")
+    .in("id", [`${userId}:${key}`]);
+  if (error) throw error;
+  const brute = (data || []).find((row) => row.key === key);
+  if (!brute) return null;
+  const [lisible] = await lignesLisibles([brute]);
+  return { brute, lisible: lisible || null };
+}
+
+/**
+ * Pousse la DERNIÈRE valeur connue d'une clé, avec réessais à délai croissant.
+ * Un échec réseau ponctuel (perte de wifi, 503 momentané) ne doit pas se
+ * solder par une donnée définitivement absente d'un des appareils ; et un
+ * échec durable doit être visible dans l'interface plutôt que noyé dans la
+ * console.
+ *
+ * `value` et `updatedAt` ne servent que de repli : c'est `latestValues` qui
+ * fait foi au moment d'écrire. L'ancienne version poussait la valeur figée à
+ * l'appel, après avoir attendu la première lecture du cloud. Sur un téléphone
+ * resté en retard, une actualisation des cours partie pendant cette lecture
+ * finissait donc par envoyer le portefeuille PÉRIMÉ, horodaté « maintenant »,
+ * alors que l'appareil venait d'adopter la version à jour : l'écran montrait
+ * la bonne version, le cloud recevait l'ancienne.
+ */
 async function pushToCloud(key, value, userId, updatedAt) {
   // La configuration de chiffrement doit être connue avant toute écriture :
-  // un appareil qui l'ignorerait pousserait en clair.
+  // un appareil qui l'ignorerait pousserait en clair. Une lecture qui a ÉCHOUÉ
+  // ne dit rien de ce que contient le cloud : on n'écrit pas à l'aveugle, la
+  // clé reste marquée et repartira à la prochaine relecture.
   await cleChargee;
-  await hydraterDepuisCloud();
+  if (!(await hydraterDepuisCloud())) {
+    markFailed(key, new Error("Lecture du cloud impossible pour l'instant."));
+    return false;
+  }
   if (chiffrement.config && !chiffrement.cle) {
     dirtyKeys.delete(key);
     return false;
   }
   markPending(key);
   let lastError = null;
+  let apresConflit = false;
   for (let attempt = 0; attempt < MAX_PUSH_ATTEMPTS; attempt++) {
-    if (attempt > 0) await sleep(2 ** attempt * 400);
+    if (attempt > 0 && !apresConflit) await sleep(2 ** attempt * 400);
+    apresConflit = false;
+    // Remplacée par une version du cloud entre-temps : plus rien à écrire.
+    if (!dirtyKeys.has(key)) {
+      markSynced(key);
+      return true;
+    }
+    const derniere = latestValues.get(key) || { value, updatedAt };
+    const horodatage = derniere.updatedAt || new Date().toISOString();
     try {
-      const valeurCloud = chiffrement.cle ? await chiffrer(chiffrement.cle, value) : value;
-      const { error } = await supabase.from(TABLE).upsert({
+      const valeurCloud = chiffrement.cle ? await chiffrer(chiffrement.cle, derniere.value) : derniere.value;
+      const resultat = await ecrireSiPlusRecente({
         id: `${userId}:${key}`,
         user_id: userId,
         key,
         value: valeurCloud,
-        updated_at: updatedAt,
+        updated_at: horodatage,
       });
-      if (error) throw error;
-      dirtyKeys.delete(key);
-      markSynced(key);
-      return true;
+      if (resultat === "ecrite") {
+        // Une modification arrivée pendant l'aller-retour garde sa marque :
+        // c'est sa propre poussée qui l'enverra.
+        const courante = latestValues.get(key);
+        if (!courante || (courante.value === derniere.value && courante.updatedAt === derniere.updatedAt)) {
+          dirtyKeys.delete(key);
+        }
+        markSynced(key);
+        return true;
+      }
+      // Le cloud porte une version plus récente que la nôtre : c'est elle
+      // qu'on adopte, au lieu de l'écraser.
+      apresConflit = true;
+      const relue = await relireLigne(key, userId);
+      if (!relue) continue; // effacée entre-temps : l'insertion repassera
+      if (!relue.lisible) {
+        lastError = new Error("Une version plus récente existe dans le cloud, mais cet appareil ne peut pas la lire.");
+        continue;
+      }
+      applyCloudRow(key, relue.lisible);
+      // Adoptée, mais stockée dans l'autre mode (en clair pendant une
+      // activation du chiffrement, chiffrée pendant une désactivation) : elle
+      // est réécrite telle quelle, avec son propre horodatage.
+      const adoptee = latestValues.get(key)?.updatedAt === relue.lisible.updated_at;
+      if (adoptee && estChiffre(relue.brute.value) !== Boolean(chiffrement.cle)) dirtyKeys.add(key);
     } catch (e) {
       lastError = e;
       // Hors ligne : inutile de brûler les tentatives, le retour en ligne
       // relancera la synchronisation (voir l'écouteur "online" plus bas).
       if (typeof navigator !== "undefined" && !navigator.onLine) break;
     }
+  }
+  if (!dirtyKeys.has(key)) {
+    markSynced(key);
+    return true;
   }
   console.warn(`Synchronisation cloud impossible pour "${key}" :`, lastError);
   markFailed(key, lastError);
@@ -348,6 +482,12 @@ async function currentUserId() {
  *
  * La promesse est partagée : le premier hook qui se monte déclenche la
  * requête, tous les autres attendent le même résultat.
+ *
+ * Rend `null` quand la lecture a ÉCHOUÉ, et non une table vide. La remise à
+ * zéro ci-dessous ne protégeait que les appels SUIVANTS : toutes les clés
+ * montées au démarrage attendaient déjà cette même promesse, recevaient une
+ * table vide, concluaient « rien dans le cloud » et poussaient leur état
+ * local par-dessus — une coupure réseau à l'ouverture suffisait.
  */
 let hydratationCloud = null;
 
@@ -361,11 +501,10 @@ function hydraterDepuisCloud() {
       .select("key, value, updated_at")
       .eq("user_id", userId);
     if (error || !data) {
-      // Un échec ne doit pas être mis en cache : sans cette remise à zéro, une
-      // coupure réseau au démarrage ferait croire à toutes les clés que le
-      // cloud est vide, et leur ferait pousser l'état local par-dessus.
+      // Un échec n'est pas mis en cache : la prochaine écriture ou relecture
+      // retentera la lecture.
       hydratationCloud = null;
-      return new Map();
+      return null;
     }
     await adopterConfig(data.find((row) => row.key === CLE_CONFIG_CHIFFREMENT)?.value);
     return new Map((await lignesLisibles(data)).map((row) => [row.key, row]));
@@ -381,7 +520,7 @@ function hydraterDepuisCloud() {
 function applyCloudRow(key, row) {
   if (bacASable) return;
   const localUpdatedAt = readLocalUpdatedAt(key);
-  if (localUpdatedAt && row.updated_at && row.updated_at <= localUpdatedAt) return;
+  if (localUpdatedAt && !plusRecent(row.updated_at, localUpdatedAt)) return;
 
   const valeur = migrer(key, row.value);
   writeLocal(key, valeur, row.updated_at);
@@ -409,15 +548,20 @@ function applyCloudRow(key, row) {
  * bouclait en séquentiel avec un `maybeSingle()` par clé : avec ~24 clés
  * montées et un tick toutes les 10 s, cela représentait près de 9 000 requêtes
  * par heure d'application ouverte, pour un unique utilisateur.
+ *
+ * Une relecture déjà en vol est PARTAGÉE plutôt qu'ignorée : le bouton de
+ * synchronisation pressé pendant la relecture automatique du retour au
+ * premier plan attend désormais son résultat, au lieu de rendre la main
+ * aussitôt sans rien avoir relu.
  */
-let isPolling = false;
-async function pullAllFromCloud() {
-  if (!isSupabaseConfigured || isPolling || bacASable) return;
-  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+let relectureEnCours = null;
+function pullAllFromCloud() {
+  if (!isSupabaseConfigured || bacASable) return Promise.resolve();
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return Promise.resolve();
+  if (relectureEnCours) return relectureEnCours;
   const keys = [...activeSetters.keys()];
-  if (keys.length === 0) return;
-  isPolling = true;
-  try {
+  if (keys.length === 0) return Promise.resolve();
+  relectureEnCours = (async () => {
     const userId = await currentUserId();
     if (!userId) return;
     const { data, error } = await supabase
@@ -426,9 +570,45 @@ async function pullAllFromCloud() {
       .in("id", [...keys, CLE_CONFIG_CHIFFREMENT].map((k) => `${userId}:${k}`));
     if (error || !data) return;
     await adopterConfig(data.find((row) => row.key === CLE_CONFIG_CHIFFREMENT)?.value);
-    (await lignesLisibles(data)).forEach((row) => applyCloudRow(row.key, row));
-  } finally {
-    isPolling = false;
+    const lisibles = await lignesLisibles(data);
+    lisibles.forEach((row) => applyCloudRow(row.key, row));
+    reparerDivergences(lisibles, userId);
+  })()
+    .catch((e) => console.warn("Relecture du cloud impossible :", e))
+    .finally(() => {
+      relectureEnCours = null;
+    });
+  return relectureEnCours;
+}
+
+/**
+ * Répare ce que la relecture vient de révéler : une clé dont cet appareil
+ * porte une version PLUS RÉCENTE que celle du cloud, ou une modification
+ * restée en attente d'écriture, repart vers le cloud.
+ *
+ * Sans cette étape, une divergence était définitive. L'appareil à jour
+ * n'écrit que lorsqu'on modifie quelque chose ; tant qu'il ne le faisait pas,
+ * le cloud gardait la version d'un appareil en retard, et cet appareil-là
+ * n'avait rien à relire de neuf. Désormais, il suffit que l'appareil à jour
+ * soit ouvert pour que l'autre finisse par le rejoindre.
+ *
+ * Seules les lignes PRÉSENTES dans le cloud sont comparées : une clé absente
+ * peut avoir été effacée volontairement depuis un autre appareil, et ce n'est
+ * pas à une relecture de la ressusciter (le montage s'en charge, comme avant,
+ * pour un premier appareil). L'écriture reste conditionnelle : si un troisième
+ * appareil a écrit entre-temps, c'est sa version qui est adoptée.
+ */
+function reparerDivergences(lisibles, userId) {
+  if (chiffrement.config && !chiffrement.cle) return;
+  const aPousser = new Set(dirtyKeys);
+  for (const row of lisibles) {
+    if (latestValues.has(row.key) && plusRecent(readLocalUpdatedAt(row.key), row.updated_at)) aPousser.add(row.key);
+  }
+  for (const key of aPousser) {
+    const entree = latestValues.get(key);
+    if (!entree) continue;
+    dirtyKeys.add(key);
+    pushToCloud(key, entree.value, userId, entree.updatedAt);
   }
 }
 
@@ -452,53 +632,56 @@ const POLL_INTERVAL_MS = 45_000;
  * attente), et l'écriture part en `keepalive`, seule façon pour une requête de
  * survivre à la fermeture d'un onglet. Le client Supabase n'expose pas cette
  * option, on passe donc directement par PostgREST.
+ *
+ * Même règle que `ecrireSiPlusRecente` : un `PATCH` filtré sur l'horodatage,
+ * et non plus un upsert sans condition, pour qu'une fermeture d'onglet ne
+ * puisse pas écraser une version plus récente venue d'ailleurs. Une clé qui
+ * n'existe pas encore dans le cloud n'est pas créée ici ; elle reste marquée,
+ * et le montage suivant la poussera.
  */
 function flushAllToCloud() {
   if (!isSupabaseConfigured || dirtyKeys.size === 0) return;
   const { userId, accessToken } = session;
   if (!userId || !accessToken) return;
 
-  const lignes = [];
   for (const key of dirtyKeys) {
     const entry = latestValues.get(key);
-    if (!entry) continue;
+    if (!entry || !entry.updatedAt) continue;
     let value = entry.value;
     if (chiffrement.config) {
       if (!chiffrement.cle || !entry.chiffre || entry.chiffreDe !== entry.updatedAt) continue;
       value = entry.chiffre;
     }
-    lignes.push({
-      id: `${userId}:${key}`,
-      user_id: userId,
-      key,
-      value,
-      updated_at: entry.updatedAt,
+    const filtre = new URLSearchParams({
+      id: `eq.${userId}:${key}`,
+      or: `(updated_at.is.null,updated_at.lte."${entry.updatedAt}")`,
+      select: "id",
     });
-  }
-  if (lignes.length === 0) return;
-
-  try {
-    fetch(`${supabaseConfig.url}/rest/v1/${TABLE}?on_conflict=id`, {
-      method: "POST",
-      keepalive: true,
-      headers: {
-        "Content-Type": "application/json",
-        apikey: supabaseConfig.anonKey,
-        Authorization: `Bearer ${accessToken}`,
-        // `merge-duplicates` fait de ce POST un véritable upsert, comme celui
-        // du client ; `return=minimal` évite de rapatrier les lignes écrites.
-        Prefer: "resolution=merge-duplicates,return=minimal",
-      },
-      body: JSON.stringify(lignes),
-    })
-      .then((r) => {
-        if (r.ok) lignes.forEach(({ key }) => dirtyKeys.delete(key));
+    try {
+      fetch(`${supabaseConfig.url}/rest/v1/${TABLE}?${filtre}`, {
+        method: "PATCH",
+        keepalive: true,
+        headers: {
+          "Content-Type": "application/json",
+          apikey: supabaseConfig.anonKey,
+          Authorization: `Bearer ${accessToken}`,
+          // Les lignes réellement remplacées reviennent (leur seul `id`) :
+          // c'est ce qui distingue « écrite » de « refusée, plus récente
+          // ailleurs », que le statut HTTP ne dit pas.
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({ value, updated_at: entry.updatedAt }),
       })
-      // La page peut disparaître avant la réponse : l'écriture a tout de même
-      // été émise, et les clés resteront marquées pour la prochaine ouverture.
-      .catch(() => {});
-  } catch {
-    /* contexte déjà détruit : il n'y a plus rien à tenter */
+        .then(async (r) => {
+          const ecrites = r.ok && typeof r.json === "function" ? await r.json() : [];
+          if (Array.isArray(ecrites) && ecrites.length > 0 && latestValues.get(key) === entry) dirtyKeys.delete(key);
+        })
+        // La page peut disparaître avant la réponse : l'écriture a tout de même
+        // été émise, et la clé restera marquée pour la prochaine ouverture.
+        .catch(() => {});
+    } catch {
+      /* contexte déjà détruit : il n'y a plus rien à tenter */
+    }
   }
 }
 
@@ -572,6 +755,35 @@ export function usePersistentState(key, initialValue) {
   const skipNextPush = useRef(false);
   const pushTimer = useRef(null);
 
+  /*
+   * DEUX SETTERS : l'écriture voulue et l'écriture automatique.
+   *
+   * L'arbitrage entre appareils compare des horodatages : la dernière version
+   * MODIFIÉE l'emporte. Or une bonne part des écritures ne sont pas des
+   * modifications — l'actualisation des cours, la clôture de la veille, le
+   * relevé quotidien. Elles portaient pourtant l'horodatage « maintenant ».
+   *
+   * Sur un téléphone resté en retard, ouvrir l'onglet Bourse rafraîchissait
+   * les cours de SON portefeuille périmé et le déclarait aussitôt plus récent
+   * que tout : une ligne ajoutée sur l'ordinateur pouvait perdre l'arbitrage
+   * face à de simples cours.
+   *
+   * `setAuto` écrit comme `setState`, mais garde l'horodatage de la version
+   * qu'il complète. Contre une version plus récente ailleurs, il perd —
+   * l'écriture conditionnelle la refuse et cet appareil adopte l'autre — et
+   * les cours seront simplement actualisés de nouveau, sur la bonne base.
+   */
+  const ecritureAuto = useRef(false);
+  const ecritureVoulue = useRef(false);
+  const setVoulu = useCallback((valeur) => {
+    ecritureVoulue.current = true;
+    setState(valeur);
+  }, []);
+  const setAuto = useCallback((valeur) => {
+    ecritureAuto.current = true;
+    setState(valeur);
+  }, []);
+
   // Valeur exacte lue au montage. Elle sert de témoin : tant que l'état lui est
   // identique, rien n'a été modifié et il n'y a donc rien à réécrire.
   const etatAuMontage = useRef(state);
@@ -633,14 +845,18 @@ export function usePersistentState(key, initialValue) {
         return;
       }
       const userId = session.userId;
-      if (!userId || cancelled) {
+      // Lecture échouée (`null`) : on ne sait rien du cloud, donc on n'y
+      // pousse rien. L'ancienne version prenait l'échec pour « cloud vide »
+      // et écrasait la version des autres appareils avec la copie locale.
+      // La prochaine relecture (retour au premier plan, intervalle, bouton)
+      // fera l'arbitrage.
+      if (!userId || cancelled || !lignes) {
         hasHydrated.current = true;
         return;
       }
 
       const data = lignes.get(key) || null;
-      const cloudIsNewer =
-        data && (!localUpdatedAt || (data.updated_at && data.updated_at > localUpdatedAt));
+      const cloudIsNewer = data && (!localUpdatedAt || plusRecent(data.updated_at, localUpdatedAt));
 
       if (cloudIsNewer) {
         const valeur = migrer(key, data.value);
@@ -648,16 +864,25 @@ export function usePersistentState(key, initialValue) {
         setState(valeur);
         writeLocal(key, valeur, data.updated_at);
         latestValues.set(key, { value: valeur, updatedAt: data.updated_at });
+        // Une écriture faite pendant la lecture (une actualisation des cours
+        // sur la copie périmée, typiquement) est remplacée par la version du
+        // cloud : elle n'a plus rien à envoyer.
+        dirtyKeys.delete(key);
         markSynced(key);
       } else {
         // Rien en cloud (premier appareil), ou version locale plus récente :
         // c'est le local qui fait foi et qu'on pousse. La clé est marquée en
         // attente le temps de la poussée — `pushToCloud` la libère en cas de
         // succès — pour qu'une fermeture immédiate de l'onglet la rattrape.
-        const updatedAt = localUpdatedAt || new Date().toISOString();
-        latestValues.set(key, { value: state, updatedAt });
+        //
+        // Si une écriture a eu lieu pendant la lecture, `latestValues` la
+        // porte déjà : on ne la remplace pas par l'état figé du montage.
+        if (readLocalUpdatedAt(key) === localUpdatedAt) {
+          latestValues.set(key, { value: state, updatedAt: localUpdatedAt || new Date().toISOString() });
+        }
+        const derniere = latestValues.get(key);
         dirtyKeys.add(key);
-        pushToCloud(key, state, userId, updatedAt);
+        pushToCloud(key, derniere.value, userId, derniere.updatedAt);
       }
       hasHydrated.current = true;
     })();
@@ -674,6 +899,14 @@ export function usePersistentState(key, initialValue) {
     // sortie anticipée : c'est ce qui permet à `diffuser` de l'ignorer quand
     // il n'a rien à lui apprendre.
     if (abonneRef.current) abonneRef.current.valeur = state;
+
+    // Nature de l'écriture qui a produit cet état, lue puis remise à zéro
+    // avant toute sortie anticipée. Une écriture voulue mêlée à une
+    // écriture automatique dans le même rendu l'emporte : l'ensemble est
+    // alors une modification de cet appareil.
+    const auto = ecritureAuto.current && !ecritureVoulue.current;
+    ecritureAuto.current = false;
+    ecritureVoulue.current = false;
 
     // Rien n'a changé depuis le montage : l'état est encore exactement celui
     // qui a été lu dans le localStorage. Le réécrire ne changerait pas son
@@ -705,7 +938,9 @@ export function usePersistentState(key, initialValue) {
       return undefined;
     }
 
-    const updatedAt = new Date().toISOString();
+    // Écriture automatique (voir `setAuto`) : elle garde l'horodatage de la
+    // version qu'elle complète, et ne revendique donc aucune fraîcheur.
+    const updatedAt = auto ? readLocalUpdatedAt(key) || EPOQUE : new Date().toISOString();
     writeLocal(key, state, updatedAt);
     latestValues.set(key, { value: state, updatedAt });
     preChiffrer(key);
@@ -727,7 +962,7 @@ export function usePersistentState(key, initialValue) {
     return () => clearTimeout(pushTimer.current);
   }, [state, key]);
 
-  return [state, setState];
+  return [state, setVoulu, setAuto];
 }
 
 /**
@@ -753,14 +988,25 @@ export function useSyncStatus() {
   return useSyncExternalStore(subscribeSync, getSyncState, getSyncState);
 }
 
-/** Force une réécriture cloud de toutes les clés en échec. */
+/**
+ * Réessaie l'écriture cloud des clés en attente ou en échec — et d'elles
+ * seules.
+ *
+ * L'ancienne version repoussait TOUTES les clés connues de l'appareil, avec
+ * leur horodatage, par un écrasement sans condition, et en même temps que la
+ * relecture du cloud. Presser « synchroniser » sur un appareil en retard
+ * renvoyait donc sa copie périmée par-dessus la version à jour d'un autre
+ * appareil : le geste censé récupérer les données de l'ordinateur était
+ * précisément celui qui les effaçait du cloud.
+ */
 export function useRetrySync() {
   return useCallback(async () => {
     if (!isSupabaseConfigured) return;
     const userId = await currentUserId();
     if (!userId) return;
-    for (const [key, entry] of latestValues) {
-      await pushToCloud(key, entry.value, userId, entry.updatedAt);
+    for (const key of [...dirtyKeys]) {
+      const entry = latestValues.get(key);
+      if (entry) await pushToCloud(key, entry.value, userId, entry.updatedAt);
     }
   }, []);
 }
@@ -886,6 +1132,8 @@ async function reecrireTout(userId) {
     const value = entry ? entry.value : readLocal(key, undefined);
     if (value === undefined) continue;
     const updatedAt = entry?.updatedAt || readLocalUpdatedAt(key) || new Date().toISOString();
+    // Marquée « à écrire » : `pushToCloud` n'écrit que les clés en attente.
+    dirtyKeys.add(key);
     if (!(await pushToCloud(key, value, userId, updatedAt))) echecs += 1;
   }
   return echecs;
