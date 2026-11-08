@@ -53,7 +53,7 @@ const SOUS_ONGLETS_BOURSE = ["portefeuille", "analyse", "performance", "marche",
  */
 export default function Bourse() {
   const {
-    bourse, setBourse, bourseTotal, bourseGainAbs, bourseGainPct,
+    bourse, setBourse, setBourseAuto, bourseTotal, bourseGainAbs, bourseGainPct,
     alertesWatchlist, setAlertesWatchlist,
     bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
     // Composition de l'écran : quels blocs sont repliés. Persisté, donc
@@ -71,7 +71,7 @@ export default function Bourse() {
     dailyData, seriesCours,
     trackLoading, trackError, captureSnapshot,
     apercuRecalcul, setApercuRecalcul, recalculEnCours, preparerRecalcul, validerRecalcul,
-  } = useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHistory });
+  } = useSuiviBourse({ bourse, setBourse, setBourseAuto, bourseHistory, setBourseHistory });
   const [showAdd, setShowAdd] = useState(false);
   const [panicPosition, setPanicPosition] = useState(null);
   // Fiche par ligne : l'identifiant de la position ouverte, ou null.

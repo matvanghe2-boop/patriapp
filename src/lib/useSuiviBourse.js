@@ -18,7 +18,17 @@ const today = () => todayIso();
  * relevés. Ces ~400 lignes vivaient dans le corps de Bourse.jsx, mêlées au
  * rendu : elles n'ont pas changé, elles ont seulement été regroupées ici.
  */
-export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHistory }) {
+/*
+ * `setBourseAuto` porte toutes les écritures de ce hook qui ne sont que des
+ * données de marché — cours, clôture de la veille, type reconnu à la
+ * cotation, dividende. Elles gardent l'horodatage du portefeuille qu'elles
+ * complètent : actualiser les cours d'une copie restée en retard ne doit pas
+ * la faire passer, aux yeux de la synchronisation, pour plus récente qu'une
+ * ligne ajoutée sur un autre appareil (voir `setAuto` dans storage.js). Les
+ * annulations, elles, sont des gestes de l'utilisateur et passent par
+ * `setBourse`.
+ */
+export function useSuiviBourse({ bourse, setBourse, setBourseAuto = setBourse, bourseHistory, setBourseHistory }) {
   const { showToast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
@@ -62,7 +72,7 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
       .filter(Boolean);
 
     const avant = bourse;
-    setBourse((b) => ({
+    setBourseAuto((b) => ({
       ...b,
       positions: b.positions.map((p) => {
         const cle = String(p.ticker || "").toUpperCase();
@@ -135,7 +145,7 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
         }
       }
 
-      setBourse((b) => ({
+      setBourseAuto((b) => ({
         ...b,
         // Date de dernière actualisation des cours — c'est elle qui mesure la
         // fraîcheur réelle des données affichées. Le Dashboard s'appuyait
@@ -254,7 +264,7 @@ export function useSuiviBourse({ bourse, setBourse, bourseHistory, setBourseHist
        * de l'onglet, sans attendre qu'on presse « Actualiser les cours ».
        */
       if (Object.keys(veilleMap).length > 0 || Object.keys(priceMap).length > 0) {
-        setBourse((b) => ({
+        setBourseAuto((b) => ({
           ...b,
           ...(tickers.some((t) => priceMap[t] != null) ? { pricesUpdatedAt: new Date().toISOString() } : {}),
           positions: b.positions.map((p) =>

@@ -26,6 +26,37 @@ vi.mock("./supabaseClient", () => ({
         upserts.push(ligne);
         return Promise.resolve({ error: null });
       },
+      // Écriture conditionnelle des données (voir `ecrireSiPlusRecente`) :
+      // remplace une ligne existante qui n'est pas plus récente, sinon rien.
+      update: (champs) => {
+        const requete = { cle: null, max: null };
+        const constructeur = {
+          eq: (_colonne, id) => {
+            requete.cle = String(id).split(":").slice(1).join(":");
+            return constructeur;
+          },
+          or: (filtre) => {
+            requete.max = /updated_at\.lte\."([^"]+)"/.exec(filtre)?.[1] ?? null;
+            return constructeur;
+          },
+          select: () => {
+            const ligne = lignesCloud.find((l) => l.key === requete.cle);
+            if (!ligne || Date.parse(ligne.updated_at) > Date.parse(requete.max)) {
+              return Promise.resolve({ data: [], error: null });
+            }
+            upserts.push({ key: requete.cle, ...champs });
+            return Promise.resolve({ data: [{ id: `u1:${requete.cle}` }], error: null });
+          },
+        };
+        return constructeur;
+      },
+      insert: (ligne) => {
+        if (lignesCloud.some((l) => l.key === ligne.key)) {
+          return Promise.resolve({ error: { code: "23505", message: "duplicate key value" } });
+        }
+        upserts.push(ligne);
+        return Promise.resolve({ error: null });
+      },
       delete: () => ({ in: () => Promise.resolve({ error: null }) }),
     }),
     auth: {
