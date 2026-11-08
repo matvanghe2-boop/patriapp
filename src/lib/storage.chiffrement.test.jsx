@@ -68,7 +68,7 @@ vi.mock("./supabaseClient", () => ({
 
 const {
   usePersistentState, useEtatChiffrement, activerChiffrement, deverrouillerChiffrement, desactiverChiffrement,
-  creerCodeSecours, changerPhraseSecrete, deverrouillerAvecCodeSecours, _resetStorageCache,
+  creerCodeSecours, changerPhraseSecrete, deverrouillerAvecCodeSecours, _resetStorageCache, useManualRefresh,
 } = await import("./storage");
 
 function Sonde() {
@@ -161,6 +161,69 @@ describe("chiffrement de la synchronisation", () => {
     const donnee = upserts.find((u) => u.key === "profile");
     expect(donnee.value).toBe("EN CLAIR");
     expect(screen.getByTestId("etat")).toHaveTextContent("inactif");
+  });
+
+  it("à la désactivation, réécrit sous un horodatage neuf : cet appareil fait foi", async () => {
+    localStorage.setItem("patrimoine:profile", JSON.stringify("EN CLAIR"));
+    localStorage.setItem("patrimoine:__meta:profile", HIER);
+    render(<Sonde />);
+    await waitFor(() => expect(upserts.length).toBeGreaterThan(0));
+    await act(() => activerChiffrement("phrase"));
+    upserts = [];
+
+    const avant = Date.now();
+    await act(() => desactiverChiffrement());
+    const donnee = upserts.find((u) => u.key === "profile");
+    // Sous son ancien horodatage (HIER), la version de cet appareil
+    // paraîtrait plus ancienne que la copie d'un téléphone resté verrouillé.
+    expect(Date.parse(donnee.updated_at)).toBeGreaterThanOrEqual(avant);
+    expect(localStorage.getItem("patrimoine:__meta:profile")).toBe(donnee.updated_at);
+  });
+
+  it("un appareil resté verrouillé adopte la version en clair de l'appareil qui a désactivé", async () => {
+    let relire;
+    function Telephone() {
+      const [valeur] = usePersistentState("bourse", null);
+      const etat = useEtatChiffrement();
+      relire = useManualRefresh();
+      return (
+        <div>
+          <div data-testid="valeur">{JSON.stringify(valeur)}</div>
+          <div data-testid="etat">{etat.actif ? (etat.verrouille ? "verrouille" : "actif") : "inactif"}</div>
+        </div>
+      );
+    }
+    const { cle, config } = await creerConfiguration("phrase oubliée");
+    // Le téléphone : sa copie sans l'ETF, datée d'AUJOURDHUI par une
+    // actualisation des cours faite pendant qu'il était verrouillé — plus
+    // récente que la version chiffrée de l'ordinateur (HIER).
+    localStorage.setItem("patrimoine:bourse", JSON.stringify({ positions: ["CW8"] }));
+    localStorage.setItem("patrimoine:__meta:bourse", AUJOURDHUI);
+    lignesCloud = [
+      { key: "__chiffrement", value: config, updated_at: HIER },
+      { key: "bourse", value: await chiffrer(cle, { positions: ["CW8", "ETF"] }), updated_at: HIER },
+    ];
+    render(<Telephone />);
+    await waitFor(() => expect(screen.getByTestId("etat")).toHaveTextContent("verrouille"));
+    expect(screen.getByTestId("valeur")).toHaveTextContent("CW8");
+
+    // L'ordinateur désactive : configuration supprimée, données en clair sous
+    // l'horodatage de la désactivation.
+    upserts = [];
+    lignesCloud = [
+      { key: "bourse", value: { positions: ["CW8", "ETF"] }, updated_at: new Date().toISOString() },
+    ];
+    await act(async () => {
+      await relire();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(screen.getByTestId("etat")).toHaveTextContent("inactif");
+    expect(JSON.parse(screen.getByTestId("valeur").textContent)).toEqual({ positions: ["CW8", "ETF"] });
+    // Et sa copie dépassée ne repart pas par-dessus.
+    expect(JSON.stringify(upserts)).not.toContain('["CW8"]');
   });
 });
 

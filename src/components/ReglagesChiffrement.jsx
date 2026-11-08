@@ -7,7 +7,7 @@ import { useConfirm } from "../lib/ConfirmContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import {
   useEtatChiffrement, activerChiffrement, deverrouillerChiffrement, desactiverChiffrement,
-  creerCodeSecours, changerPhraseSecrete, deverrouillerAvecCodeSecours,
+  creerCodeSecours, changerPhraseSecrete, deverrouillerAvecCodeSecours, lireValeurLocale,
 } from "../lib/storage";
 
 /**
@@ -145,10 +145,25 @@ export default function ReglagesChiffrement({ ouvert, onFermer }) {
   };
 
   const desactiver = async () => {
+    // Le coffre à papiers repose sur la clé qu'on s'apprête à oublier : ses
+    // fichiers, chiffrés avec elle, ne pourront plus être ouverts. Ça se dit
+    // AVANT de confirmer, avec le nombre de fichiers concernés.
+    const documents = lireValeurLocale("coffre")?.documents;
+    const fichiers = Array.isArray(documents)
+      ? documents.reduce((n, d) => n + (Array.isArray(d?.fichiers) ? d.fichiers.length : 0), 0)
+      : 0;
+    const coffre =
+      fichiers > 0
+        ? ` Attention : le coffre à papiers a besoin du chiffrement. Il se refermera, et ${
+            fichiers > 1 ? `les ${fichiers} fichiers qu'il contient ne pourront plus être ouverts` : "le fichier qu'il contient ne pourra plus être ouvert"
+          }, même en réactivant le chiffrement plus tard.`
+        : " Le coffre à papiers, qui a besoin du chiffrement, se refermera.";
     const ok = await confirm({
       title: "Désactiver le chiffrement ?",
       message:
-        "Tes données seront réécrites en clair dans le cloud. Elles restent protégées par ton compte, mais plus contre un accès direct à la base.",
+        "Tes données seront réécrites en clair dans le cloud. Elles restent protégées par ton compte, mais plus contre un accès direct à la base. " +
+        "Les versions de CET appareil font foi : elles remplacent celles de tes autres appareils, y compris ceux qui demandaient la phrase secrète." +
+        coffre,
       confirmLabel: "Désactiver",
       danger: true,
     });
