@@ -37,25 +37,48 @@ export function montantSigne(m) {
 /**
  * Enregistre un mouvement et met le solde à jour. Pour un ajustement,
  * `montant` est l'écart signé ; pour les autres natures, un montant positif.
+ *
+ * `dejaCompris` : le solde affiché comprend DÉJÀ ce mouvement — un dépôt passé
+ * qu'on date après coup pour l'historique. Le mouvement est alors enregistré
+ * sans toucher au solde. Sans cette précision, l'ajouter le comptait une
+ * seconde fois, et le corriger au crayon laissait un ajustement fantôme (voir
+ * reparations.js).
  */
-export function ajouterMouvement(livret, { id, date, montant, nature }) {
+export function ajouterMouvement(livret, { id, date, montant, nature, dejaCompris = false }) {
   const mouvement = { id, date, montant: Number(montant) || 0, nature };
   const delta = montantSigne(mouvement);
   if (delta === 0) return livret;
   return {
     ...livret,
-    balance: Math.max(0, (Number(livret?.balance) || 0) + delta),
+    balance: dejaCompris ? Number(livret?.balance) || 0 : Math.max(0, (Number(livret?.balance) || 0) + delta),
     mouvements: [...(livret?.mouvements || []), mouvement].sort((a, b) => (a.date < b.date ? -1 : 1)),
   };
 }
 
-/** Retire un mouvement et annule son effet sur le solde. */
-export function retirerMouvement(livret, idMouvement) {
+/**
+ * Retire un mouvement.
+ *
+ * Par défaut, son effet sur le solde est annulé : le mouvement n'aurait
+ * jamais dû être saisi. Avec `garderSolde`, seul l'HISTORIQUE change — le
+ * solde affiché est juste, c'est la trace datée qui était fausse.
+ *
+ * Le cas qui a rendu cette option nécessaire : des dépôts passés saisis après
+ * coup sur un livret dont le solde les comprenait déjà. L'ajout les compte une
+ * seconde fois dans le solde ; le corriger au crayon enregistre un ajustement
+ * négatif du même montant, daté du jour de la correction. Le solde redevient
+ * juste, mais l'historique dit alors que l'argent est entré à la date des
+ * dépôts PUIS ressorti le jour de la correction — et toute courbe reconstituée
+ * compte le livret deux fois entre les deux. Retirer cet ajustement en gardant
+ * le solde remet l'historique d'accord avec la réalité.
+ */
+export function retirerMouvement(livret, idMouvement, { garderSolde = false } = {}) {
   const m = (livret?.mouvements || []).find((x) => x.id === idMouvement);
   if (!m) return livret;
   return {
     ...livret,
-    balance: Math.max(0, (Number(livret.balance) || 0) - montantSigne(m)),
+    balance: garderSolde
+      ? Number(livret.balance) || 0
+      : Math.max(0, (Number(livret.balance) || 0) - montantSigne(m)),
     mouvements: livret.mouvements.filter((x) => x.id !== idMouvement),
   };
 }

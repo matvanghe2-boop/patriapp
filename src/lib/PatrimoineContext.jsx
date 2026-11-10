@@ -62,6 +62,8 @@ export const STORAGE_KEYS = [
   "historiqueSante",
   // Événements de vie posés sur la courbe du patrimoine (voir annotations.js).
   "annotationsPatrimoine",
+  // Réparations ponctuelles déjà appliquées (voir reparations.js).
+  "reparationsFaites",
   // Avances faites pour d'autres, remboursées par virement (voir avances.js).
   "avances",
   // Agenda financier : département (zone de la déclaration de revenus) et

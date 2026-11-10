@@ -684,8 +684,19 @@ export default function Livrets({
   // Réglages d'une ligne (taux, boost, virement, ouverture) : fusionnés tels
   // quels, un réglage vidé valant `null`.
   const reglerLivret = (id, reglages) => setLivrets((l) => l.map((x) => (x.id === id ? { ...x, ...reglages } : x)));
-  const supprimerMouvement = (id, idMouvement) =>
-    setLivrets((l) => l.map((x) => (x.id === id ? retirerMouvement(x, idMouvement) : x)));
+  // Annulable : retirer un mouvement réécrit le passé du livret, donc la
+  // courbe du patrimoine qu'on reconstitue à partir de lui.
+  const supprimerMouvement = (id, idMouvement, { garderSolde = false } = {}) => {
+    const precedent = livrets;
+    const cible = livrets.find((l) => l.id === id);
+    setLivrets((l) => l.map((x) => (x.id === id ? retirerMouvement(x, idMouvement, { garderSolde }) : x)));
+    showToast({
+      message: garderSolde
+        ? `Mouvement retiré de l'historique de ${cible?.name || "ce livret"}, solde inchangé.`
+        : `Mouvement annulé sur ${cible?.name || "ce livret"} : le solde a été corrigé.`,
+      onUndo: () => setLivrets(precedent),
+    });
+  };
 
   const totalInterets = livrets.reduce((s, l) => s + l.balance * l.rate, 0);
   const inflation = inflationOfficielle();
