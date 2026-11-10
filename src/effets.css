@@ -94,3 +94,213 @@
     transform: none;
   }
 }
+
+/* ═══════════════════ REFLET ET RELIEF AU CURSEUR ══════════════════════════
+ * src/lib/reflet.js pose `data-reflet` et la position du curseur sur la carte
+ * survolée. La lumière est une couche de fond de plus, posée PAR-DESSUS les
+ * dégradés que la carte avait déjà (domaine, vedette) : ils sont répétés ici,
+ * puisqu'une déclaration `background-image` remplace toutes les couches.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-effets="vivant"] [data-reflet] {
+  --reflet: radial-gradient(
+    560px circle at var(--reflet-x, 50%) var(--reflet-y, 0%),
+    hsl(var(--teinte, 0 0% 100%) / 0.085),
+    transparent 55%
+  );
+  background-image: var(--reflet);
+}
+:root[data-effets="vivant"] .carte-domaine[data-reflet] {
+  background-image:
+    var(--reflet),
+    linear-gradient(to bottom right, hsl(var(--teinte) / var(--a-carte)), transparent 55%);
+}
+:root[data-effets="vivant"] .carte-vedette[data-reflet] {
+  background-image:
+    var(--reflet),
+    linear-gradient(135deg, hsl(var(--teinte) / 0.14), transparent 62%);
+}
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) .carte-vedette,
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) [data-relief] {
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease-out;
+}
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) .carte-vedette[data-reflet],
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) [data-relief][data-reflet] {
+  transform: perspective(1100px) rotateX(var(--relief-x, 0deg)) rotateY(var(--relief-y, 0deg));
+  transition: transform 90ms linear, border-color 180ms ease-out;
+}
+
+/* ═══════════════════ FOND VIVANT ══════════════════════════════════════════
+ * Voir components/FondVivant.jsx. Le calque est collant et de hauteur nulle ;
+ * sa scène déborde de la marge intérieure de la zone de contenu (`--pad-main`)
+ * pour en couvrir toute la surface, sans dépasser de son bord.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.zone-vivante {
+  isolation: isolate;
+  --pad-main: 1rem;
+}
+@media (min-width: 640px) {
+  .zone-vivante { --pad-main: 1.5rem; }
+}
+@media (min-width: 1024px) {
+  .zone-vivante { --pad-main: 2rem; }
+}
+.fond-vivant {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.fond-vivant-scene {
+  position: absolute;
+  top: calc(-1 * var(--pad-main));
+  left: calc(-1 * var(--pad-main));
+  right: calc(-1 * var(--pad-main));
+  height: calc(100vh + 2 * var(--pad-main));
+  overflow: hidden;
+}
+.fond-vivant-nappe {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  will-change: transform;
+}
+.fond-vivant-a {
+  top: -30vmax;
+  left: -18vmax;
+  background: radial-gradient(circle, hsl(var(--teinte-h, 160) 78% 56% / 0.13), transparent 64%);
+  animation: nappe-a 38s ease-in-out infinite alternate;
+}
+.fond-vivant-b {
+  bottom: -40vmax;
+  right: -24vmax;
+  background: radial-gradient(circle, hsl(var(--teinte-2-h, var(--teinte-h, 190)) 72% 56% / 0.1), transparent 62%);
+  animation: nappe-b 52s ease-in-out infinite alternate;
+}
+.fond-vivant-c {
+  top: 18%;
+  left: 38%;
+  width: 52vmax;
+  height: 52vmax;
+  opacity: 0;
+  transition: opacity 2.4s ease;
+  animation: nappe-c 44s ease-in-out infinite alternate;
+}
+.fond-vivant[data-humeur="hausse"] .fond-vivant-c {
+  opacity: 1;
+  background: radial-gradient(circle, hsl(152 70% 48% / 0.085), transparent 62%);
+}
+.fond-vivant[data-humeur="baisse"] .fond-vivant-c {
+  opacity: 1;
+  background: radial-gradient(circle, hsl(350 72% 58% / 0.06), transparent 62%);
+}
+/* Une séance qui monte respire un peu plus vite qu'une séance qui baisse. */
+.fond-vivant[data-humeur="hausse"] .fond-vivant-nappe { animation-duration: 30s; }
+.fond-vivant[data-humeur="baisse"] .fond-vivant-nappe { animation-duration: 64s; }
+
+@keyframes nappe-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(14vmax, 9vmax, 0) scale(1.12); }
+}
+@keyframes nappe-b {
+  from { transform: translate3d(0, 0, 0) scale(1.05); }
+  to { transform: translate3d(-16vmax, -11vmax, 0) scale(0.92); }
+}
+@keyframes nappe-c {
+  from { transform: translate3d(-8vmax, 0, 0); }
+  to { transform: translate3d(10vmax, -8vmax, 0); }
+}
+
+/* En clair, des nappes aussi franches saliraient le blanc : on les retient. */
+:root[data-theme="clair"] .fond-vivant-scene {
+  opacity: 0.55;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="sombre"]) .fond-vivant-scene { opacity: 0.55; }
+}
+
+:root[data-effets="sobre"] .fond-vivant { display: none; }
+:root[data-mouvement="reduit"] .fond-vivant-nappe,
+.fond-vivant[data-econome] .fond-vivant-nappe {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-mouvement="complet"]) .fond-vivant-nappe { animation: none; }
+}
+@media print {
+  .fond-vivant { display: none; }
+}
+
+/* ═══════════════════ SURLIGNAGE GLISSANT ══════════════════════════════════
+ * Le repère que src/lib/glisse.js déplace de ligne en ligne. Tant qu'il est
+ * là, le survol d'origine s'efface, pour ne pas allumer deux fois la ligne.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.surlignage-glissant {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: 0.5rem;
+  background: hsl(var(--teinte, 252 95% 85%) / 0.075);
+  box-shadow: inset 2px 0 0 hsl(var(--teinte, 252 95% 85%) / 0.75);
+  transition:
+    transform 170ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 170ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 160ms ease;
+}
+.table-donnees[data-glisse] tbody tr:hover,
+.table-donnees[data-glisse] tbody tr.group:hover {
+  background-color: transparent;
+}
+
+/* ═══════════════════ COULEUR DE MARQUE ════════════════════════════════════
+ * `.avec-marque` reçoit `--marque-h` / `--marque-s` de lib/couleursMarques.js.
+ * Sans couleur connue, la teinte de l'onglet prend le relais. La luminosité
+ * est celle du thème, comme pour les teintes de domaine.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.avec-marque {
+  --l-marque: 62%;
+  --marque: var(--marque-h, var(--teinte-h, 252)) var(--marque-s, 70%) var(--l-marque);
+}
+:root[data-theme="clair"] .avec-marque {
+  --l-marque: 42%;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="sombre"]) .avec-marque { --l-marque: 42%; }
+}
+
+/* En-tête de la fiche d'une ligne : la marque éclaire le haut du panneau. */
+.entete-marque {
+  position: relative;
+  margin: -1.25rem -1.25rem 0;
+  padding: 1.25rem 1.25rem 0.75rem;
+  border-top-left-radius: 1rem;
+  background-image: radial-gradient(120% 140% at 0% 0%, hsl(var(--marque) / 0.2), transparent 60%);
+  box-shadow: inset 0 2px 0 hsl(var(--marque) / 0.7);
+}
+.entete-marque .logo-marque {
+  box-shadow: 0 0 0 2px hsl(var(--marque) / 0.45), 0 6px 18px -6px hsl(var(--marque) / 0.8);
+  border-radius: 999px;
+}
+
+/* Barre de poids dans le tableau des positions. */
+.barre-poids {
+  display: block;
+  height: 3px;
+  margin-top: 0.3rem;
+  border-radius: 999px;
+  background: rgb(var(--c-slate-800));
+  overflow: hidden;
+}
+.barre-poids > span {
+  display: block;
+  height: 100%;
+  width: var(--poids, 0%);
+  border-radius: inherit;
+  background: hsl(var(--marque));
+  transform-origin: left;
+  transition: width 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}

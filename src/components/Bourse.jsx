@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useSousOnglet } from "../lib/useHashRoute";
 import { TrendingUp, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUp, ArrowDown, Coins, BookOpen, Briefcase, Search, CalendarDays, Filter, Gauge, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardLabel, CarteRepliable, GhostButton, EmptyState, PageGlow, CARD_THEMES, ChiffreCompteur } from "./ui";
 import MenuActions from "./MenuActions";
 import AssetLogo from "./AssetLogo";
+import { useFlip } from "../lib/useFlip";
+import { styleMarque } from "../lib/couleursMarques";
 import SectorHeatmap from "./SectorHeatmap";
 import CorrelationsLignes from "./CorrelationsLignes";
 import FicheLigne from "./FicheLigne";
@@ -131,6 +133,9 @@ export default function Bourse() {
 
   // ─── Persistance du tri et des données de variation ──────────────────────
   const [sort, setSort] = usePersistentState("bourseSort", "none");
+  // Au changement de tri, les lignes glissent jusqu'à leur nouvelle place.
+  const corpsPositions = useRef(null);
+  const capturerOrdre = useFlip(corpsPositions, sort);
 
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({ quantity: "", pru: "", current_price: "", annual_dividend: "" });
@@ -504,7 +509,13 @@ export default function Bourse() {
       >
         <div className="flex items-center justify-end mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <SortButton sort={sort} setSort={setSort} />
+            <SortButton
+              sort={sort}
+              setSort={(v) => {
+                capturerOrdre();
+                setSort(v);
+              }}
+            />
             <button
               onClick={refreshPrices}
               disabled={refreshing || bourse.positions.length === 0}
@@ -555,7 +566,7 @@ export default function Bourse() {
                   <th className="py-2"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody ref={corpsPositions} className="divide-y divide-slate-800">
                 {sortedPositions.map((p) => {
                   const isEditing = editingId === p.id;
                   const value = valeurPosition(p);
@@ -599,7 +610,7 @@ export default function Bourse() {
                   }
 
                   return (
-                    <LignePosition key={p.id} onSupprimer={() => removePosition(p.id)}>
+                    <LignePosition key={p.id} flip={p.id} onSupprimer={() => removePosition(p.id)}>
                       <td data-label="Actif" className="py-3 pr-3">
                         <button
                           type="button"
@@ -646,7 +657,14 @@ export default function Bourse() {
                       <td data-label="+/− value" className={`py-3 pr-3 font-data tabular-nums ghost-blur ${gainAbs >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         {eur(gainAbs)} <span className="text-micro opacity-80">({pct(gainPct)})</span>
                       </td>
-                      <td data-label="Poids" className="py-3 pr-3 font-data tabular-nums text-slate-400">{pctPlain(weight)}</td>
+                      <td data-label="Poids" className="py-3 pr-3 font-data tabular-nums text-slate-400">
+                        {pctPlain(weight)}
+                        {/* La part de la ligne, à la couleur de son entreprise :
+                            les poids se comparent d'un coup d'œil vertical. */}
+                        <span className="barre-poids avec-marque" style={styleMarque(p.ticker)} aria-hidden="true">
+                          <span style={{ "--poids": `${Math.min(100, Math.max(0, weight)).toFixed(1)}%` }} />
+                        </span>
+                      </td>
                       <td data-label="Dividendes" className="py-3 pr-3">
                         {p.annual_dividend > 0 ? (
                           <div className="font-data tabular-nums">

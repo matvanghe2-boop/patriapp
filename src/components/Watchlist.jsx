@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useId } from "react";
 import { Star, RefreshCw, Target, ArrowUpDown, ArrowUp, ArrowDown, Bell, BellRing, Check, X} from "lucide-react";
 import { CarteRepliable, GhostButton, IconTrash, EmptyState, SkeletonTable } from "./ui";
 import AssetLogo from "./AssetLogo";
+import { useFlip } from "../lib/useFlip";
 import { eur, pct, uid, computeReturnMetrics, lireNombre, pctPlain } from "../lib/finance";
 import { searchSecurity, fetchHistory, fetchQuotes } from "../lib/api";
 import { usePersistentState } from "../lib/storage";
@@ -193,6 +194,9 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
   
   // ─── Persistance du tri et des données de variation ──────────────────────
   const [sort, setSort] = usePersistentState("watchlistSort", "none");
+  // Au changement de tri, les lignes glissent jusqu'à leur nouvelle place.
+  const corpsListe = useRef(null);
+  const capturerOrdre = useFlip(corpsListe, sort);
   const [dailyData, setDailyData] = usePersistentState("watchlistDailyData", {});
   
   const [refreshingQuotes, setRefreshingQuotes] = useState(false);
@@ -331,7 +335,13 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
     >
       <div className="flex items-center justify-end mb-1 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <SortButton sort={sort} setSort={setSort} />
+          <SortButton
+            sort={sort}
+            setSort={(v) => {
+              capturerOrdre();
+              setSort(v);
+            }}
+          />
           <button
             onClick={refreshAll}
             disabled={isLoading || tickers.length === 0}
@@ -385,7 +395,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                 <th className="py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody ref={corpsListe} className="divide-y divide-slate-800">
               {sortedWatchlist.map((w) => {
                 const m = metricsBySymbol[w.ticker];
                 const current = m?.latestClose;
@@ -397,7 +407,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                   // peut ne pas porter d identifiant, et React perd alors le suivi des
                   // lignes — ce qui se voit a la saisie, un champ gardant la valeur
                   // d une autre ligne apres un tri.
-                  <tr key={w.id || w.ticker} className="group hover:bg-slate-800/30 transition-colors">
+                  <tr key={w.id || w.ticker} data-flip={w.id || w.ticker} className="group hover:bg-slate-800/30 transition-colors">
                     <td data-label="Actif" className="py-3 pr-3">
                       <button
                         type="button"

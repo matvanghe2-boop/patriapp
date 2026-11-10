@@ -64,10 +64,10 @@ export function SortButton({ sort, setSort }) {
  * réservé au tactile, et le bouton de suppression reste le chemin principal —
  * au clavier comme à la souris, rien ne change.
  */
-export function LignePosition({ onSupprimer, children }) {
+export function LignePosition({ onSupprimer, children, flip }) {
   const { handlers, style } = useBalayageSuppression(onSupprimer);
   return (
-    <tr className="group hover:bg-slate-800/30 transition-colors" style={style} {...handlers}>
+    <tr className="group hover:bg-slate-800/30 transition-colors" style={style} data-flip={flip} {...handlers}>
       {children}
     </tr>
   );

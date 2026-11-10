@@ -423,6 +423,23 @@ progression — et jamais retarder la navigation. Les effets vivent dans
 - **Depuis ta dernière visite** : à la première apparition du Dashboard dans la visite, le
   patrimoine net roule (`Montant rouleaux depart=…`) depuis le dernier relevé quotidien
   antérieur à aujourd'hui, et la ligne « Depuis ta visite du … » donne l'écart.
+- **Reflet et relief** (`src/lib/reflet.js`, souris et effets vivants seulement) : une lumière
+  suit le curseur sur la carte survolée ; les cartes vedettes et les éléments `data-relief`
+  s'inclinent légèrement vers lui.
+- **Fond vivant** (`components/FondVivant.jsx`) : trois nappes de couleur dérivent derrière le
+  contenu, aux teintes de l'onglet ; la troisième prend l'humeur de la séance (variation du
+  jour). Absent en effets sobres, immobile en mouvement réduit ou sur un appareil économe.
+- **Surlignage glissant** (`src/lib/glisse.js`) : dans les `.table-donnees`, un seul repère
+  glisse d'une ligne à l'autre au survol (souris, au-dessus de 768 px).
+- **Tri en douceur** (`src/lib/useFlip.js`) : au changement de tri des positions et de la
+  watchlist, chaque ligne rejoint sa nouvelle place. `capturer()` avant le tri, `data-flip`
+  sur les lignes.
+- **Couleur de marque** (`src/lib/couleursMarques.js`) : la teinte relevée sur le logo de
+  l'entreprise éclaire l'en-tête de sa fiche et sa barre de poids dans le tableau des
+  positions. Les couleurs sont relevées par `node scripts/couleurs-logos.mjs` (le navigateur ne
+  peut pas lire les pixels d'un logo servi ailleurs) dans `src/lib/couleursMarques.json` ;
+  quelques logos monochromes sont complétés à la main dans `couleursMarques.js`. Le relancer
+  après avoir ajouté un domaine dans `src/lib/domainesLogos.js`.
 
 ## 🗂️ Structure du projet
 
@@ -475,6 +492,8 @@ patrium/
 │   │   ├── useMaintenant.js       # instant stable pour les badges de fraîcheur
 │   │   ├── mouvement.js           # mouvement réduit, intensité des effets
 │   │   ├── revelation.js          # cartes qui entrent, graphiques qui se tracent
+│   │   ├── reflet.js  glisse.js  useFlip.js  # reflet au curseur, surlignage, tri en douceur
+│   │   ├── couleursMarques.js     # couleur de chaque entreprise (relevée par scripts/)
 │   │   └── api.js                 # appels vers api/*
 │   ├── App.jsx                 # coquille de navigation
 │   ├── main.jsx                # providers + service worker
