@@ -304,3 +304,111 @@
   transform-origin: left;
   transition: width 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+
+/* ═══════════════════ INDICATEUR D'ONGLET GLISSANT ═════════════════════════
+ * components/IndicateurGlissant.jsx. Un seul repère par barre de navigation,
+ * qui se déplace — et change de teinte en chemin, puisque sa classe de teinte
+ * suit l'onglet actif et que la couleur calculée s'interpole.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.indicateur-glissant {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    transform 420ms cubic-bezier(0.3, 1.25, 0.4, 1),
+    height 420ms cubic-bezier(0.3, 1.25, 0.4, 1),
+    background-color 420ms ease,
+    border-color 420ms ease,
+    opacity 200ms ease;
+}
+.indicateur-vertical {
+  border-radius: 0.75rem;
+  background-color: hsl(var(--teinte) / 0.15);
+  border: 1px solid hsl(var(--teinte) / 0.35);
+}
+.indicateur-vertical::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  width: 3px;
+  height: 1.25rem;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background-color: hsl(var(--teinte));
+  transition: background-color 420ms ease;
+}
+.indicateur-horizontal {
+  width: 2rem;
+  height: 3px;
+  margin-left: -1rem;
+  border-radius: 0 0 999px 999px;
+  background-color: hsl(var(--teinte));
+}
+/* Les boutons passent devant le repère. */
+.nav-glissante > button {
+  position: relative;
+  z-index: 1;
+}
+
+/* ═══════════════════ DE LA LIGNE À LA FICHE ═══════════════════════════════
+ * src/lib/morph.js. Le reste de la page ne fond pas d'une photo à l'autre :
+ * seuls le logo et le nom voyagent, la fiche garde sa propre entrée.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root.morph-fiche::view-transition-old(root),
+:root.morph-fiche::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(ligne-logo),
+::view-transition-group(ligne-nom) {
+  animation-duration: 440ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+::view-transition-old(ligne-nom),
+::view-transition-new(ligne-nom) {
+  /* Le nom change de taille en chemin : l'étirer déformerait les lettres. */
+  height: 100%;
+  object-fit: none;
+  object-position: left center;
+}
+
+/* ═══════════════════ APERÇU AU SURVOL ═════════════════════════════════════
+ * components/ApercuTicker.jsx : la petite fiche d'une valeur, à la couleur de
+ * son entreprise.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.apercu-ticker {
+  position: fixed;
+  z-index: 80;
+  padding: 0.875rem;
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--marque) / 0.35);
+  background-color: rgb(var(--c-slate-900) / 0.97);
+  background-image: radial-gradient(110% 90% at 0% 0%, hsl(var(--marque) / 0.16), transparent 60%);
+  box-shadow:
+    0 22px 44px -20px rgb(0 0 0 / 0.75),
+    inset 0 1px 0 hsl(var(--marque) / 0.25);
+  backdrop-filter: blur(10px);
+  animation: apercu-entree 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.apercu-dessous { transform-origin: top left; }
+.apercu-dessus { transform-origin: bottom left; }
+@keyframes apercu-entree {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+[data-apercu] {
+  cursor: help;
+}
+button[data-apercu],
+a[data-apercu] {
+  cursor: pointer;
+}

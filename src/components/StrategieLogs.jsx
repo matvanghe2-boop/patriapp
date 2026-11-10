@@ -477,7 +477,11 @@ function NoteCard({
         {note.ticker && <AssetLogo ticker={note.ticker} size="sm" />}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            {note.ticker && <span className="font-data text-xs font-bold text-rose-300">{note.ticker}</span>}
+            {note.ticker && (
+              <span data-apercu={note.ticker} className="font-data text-xs font-bold text-rose-300">
+                {note.ticker}
+              </span>
+            )}
             {note.archivee ? (
               <PastilleEtat etat="neutre">Clôturée</PastilleEtat>
             ) : (

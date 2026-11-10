@@ -6,6 +6,7 @@ import { Card, CardLabel, CarteRepliable, GhostButton, EmptyState, PageGlow, CAR
 import MenuActions from "./MenuActions";
 import AssetLogo from "./AssetLogo";
 import { useFlip } from "../lib/useFlip";
+import { ouvrirDepuis, fermerVers } from "../lib/morph";
 import { styleMarque } from "../lib/couleursMarques";
 import SectorHeatmap from "./SectorHeatmap";
 import CorrelationsLignes from "./CorrelationsLignes";
@@ -614,14 +615,19 @@ export default function Bourse() {
                       <td data-label="Actif" className="py-3 pr-3">
                         <button
                           type="button"
-                          onClick={() => setFicheOuverte(p.id)}
+                          // Le logo et le nom s'envolent de la ligne vers l'en-tête de la fiche.
+                          onClick={(e) => ouvrirDepuis(e.currentTarget, () => setFicheOuverte(p.id))}
                           data-voyageur={marcheRequest?.symbol === p.ticker.toUpperCase() ? "" : undefined}
+                          data-ligne={p.id}
+                          data-apercu={p.ticker}
                           title="Ouvrir la fiche de la ligne : courbe, dividendes, thèse, opérations"
                           className="flex items-center gap-2 text-left group/ticker"
                         >
-                          <AssetLogo ticker={p.ticker} size="xs" />
+                          <span data-morph="logo" className="inline-flex shrink-0">
+                            <AssetLogo ticker={p.ticker} size="xs" />
+                          </span>
                           <div>
-                            <div className="text-slate-200 font-medium group-hover/ticker:text-violet-300 transition-colors">{p.ticker}</div>
+                            <div data-morph="nom" className="w-fit text-slate-200 font-medium group-hover/ticker:text-violet-300 transition-colors">{p.ticker}</div>
                             <div className="text-micro text-slate-500">{p.name} · {p.type}</div>
                           </div>
                         </button>
@@ -875,7 +881,13 @@ export default function Bourse() {
       {ficheOuverte && bourse.positions.some((p) => p.id === ficheOuverte) && (
         <FicheLigne
           position={bourse.positions.find((p) => p.id === ficheOuverte)}
-          onClose={() => setFicheOuverte(null)}
+          onClose={() => {
+            const id = ficheOuverte;
+            fermerVers(
+              () => document.querySelector(`[data-ligne="${CSS.escape(String(id))}"]`),
+              () => setFicheOuverte(null)
+            );
+          }}
           bourse={bourse}
           strategyNotes={strategyNotes}
           secteursManuels={secteursManuels}
