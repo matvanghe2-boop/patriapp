@@ -6,6 +6,17 @@ import Montant from "./Montant";
 import { prochainesEcheances } from "../lib/echeances";
 import { usePersistentState } from "../lib/storage";
 import { COFFRE_VIDE } from "../lib/coffre";
+import CompteARebours from "./CompteARebours";
+
+/**
+ * L'instant que vise le compte à rebours. Un rendez-vous de marché se joue à
+ * l'ouverture de la séance ; une date limite — préavis, contrat, papier,
+ * objectif — court jusqu'au dernier moment du jour.
+ */
+function instantVise(e) {
+  const marche = e.type === "dividende" || e.type === "marche";
+  return new Date(`${e.date}T${marche ? "09:00:00" : "23:59:59"}`);
+}
 
 /**
  * Prochaines échéances — Dashboard.
@@ -66,8 +77,24 @@ export default function ProchainesEcheances({
           papiers du coffre apparaîtront ici dès qu'une date approche.
         </EtatVide>
       ) : (
+        <>
+        {/* La plus proche passe à la une, en cases qui défilent : une date
+            limite se ressent mieux qu'elle ne se lit. */}
+        {echeances[0] && !echeances[0].atteint && (
+          <div className="mt-3 mb-1 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-3">
+            <span className="min-w-0">
+              <span className="block text-micro uppercase tracking-wider text-slate-500">La plus proche</span>
+              <span className="block text-corps text-slate-100 truncate">{echeances[0].libelle}</span>
+              <span className="block text-micro text-slate-500 truncate">
+                {formatDate(echeances[0].date)} · <span className={`etat-${echeances[0].urgence}`}>{quand(echeances[0].jours)}</span>
+                {echeances[0].detail && <> · {echeances[0].detail}</>}
+              </span>
+            </span>
+            <CompteARebours cible={instantVise(echeances[0])} />
+          </div>
+        )}
         <ul className="flex flex-col gap-1.5 mt-2">
-          {echeances.map((e) => {
+          {echeances.slice(echeances[0] && !echeances[0].atteint ? 1 : 0).map((e) => {
             const Icone = e.atteint ? CheckCircle2 : ICONES[e.type] || CalendarClock;
             return (
               <li
@@ -92,6 +119,7 @@ export default function ProchainesEcheances({
             );
           })}
         </ul>
+        </>
       )}
 
       <p className="text-micro text-slate-500 mt-3">

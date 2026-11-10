@@ -153,7 +153,6 @@ src/components/BriefingDuJour.jsx
 src/components/CalendrierPrelevements.jsx
 src/components/CalendrierRevenus.jsx
 src/components/CarteBienvenue.jsx
-src/components/CarteCac40.jsx
 src/components/CarteRepliable.test.jsx
 src/components/CascadeMensuelle.jsx
 src/components/CashPocketCard.jsx
@@ -167,6 +166,7 @@ src/components/CommuniqueDepose.jsx
 src/components/ComparaisonPairs.jsx
 src/components/ComparateurRattachement.jsx
 src/components/ComparateurScenarios.jsx
+src/components/CompteARebours.jsx
 src/components/CompteCourant.jsx
 src/components/CompteCourant.test.jsx
 src/components/CorrelationsLignes.jsx
@@ -214,6 +214,7 @@ src/components/MiseAJourDisponible.jsx
 src/components/Modal.jsx
 src/components/Modal.test.jsx
 src/components/ModePresentation.jsx
+src/components/Moments.jsx
 src/components/Montant.jsx
 src/components/MouvementsDepuisReleve.jsx
 src/components/MouvementsLivrets.jsx
@@ -269,6 +270,7 @@ src/components/ScenariosProjet.test.jsx
 src/components/Screener.jsx
 src/components/SectorHeatmap.jsx
 src/components/SectorHeatmap.test.jsx
+src/components/SignalMarche.jsx
 src/components/Simulation.jsx
 src/components/StatsCompte.jsx
 src/components/StickySummaryHeader.jsx
@@ -409,6 +411,8 @@ src/lib/livretsMouvements.test.js
 src/lib/marqueursCourbe.js
 src/lib/marqueursCourbe.test.js
 src/lib/migrations.js
+src/lib/moments.js
+src/lib/moments.test.js
 src/lib/morph.js
 src/lib/mouvement.js
 src/lib/mouvement.test.jsx
@@ -452,6 +456,8 @@ src/lib/revenusPassifs.test.js
 src/lib/santeFinanciere.js
 src/lib/santeFinanciere.test.js
 src/lib/sauvegardeAuto.js
+src/lib/seance.js
+src/lib/seance.test.js
 src/lib/sectors.js
 src/lib/sectors.test.js
 src/lib/splits.test.js

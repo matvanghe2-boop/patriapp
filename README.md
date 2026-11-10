@@ -450,6 +450,23 @@ progression — et jamais retarder la navigation. Les effets vivent dans
   ouvre une petite fiche (cours, variation du jour, un mois de courbe, valeur et poids pour une
   ligne détenue) — au survol à la souris, par appui long au doigt, au focus au clavier. Cours
   et courbes en cache une et dix minutes.
+- **Moments** (`src/lib/moments.js`, `components/Moments.jsx`) : nouveau record, palier rond
+  franchi (10 k, 25 k, 50 k, 75 k, 100 k… mémorisé dans `recordsAnnonces.palier`), objectif
+  atteint et dividende ajouté au journal pendant la visite ont leur propre scène : une carte qui
+  descend, le montant en rouleaux traversé d'un reflet, une gerbe de confettis ou une pièce qui
+  tombe. Effets sobres, mouvement réduit ou scène absente : le toast d'origine.
+- **Compte à rebours** (`components/CompteARebours.jsx`) : l'échéance la plus proche du
+  Dashboard passe à la une, en cases (jours, heures, minutes ; secondes le dernier jour). Neutre
+  au-delà d'une semaine, ambre dans la semaine, rose et battante le dernier jour. Un rendez-vous
+  de marché vise 9 h, une date limite la fin du jour.
+- **Séance de Paris** (`src/lib/seance.js`, `components/SignalMarche.jsx`) : pastille
+  « Marché ouvert » dans l'en-tête (9 h – 17 h 30, heure de Paris, hors week-end et six fériés
+  boursiers). Pendant la séance seulement, la variation du jour passe dans le titre de l'onglet
+  (jamais en mode Ghost) et un point s'affiche sur l'icône de l'appli installée.
+- **Bandeau des indices** (onglet Marché, `components/IndicesWidget.jsx`) : sous les trois
+  boutons CAC 40 / S&P 500 / Nasdaq, les valeurs de l'indice choisi défilent avec leur variation
+  du jour ; les lignes détenues sont entourées, un clic ouvre la valeur, le survol l'arrête. Il
+  remplace l'ancienne carte du CAC 40 et les listes « meilleures / pires » des indices américains.
 
 ## 🗂️ Structure du projet
 

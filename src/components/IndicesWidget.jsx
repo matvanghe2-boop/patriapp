@@ -1,89 +1,101 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { fetchQuotes } from "../lib/api";
-import { INDEX_TABS, INDEX_CONSTITUENTS } from "../lib/indexConstituents";
+import { INDEX_TABS, INDEX_CONSTITUENTS, COMPOSITION_CAC40_AU } from "../lib/indexConstituents";
 import { pctPlain } from "../lib/finance";
-import CarteCac40 from "./CarteCac40";
+import AssetLogo from "./AssetLogo";
 
 function pctChange(q) {
   if (!q?.ok || !q.previousClose || !q.price) return null;
   return ((q.price - q.previousClose) / q.previousClose) * 100;
 }
 
-function shortLabel(name, symbol) {
+function nomCourt(name, symbol) {
   if (!name) return symbol;
   return name.length > 22 ? `${name.slice(0, 20)}…` : name;
 }
 
+/** Secondes de défilement par valeur : assez lent pour lire en passant. */
+const SECONDES_PAR_VALEUR = 2.6;
+
 /**
- * `onOuvrir` ouvre une valeur dans Marché ; `tickersDetenus` entoure les
- * lignes du portefeuille sur la carte du CAC 40.
+ * Les trois indices de l'onglet Marché, et le bandeau de leurs valeurs.
+ *
+ * Trois boutons — CAC 40, S&P 500, Nasdaq — donnent la variation de chaque
+ * indice ; celui qui est choisi alimente le bandeau qui défile dessous, une
+ * pastille par valeur, colorée par sa variation du jour. Le bandeau remplace
+ * la carte du CAC 40 et les listes « meilleures / pires » des deux indices
+ * américains : les trois se présentent désormais de la même façon.
+ *
+ * Les lignes détenues sont mises en évidence (`tickersDetenus`), un clic sur
+ * une valeur l'ouvre dans Marché (`onOuvrir`), et son survol en donne
+ * l'aperçu. Le survol ou le focus arrête le défilement ; en mouvement réduit,
+ * le bandeau est immobile et se parcourt à la main.
  */
 export default function IndicesWidget({ onOuvrir, tickersDetenus = [] }) {
-  const [active, setActive] = useState("cac40");
+  const [actif, setActif] = useState("cac40");
   const [indexQuotes, setIndexQuotes] = useState({});
-  const [moversByIndex, setMoversByIndex] = useState({});
-  const [moversLoading, setMoversLoading] = useState(false);
-  const [openPanel, setOpenPanel] = useState(false);
+  const [valeursParIndice, setValeursParIndice] = useState({});
 
   useEffect(() => {
     let stop = false;
-    const load = async () => {
+    const charger = async () => {
       try {
         const quotes = await fetchQuotes(INDEX_TABS.map((t) => t.symbol));
         if (stop) return;
-        const map = {};
-        quotes.forEach((q) => { map[q.symbol] = q; });
-        setIndexQuotes(map);
+        setIndexQuotes(Object.fromEntries(quotes.map((q) => [q.symbol, q])));
       } catch {}
     };
-    load();
-    const id = setInterval(load, 5 * 60 * 1000);
-    return () => { stop = true; clearInterval(id); };
+    charger();
+    const id = setInterval(charger, 5 * 60 * 1000);
+    return () => {
+      stop = true;
+      clearInterval(id);
+    };
   }, []);
 
-  const loadMovers = async (key) => {
-    if (moversByIndex[key] || moversLoading) return;
-    setMoversLoading(true);
-    try {
-      const tickers = INDEX_CONSTITUENTS[key];
-      const quotes = await fetchQuotes(tickers);
-      const rows = quotes
-        .map((q) => ({ symbol: q.symbol, name: shortLabel(q.name, q.symbol), pct: pctChange(q) }))
-        .filter((r) => r.pct != null)
-        .sort((a, b) => b.pct - a.pct);
-      setMoversByIndex((m) => ({ ...m, [key]: { best: rows.slice(0, 3), worst: rows.slice(-3).reverse() } }));
-    } catch {
-      setMoversByIndex((m) => ({ ...m, [key]: { best: [], worst: [] } }));
-    } finally {
-      setMoversLoading(false);
-    }
-  };
+  // Les valeurs de l'indice choisi, chargées une fois par indice puis
+  // rafraîchies toutes les cinq minutes tant qu'il reste affiché.
+  useEffect(() => {
+    let stop = false;
+    const charger = async () => {
+      try {
+        const quotes = await fetchQuotes(INDEX_CONSTITUENTS[actif] || []);
+        if (stop) return;
+        const lignes = quotes
+          .map((q) => ({ symbol: q.symbol, nom: nomCourt(q.name, q.symbol), pct: pctChange(q) }))
+          .filter((r) => r.pct != null);
+        setValeursParIndice((m) => ({ ...m, [actif]: lignes }));
+      } catch {
+        if (!stop) setValeursParIndice((m) => ({ ...m, [actif]: m[actif] || [] }));
+      }
+    };
+    charger();
+    const id = setInterval(charger, 5 * 60 * 1000);
+    return () => {
+      stop = true;
+      clearInterval(id);
+    };
+  }, [actif]);
 
-  const openTab = (key) => {
-    setActive(key);
-    setOpenPanel(true);
-    // Le CAC 40 a sa carte complète, qui charge ses propres cours : la liste
-    // des extrêmes n'y servirait plus.
-    if (key !== "cac40") loadMovers(key);
-  };
-
-  const movers = moversByIndex[active];
+  const detenus = useMemo(() => new Set(tickersDetenus.map((t) => String(t).toUpperCase())), [tickersDetenus]);
+  const valeurs = valeursParIndice[actif];
+  const libelle = INDEX_TABS.find((t) => t.key === actif)?.label;
 
   return (
     <div className="relative rounded-2xl border border-slate-800 bg-slate-900 p-3">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Indice affiché dans le bandeau">
         {INDEX_TABS.map((t) => {
-          const q = indexQuotes[t.symbol];
-          const pct = pctChange(q);
+          const pct = pctChange(indexQuotes[t.symbol]);
           const up = pct != null && pct >= 0;
+          const choisi = actif === t.key;
           return (
             <button
               key={t.key}
-              onClick={() => (active === t.key && openPanel ? setOpenPanel(false) : openTab(t.key))}
-              onMouseEnter={() => openTab(t.key)}
+              onClick={() => setActif(t.key)}
+              aria-pressed={choisi}
               className={`flex flex-col items-center gap-0.5 rounded-xl border px-3 py-2 transition-colors ${
-                active === t.key && openPanel ? "border-violet-500/50 bg-violet-500/10" : "border-slate-800 hover:border-slate-700"
+                choisi ? "border-violet-500/50 bg-violet-500/10" : "border-slate-800 hover:border-slate-700"
               }`}
             >
               <span className="text-xs font-medium text-slate-300">{t.label}</span>
@@ -92,7 +104,8 @@ export default function IndicesWidget({ onOuvrir, tickersDetenus = [] }) {
               ) : (
                 <span className={`flex items-center gap-1 font-data text-sm font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
                   {up ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-                  {up ? "+" : ""}{pctPlain(pct, 2)}
+                  {up ? "+" : ""}
+                  {pctPlain(pct, 2)}
                 </span>
               )}
             </button>
@@ -100,49 +113,59 @@ export default function IndicesWidget({ onOuvrir, tickersDetenus = [] }) {
         })}
       </div>
 
-      {openPanel && active === "cac40" && (
-        <div className="mt-3 pt-3 border-t border-slate-800">
-          <CarteCac40 onOuvrir={onOuvrir} tickersDetenus={tickersDetenus} />
-        </div>
-      )}
+      <div className="mt-3 pt-3 border-t border-slate-800">
+        {valeurs === undefined ? (
+          <p className="text-micro text-slate-500 px-1">Chargement des valeurs du {libelle}…</p>
+        ) : valeurs.length === 0 ? (
+          <p className="text-micro text-slate-500 px-1">Cours des valeurs du {libelle} indisponibles pour le moment.</p>
+        ) : (
+          <Bandeau valeurs={valeurs} detenus={detenus} onOuvrir={onOuvrir} libelle={libelle} />
+        )}
+        <p className="text-micro text-slate-500 mt-2 px-1">
+          {actif === "cac40"
+            ? `Les 40 valeurs de l'indice (composition au ${new Date(`${COMPOSITION_CAC40_AU}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}), variation depuis la clôture de la veille.`
+            : "Échantillon de grandes capitalisations de l'indice, pas la totalité des composants."}{" "}
+          Survole pour arrêter le défilement ; tes lignes sont entourées.
+        </p>
+      </div>
+    </div>
+  );
+}
 
-      {openPanel && active !== "cac40" && (
-        <div className="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-4">
-          <div>
-            <div className="text-micro uppercase tracking-wide text-emerald-400/80 mb-1.5">Meilleures perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>
-            {moversLoading && !movers ? (
-              <p className="text-micro text-slate-500">Chargement…</p>
-            ) : (
-              <div className="space-y-1">
-                {(movers?.best || []).map((r) => (
-                  <div key={r.symbol} className="flex items-center justify-between text-xs gap-2">
-                    <span className="text-slate-300 truncate">{r.name}</span>
-                    <span className="text-emerald-400 font-data shrink-0">+{pctPlain(r.pct, 2)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div>
-            <div className="text-micro uppercase tracking-wide text-rose-400/80 mb-1.5">Pires perfs — {INDEX_TABS.find((t) => t.key === active)?.label}</div>
-            {moversLoading && !movers ? (
-              <p className="text-micro text-slate-500">Chargement…</p>
-            ) : (
-              <div className="space-y-1">
-                {(movers?.worst || []).map((r) => (
-                  <div key={r.symbol} className="flex items-center justify-between text-xs gap-2">
-                    <span className="text-slate-300 truncate">{r.name}</span>
-                    <span className="text-rose-400 font-data shrink-0">{pctPlain(r.pct, 2)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <p className="col-span-2 text-micro text-slate-500">
-            Échantillon indicatif de grandes capitalisations de l'indice, pas la totalité des composants.
-          </p>
-        </div>
-      )}
+function Bandeau({ valeurs, detenus, onOuvrir, libelle }) {
+  // Le contenu est doublé : la piste glisse de la moitié de sa largeur et
+  // retombe exactement sur son début. La copie est cachée aux lecteurs
+  // d'écran et sortie de l'ordre de tabulation.
+  const pastille = (v, copie) => {
+    const hausse = v.pct >= 0;
+    return (
+      <button
+        key={`${copie ? "b" : "a"}-${v.symbol}`}
+        type="button"
+        onClick={() => onOuvrir?.(v.symbol)}
+        tabIndex={copie ? -1 : undefined}
+        aria-hidden={copie || undefined}
+        data-apercu={v.symbol}
+        data-detenue={detenus.has(String(v.symbol).toUpperCase()) ? "" : undefined}
+        className="bandeau-valeur"
+        title={`Ouvrir ${v.nom} dans Marché`}
+      >
+        <AssetLogo ticker={v.symbol} name={v.nom} size="xs" />
+        <span className="text-slate-200">{v.nom}</span>
+        <span className={`font-data tabular-nums ${hausse ? "text-emerald-400" : "text-rose-400"}`}>
+          {hausse ? "+" : ""}
+          {pctPlain(v.pct, 2)}
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="bandeau-indice" role="region" aria-label={`Valeurs du ${libelle}`}>
+      <div className="bandeau-piste" style={{ "--duree-bandeau": `${Math.max(20, valeurs.length * SECONDES_PAR_VALEUR)}s` }}>
+        {valeurs.map((v) => pastille(v, false))}
+        {valeurs.map((v) => pastille(v, true))}
+      </div>
     </div>
   );
 }

@@ -24,6 +24,7 @@ import { ResumeCompteCourant, SanteFinanciere } from "./BlocsCompteDashboard";
 import { DISPOSITION_DEFAUT } from "../lib/dispositionDashboard";
 import { decouperParPoche, COULEURS_POCHES } from "../lib/patrimoineParPoche";
 import { recordAAnnoncer, objectifsAAnnoncer, plusHautHistorique } from "../lib/records";
+import { annoncerMoment, palierAtteint } from "../lib/moments";
 import CentreAFaire from "./CentreAFaire";
 import AgendaFinancier from "./AgendaFinancier";
 import { enEurosConstants, inflationOfficielle } from "../lib/inflation";
@@ -135,6 +136,7 @@ export default function Dashboard() {
         // présente donc pas comme un record du jour.
         record: { valeur: Math.round(Math.max(patrimoineNet, haut?.valeur ?? 0)), date: aujourdhui, silencieux: true },
         objectifs: objectifsAAnnoncer(objectifs, patrimoineNet, []).map((o) => o.id),
+        palier: palierAtteint(Math.max(patrimoineNet, haut?.valeur ?? 0)),
       });
       return;
     }
@@ -145,18 +147,49 @@ export default function Dashboard() {
       aujourdhui,
     });
     const atteints = objectifsAAnnoncer(objectifs, patrimoineNet, recordsAnnonces.objectifs);
-    if (!record && atteints.length === 0) return;
-    if (record) {
-      showToast({
-        message: `Nouveau record de patrimoine : ${eur(record.valeur)}. Le précédent, ${eur(record.precedent.valeur)}, datait du ${new Date(`${record.precedent.date}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.`,
+    // Palier rond : mémorisé sans annonce la première fois (une mémoire
+    // d'avant cette fonction n'en porte pas), annoncé ensuite à chaque
+    // nouveau seuil franchi.
+    const palier = palierAtteint(patrimoineNet);
+    const palierConnu = recordsAnnonces.palier;
+    const nouveauPalier = palierConnu != null && palier > palierConnu ? palier : null;
+    if (!record && atteints.length === 0 && palierConnu != null && !nouveauPalier) return;
+
+    // Un moment a sa propre scène (Moments.jsx) ; sans elle — composant
+    // monté seul, effets sobres —, il redevient le toast qu'il était.
+    const annoncer = (moment) => {
+      if (!annoncerMoment(moment)) showToast({ message: moment.message });
+    };
+    if (nouveauPalier) {
+      annoncer({
+        type: "palier",
+        titre: `Ton patrimoine net vient de passer ${eur(nouveauPalier)}`,
+        valeur: patrimoineNet,
+        message: `Palier franchi : ton patrimoine net dépasse ${eur(nouveauPalier)}.`,
+      });
+    } else if (record) {
+      const depuis = new Date(`${record.precedent.date}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+      annoncer({
+        type: "record",
+        titre: "Ton patrimoine n'a jamais été aussi haut",
+        valeur: record.valeur,
+        depart: record.precedent.valeur,
+        detail: `Le précédent sommet, ${eur(record.precedent.valeur)}, datait du ${depuis}.`,
+        message: `Nouveau record de patrimoine : ${eur(record.valeur)}. Le précédent, ${eur(record.precedent.valeur)}, datait du ${depuis}.`,
       });
     }
     for (const o of atteints) {
-      showToast({ message: `Objectif « ${o.libelle || "sans nom"} » atteint : ${eur(o.cible)}.` });
+      annoncer({
+        type: "objectif",
+        titre: `Objectif « ${o.libelle || "sans nom"} » atteint`,
+        valeur: o.cible,
+        message: `Objectif « ${o.libelle || "sans nom"} » atteint : ${eur(o.cible)}.`,
+      });
     }
     setRecordsAnnonces((r) => ({
       record: record ? { valeur: Math.round(record.valeur), date: aujourdhui } : r?.record ?? null,
       objectifs: [...(r?.objectifs || []), ...atteints.map((o) => o.id)],
+      palier: Math.max(palier, r?.palier ?? 0),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patrimoineNet, historyPast, objectifs, isEmpty]);
