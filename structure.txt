@@ -451,6 +451,8 @@ src/lib/reflet.js
 src/lib/refonteGlobale.test.jsx
 src/lib/releveBourso.js
 src/lib/releveBourso.test.js
+src/lib/reparations.js
+src/lib/reparations.test.js
 src/lib/retrospective.js
 src/lib/retrospective.test.js
 src/lib/revelation.js

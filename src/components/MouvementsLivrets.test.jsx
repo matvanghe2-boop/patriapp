@@ -27,10 +27,25 @@ describe("MouvementsLivrets", () => {
     expect(within(screen.getByRole("list")).getByText("Dépôt")).toBeInTheDocument();
   });
 
-  it("supprime un mouvement", () => {
+  it("supprime un mouvement en disant s'il faut corriger le solde", () => {
     const onRetirerMouvement = vi.fn();
     render(<MouvementsLivrets livrets={[LIVRET]} onMouvement={() => {}} onRetirerMouvement={onRetirerMouvement} />);
     fireEvent.click(screen.getByRole("button", { name: /Supprimer ce mouvement/ }));
-    expect(onRetirerMouvement).toHaveBeenCalledWith("la", "m1");
+    fireEvent.click(screen.getByRole("button", { name: /retirer de l'historique seulement/i }));
+    expect(onRetirerMouvement).toHaveBeenCalledWith("la", "m1", { garderSolde: true });
+    fireEvent.click(screen.getByRole("button", { name: /Supprimer ce mouvement/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Annuler le mouvement/ }));
+    expect(onRetirerMouvement).toHaveBeenLastCalledWith("la", "m1", { garderSolde: false });
+  });
+
+  it("demande si un mouvement passé est déjà dans le solde avant de l'enregistrer", () => {
+    const onMouvement = vi.fn();
+    render(<MouvementsLivrets livrets={[LIVRET]} onMouvement={onMouvement} onRetirerMouvement={() => {}} />);
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-01-15" } });
+    fireEvent.change(screen.getByLabelText("Montant (€)"), { target: { value: "300" } });
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText(/Oui, il y est déjà/));
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(onMouvement).toHaveBeenCalledWith("la", expect.objectContaining({ montant: 300, dejaCompris: true }));
   });
 });

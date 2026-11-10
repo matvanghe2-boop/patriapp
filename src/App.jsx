@@ -55,6 +55,7 @@ import ApercuTicker from "./components/ApercuTicker";
 import Moments from "./components/Moments";
 import SignalMarche, { useSeance } from "./components/SignalMarche";
 import { annoncerMoment } from "./lib/moments";
+import { reparationsAFaire, appliquerReparations } from "./lib/reparations";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -390,6 +391,56 @@ export default function App() {
    * PENDANT la visite (saisi, importé d'un relevé, détecté). Ceux qui étaient
    * déjà là à l'ouverture ne sont pas rejoués.
    */
+  /*
+   * Réparations ponctuelles de données (lib/reparations.js) : appliquées une
+   * fois, dès que les données concernées sont là, puis notées comme faites —
+   * la liste est synchronisée, un autre appareil ne la rejoue donc pas. La
+   * notification permet d'annuler ; l'annulation ne la relance pas.
+   */
+  const [reparationsFaites, setReparationsFaites] = usePersistentState("reparationsFaites", []);
+  // Garde-fou contre un second passage avant que la liste persistée ne soit
+  // à jour (double montage du mode strict, rendu intermédiaire).
+  const reparationsLancees = React.useRef(new Set());
+  useEffect(() => {
+    if (bacASable) return;
+    const aFaire = reparationsAFaire(patrimoine.livrets, reparationsFaites).filter((r) => !reparationsLancees.current.has(r.id));
+    aFaire.forEach((r) => reparationsLancees.current.add(r.id));
+    if (aFaire.length === 0) return;
+    const avant = { livrets: patrimoine.livrets, historique: patrimoine.historyPast };
+    const hier = new Date();
+    hier.setDate(hier.getDate() - 1);
+    const resultat = appliquerReparations({
+      reparations: aFaire,
+      livrets: patrimoine.livrets,
+      historique: patrimoine.historyPast,
+      compteOperations: patrimoine.compteOperations,
+      compteReleves: patrimoine.compteReleves,
+      bourse: patrimoine.bourse,
+      bourseHistory: patrimoine.bourseHistory,
+      dettesTotal: patrimoine.dettesTotal,
+      jusquA: todayIso(hier),
+    });
+    setReparationsFaites((f) => [...new Set([...(f || []), ...aFaire.map((r) => r.id)])]);
+    patrimoine.setLivrets(resultat.livrets);
+    if (resultat.historique !== avant.historique) patrimoine.setHistoryPast(resultat.historique);
+    const d = resultat.details[0];
+    const quand = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    showToast({
+      message: d
+        ? `Historique du ${d.nom} réparé : l'ajustement du ${quand(d.date)} faisait compter le livret avant ses versements. Solde inchangé${
+            resultat.joursCorriges > 0 ? `, courbe du patrimoine recalculée sur ${resultat.joursCorriges} jours` : ""
+          }.`
+        : "Données réparées.",
+      onUndo: () => {
+        patrimoine.setLivrets(avant.livrets);
+        patrimoine.setHistoryPast(avant.historique);
+      },
+    });
+    // Ne dépend que des données qu'elle répare : les autres sont lues au
+    // moment où elle s'applique, une seule fois.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patrimoine.livrets, reparationsFaites, bacASable]);
+
   const dividendesVus = React.useRef(null);
   useEffect(() => {
     const dividendes = (patrimoine.bourse?.operations || []).filter((op) => op.type === "DIVIDENDE");
