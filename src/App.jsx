@@ -47,6 +47,9 @@ import ModePresentation from "./components/ModePresentation";
 import FeuillePlus from "./components/FeuillePlus";
 import AideRaccourcis from "./components/AideRaccourcis";
 import { surveillerRevelations } from "./lib/revelation";
+import { surveillerReflets } from "./lib/reflet";
+import { surveillerGlisse } from "./lib/glisse";
+import FondVivant from "./components/FondVivant";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -330,7 +333,10 @@ export default function App() {
 
   // Révélation des cartes et tracé des graphiques : une seule installation
   // pour toute la visite, qui voit arriver d'elle-même chaque nouvel écran.
-  useEffect(() => surveillerRevelations(), []);
+  useEffect(() => {
+    const arrets = [surveillerRevelations(), surveillerReflets(), surveillerGlisse()];
+    return () => arrets.forEach((arreter) => arreter());
+  }, []);
 
   useEffect(() => {
     document.title = `${activeTab.label} · Patrium`;
@@ -642,8 +648,19 @@ export default function App() {
       <main
         id="contenu-principal"
         key={tab}
-        className={`coquille-zone entree-onglet flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 transition-colors duration-500 ${TAB_BG[tab] || ""}`}
+        className={`coquille-zone zone-vivante entree-onglet flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 transition-colors duration-500 ${TAB_BG[tab] || ""}`}
       >
+        {/* La teinte de l'onglet dérive derrière le contenu, et prend
+            l'humeur de la séance (voir FondVivant). */}
+        <FondVivant
+          humeur={
+            variationJour?.exploitable && variationJour.montant
+              ? variationJour.montant > 0
+                ? "hausse"
+                : "baisse"
+              : "neutre"
+          }
+        />
         {/* L'en-tête se condense au défilement pour garder le patrimoine net et
             sa variation visibles en permanence, sans immobiliser de la hauteur
             d'écran au repos. */}

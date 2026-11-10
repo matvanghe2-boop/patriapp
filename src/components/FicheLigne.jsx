@@ -3,6 +3,7 @@ import { ExternalLink, NotebookPen, CalendarDays, Coins, ListOrdered, Link2 } fr
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
 import Modal from "./Modal";
 import AssetLogo from "./AssetLogo";
+import { styleMarque } from "../lib/couleursMarques";
 import { eur, pct, pctPlain, nombre, valeurPosition, coutPosition, compact } from "../lib/finance";
 import { fetchHistory } from "../lib/api";
 import { secteurDe } from "../lib/sectors";
@@ -156,8 +157,11 @@ export default function FicheLigne({
     >
       <div className="p-5">
         {/* ── En-tête ── */}
-        <div className="flex items-center gap-3 pr-8">
-          <AssetLogo ticker={ticker} size="sm" />
+        {/* La couleur de l'entreprise, relevée sur son logo, éclaire le
+            haut de la fiche : on sait d'un coup d'œil de quelle ligne on
+            parle, avant d'avoir lu son nom. */}
+        <div className="avec-marque entete-marque flex items-center gap-3 pr-8" style={styleMarque(ticker)}>
+          <AssetLogo ticker={ticker} size="sm" className="logo-marque" />
           <div className="min-w-0">
             <h2 className="font-display text-lg text-slate-50 truncate">{position.name || ticker}</h2>
             <div className="text-micro text-slate-500">

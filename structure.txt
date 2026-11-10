@@ -189,6 +189,7 @@ src/components/FicheLigne.test.jsx
 src/components/FinancialCalendar.jsx
 src/components/FinancialCalendar.test.jsx
 src/components/FiscaliteSortie.jsx
+src/components/FondVivant.jsx
 src/components/FriseUnifiee.jsx
 src/components/GlobalSearch.jsx
 src/components/HistoireTaux.jsx
@@ -347,7 +348,9 @@ src/lib/compteCourant.test.js
 src/lib/contexteDonnees.js
 src/lib/correlations.js
 src/lib/correlations.test.js
+src/lib/couleursMarques.js
 src/lib/couleursMarques.json
+src/lib/couleursMarques.test.js
 src/lib/datesDocument.js
 src/lib/datesDocument.test.js
 src/lib/decisions.js
@@ -378,6 +381,7 @@ src/lib/finance.js
 src/lib/finance.test.js
 src/lib/fonctionsGlobales.test.js
 src/lib/formatPct.test.js
+src/lib/glisse.js
 src/lib/haptique.js
 src/lib/histoireTaux.js
 src/lib/histoireTaux.test.js
@@ -433,6 +437,7 @@ src/lib/reconstitutionPatrimoine.js
 src/lib/reconstitutionPatrimoine.test.js
 src/lib/records.js
 src/lib/records.test.js
+src/lib/reflet.js
 src/lib/refonteGlobale.test.jsx
 src/lib/releveBourso.js
 src/lib/releveBourso.test.js
@@ -465,6 +470,7 @@ src/lib/univers.js
 src/lib/useAlertesWatchlist.js
 src/lib/useBilanRappel.js
 src/lib/useDailySnapshot.js
+src/lib/useFlip.js
 src/lib/useHashRoute.js
 src/lib/useMaintenant.js
 src/lib/useMaintenant.test.js
