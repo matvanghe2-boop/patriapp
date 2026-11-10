@@ -1,5 +1,5 @@
 import { forwardRef, useState } from "react";
-import { RotateCcw, BookOpen, NotebookPen, Coins, CalendarClock } from "lucide-react";
+import { RotateCcw, BookOpen, NotebookPen, Coins, CalendarClock, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import AssetLogo from "./AssetLogo";
 import { Sparkline } from "./graphiques";
 import { eur, pct, pctPlain, valeurPosition, todayIso } from "../lib/finance";
@@ -19,7 +19,7 @@ import { styleMarque } from "../lib/couleursMarques";
  * jamais dans un texte invisible.
  */
 const CartesPositions = forwardRef(function CartesPositions(
-  { positions, total, strategyNotes = [], evenements = [], seriesCours = {}, onOuvrirFiche },
+  { positions, total, strategyNotes = [], evenements = [], seriesCours = {}, dailyData = {}, onOuvrirFiche },
   ref
 ) {
   return (
@@ -33,6 +33,7 @@ const CartesPositions = forwardRef(function CartesPositions(
           these={derniereThese(strategyNotes, p.ticker)}
           prochain={prochainEvenement(evenements, p.ticker)}
           serie={(seriesCours?.[p.ticker] || []).map((pt) => pt.p).filter(Number.isFinite)}
+          jour={dailyData?.[p.ticker] || null}
           onOuvrirFiche={onOuvrirFiche}
         />
       ))}
@@ -60,7 +61,7 @@ function prochainEvenement(evenements, ticker) {
   );
 }
 
-function CartePosition({ rang, position: p, total, these, prochain, serie = [], onOuvrirFiche }) {
+function CartePosition({ rang, position: p, total, these, prochain, serie = [], jour = null, onOuvrirFiche }) {
   const [retournee, setRetournee] = useState(false);
   const valeur = valeurPosition(p);
   const cout = (Number(p.pru) || 0) * (Number(p.quantity) || 0);
@@ -69,6 +70,10 @@ function CartePosition({ rang, position: p, total, these, prochain, serie = [], 
   const poids = total > 0 ? (valeur / total) * 100 : 0;
   const dividende = (Number(p.annual_dividend) || 0) * (Number(p.quantity) || 0);
   const nom = p.name || p.ticker;
+  // Variation de la séance, comme la colonne « Var. J » du tableau : depuis
+  // la clôture de la veille, relevée au dernier « Actualiser les cours ».
+  const jourPct = Number.isFinite(jour?.changePct) ? jour.changePct : null;
+  const jourMontant = Number.isFinite(jour?.changeAbs) ? jour.changeAbs * (Number(p.quantity) || 0) : null;
 
   return (
     <div
@@ -103,12 +108,38 @@ function CartePosition({ rang, position: p, total, these, prochain, serie = [], 
           <span className="flex items-end justify-between gap-3 text-left mt-4">
             <span className="min-w-0">
             <span className="block font-data tabular-nums text-chiffre text-slate-50 ghost-blur">{eur(valeur)}</span>
-            <span className={`block text-mini font-data ${gain >= 0 ? "etat-ok" : "etat-critique"}`}>
-              <span className="ghost-blur">
-                {gain >= 0 ? "+" : "−"}
-                {eur(Math.abs(gain))}
-              </span>{" "}
-              ({pct(gainPct, 1)})
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-mini font-data">
+              <span className={gain >= 0 ? "etat-ok" : "etat-critique"} title="Plus-value latente depuis ton prix de revient">
+                <span className="ghost-blur">
+                  {gain >= 0 ? "+" : "−"}
+                  {eur(Math.abs(gain))}
+                </span>{" "}
+                ({pct(gainPct, 1)})
+              </span>
+              {/* À côté de la plus-value : ce que la ligne a fait aujourd'hui. */}
+              {jourPct != null ? (
+                <span
+                  className="variation-jour-carte"
+                  data-sens={jourPct >= 0 ? "hausse" : "baisse"}
+                  title="Variation du jour, depuis la clôture de la veille"
+                >
+                  {jourPct >= 0 ? <ArrowUpRight size={11} aria-hidden="true" /> : <ArrowDownRight size={11} aria-hidden="true" />}
+                  {jourPct >= 0 ? "+" : "−"}
+                  {pctPlain(Math.abs(jourPct), 2)}
+                  {jourMontant != null && (
+                    <span className="ghost-blur opacity-80">
+                      {" "}
+                      {jourMontant >= 0 ? "+" : "−"}
+                      {eur(Math.abs(jourMontant))}
+                    </span>
+                  )}
+                  <span className="sr-only"> aujourd&apos;hui</span>
+                </span>
+              ) : (
+                <span className="variation-jour-carte" title="Variation du jour inconnue : actualise les cours">
+                  Jour —
+                </span>
+              )}
             </span>
             </span>
             {serie.length > 2 && (

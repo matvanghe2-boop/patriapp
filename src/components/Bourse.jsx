@@ -572,6 +572,7 @@ export default function Bourse() {
             strategyNotes={strategyNotes}
             evenements={evenementsMarche}
             seriesCours={seriesCours}
+            dailyData={dailyData}
             onOuvrirFiche={setFicheOuverte}
           />
           ) : (

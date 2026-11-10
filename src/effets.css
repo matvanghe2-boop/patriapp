@@ -903,6 +903,30 @@ a[data-apercu] {
   color: rgb(var(--c-slate-600));
   transition: transform 300ms ease, color 160ms ease;
 }
+/* Variation du jour, à côté de la plus-value : une pastille teintée par le
+   sens de la séance. Le signe et le pourcentage restent écrits ; la couleur
+   n'ajoute qu'un coup d'œil. */
+.variation-jour-carte {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  border: 1px solid rgb(var(--c-slate-700));
+  color: rgb(var(--c-slate-400));
+  white-space: nowrap;
+}
+.variation-jour-carte[data-sens="hausse"] {
+  color: rgb(var(--c-emerald-300));
+  border-color: rgb(var(--c-emerald-400) / 0.35);
+  background: rgb(var(--c-emerald-400) / 0.08);
+}
+.variation-jour-carte[data-sens="baisse"] {
+  color: rgb(var(--c-rose-300));
+  border-color: rgb(var(--c-rose-400) / 0.35);
+  background: rgb(var(--c-rose-400) / 0.08);
+}
 .carte-position-recto:hover .carte-position-indice {
   color: hsl(var(--marque));
   transform: rotate(-120deg);
