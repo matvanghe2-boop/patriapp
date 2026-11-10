@@ -80,6 +80,7 @@ public/univers/fr-small.json
 public/univers/russell2000.json
 public/univers/sbf120.json
 public/univers/stoxx600.json
+scripts/couleurs-logos.mjs
 scripts/generate-structure.mjs
 scripts/importer-ishares.mjs
 scripts/importer-ishares.test.js
@@ -346,6 +347,7 @@ src/lib/compteCourant.test.js
 src/lib/contexteDonnees.js
 src/lib/correlations.js
 src/lib/correlations.test.js
+src/lib/couleursMarques.json
 src/lib/datesDocument.js
 src/lib/datesDocument.test.js
 src/lib/decisions.js
@@ -358,6 +360,7 @@ src/lib/dispositionDashboard.js
 src/lib/dispositionDashboard.test.js
 src/lib/dividendesAuto.js
 src/lib/dividendesAuto.test.js
+src/lib/domainesLogos.js
 src/lib/dossierSinistre.js
 src/lib/dossierSinistre.test.js
 src/lib/doublonsAbonnements.js
@@ -401,7 +404,7 @@ src/lib/marqueursCourbe.js
 src/lib/marqueursCourbe.test.js
 src/lib/migrations.js
 src/lib/mouvement.js
-src/lib/mouvement.test.js
+src/lib/mouvement.test.jsx
 src/lib/netWorth.test.js
 src/lib/notionDuJour.js
 src/lib/notionDuJour.test.js
