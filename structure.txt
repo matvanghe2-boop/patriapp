@@ -292,6 +292,7 @@ src/components/nouveauxWidgets.test.jsx
 src/components/ongletsRefondus.test.jsx
 src/components/refonte.test.jsx
 src/components/ui.jsx
+src/effets.css
 src/index.css
 src/lib/ApparenceContext.jsx
 src/lib/AuthContext.jsx
@@ -399,6 +400,8 @@ src/lib/livretsMouvements.test.js
 src/lib/marqueursCourbe.js
 src/lib/marqueursCourbe.test.js
 src/lib/migrations.js
+src/lib/mouvement.js
+src/lib/mouvement.test.js
 src/lib/netWorth.test.js
 src/lib/notionDuJour.js
 src/lib/notionDuJour.test.js
@@ -432,6 +435,7 @@ src/lib/releveBourso.js
 src/lib/releveBourso.test.js
 src/lib/retrospective.js
 src/lib/retrospective.test.js
+src/lib/revelation.js
 src/lib/revenusPassifs.js
 src/lib/revenusPassifs.test.js
 src/lib/santeFinanciere.js

@@ -46,6 +46,7 @@ import Retrospective from "./components/Retrospective";
 import ModePresentation from "./components/ModePresentation";
 import FeuillePlus from "./components/FeuillePlus";
 import AideRaccourcis from "./components/AideRaccourcis";
+import { surveillerRevelations } from "./lib/revelation";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -326,6 +327,10 @@ export default function App() {
   );
 
   useRaccourciPalette(React.useCallback(() => setPaletteOuverte(true), []));
+
+  // Révélation des cartes et tracé des graphiques : une seule installation
+  // pour toute la visite, qui voit arriver d'elle-même chaque nouvel écran.
+  useEffect(() => surveillerRevelations(), []);
 
   useEffect(() => {
     document.title = `${activeTab.label} · Patrium`;

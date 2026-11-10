@@ -3,7 +3,8 @@ import { usePersistentState } from "./storage";
 import { ACCENTS, ACCENT_DEFAUT, accent as trouverAccent } from "./themes";
 
 /**
- * Préférences d'apparence : thème, accent, densité, mouvement, retour tactile.
+ * Préférences d'apparence : thème, accent, densité, mouvement, intensité des
+ * effets, retour tactile.
  *
  * POURQUOI UN CONTEXTE À PART, et non une tranche de plus dans
  * PatrimoineContext : ce ne sont pas des données patrimoniales. Elles changent
@@ -50,7 +51,19 @@ const DEFAUTS = {
    * animations au niveau du système ne devrait pas avoir à le redire ici.
    */
   animations: null,
+  /**
+   * Intensité des effets, une fois le mouvement permis. « vivant » : fond qui
+   * dérive, reflets, relief, célébrations. « sobre » : seul ce qui informe —
+   * une carte qui entre, une courbe qui se trace, un compteur qui défile.
+   */
+  effets: "vivant",
 };
+
+/** Intensités proposées pour les effets. */
+export const INTENSITES_EFFETS = [
+  { id: "vivant", libelle: "Vivants", detail: "Fond animé, reflets, célébrations" },
+  { id: "sobre", libelle: "Sobres", detail: "Seulement ce qui informe" },
+];
 
 const ApparenceContext = createContext(null);
 
@@ -151,6 +164,13 @@ export function ApparenceProvider({ children }) {
     racine.setAttribute("data-mouvement", reduit ? "reduit" : "complet");
   }, [reglages.animations]);
 
+  // ── Intensité des effets ─────────────────────────────────────────────────
+  // Même principe : un attribut, lu par la feuille d'effets (effets.css) et
+  // par les modules qui animent hors de React (src/lib/mouvement.js).
+  useEffect(() => {
+    document.documentElement.setAttribute("data-effets", reglages.effets === "sobre" ? "sobre" : "vivant");
+  }, [reglages.effets]);
+
   const valeur = useMemo(() => {
     const definir = (cle) => (v) => setApparence((prec) => ({ ...DEFAUTS, ...(prec || {}), [cle]: v }));
     return {
@@ -165,6 +185,7 @@ export function ApparenceProvider({ children }) {
       setDensite: definir("densite"),
       setHaptique: definir("haptique"),
       setAnimations: definir("animations"),
+      setEffets: definir("effets"),
     };
   }, [reglages, setApparence]);
 
@@ -190,5 +211,6 @@ export function useApparence() {
     setDensite: () => {},
     setHaptique: () => {},
     setAnimations: () => {},
+    setEffets: () => {},
   };
 }

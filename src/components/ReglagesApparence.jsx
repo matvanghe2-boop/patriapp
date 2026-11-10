@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
-import { Check, Monitor, Moon, Sun, Rows3, Rows4, Vibrate, Sparkles } from "lucide-react";
+import { Check, Monitor, Moon, Sun, Rows3, Rows4, Vibrate, Sparkles, WandSparkles, Leaf } from "lucide-react";
 import Modal from "./Modal";
-import { useApparence, THEMES_AFFICHAGE, DENSITES } from "../lib/ApparenceContext";
+import { useApparence, THEMES_AFFICHAGE, DENSITES, INTENSITES_EFFETS } from "../lib/ApparenceContext";
 import { haptiqueDisponible, vibrer } from "../lib/haptique";
 
 /**
  * Réglages d'apparence.
  *
- * Cinq préférences, toutes persistées et donc synchronisées : thème, accent,
- * densité, retour tactile, animations.
+ * Six préférences, toutes persistées et donc synchronisées : thème, accent,
+ * densité, retour tactile, animations et intensité des effets.
  *
  * CHAQUE RÉGLAGE S'APPLIQUE IMMÉDIATEMENT, sans bouton « Enregistrer ». Ce
  * sont des choix visuels : leur effet EST leur aperçu, et demander une
@@ -17,6 +17,7 @@ import { haptiqueDisponible, vibrer } from "../lib/haptique";
 
 const ICONES_THEME = { auto: Monitor, sombre: Moon, clair: Sun };
 const ICONES_DENSITE = { confortable: Rows3, compacte: Rows4 };
+const ICONES_EFFETS = { vivant: WandSparkles, sobre: Leaf };
 
 export default function ReglagesApparence({ ouvert, onFermer }) {
   const {
@@ -25,6 +26,7 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
     densite, setDensite,
     haptique, setHaptique,
     animations, setAnimations,
+    effets, setEffets, mouvementReduit,
   } = useApparence();
 
   /**
@@ -163,6 +165,41 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
             surTrois
             onChange={setAnimations}
           />
+          {/* L'intensité n'a de sens que si le mouvement est permis : sans
+              animations, elle reste visible mais inerte, et le dit. */}
+          <div className={`py-2 ${mouvementReduit ? "opacity-50" : ""}`}>
+            <p className="text-sm text-slate-200">Effets</p>
+            <p className="text-micro text-slate-500 leading-snug mb-2">
+              {mouvementReduit
+                ? "Sans effet tant que les animations sont réduites"
+                : "Ce qui bouge autour des chiffres, et pas seulement les chiffres eux-mêmes"}
+            </p>
+            <div role="group" aria-label="Intensité des effets" className="grid grid-cols-2 gap-2">
+              {INTENSITES_EFFETS.map((e) => {
+                const Icone = ICONES_EFFETS[e.id];
+                const actif = effets === e.id;
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => setEffets(e.id)}
+                    aria-pressed={actif}
+                    disabled={mouvementReduit}
+                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-xs transition-colors disabled:cursor-not-allowed ${
+                      actif
+                        ? "border-amber-400/60 bg-amber-400/10 text-amber-100"
+                        : "border-slate-700 text-slate-300 hover:border-slate-600"
+                    }`}
+                  >
+                    <Icone size={15} aria-hidden="true" className="shrink-0" />
+                    <span>
+                      <span className="block font-medium">{e.libelle}</span>
+                      <span className="block text-micro opacity-70">{e.detail}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {/* Le retour tactile n'est proposé que là où il existe : afficher un
               interrupteur sans effet sur un ordinateur de bureau n'informe de
               rien, et donne l'impression que quelque chose est cassé. */}
