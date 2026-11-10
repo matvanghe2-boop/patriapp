@@ -33,8 +33,6 @@
  * Yahoo renvoie tels quels (Škoda, Ørsted, Poczta Polska…) — sans lui, ces
  * caractères retomberaient sur la police système au milieu d'un mot.
  */
-@import "@fontsource/fraunces/latin-500.css";
-@import "@fontsource/fraunces/latin-600.css";
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-500.css";
 
@@ -57,6 +55,35 @@
   font-display: swap;
   font-weight: 100 900;
   src: url("@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+ * Fraunces en VERSION VARIABLE (graisse et taille optique), à la place des
+ * deux graisses figées 500 et 600. 67 Ko au lieu de 36, pour deux gains :
+ * toutes les graisses intermédiaires, et surtout l'axe de taille optique —
+ * `font-optical-sizing: auto` (posé sur `.font-display` depuis toujours, mais
+ * sans effet sur une police figée) dessine enfin les grands titres et le
+ * patrimoine net avec les contrastes fins prévus pour l'affichage.
+ */
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/fraunces/files/fraunces-latin-standard-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/fraunces/files/fraunces-latin-ext-standard-normal.woff2") format("woff2-variations");
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
     U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
     U+2113, U+2C60-2C7F, U+A720-A7FF;
@@ -2646,7 +2673,7 @@ body {
 }
 
 .font-display {
-  font-family: "Fraunces", serif;
+  font-family: "Fraunces Variable", "Fraunces", serif;
   font-optical-sizing: auto;
 }
 

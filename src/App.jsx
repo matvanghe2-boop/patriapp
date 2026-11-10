@@ -336,6 +336,18 @@ export default function App() {
 
   useRaccourciPalette(React.useCallback(() => setPaletteOuverte(true), []));
 
+  /*
+   * Le mode Ghost doit aussi caviarder ce qui s'affiche dans une fenêtre :
+   * les modales (fiche d'une ligne, rétrospective) et le récit plein écran
+   * sont rendus dans un portail vers <body>, HORS de la coquille qui porte la
+   * classe `ghost-mode`. Leurs montants s'affichaient donc en clair. La classe
+   * est désormais posée aussi sur <body>.
+   */
+  useEffect(() => {
+    document.body.classList.toggle("ghost-mode", ghostMode);
+    return () => document.body.classList.remove("ghost-mode");
+  }, [ghostMode]);
+
   // Révélation des cartes et tracé des graphiques : une seule installation
   // pour toute la visite, qui voit arriver d'elle-même chaque nouvel écran.
   useEffect(() => {

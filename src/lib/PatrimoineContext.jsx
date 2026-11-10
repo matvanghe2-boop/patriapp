@@ -27,6 +27,8 @@ import { historiqueExemple, portefeuilleExemple, operationsExemple, objectifExem
 export const STORAGE_KEYS = [
   "profile", "livrets", "dettes", "bourse", "historyPast", "sim", "immo",
   "bourseHistory", "watchlist", "cash", "enveloppes", "bourseSort", "watchlistSort",
+  // Vue des positions : tableau ou cartes (voir CartesPositions.jsx).
+  "bourseVuePositions",
   "bourseDailyData", "watchlistDailyData", "strategyNotes", "simScenarios",
   "immoTravaux", "reminders", "contracts", "subs", "lastSnapshotDate", "allocationTarget",
   "profileHistory", "horizonScenarios", "horizonReglages", "horizonDernierBilan",

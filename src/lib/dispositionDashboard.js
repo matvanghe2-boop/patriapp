@@ -25,6 +25,7 @@ export const BLOCS_DASHBOARD = [
   { id: "allocation", libelle: "Allocation et évolution" },
   { id: "origine", libelle: "D'où vient ton patrimoine" },
   { id: "cascade", libelle: "Ce qui a fait bouger le patrimoine" },
+  { id: "remonter", libelle: "Remonter le temps" },
   { id: "revenus", libelle: "Revenus des 12 prochains mois" },
   { id: "objectifs", libelle: "Objectifs" },
   { id: "passifs", libelle: "Passifs" },
