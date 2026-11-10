@@ -12,8 +12,12 @@ import { mouvementReduit as lireMouvementReduit } from "../lib/mouvement";
 // modification qui n'apporterait rien.
 export { CARD_THEMES, GHOST_THEMES };
 
-export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber", current }) {
+export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber", current, glissant = false }) {
   const t = themeDe(theme);
+  // En mode glissant, le fond et le trait de l'onglet actif sont dessinés par
+  // un repère unique qui se déplace (IndicateurGlissant) : le bouton ne garde
+  // que la couleur de son texte.
+  const classeActive = glissant ? t.navText : t.nav;
   return (
     <button
       onClick={disabled ? undefined : onClick}
@@ -22,9 +26,9 @@ export function NavButton({ active, onClick, icon: Icon, label, disabled, theme 
       // n'avait aucun moyen de savoir où l'utilisateur se trouve.
       aria-current={current ? "page" : undefined}
       className={`btn-flash relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40
-        ${disabled ? "text-slate-500 cursor-not-allowed" : active ? t.nav : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
+        ${disabled ? "text-slate-500 cursor-not-allowed" : active ? classeActive : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
-      {active && <span aria-hidden="true" className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
+      {active && !glissant && <span aria-hidden="true" className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
       <Icon size={17} strokeWidth={2} aria-hidden="true" />
       <span className="font-medium">{label}</span>
       {disabled && <Lock size={12} className="ml-auto opacity-60" aria-hidden="true" />}

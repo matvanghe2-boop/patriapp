@@ -413,6 +413,7 @@ export default function Watchlist({ watchlist, setWatchlist, onOpenMarket, alert
                         type="button"
                         onClick={() => onOpenMarket?.(w.ticker)}
                         disabled={!onOpenMarket}
+                        data-apercu={w.ticker}
                         title={onOpenMarket ? "Voir la fiche complète dans l'onglet Marché" : undefined}
                         className="flex items-center gap-2 text-left disabled:cursor-default group/ticker"
                       >

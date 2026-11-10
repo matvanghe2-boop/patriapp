@@ -161,9 +161,15 @@ export default function FicheLigne({
             haut de la fiche : on sait d'un coup d'œil de quelle ligne on
             parle, avant d'avoir lu son nom. */}
         <div className="avec-marque entete-marque flex items-center gap-3 pr-8" style={styleMarque(ticker)}>
-          <AssetLogo ticker={ticker} size="sm" className="logo-marque" />
+          {/* Noms de transition partagés avec la ligne d'où la fiche s'ouvre
+              (lib/morph.js) : une seule fiche est ouverte à la fois. */}
+          <span className="inline-flex shrink-0" style={{ viewTransitionName: "ligne-logo" }}>
+            <AssetLogo ticker={ticker} size="sm" className="logo-marque" />
+          </span>
           <div className="min-w-0">
-            <h2 className="font-display text-lg text-slate-50 truncate">{position.name || ticker}</h2>
+            <h2 className="font-display text-lg text-slate-50 truncate w-fit max-w-full" style={{ viewTransitionName: "ligne-nom" }}>
+              {position.name || ticker}
+            </h2>
             <div className="text-micro text-slate-500">
               <span className="font-data">{ticker}</span> · {position.type || "Titre"} · {secteur}
               {pays && <> · {pays}</>}

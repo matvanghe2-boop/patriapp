@@ -141,6 +141,7 @@ export default function ComparaisonPairs({ symbole, fiche, onOuvrir }) {
                 key={p.symbole}
                 type="button"
                 onClick={() => onOuvrir?.(p.symbole)}
+                data-apercu={p.symbole}
                 className="flex items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-left hover:border-violet-500/40 transition-colors"
                 title={`Ouvrir ${p.nom || p.symbole} dans Marché`}
               >

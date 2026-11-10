@@ -1,5 +1,6 @@
 import { MoreHorizontal } from "lucide-react";
 import { theme as themeDe } from "../lib/themes";
+import IndicateurGlissant from "./IndicateurGlissant";
 
 /**
  * Barre de navigation basse, mobile uniquement (masquée dès md:).
@@ -32,6 +33,13 @@ export default function BottomNav({ tabs, active, onChange, onPlus }) {
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur border-t border-slate-800 flex items-stretch"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
+      {/* Un seul trait, qui glisse d'un onglet à l'autre et prend sa teinte. */}
+      <IndicateurGlissant
+        cle={active}
+        axe="horizontal"
+        selecteur='[aria-current="page"], [data-plus-actif]'
+        className={plusActif ? "teinte-accent" : `teinte-${tabs.find((t) => t.key === active)?.theme || "amber"}`}
+      />
       {directs.map((t) => {
         const isActive = active === t.key;
         const Icon = t.icon;
@@ -48,12 +56,6 @@ export default function BottomNav({ tabs, active, onChange, onPlus }) {
               isActive ? palette.navText : "text-slate-500"
             }`}
           >
-            {isActive && (
-              <span
-                aria-hidden="true"
-                className={`absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-b-full ${palette.bar}`}
-              />
-            )}
             <Icon size={22} strokeWidth={isActive ? 2.4 : 2} aria-hidden="true" />
             <span aria-hidden="true" className="text-micro font-medium leading-none">
               {t.shortLabel || t.label}
@@ -65,17 +67,12 @@ export default function BottomNav({ tabs, active, onChange, onPlus }) {
       {replies.length > 0 && (
         <button
           onClick={onPlus}
+          data-plus-actif={plusActif ? "" : undefined}
           aria-label={`Plus — ${replies.map((t) => t.label).join(", ")}, réglages, rétrospective`}
           className={`btn-flash relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400/40 ${
             plusActif ? "text-amber-300" : "text-slate-500"
           }`}
         >
-          {plusActif && (
-            <span
-              aria-hidden="true"
-              className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-b-full bg-amber-400"
-            />
-          )}
           <MoreHorizontal size={22} strokeWidth={plusActif ? 2.4 : 2} aria-hidden="true" />
           <span aria-hidden="true" className="text-micro font-medium leading-none">Plus</span>
         </button>

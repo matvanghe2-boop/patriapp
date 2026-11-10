@@ -52,7 +52,7 @@ export default function OperationList({ operations = [], onRowClick, onDelete, o
               <td data-label="Date" className="py-2.5 px-1 font-data tabular-nums text-slate-400">{formatDateShortFr(op.date)}</td>
               <td data-label="Actif" className="py-2.5 px-1 font-data font-semibold text-slate-100">
                 {op.asset ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-fit" data-apercu={op.asset}>
                     <AssetLogo ticker={op.asset} size="xs" />
                     {op.asset}
                   </div>

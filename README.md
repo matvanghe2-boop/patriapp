@@ -440,6 +440,16 @@ progression — et jamais retarder la navigation. Les effets vivent dans
   peut pas lire les pixels d'un logo servi ailleurs) dans `src/lib/couleursMarques.json` ;
   quelques logos monochromes sont complétés à la main dans `couleursMarques.js`. Le relancer
   après avoir ajouté un domaine dans `src/lib/domainesLogos.js`.
+- **Repère d'onglet glissant** (`components/IndicateurGlissant.jsx`) : un seul repère par
+  barre de navigation (latérale et basse), qui se déplace vers l'onglet `aria-current="page"`
+  et change de teinte en chemin.
+- **De la ligne à la fiche** (`src/lib/morph.js`) : à l'ouverture de la fiche d'une position,
+  le logo et le nom (`data-morph="logo"` / `"nom"`) s'envolent de la ligne vers l'en-tête, et y
+  retournent à la fermeture (API View Transitions ; sinon, ouverture simple).
+- **Aperçu au survol** (`components/ApercuTicker.jsx`) : tout élément `data-apercu="TICKER"`
+  ouvre une petite fiche (cours, variation du jour, un mois de courbe, valeur et poids pour une
+  ligne détenue) — au survol à la souris, par appui long au doigt, au focus au clavier. Cours
+  et courbes en cache une et dix minutes.
 
 ## 🗂️ Structure du projet
 

@@ -50,6 +50,8 @@ import { surveillerRevelations } from "./lib/revelation";
 import { surveillerReflets } from "./lib/reflet";
 import { surveillerGlisse } from "./lib/glisse";
 import FondVivant from "./components/FondVivant";
+import IndicateurGlissant from "./components/IndicateurGlissant";
+import ApercuTicker from "./components/ApercuTicker";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -550,8 +552,9 @@ export default function App() {
             faire défiler une rangée d'onglets horizontalement. */}
         <nav
           aria-label="Navigation principale"
-          className="hidden md:flex md:flex-col gap-1 p-3 flex-1"
+          className="nav-glissante relative hidden md:flex md:flex-col gap-1 p-3 flex-1"
         >
+          <IndicateurGlissant cle={tab} axe="vertical" className={`teinte-${activeTab.theme}`} />
           {TABS.map((t) => (
             <NavButton
               key={t.id}
@@ -561,6 +564,7 @@ export default function App() {
               label={t.label}
               theme={t.theme}
               current={tab === t.id}
+              glissant
             />
           ))}
         </nav>
@@ -764,6 +768,9 @@ export default function App() {
       </main>
 
       <BottomNav tabs={BOTTOM_NAV_TABS} active={tab} onChange={allerA} onPlus={() => setPlusOuvert(true)} />
+
+      {/* Aperçu d'une valeur au survol de son ticker, partout (data-apercu). */}
+      <ApercuTicker />
 
       {/* Les sections au-delà de la quatrième, plus les actions qui vivaient
           uniquement dans la barre latérale — donc invisibles sous 768 px. */}
