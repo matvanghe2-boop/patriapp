@@ -1,4 +1,4 @@
-import { retirerMouvement, montantSigne } from "./livretsMouvements";
+import { retirerMouvement, ajouterMouvement, montantSigne } from "./livretsMouvements";
 import { reconstituerPatrimoine, appliquerReconstitution } from "./reconstitutionPatrimoine";
 import { serieSolde } from "./compteCourant";
 
@@ -25,23 +25,65 @@ import { serieSolde } from "./compteCourant";
  * compte courant et déjà dans le PEL. La réparation retire l'ajustement SANS
  * toucher au solde, puis recalcule la courbe sur la période des relevés.
  */
+/*
+ * ── livret-a-ouverture-2026-11 ─────────────────────────────────────────────
+ * Même erreur, autre livret : le Livret A a été créé avec 5 000 €, sans date
+ * d'ouverture ni versement daté, alors que l'argent y est arrivé le 9 novembre
+ * (« Virement Livret A », −5 000 € sur le compte courant ce jour-là). Compté à
+ * toutes les dates passées, il ajoutait 5 000 € à toute la courbe
+ * reconstituée. La réparation date son ouverture et enregistre ce versement
+ * (déjà compris dans le solde, qui ne bouge pas), puis recalcule la courbe.
+ */
 export const REPARATIONS = [
   {
     id: "pel-ajustement-fantome-2026-10",
+    type: "retirer-ajustement",
     livretId: "a2f8d512-4dc7-4eae-869d-4a36ea771d41",
     mouvementId: "902bce22-6090-4917-aceb-7c973e9fb5e2",
   },
+  {
+    id: "livret-a-ouverture-2026-11",
+    type: "dater-ouverture",
+    livretId: "fbab52f2-17b8-4a68-9887-db1751b3bc1b",
+    ouverture: "2026-11-09",
+    depot: 5000,
+  },
 ];
 
-function ajustementCible(livrets, r) {
+/**
+ * Ce qu'une réparation va corriger, ou `null` si elle ne s'applique pas (ou
+ * plus) à ces données. Les conditions sont strictes : une réparation ne touche
+ * que l'état exact qu'elle a été écrite pour corriger.
+ */
+function cible(livrets, r) {
   const livret = (livrets || []).find((l) => l.id === r.livretId);
-  const mouvement = livret?.mouvements?.find((m) => m.id === r.mouvementId && m.nature === "ajustement");
-  return mouvement ? { livret, mouvement } : null;
+  if (!livret) return null;
+  if ((r.type || "retirer-ajustement") === "retirer-ajustement") {
+    const mouvement = livret.mouvements?.find((m) => m.id === r.mouvementId && m.nature === "ajustement");
+    return mouvement ? { livret, date: mouvement.date, montant: montantSigne(mouvement) } : null;
+  }
+  if (r.type === "dater-ouverture") {
+    const intact = !livret.ouverture && !(livret.mouvements || []).length && (Number(livret.balance) || 0) >= r.depot;
+    return intact ? { livret, date: r.ouverture, montant: r.depot } : null;
+  }
+  return null;
+}
+
+function reparerLivret(livret, r) {
+  if ((r.type || "retirer-ajustement") === "retirer-ajustement") {
+    return retirerMouvement(livret, r.mouvementId, { garderSolde: true });
+  }
+  // Le versement d'ouverture est déjà dans le solde : il date l'arrivée de
+  // l'argent sans le compter une seconde fois.
+  return ajouterMouvement(
+    { ...livret, ouverture: r.ouverture },
+    { id: `${r.id}-depot`, date: r.ouverture, montant: r.depot, nature: "depot", dejaCompris: true }
+  );
 }
 
 /** Réparations qui concernent ces données et n'ont pas encore été faites. */
 export function reparationsAFaire(livrets, faites = [], catalogue = REPARATIONS) {
-  return catalogue.filter((r) => !(faites || []).includes(r.id) && ajustementCible(livrets, r));
+  return catalogue.filter((r) => !(faites || []).includes(r.id) && cible(livrets, r));
 }
 
 /**
@@ -49,7 +91,7 @@ export function reparationsAFaire(livrets, faites = [], catalogue = REPARATIONS)
  * eux (mêmes règles que le bouton « Reconstituer la courbe » : les points
  * saisis à la main ne sont jamais touchés).
  *
- * @returns {{ livrets, historique, details: Array<{nom, date, montant}>, joursCorriges: number }}
+ * @returns {{ livrets, historique, details: Array<{type, nom, date, montant}>, joursCorriges: number }}
  */
 export function appliquerReparations({
   reparations,
@@ -66,10 +108,10 @@ export function appliquerReparations({
   const details = [];
   let corriges = livrets;
   for (const r of reparations) {
-    const cible = ajustementCible(corriges, r);
-    if (!cible) continue;
-    details.push({ nom: cible.livret.name, date: cible.mouvement.date, montant: montantSigne(cible.mouvement) });
-    corriges = corriges.map((l) => (l.id === r.livretId ? retirerMouvement(l, r.mouvementId, { garderSolde: true }) : l));
+    const c = cible(corriges, r);
+    if (!c) continue;
+    details.push({ type: r.type || "retirer-ajustement", nom: c.livret.name, date: c.date, montant: c.montant });
+    corriges = corriges.map((l) => (l.id === r.livretId ? reparerLivret(l, r) : l));
   }
 
   let historiqueCorrige = historique;

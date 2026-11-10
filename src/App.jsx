@@ -425,12 +425,13 @@ export default function App() {
     if (resultat.historique !== avant.historique) patrimoine.setHistoryPast(resultat.historique);
     const d = resultat.details[0];
     const quand = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    const recalcul = resultat.joursCorriges > 0 ? `, courbe du patrimoine recalculée sur ${resultat.joursCorriges} jours` : "";
     showToast({
-      message: d
-        ? `Historique du ${d.nom} réparé : l'ajustement du ${quand(d.date)} faisait compter le livret avant ses versements. Solde inchangé${
-            resultat.joursCorriges > 0 ? `, courbe du patrimoine recalculée sur ${resultat.joursCorriges} jours` : ""
-          }.`
-        : "Données réparées.",
+      message: !d
+        ? "Données réparées."
+        : d.type === "dater-ouverture"
+          ? `${d.nom} daté de son ouverture, le ${quand(d.date)} : il n'est plus compté avant. Solde inchangé${recalcul}.`
+          : `Historique du ${d.nom} réparé : l'ajustement du ${quand(d.date)} faisait compter le livret avant ses versements. Solde inchangé${recalcul}.`,
       onUndo: () => {
         patrimoine.setLivrets(avant.livrets);
         patrimoine.setHistoryPast(avant.historique);
