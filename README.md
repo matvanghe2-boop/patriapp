@@ -401,6 +401,29 @@ Sans clé configurée ni connexion à `/api/rates` (ex : `npm run dev` sans `ver
 
 **Pour aller plus loin** : élargir `RATES_CATALOG` (Euribor 12 mois, taux d'usure par durée, PASS, barème de l'IR...), ou identifier davantage de `seriesKey` Webstat confirmées pour étendre le rafraîchissement live au-delà des trois séries actuelles.
 
+## 🎞️ Mouvement et effets
+
+Un mouvement doit dire quelque chose — le sens d'une variation, son ampleur, une
+progression — et jamais retarder la navigation. Les effets vivent dans
+[`src/effets.css`](src/effets.css) et, pour ce qui tourne hors de React, dans `src/lib/`.
+
+- **Réglages** (Apparence) : « Animations » (Auto / Oui / Non) pose `data-mouvement` sur
+  `<html>` ; « Effets » (Vivants / Sobres) pose `data-effets`. Sobre garde ce qui informe (une
+  carte qui entre, une courbe qui se trace, un compteur qui défile) et retire l'ambiance.
+  `src/lib/mouvement.js` lit ces attributs pour les modules hors de React.
+- **Révélation au défilement** (`src/lib/revelation.js`) : une carte (`Card`, `CarteRepliable`,
+  `SectionRepliable` portent la classe `.revelable`) entre quand on l'atteint, en cascade avec
+  ses voisines. Ses graphiques se tracent au même moment : courbe Recharts dessinée de gauche à
+  droite, barres qui montent, secteurs qui s'ouvrent ; `data-trace` sur les graphiques faits
+  main (`courbe`, `anneau`, `repartition`). Une fois par apparition : un rafraîchissement de
+  cours ne redessine rien.
+- **Garde-fous** : rien n'est masqué tant que le script n'a pas posé `data-revele-pret` ;
+  le mouvement réduit montre tout, tout de suite (y compris en cours de route) ; l'impression
+  révèle ce qui attendait encore ; une modale garde sa propre entrée.
+- **Depuis ta dernière visite** : à la première apparition du Dashboard dans la visite, le
+  patrimoine net roule (`Montant rouleaux depart=…`) depuis le dernier relevé quotidien
+  antérieur à aujourd'hui, et la ligne « Depuis ta visite du … » donne l'écart.
+
 ## 🗂️ Structure du projet
 
 L'arborescence complète et à jour est dans `structure.txt`, régénéré par
@@ -450,10 +473,13 @@ patrium/
 │   │   ├── useHashRoute.js        # onglet ↔ URL
 │   │   ├── useDailySnapshot.js    # relevé quotidien du patrimoine
 │   │   ├── useMaintenant.js       # instant stable pour les badges de fraîcheur
+│   │   ├── mouvement.js           # mouvement réduit, intensité des effets
+│   │   ├── revelation.js          # cartes qui entrent, graphiques qui se tracent
 │   │   └── api.js                 # appels vers api/*
 │   ├── App.jsx                 # coquille de navigation
 │   ├── main.jsx                # providers + service worker
-│   └── index.css
+│   ├── index.css
+│   └── effets.css              # le mouvement : révélations, tracés, ambiance
 ├── .github/workflows/ci.yml
 ├── eslint.config.js            # ESLint 9, configuration « à plat »
 ├── index.html

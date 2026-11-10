@@ -4,6 +4,7 @@ import { eur, lireNombre, lireSaisieNombre } from "../lib/finance";
 import Modal from "./Modal";
 import { theme as themeDe, CARD_THEMES, GHOST_THEMES } from "../lib/themes";
 import EtatVide from "./EtatVide";
+import { mouvementReduit as lireMouvementReduit } from "../lib/mouvement";
 
 // Les palettes vivent désormais dans `lib/themes.js`, où elles ne sont écrites
 // qu'une fois. Elles restent réexportées ici : une vingtaine de composants
@@ -80,7 +81,7 @@ export function Card({ children, className = "", accent = "", role = "standard",
   const fond = role === "ambiant" ? "" : "bg-slate-900";
   return (
     <div
-      className={`carte-${role} rounded-2xl border ${fond} p-5 transition-colors duration-300 ${accent} ${
+      className={`revelable carte-${role} rounded-2xl border ${fond} p-5 transition-colors duration-300 ${accent} ${
         tendance ? "relative overflow-hidden" : ""
       } ${className}`}
     >
@@ -145,7 +146,7 @@ export function SectionRepliable({ titre, icon: Icon, defautOuvert = false, resu
   const idContenu = `section-${String(titre).replace(/\W+/g, "-").toLowerCase()}`;
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/60">
+    <div className="revelable rounded-2xl border border-slate-800 bg-slate-900/60">
       <button
         onClick={() => setOuvert((o) => !o)}
         aria-expanded={ouvert}
@@ -189,13 +190,13 @@ export function SectionRepliable({ titre, icon: Icon, defautOuvert = false, resu
   );
 }
 
-/** Le système demande-t-il la suppression des animations ? */
+/**
+ * Le mouvement est-il réduit ? Le réglage « Animations » de l'application
+ * l'emporte sur celui du système : il ne lisait jusqu'ici que le système, si
+ * bien que couper les animations dans Patrium laissait les compteurs défiler.
+ */
 export function mouvementReduit() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
+  return lireMouvementReduit();
 }
 
 /**
@@ -279,7 +280,7 @@ export function CarteRepliable({
   const idContenu = `carte-${String(titre).replace(/\W+/g, "-").toLowerCase()}`;
 
   return (
-    <div className={`rounded-2xl border bg-slate-900 transition-colors duration-300 ${accent || "border-slate-800"} ${className}`}>
+    <div className={`revelable rounded-2xl border bg-slate-900 transition-colors duration-300 ${accent || "border-slate-800"} ${className}`}>
       {/* Replié, l'en-tête EST la carte : marges égales en haut et en bas.
           Il gardait celles de la carte ouverte (20 px dessus, 4 dessous), et
           le titre paraissait tomber au fond de son cadre. */}
@@ -792,7 +793,7 @@ export function SkeletonSparkline({ largeur = "3.5rem" }) {
  */
 const DUREE_ROULEAU_MS = 520;
 
-function RouleauChiffre({ chiffre, anime, index }) {
+export function RouleauChiffre({ chiffre, anime, index }) {
   const n = Number(chiffre);
   return (
     <span

@@ -650,7 +650,7 @@ function BandeauCharges({ subs, revenusMensuels, tauxPct, contratsATraiter }) {
         <div>
           <div className="text-xs text-slate-400">Charges fixes</div>
           <div className="flex items-baseline gap-2 mt-1">
-            <Montant valeur={t.mensuel} decimales={2} className="font-display text-vedette text-slate-50" />
+            <Montant valeur={t.mensuel} decimales={2} rouleaux className="font-display text-vedette text-slate-50" />
             <span className="text-sm text-slate-500">/ mois</span>
           </div>
           <p className="text-xs text-slate-400 mt-1">

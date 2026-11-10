@@ -41,6 +41,35 @@ import AllocationTarget from "./AllocationCible";
  * (`usePatrimoine`) au lieu de recevoir l'état complet de l'application en
  * props : ce dont il dépend se lit ici, d'un coup d'œil.
  */
+/**
+ * Le trajet « depuis ta dernière visite » ne se joue qu'à la PREMIÈRE
+ * apparition du Dashboard dans la visite : rejoué à chaque retour sur
+ * l'onglet, il deviendrait un tic au lieu d'une information.
+ */
+let trajetVisiteJoue = false;
+
+/**
+ * Dernier relevé quotidien antérieur à aujourd'hui : la valeur du patrimoine
+ * telle qu'elle était à la dernière visite d'un autre jour. Le relevé se prend
+ * à l'ouverture de l'application (useDailySnapshot) ; il date donc bien une
+ * visite, à la journée près — et c'est ce que dit le libellé.
+ */
+function releveDerniereVisite(historique, aujourdhui) {
+  let meilleur = null;
+  for (const p of historique || []) {
+    if (!p?.date || p.date >= aujourdhui || !Number.isFinite(p.value)) continue;
+    if (!meilleur || p.date > meilleur.date) meilleur = p;
+  }
+  return meilleur;
+}
+
+function libelleVisite(dateIso, aujourdhui) {
+  const jour = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  const ecart = Math.round((jour(aujourdhui) - jour(dateIso)) / 86400000);
+  if (ecart === 1) return "Depuis hier";
+  return `Depuis ta visite du ${new Date(`${dateIso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
+}
+
 export default function Dashboard() {
   const {
     profile, setProfile, patrimoineBrut, patrimoineNet, bourseGainAbs, bourseGainPct,
@@ -54,6 +83,17 @@ export default function Dashboard() {
   } = usePatrimoine();
   const [showAddDette, setShowAddDette] = useState(false);
   const [showAddHistory, setShowAddHistory] = useState(false);
+
+  // Figé au montage : le relevé du jour, pris quelques instants après
+  // l'ouverture, ne doit pas déplacer le point de départ en plein trajet.
+  const [visite] = useState(() => {
+    if (trajetVisiteJoue) return null;
+    const releve = releveDerniereVisite(historyPast, todayIso());
+    return releve ? { date: releve.date, valeur: releve.value } : null;
+  });
+  useEffect(() => {
+    trajetVisiteJoue = true;
+  }, []);
   const [timeFilter, setTimeFilter] = useState("ALL");
   // « total » : la courbe du patrimoine net ; « poches » : la même, découpée
   // en bourse, livrets suivis et reste.
@@ -572,7 +612,14 @@ export default function Dashboard() {
         <div className="relative flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div>
             <CardLabel icon={Landmark}>Patrimoine net</CardLabel>
-            <Montant valeur={patrimoineNet} decimales={2} anime pulse className="block text-vedette text-slate-50" />
+            <Montant
+              valeur={patrimoineNet}
+              decimales={2}
+              rouleaux
+              pulse
+              depart={visite?.valeur}
+              className="block text-vedette text-slate-50"
+            />
             {delta30j.hasReference ? (
               <span
                 title={`Référence : relevé du ${formatDateFr(delta30j.refDate)}`}
@@ -583,6 +630,15 @@ export default function Dashboard() {
               </span>
             ) : (
               <span className="text-corps mt-1.5 text-slate-500 block">Pas encore d'historique</span>
+            )}
+            {visite && Math.round(patrimoineNet - visite.valeur) !== 0 && (
+              <span className="depuis-visite text-mini mt-1 block text-slate-400">
+                {libelleVisite(visite.date, todayIso())} :{" "}
+                <span className={`ghost-blur font-data ${patrimoineNet >= visite.valeur ? "etat-ok" : "etat-critique"}`}>
+                  {patrimoineNet >= visite.valeur ? "+" : "−"}
+                  {eur(Math.abs(patrimoineNet - visite.valeur))}
+                </span>
+              </span>
             )}
           </div>
 

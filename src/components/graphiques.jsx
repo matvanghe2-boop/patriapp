@@ -56,6 +56,7 @@ export function Sparkline({ valeurs = [], largeur = 100, hauteur = 26, className
       className={className}
       aria-hidden="true"
       focusable="false"
+      data-trace="courbe"
     >
       <polyline
         points={points.map(([x, y]) => `${x},${y}`).join(" ")}
@@ -107,6 +108,7 @@ export function CourbeEvolution({
       aria-label={libelle}
       aria-hidden={libelle ? undefined : "true"}
       focusable="false"
+      data-trace="courbe"
     >
       <defs>
         {/* L'identifiant vient de `useId` : deux courbes sur le même écran
@@ -189,6 +191,7 @@ export function AnneauProgression({
       role="img"
       aria-label={libelle ? `${libelle} : ${Math.round(pc)} %` : `${Math.round(pc)} %`}
       focusable="false"
+      data-trace="anneau"
     >
       <circle
         cx={taille / 2}
@@ -262,6 +265,7 @@ export function AnneauRepartition({
       role="img"
       aria-label={libelle}
       focusable="false"
+      data-trace="repartition"
     >
       <circle
         cx={taille / 2}

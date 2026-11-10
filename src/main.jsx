@@ -12,6 +12,7 @@ import { PatrimoineProvider } from "./lib/PatrimoineContext";
 import { ApparenceProvider } from "./lib/ApparenceContext";
 import { Analytics } from "@vercel/analytics/react";
 import "./index.css";
+import "./effets.css";
 import { installerJournal } from "./lib/journalErreurs";
 
 // Erreurs non rattrapées et promesses rejetées : gardées dans le journal de

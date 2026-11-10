@@ -269,7 +269,7 @@ export default function CompteCourant({
                   <div className="text-xs text-slate-400">
                     {actuel.ajustement ? "Solde estimé aujourd'hui" : `Solde au ${dateLongue(actuel.date)}`}
                   </div>
-                  <Montant valeur={actuel.solde / 100} decimales={2} className="block font-display text-vedette text-slate-50 mt-1" />
+                  <Montant valeur={actuel.solde / 100} decimales={2} rouleaux className="block font-display text-vedette text-slate-50 mt-1" />
                   {actuel.ajustement !== 0 && (
                     <div className="text-xs text-slate-400 mt-1">
                       Relevé du {dateCourte(actuel.date)} : <Montant valeur={actuel.soldeReleve / 100} decimales={2} />,{" "}
