@@ -35,6 +35,18 @@ describe("reconstituerPatrimoine", () => {
     expect(changements).toEqual([{ date: "2026-09-01", avant: 7000, apres: 1000 }]);
   });
 
+  it("ne compte pas un livret avant sa date d'ouverture", () => {
+    const { changements } = reconstituerPatrimoine({
+      serie,
+      bourseHistory: [{ date: "2026-08-30", valeur: 2000 }],
+      // Créé avec son solde, sans versement daté : sans la date d'ouverture,
+      // il serait compté à toutes les dates passées.
+      livrets: [{ balance: 5000, ouverture: "2026-09-03" }],
+      jusquA: "2026-09-03",
+    });
+    expect(changements.map((c) => c.apres)).toEqual([1000 + 2000, 1000 + 2000, 1500 + 2000 + 5000]);
+  });
+
   it("n'invente pas un jour dont la valeur du portefeuille est inconnue", () => {
     const r = reconstituerPatrimoine({ serie, bourseHistory: [{ date: "2026-08-01", valeur: 500 }] });
     expect(r.changements).toEqual([]);

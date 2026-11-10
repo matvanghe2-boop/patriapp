@@ -65,7 +65,7 @@ describe("réparation de l'ajustement fantôme du PEL", () => {
     expect(pel.balance).toBe(15135);
     expect(pel.mouvements.map((m) => m.id)).toEqual(["d1", "d2"]);
     expect(soldeAu(pel, "2026-09-03")).toBe(135);
-    expect(r.details).toEqual([{ nom: "PEL", date: "2026-10-27", montant: -15000 }]);
+    expect(r.details).toEqual([{ type: "retirer-ajustement", nom: "PEL", date: "2026-10-27", montant: -15000 }]);
 
     const valeur = (date) => r.historique.find((h) => h.date === date)?.value;
     // Avant le 4 : compte courant 2 420 + Bourse 12 800 + PEL 135.
@@ -80,5 +80,29 @@ describe("réparation de l'ajustement fantôme du PEL", () => {
 
   it("vise bien l'ajustement du PEL dans le catalogue réel", () => {
     expect(REPARATIONS.map((r) => r.id)).toContain("pel-ajustement-fantome-2026-10");
+  });
+});
+
+describe("réparation du Livret A compté avant son ouverture", () => {
+  const CAT = [{ id: "test-ouverture", type: "dater-ouverture", livretId: "la", ouverture: "2026-11-09", depot: 5000 }];
+  const livretA = () => ({ id: "la", name: "Livret A", balance: 5000, rate: 0.017 });
+
+  it("date l'ouverture et le versement, sans toucher au solde", () => {
+    const r = appliquerReparations({ reparations: reparationsAFaire([livretA()], [], CAT), livrets: [livretA()] });
+    const la = r.livrets[0];
+    expect(la.balance).toBe(5000);
+    expect(la.ouverture).toBe("2026-11-09");
+    expect(la.mouvements).toEqual([expect.objectContaining({ date: "2026-11-09", montant: 5000, nature: "depot" })]);
+    expect(soldeAu(la, "2026-11-08")).toBe(0);
+    expect(r.details).toEqual([{ type: "dater-ouverture", nom: "Livret A", date: "2026-11-09", montant: 5000 }]);
+  });
+
+  it("ne touche pas un livret déjà daté ou qui a déjà des mouvements", () => {
+    expect(reparationsAFaire([{ ...livretA(), ouverture: "2026-11-01" }], [], CAT)).toHaveLength(0);
+    expect(reparationsAFaire([{ ...livretA(), mouvements: [{ id: "x", date: "2026-11-09", montant: 5000, nature: "depot" }] }], [], CAT)).toHaveLength(0);
+  });
+
+  it("figure dans le catalogue réel", () => {
+    expect(REPARATIONS.map((r) => r.id)).toContain("livret-a-ouverture-2026-11");
   });
 });

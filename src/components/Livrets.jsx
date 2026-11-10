@@ -648,11 +648,31 @@ export default function Livrets({
   const [showAdd, setShowAdd] = useState(false);
   const [subTab, setSubTab] = useSousOnglet(["mes-livrets", "taux"], "mes-livrets");
 
-  const addLivret = (v) =>
+  /*
+   * Un livret naît à sa date d'ouverture, avec son capital comme premier
+   * versement (déjà compris dans le solde). Sans date, il était compté à
+   * toutes les dates passées et gonflait la courbe du patrimoine reconstituée.
+   */
+  const addLivret = (v) => {
+    const balance = lireNombre(v.balance) ?? 0;
+    const ouverture = v.ouverture || todayIso();
+    const livret = {
+      id: uid(),
+      name: v.name,
+      balance,
+      rate: lireNombre(v.rate) / 100,
+      limit: lireNombre(v.limit) > 0 ? lireNombre(v.limit) : null,
+      goal: null,
+      envelope: v.envelope || "Livret",
+      ouverture,
+    };
     setLivrets((l) => [
       ...l,
-      { id: uid(), name: v.name, balance: lireNombre(v.balance) ?? 0, rate: lireNombre(v.rate) / 100, limit: lireNombre(v.limit) > 0 ? lireNombre(v.limit) : null, goal: null, envelope: v.envelope || "Livret" },
+      balance > 0
+        ? ajouterMouvement(livret, { id: uid(), date: ouverture, montant: balance, nature: "depot", dejaCompris: true })
+        : livret,
     ]);
+  };
   // Annulable : un livret porte un solde, un taux et un plafond ressaisis à la
   // main, et sa suppression se propage à tous les appareils.
   const removeLivret = (id) => {
@@ -874,6 +894,9 @@ export default function Livrets({
             { key: "rate", label: "Taux annuel net (%)", type: "number", step: "0.1", required: true },
             { key: "limit", label: "Plafond légal (€, optionnel)", type: "number", step: "100", default: 0 },
             { key: "envelope", label: "Enveloppe fiscale", type: "select", options: ["Livret", "AV", "PER", "PEA", "CTO"], default: "Livret" },
+            // Le jour où l'argent y est arrivé : avant, le livret ne compte pas
+            // dans la courbe du patrimoine.
+            { key: "ouverture", label: "Ouvert le", type: "date", default: todayIso(), required: true },
           ]}
         />
       </Card>

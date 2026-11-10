@@ -13,7 +13,8 @@
  *  · portefeuille(J) : le suivi quotidien de PEA & Bourse pour ce jour, ou
  *    le dernier connu dans la semaine qui précède. Sans valeur du
  *    portefeuille, le jour n'est PAS reconstitué — on ne l'invente pas ;
- *  · livrets(J) : le solde actuel, moins les mouvements datés après J ;
+ *  · livrets(J) : le solde actuel, moins les mouvements datés après J ; rien
+ *    avant la date d'ouverture du livret ;
  *  · dettes : le montant actuel, faute d'historique.
  *
  * Rien n'est écrit sans aperçu : la fonction renvoie la liste des jours
@@ -39,9 +40,17 @@ const ecartJours = (a, b) => {
   return t(b) - t(a);
 };
 
-/** Solde des livrets le soir du jour J, reconstruit à rebours depuis aujourd'hui. */
+/**
+ * Solde des livrets le soir du jour J, reconstruit à rebours depuis aujourd'hui.
+ *
+ * Un livret ne compte pas avant sa date d'ouverture : sans cette règle, un
+ * livret créé avec son solde et sans versement daté était compté à toutes les
+ * dates passées, et gonflait toute la courbe reconstituée (le PEL, puis le
+ * Livret A, en 2026 — voir reparations.js).
+ */
 function livretsAuSoir(livrets, jour) {
   return (livrets || []).reduce((total, l) => {
+    if (l.ouverture && jour < l.ouverture) return total;
     const apres = (l.mouvements || []).filter((m) => m.date > jour).reduce((s, m) => s + montantSigne(m), 0);
     return total + Math.max(0, (Number(l.balance) || 0) - apres);
   }, 0);
