@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef } from "react";
 import { useSousOnglet } from "../lib/useHashRoute";
-import { TrendingUp, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUp, ArrowDown, Coins, BookOpen, Briefcase, Search, CalendarDays, Filter, Gauge, Trash2 } from "lucide-react";
+import { TrendingUp, RefreshCw, Pencil, Check, X as XIcon, PieChart as PieIcon, Activity, ArrowUp, ArrowDown, Coins, BookOpen, Briefcase, Search, CalendarDays, Filter, Gauge, Trash2, Rows3, LayoutGrid } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardLabel, CarteRepliable, GhostButton, EmptyState, PageGlow, CARD_THEMES, ChiffreCompteur } from "./ui";
 import MenuActions from "./MenuActions";
 import AssetLogo from "./AssetLogo";
 import { useFlip } from "../lib/useFlip";
+import CartesPositions from "./CartesPositions";
 import { ouvrirDepuis, fermerVers } from "../lib/morph";
 import { styleMarque } from "../lib/couleursMarques";
 import SectorHeatmap from "./SectorHeatmap";
@@ -58,7 +59,7 @@ export default function Bourse() {
   const {
     bourse, setBourse, setBourseAuto, bourseTotal, bourseGainAbs, bourseGainPct,
     alertesWatchlist, setAlertesWatchlist,
-    bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [],
+    bourseHistory, setBourseHistory, watchlist, setWatchlist, strategyNotes = [], evenementsMarche = [],
     // Composition de l'écran : quels blocs sont repliés. Persisté, donc
     // retrouvé tel quel au rechargement et sur les autres appareils.
     widgetsReplies = {}, basculerWidget,
@@ -136,6 +137,7 @@ export default function Bourse() {
   const [sort, setSort] = usePersistentState("bourseSort", "none");
   // Au changement de tri, les lignes glissent jusqu'à leur nouvelle place.
   const corpsPositions = useRef(null);
+  const [vuePositions, setVuePositions] = usePersistentState("bourseVuePositions", "tableau");
   const capturerOrdre = useFlip(corpsPositions, sort);
 
   const [editingId, setEditingId] = useState(null);
@@ -510,6 +512,27 @@ export default function Bourse() {
       >
         <div className="flex items-center justify-end mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Tableau pour comparer, cartes pour lire une ligne. Le choix est
+                mémorisé, comme le tri. */}
+            <div role="group" aria-label="Affichage des positions" className="flex rounded-lg border border-slate-700 overflow-hidden">
+              {[
+                { id: "tableau", libelle: "Tableau", icone: Rows3 },
+                { id: "cartes", libelle: "Cartes", icone: LayoutGrid },
+              ].map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  aria-pressed={vuePositions === v.id}
+                  onClick={() => setVuePositions(v.id)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors ${
+                    vuePositions === v.id ? "bg-violet-500/15 text-violet-200" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <v.icone size={13} aria-hidden="true" />
+                  {v.libelle}
+                </button>
+              ))}
+            </div>
             <SortButton
               sort={sort}
               setSort={(v) => {
@@ -541,6 +564,17 @@ export default function Bourse() {
                 ensuite sa valeur, sa plus-value nette d'impôt et ses dividendes attendus.
               </EtatVide>
         ) : (
+          vuePositions === "cartes" ? (
+          <CartesPositions
+            ref={corpsPositions}
+            positions={sortedPositions}
+            total={bourseTotal}
+            strategyNotes={strategyNotes}
+            evenements={evenementsMarche}
+            seriesCours={seriesCours}
+            onOuvrirFiche={setFicheOuverte}
+          />
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm table-cards table-donnees">
               <thead>
@@ -718,6 +752,7 @@ export default function Bourse() {
               </tbody>
             </table>
           </div>
+          )
         )}
 
         <AddPositionPanel open={showAdd} onClose={() => setShowAdd(false)} onSubmit={addPosition} />

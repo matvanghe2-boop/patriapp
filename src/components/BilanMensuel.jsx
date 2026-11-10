@@ -1,5 +1,7 @@
-import { useMemo } from "react";
-import { CalendarClock, X, TrendingUp, TrendingDown, ShieldCheck, RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CalendarClock, X, TrendingUp, TrendingDown, ShieldCheck, RefreshCw, Play } from "lucide-react";
+import Recit, { Etiquette } from "./Recit";
+import Montant from "./Montant";
 import { Card, CardLabel, CARD_THEMES } from "./ui";
 import { eur, pctPlain, todayIso, nombre } from "../lib/finance";
 import { revisionReferencesEchue, PERIODICITE_REVISION_MOIS } from "../../shared/horizon";
@@ -33,12 +35,81 @@ export default function BilanMensuel({
     [patrimoineNet, historyPast, tauxEpargnePct, epargneSecuriteMois, aujourdhui]
   );
 
+  const [recit, setRecit] = useState(false);
+
   if (!bilanEstDu(dernierBilan, aujourdhui)) return null;
+
+  // Le même bilan, raconté diapositive après diapositive (Recit.jsx).
+  const mois = new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() - 1, 15).toLocaleDateString("fr-FR", { month: "long" });
+  const TEINTES = { positif: 152, negatif: 350, neutre: 200 };
+  const diapos = [
+    {
+      cle: "intro",
+      teinte: 188,
+      contenu: (
+        <>
+          <Etiquette>Bilan du mois</Etiquette>
+          <p className="recit-grand first-letter:uppercase">{mois}</p>
+          <p className="recit-phrase">Trente jours de patrimoine, en {bilan.constats.length + 1} temps.</p>
+        </>
+      ),
+    },
+    {
+      cle: "patrimoine",
+      teinte: 168,
+      contenu: (
+        <>
+          <Etiquette>Patrimoine net aujourd&apos;hui</Etiquette>
+          <p className="recit-grand">
+            <Montant valeur={patrimoineNet} decimales={0} rouleaux depart={bilan.reference ?? undefined} />
+          </p>
+          {bilan.reference != null && (
+            <p className="recit-note">
+              Il y a trente jours : <Montant valeur={bilan.reference} decimales={0} />
+            </p>
+          )}
+        </>
+      ),
+    },
+    ...bilan.constats.map((c) => ({
+      cle: c.cle + c.ton,
+      teinte: TEINTES[c.ton] ?? 200,
+      contenu: (
+        <>
+          <Etiquette>{c.cle === "variation" ? "Sur trente jours" : c.cle === "epargne" ? "Effort d'épargne" : "Matelas de sécurité"}</Etiquette>
+          <p className="recit-phrase">{c.texte}</p>
+        </>
+      ),
+    })),
+    {
+      cle: "fin",
+      teinte: 188,
+      contenu: (
+        <>
+          <Etiquette>À dans un mois</Etiquette>
+          <p className="recit-phrase">Calculé dans ton navigateur, sans appel à un modèle.</p>
+          <div className="recit-actions">
+            <button type="button" onClick={() => setRecit(false)}>
+              Fermer
+            </button>
+          </div>
+        </>
+      ),
+    },
+  ];
 
   return (
     <Card accent={CARD_THEMES.cyan}>
+      {recit && <Recit diapos={diapos} titre={`Bilan de ${mois}`} onFermer={() => setRecit(false)} duree={5500} />}
       <div className="flex items-start justify-between gap-4">
         <CardLabel icon={CalendarClock}>Bilan du mois</CardLabel>
+        <button
+          type="button"
+          onClick={() => setRecit(true)}
+          className="ml-auto flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:border-cyan-400/50 hover:text-cyan-200"
+        >
+          <Play size={12} aria-hidden="true" /> Voir en récit
+        </button>
         <button
           onClick={() => onVu?.(todayIso())}
           aria-label="Masquer le bilan du mois"
@@ -146,5 +217,10 @@ export function construireBilan({
     });
   }
 
-  return { constats, revision: revisionReferencesEchue(aujourdhui) };
+  return {
+    constats,
+    revision: revisionReferencesEchue(aujourdhui),
+    // Le relevé d'il y a trente jours, d'où le récit fait rouler le montant.
+    reference: reference && reference.value > 0 ? reference.value : null,
+  };
 }

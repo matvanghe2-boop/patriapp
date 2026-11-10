@@ -26,6 +26,7 @@ import { decouperParPoche, COULEURS_POCHES } from "../lib/patrimoineParPoche";
 import { recordAAnnoncer, objectifsAAnnoncer, plusHautHistorique } from "../lib/records";
 import { annoncerMoment, palierAtteint } from "../lib/moments";
 import CentreAFaire from "./CentreAFaire";
+import RemonterLeTemps from "./RemonterLeTemps";
 import AgendaFinancier from "./AgendaFinancier";
 import { enEurosConstants, inflationOfficielle } from "../lib/inflation";
 import { usePatrimoine } from "../lib/PatrimoineContext";
@@ -651,7 +652,7 @@ export default function Dashboard() {
               rouleaux
               pulse
               depart={visite?.valeur}
-              className="block text-vedette text-slate-50"
+              className="montant-vedette block text-vedette text-slate-50"
             />
             {delta30j.hasReference ? (
               <span
@@ -1256,6 +1257,12 @@ export default function Dashboard() {
         bourseHistory={bourseHistory}
         aDesPositions={(bourse?.positions || []).length > 0}
       />
+      </Bloc>
+
+      {/* Rejouer son patrimoine mois après mois : le montant, la courbe
+          jusqu'à ce point et la part de la Bourse à ce moment-là. */}
+      <Bloc id="remonter">
+        <RemonterLeTemps historyPast={historyPast} bourseHistory={bourseHistory} patrimoineNet={patrimoineNet} />
       </Bloc>
 
       <Bloc id="revenus">

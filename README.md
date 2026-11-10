@@ -467,6 +467,26 @@ progression — et jamais retarder la navigation. Les effets vivent dans
   boutons CAC 40 / S&P 500 / Nasdaq, les valeurs de l'indice choisi défilent avec leur variation
   du jour ; les lignes détenues sont entourées, un clic ouvre la valeur, le survol l'arrête. Il
   remplace l'ancienne carte du CAC 40 et les listes « meilleures / pires » des indices américains.
+- **Récit plein écran** (`components/Recit.jsx`) : la Rétrospective s'ouvre en diapositives
+  (patrimoine qui roule, courbe qui se trace, meilleur et pire mois, dividendes, meilleure
+  ligne…) ; « Tout voir sur une page » rouvre la vue détaillée. Le Bilan du mois (Simulation >
+  Projet) a son bouton « Voir en récit ». Toucher la droite avance, la gauche revient, l'appui
+  maintenu met en pause ; flèches, Espace et Échap au clavier. Le défilement est tenu par une
+  minuterie, pas par la fin des animations, pour rester juste en mouvement réduit.
+- **Remonter le temps** (`components/RemonterLeTemps.jsx`, bloc du Dashboard) : un curseur
+  rejoue le patrimoine fin de mois par fin de mois — le montant roule, la courbe s'allume jusqu'au
+  mois choisi, l'anneau montre la part de la Bourse ; « Rejouer » parcourt toute l'histoire.
+- **Cartes de positions** (`components/CartesPositions.jsx`) : sélecteur « Tableau | Cartes »
+  dans le bloc Positions (mémorisé dans `bourseVuePositions`). Recto : valeur, plus-value, poids
+  et mini-courbe, à la couleur de l'entreprise ; verso (clic) : thèse notée dans Stratégie,
+  dividende annuel, prochaine date de l'agenda, bouton « Fiche complète ».
+- **Heatmap sectorielle** : les cases (`.tuile-heatmap`) entrent en cascade avec leur graphique,
+  glissent vers leur nouvelle taille quand les cours bougent et s'éclairent au survol.
+- **Fraunces variable** (`@fontsource-variable/fraunces`, axes graisse et taille optique) à la
+  place des graisses figées 500 et 600 : les grands titres et le patrimoine net (`.montant-vedette`)
+  prennent le dessin d'affiche, et la graisse du patrimoine net « monte » à son entrée.
+- **Mode Ghost dans les fenêtres** : la classe `ghost-mode` est aussi posée sur `<body>`, pour
+  caviarder les montants des modales et du récit, rendus dans un portail hors de la coquille.
 
 ## 🗂️ Structure du projet
 
@@ -521,6 +541,7 @@ patrium/
 │   │   ├── revelation.js          # cartes qui entrent, graphiques qui se tracent
 │   │   ├── reflet.js  glisse.js  useFlip.js  # reflet au curseur, surlignage, tri en douceur
 │   │   ├── couleursMarques.js     # couleur de chaque entreprise (relevée par scripts/)
+│   │   ├── moments.js  seance.js  morph.js  # moments, séance de Paris, ligne → fiche
 │   │   └── api.js                 # appels vers api/*
 │   ├── App.jsx                 # coquille de navigation
 │   ├── main.jsx                # providers + service worker

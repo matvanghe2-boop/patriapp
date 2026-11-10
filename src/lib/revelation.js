@@ -96,6 +96,10 @@ function preparer(svg) {
       b.style.transformOrigin = "50% 100%";
       b.style.transform = "scaleY(0)";
     }
+    for (const t of svg.querySelectorAll(".tuile-heatmap")) {
+      t.style.opacity = "0";
+      t.style.transform = "scale(0.82)";
+    }
     for (const s of svg.querySelectorAll(".recharts-pie-sector")) {
       s.style.transformBox = "view-box";
       s.style.transformOrigin = "50% 50%";
@@ -159,6 +163,12 @@ function tracer(svg) {
       b.style.transition = `transform 620ms cubic-bezier(0.22, 1, 0.36, 1) ${depart + Math.min(i, 24) * 22}ms`;
       b.style.transform = "scaleY(1)";
       fin.push(() => nettoyer(b, ["transform", "transform-box", "transform-origin", "transition"]));
+    });
+    [...svg.querySelectorAll(".tuile-heatmap")].forEach((t, i) => {
+      t.style.transition = `transform 560ms cubic-bezier(0.2, 0.9, 0.3, 1.2) ${depart + Math.min(i, 20) * 45}ms, opacity 360ms ease-out ${depart + Math.min(i, 20) * 45}ms`;
+      t.style.opacity = "1";
+      t.style.transform = "scale(1)";
+      fin.push(() => nettoyer(t, ["opacity", "transform", "transition"]));
     });
     [...svg.querySelectorAll(".recharts-pie-sector")].forEach((s, i) => {
       s.style.transition = `transform 620ms cubic-bezier(0.22, 1, 0.36, 1) ${depart + i * 60}ms, opacity 420ms ease-out ${depart + i * 60}ms`;

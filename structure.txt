@@ -154,6 +154,7 @@ src/components/CalendrierPrelevements.jsx
 src/components/CalendrierRevenus.jsx
 src/components/CarteBienvenue.jsx
 src/components/CarteRepliable.test.jsx
+src/components/CartesPositions.jsx
 src/components/CascadeMensuelle.jsx
 src/components/CashPocketCard.jsx
 src/components/CentreAFaire.jsx
@@ -248,6 +249,7 @@ src/components/QuestionDonnees.jsx
 src/components/RapprochementsAbonnements.jsx
 src/components/RatesHub.jsx
 src/components/RatesHub.test.jsx
+src/components/Recit.jsx
 src/components/ReconstitutionCourbe.jsx
 src/components/Reequilibrage.jsx
 src/components/ReglagesApparence.jsx
@@ -256,6 +258,7 @@ src/components/ReglagesChiffrement.test.jsx
 src/components/ReglagesHorizon.jsx
 src/components/ReglagesHorizon.test.jsx
 src/components/ReglagesLivret.jsx
+src/components/RemonterLeTemps.jsx
 src/components/RendementsMensuels.jsx
 src/components/ReparationJournal.jsx
 src/components/ResumePublications.jsx

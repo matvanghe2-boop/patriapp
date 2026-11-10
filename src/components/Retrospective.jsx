@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Sparkles, TrendingUp, TrendingDown, Coins, Repeat, Target, CalendarRange } from "lucide-react";
 import Modal from "./Modal";
+import Recit, { Etiquette } from "./Recit";
 import Montant from "./Montant";
 import EtatVide from "./EtatVide";
 import { CalendrierAnnuel, CalendrierCompare, CourbeEvolution } from "./graphiques";
@@ -66,6 +67,218 @@ export default function Retrospective({
   );
 
   const positif = (bilan.variation ?? 0) >= 0;
+
+  /*
+   * Récit d'abord, page ensuite. L'année se raconte diapositive après
+   * diapositive ; « Tout voir sur une page » ouvre la vue détaillée
+   * d'origine (calendrier jour par jour compris). Chaque ouverture repart du
+   * récit — l'ajustement se fait pendant le rendu, à la manière que React
+   * recommande pour dériver un état d'une prop qui change.
+   */
+  const [pagePleine, setPagePleine] = useState(false);
+  const [ouvertAvant, setOuvertAvant] = useState(ouvert);
+  const [lecture, setLecture] = useState(0);
+  if (ouvert !== ouvertAvant) {
+    setOuvertAvant(ouvert);
+    if (ouvert) setPagePleine(false);
+  }
+
+  if (ouvert && bilan.exploitable && !pagePleine) {
+    const anneeEnCours = an === new Date().getFullYear();
+    const diapos = [
+      {
+        cle: "intro",
+        teinte: 38,
+        contenu: (
+          <>
+            <Etiquette>Rétrospective</Etiquette>
+            <p className="recit-grand">{an}</p>
+            <p className="recit-phrase">Ton année, en quelques chiffres. Tous vrais.</p>
+            <p className="recit-note">Touche la droite de l&apos;écran pour avancer, la gauche pour revenir.</p>
+          </>
+        ),
+      },
+      {
+        cle: "patrimoine",
+        teinte: positif ? 152 : 350,
+        contenu: (
+          <>
+            <Etiquette>Patrimoine net {anneeEnCours ? "à ce jour" : "au 31 décembre"}</Etiquette>
+            <p className="recit-grand">
+              <Montant valeur={bilan.fin ?? 0} decimales={0} rouleaux depart={bilan.debut ?? undefined} />
+            </p>
+            <p className={`recit-phrase ${positif ? "text-emerald-300" : "text-rose-300"}`}>
+              <Montant valeur={bilan.variation ?? 0} decimales={0} className="text-inherit" /> sur l&apos;année
+              {bilan.variationPct != null && <span className="font-data"> ({pct(bilan.variationPct)})</span>}
+            </p>
+          </>
+        ),
+      },
+      ...(serie.length >= 2
+        ? [
+            {
+              cle: "courbe",
+              teinte: 168,
+              contenu: (
+                <>
+                  <Etiquette>L&apos;année en une ligne</Etiquette>
+                  <CourbeEvolution
+                    valeurs={serie}
+                    largeur={520}
+                    hauteur={180}
+                    libelle={`Évolution du patrimoine en ${an}`}
+                    className="w-full h-auto text-emerald-300 ghost-blur"
+                  />
+                  <p className="recit-note">{bilan.joursReleves} jours relevés.</p>
+                </>
+              ),
+            },
+          ]
+        : []),
+      ...(bilan.meilleurMois
+        ? [
+            {
+              cle: "meilleur",
+              teinte: 140,
+              contenu: (
+                <>
+                  <Etiquette>Ton meilleur mois</Etiquette>
+                  <p className="recit-grand first-letter:uppercase">{nomMois(bilan.meilleurMois.cle)}</p>
+                  <p className="recit-phrase text-emerald-300">
+                    <Montant valeur={bilan.meilleurMois.delta} decimales={0} className="text-inherit" /> en un mois
+                  </p>
+                </>
+              ),
+            },
+          ]
+        : []),
+      ...(bilan.pireMois
+        ? [
+            {
+              cle: "pire",
+              teinte: 345,
+              contenu: (
+                <>
+                  <Etiquette>Le mois le plus dur</Etiquette>
+                  <p className="recit-grand first-letter:uppercase">{nomMois(bilan.pireMois.cle)}</p>
+                  <p className="recit-phrase text-rose-300">
+                    <Montant valeur={bilan.pireMois.delta} decimales={0} className="text-inherit" />
+                  </p>
+                </>
+              ),
+            },
+          ]
+        : []),
+      ...(bilan.dividendes > 0
+        ? [
+            {
+              cle: "dividendes",
+              teinte: 45,
+              contenu: (
+                <>
+                  <Etiquette>Dividendes encaissés</Etiquette>
+                  <p className="recit-grand">
+                    <Montant valeur={bilan.dividendes} decimales={0} rouleaux depart={0} />
+                  </p>
+                  <p className="recit-phrase">Versés par tes lignes, sans rien vendre.</p>
+                </>
+              ),
+            },
+          ]
+        : []),
+      ...(bilan.operations > 0
+        ? [
+            {
+              cle: "operations",
+              teinte: 220,
+              contenu: (
+                <>
+                  <Etiquette>Opérations passées</Etiquette>
+                  <p className="recit-grand font-data">{bilan.operations}</p>
+                  <p className="recit-phrase">
+                    {bilan.achats} achat{bilan.achats > 1 ? "s" : ""} · {bilan.ventes} vente{bilan.ventes > 1 ? "s" : ""}
+                  </p>
+                </>
+              ),
+            },
+          ]
+        : []),
+      ...(bilan.meilleureLigne
+        ? [
+            {
+              cle: "ligne",
+              teinte: 265,
+              contenu: (
+                <>
+                  <Etiquette>Ta ligne la plus performante</Etiquette>
+                  <p className="recit-grand">{bilan.meilleureLigne.nom}</p>
+                  <p className="recit-phrase font-data text-emerald-300">{pct(bilan.meilleureLigne.pct)}</p>
+                </>
+              ),
+            },
+          ]
+        : []),
+      ...(bilan.tauxEpargneMoyen != null
+        ? [
+            {
+              cle: "epargne",
+              teinte: 190,
+              contenu: (
+                <>
+                  <Etiquette>Taux d&apos;épargne moyen</Etiquette>
+                  <p className="recit-grand font-data">{pctPlain(bilan.tauxEpargneMoyen, 0)}</p>
+                  <p className="recit-phrase">de tes revenus mis de côté, en moyenne sur l&apos;année.</p>
+                </>
+              ),
+            },
+          ]
+        : []),
+      ...(annotationsAnnee.length > 0
+        ? [
+            {
+              cle: "evenements",
+              teinte: 200,
+              contenu: (
+                <>
+                  <Etiquette>Ce qui s&apos;est passé</Etiquette>
+                  <ol className="flex flex-col gap-2">
+                    {annotationsAnnee.slice(0, 6).map((a) => (
+                      <li key={a.id} className="recit-phrase">
+                        <span className="text-slate-400">
+                          {new Date(`${a.date}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} —{" "}
+                        </span>
+                        {a.texte}
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ),
+            },
+          ]
+        : []),
+      {
+        cle: "fin",
+        teinte: 38,
+        contenu: (
+          <>
+            <Etiquette>C&apos;était {an}</Etiquette>
+            <p className="recit-phrase">
+              Calculé sur cet appareil, à partir de tes seules données. Rien n&apos;a été envoyé nulle part.
+            </p>
+            <div className="recit-actions">
+              <button type="button" onClick={() => setPagePleine(true)}>
+                Tout voir sur une page
+              </button>
+              <button type="button" onClick={() => setLecture((n) => n + 1)}>
+                Revoir
+              </button>
+            </div>
+          </>
+        ),
+      },
+    ];
+    return <Recit key={`${an}-${lecture}`} diapos={diapos} titre={`Rétrospective ${an}`} onFermer={onFermer} />;
+  }
 
   return (
     <Modal

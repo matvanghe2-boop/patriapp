@@ -488,7 +488,7 @@ a[data-apercu] {
 .moment-valeur {
   position: relative;
   margin-top: 0.6rem;
-  font-family: "Fraunces", serif;
+  font-family: "Fraunces Variable", "Fraunces", serif;
   font-size: 2.6rem;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -703,4 +703,289 @@ a[data-apercu] {
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-mouvement="complet"]) .bandeau-indice { overflow-x: auto; }
   :root:not([data-mouvement="complet"]) .bandeau-piste { animation: none; }
+}
+
+/* ═══════════════════ RÉCIT PLEIN ÉCRAN ════════════════════════════════════
+ * components/Recit.jsx : la rétrospective et le bilan du mois, diapositive
+ * après diapositive. Chaque diapositive porte sa teinte (`--recit-h`), et ses
+ * éléments entrent l'un après l'autre.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.recit {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  padding: max(1rem, env(safe-area-inset-top)) 1.25rem max(1.5rem, env(safe-area-inset-bottom));
+  color: rgb(var(--c-slate-100));
+  background-color: rgb(var(--c-slate-950));
+  background-image:
+    radial-gradient(90% 60% at 20% 0%, hsl(var(--recit-h) 80% 55% / 0.28), transparent 65%),
+    radial-gradient(80% 60% at 100% 100%, hsl(calc(var(--recit-h) + 40) 80% 55% / 0.18), transparent 60%);
+  transition: background-image 600ms ease;
+  outline: none;
+  user-select: none;
+  touch-action: manipulation;
+  animation: recit-ouverture 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes recit-ouverture {
+  from { opacity: 0; transform: scale(1.03); }
+  to { opacity: 1; transform: none; }
+}
+.recit-barres {
+  display: flex;
+  gap: 4px;
+  max-width: 40rem;
+  width: 100%;
+  margin: 0 auto;
+}
+.recit-barre {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  overflow: hidden;
+}
+.recit-remplissage {
+  display: block;
+  height: 100%;
+  background: rgb(255 255 255 / 0.9);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.recit-vue { transform: scaleX(1); }
+.recit-encours { animation: recit-progression linear both; }
+@keyframes recit-progression {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.recit-commandes {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 40rem;
+  width: 100%;
+  margin: 0.75rem auto 0;
+  color: rgb(var(--c-slate-300));
+}
+.recit-titre {
+  flex: 1;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.recit-commandes button {
+  padding: 0.35rem;
+  border-radius: 999px;
+}
+.recit-commandes button:hover { background: rgb(255 255 255 / 0.08); }
+.recit-diapo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 40rem;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem 0;
+}
+.recit-diapo > * {
+  animation: recit-element 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.recit-diapo > *:nth-child(2) { animation-delay: 140ms; }
+.recit-diapo > *:nth-child(3) { animation-delay: 280ms; }
+.recit-diapo > *:nth-child(4) { animation-delay: 420ms; }
+.recit-diapo > *:nth-child(5) { animation-delay: 560ms; }
+.recit-diapo > *:nth-child(n + 6) { animation-delay: 700ms; }
+@keyframes recit-element {
+  from { opacity: 0; transform: translateY(22px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.recit-etiquette {
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(var(--recit-h) 85% 75%);
+}
+.recit-grand {
+  font-family: "Fraunces Variable", "Fraunces", serif;
+  font-size: clamp(2.6rem, 11vw, 5rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 560;
+}
+.recit-grand .font-data { font-family: inherit; }
+.recit-phrase {
+  font-size: clamp(1.05rem, 3.6vw, 1.35rem);
+  line-height: 1.4;
+  color: rgb(var(--c-slate-200));
+}
+.recit-note {
+  font-size: 0.8125rem;
+  color: rgb(var(--c-slate-400));
+}
+.recit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.recit-actions button {
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  font-size: 0.8125rem;
+}
+.recit-actions button:first-child {
+  background: hsl(var(--recit-h) 85% 65%);
+  border-color: transparent;
+  color: rgb(var(--c-slate-950));
+  font-weight: 600;
+}
+
+/* ═══════════════════ CARTES DE POSITIONS ══════════════════════════════════
+ * components/CartesPositions.jsx. Distribuées en cascade à l'affichage,
+ * retournées en 3D au clic.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.carte-position {
+  position: relative;
+  height: 13.5rem;
+  perspective: 1100px;
+  animation: carte-distribuee 560ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes carte-distribuee {
+  from { opacity: 0; transform: translateY(26px) rotate(-3deg) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+.carte-position-interieur {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 620ms cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+.carte-position[data-retournee] .carte-position-interieur {
+  transform: rotateY(180deg);
+}
+.carte-position-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--marque) / 0.35);
+  background-color: rgb(var(--c-slate-900));
+  background-image: radial-gradient(120% 90% at 0% 0%, hsl(var(--marque) / 0.16), transparent 60%);
+  box-shadow: 0 14px 30px -24px hsl(var(--marque) / 0.9);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  text-align: left;
+}
+.carte-position-recto {
+  cursor: pointer;
+  transition: border-color 160ms ease;
+}
+.carte-position-recto:hover { border-color: hsl(var(--marque) / 0.6); }
+.carte-position-recto:focus-visible {
+  outline: 2px solid hsl(var(--marque));
+  outline-offset: 2px;
+}
+.carte-position-verso {
+  transform: rotateY(180deg);
+  background-image: radial-gradient(120% 90% at 100% 0%, hsl(var(--marque) / 0.14), transparent 60%);
+}
+.carte-position-indice {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  color: rgb(var(--c-slate-600));
+  transition: transform 300ms ease, color 160ms ease;
+}
+.carte-position-recto:hover .carte-position-indice {
+  color: hsl(var(--marque));
+  transform: rotate(-120deg);
+}
+
+/* ═══════════════════ HEATMAP SECTORIELLE ══════════════════════════════════
+ * Les cases glissent vers leur nouvelle taille quand les cours bougent (x, y,
+ * largeur et hauteur d'un `rect` sont des propriétés CSS), entrent en
+ * cascade avec leur graphique (lib/revelation.js), et s'éclairent au survol.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.tuile-heatmap rect,
+.tuile-heatmap foreignObject {
+  transition:
+    x 520ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    y 520ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 520ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 520ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    fill 600ms ease,
+    filter 160ms ease;
+}
+.tuile-heatmap {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+:root[data-effets="vivant"] .tuile-heatmap:hover {
+  transform: scale(1.035);
+}
+.tuile-heatmap:hover rect {
+  filter: brightness(1.15) saturate(1.1);
+}
+
+/* ═══════════════════ REMONTER LE TEMPS ════════════════════════════════════
+ * components/RemonterLeTemps.jsx. Le repère et l'anneau glissent d'un mois à
+ * l'autre au lieu de sauter.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.remonter-repere-ligne,
+.remonter-repere-point {
+  position: absolute;
+  pointer-events: none;
+  transition: left 320ms cubic-bezier(0.2, 0.8, 0.2, 1), top 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.remonter-repere-ligne {
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed rgb(var(--c-emerald-400) / 0.35);
+}
+.remonter-repere-point {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 999px;
+  background: rgb(var(--c-emerald-400));
+  box-shadow: 0 0 0 6px rgb(var(--c-emerald-400) / 0.18);
+}
+.remonter-anneau circle {
+  transition: stroke-dasharray 420ms cubic-bezier(0.2, 0.8, 0.2, 1), stroke-dashoffset 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.remonter-curseur {
+  accent-color: rgb(var(--c-emerald-400));
+}
+
+/* ═══════════════════ LE CHIFFRE VEDETTE ═══════════════════════════════════
+ * Le patrimoine net du Dashboard en Fraunces variable : à cette taille, la
+ * taille optique dessine des pleins et déliés d'affiche. À son entrée, la
+ * graisse « monte » de légère à pleine — l'axe variable, animé.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.montant-vedette {
+  font-family: "Fraunces Variable", "Fraunces", serif;
+  font-optical-sizing: auto;
+  font-weight: 540;
+  letter-spacing: -0.025em;
+}
+.montant-vedette .montant-centimes,
+.montant-vedette .montant-devise {
+  font-family: "IBM Plex Mono", monospace;
+  letter-spacing: 0;
+}
+:root[data-effets="vivant"] [data-revele="entre"] .montant-vedette {
+  animation: graisse-entree 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes graisse-entree {
+  from { font-weight: 220; letter-spacing: 0.01em; }
+  to { font-weight: 540; letter-spacing: -0.025em; }
 }

@@ -202,7 +202,7 @@ function TreemapTooltip({ active, payload, total }) {
 // logo, le ticker, le poids et le nom du secteur à l'intérieur de la case
 // quand elle est assez grande pour l'accueillir.
 function TreemapTile(props) {
-  const { x, y, width, height, ticker, sector, pct, depth } = props;
+  const { x, y, width, height, ticker, sector, pct, depth, index = 0 } = props;
   if (!width || !height || width <= 0 || height <= 0) return null;
   // recharts dessine aussi le nœud RACINE, qui couvre tout le treemap et ne
   // porte aucune ligne : il rendait un logo « ? » et un « 0,0 % » sous les
@@ -214,8 +214,10 @@ function TreemapTile(props) {
   const showFull = width > 70 && height > 55;
   const showCompact = !showFull && width > 34 && height > 24;
 
+  // `tuile-heatmap` : entrée en cascade (rang `--i`), glissement vers la
+  // nouvelle taille quand les cours bougent, éclairage au survol (effets.css).
   return (
-    <g>
+    <g className="tuile-heatmap" style={{ "--i": Math.min(index, 20) }}>
       <rect x={x} y={y} width={width} height={height} fill={fill} stroke="#0f172a" strokeWidth={1.5} />
       {showFull && (
         <foreignObject x={x} y={y} width={width} height={height}>
