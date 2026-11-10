@@ -52,6 +52,9 @@ import { surveillerGlisse } from "./lib/glisse";
 import FondVivant from "./components/FondVivant";
 import IndicateurGlissant from "./components/IndicateurGlissant";
 import ApercuTicker from "./components/ApercuTicker";
+import Moments from "./components/Moments";
+import SignalMarche, { useSeance } from "./components/SignalMarche";
+import { annoncerMoment } from "./lib/moments";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -340,9 +343,61 @@ export default function App() {
     return () => arrets.forEach((arreter) => arreter());
   }, []);
 
+  /*
+   * Séance de Paris : la pastille de l'en-tête, la variation du jour dans le
+   * titre de l'onglet et la pastille sur l'icône de l'application installée.
+   *
+   * Le titre ne porte la variation que pendant la séance — hors séance, un
+   * chiffre figé depuis la veille au soir ferait croire à un mouvement — et
+   * jamais en mode Ghost : le titre s'affiche dans la barre des tâches, la
+   * liste des onglets et le partage d'écran.
+   */
+  const seance = useSeance();
+  const variationTitre =
+    seance.ouvert && !ghostMode && variationJour?.exploitable
+      ? `${variationJour.montant >= 0 ? "▲ +" : "▼ −"}${Math.abs(variationJour.pourcentage).toLocaleString("fr-FR", {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        })} % · `
+      : "";
   useEffect(() => {
-    document.title = `${activeTab.label} · Patrium`;
-  }, [activeTab.label]);
+    document.title = `${variationTitre}${activeTab.label} · Patrium`;
+  }, [activeTab.label, variationTitre]);
+
+  // Point sur l'icône de l'appli installée pendant la séance, s'il y a des
+  // lignes à suivre. Une pastille sans nombre : elle ne dit rien des montants.
+  const aDesLignes = (patrimoine.bourse?.positions || []).length > 0;
+  useEffect(() => {
+    if (typeof navigator === "undefined" || typeof navigator.setAppBadge !== "function") return;
+    if (seance.ouvert && aDesLignes) navigator.setAppBadge().catch(() => {});
+    else navigator.clearAppBadge?.().catch(() => {});
+  }, [seance.ouvert, aDesLignes]);
+
+  /*
+   * Dividende encaissé : un moment, pour chaque dividende ajouté au journal
+   * PENDANT la visite (saisi, importé d'un relevé, détecté). Ceux qui étaient
+   * déjà là à l'ouverture ne sont pas rejoués.
+   */
+  const dividendesVus = React.useRef(null);
+  useEffect(() => {
+    const dividendes = (patrimoine.bourse?.operations || []).filter((op) => op.type === "DIVIDENDE");
+    if (dividendesVus.current === null) {
+      dividendesVus.current = new Set(dividendes.map((op) => op.id));
+      return;
+    }
+    const nouveaux = dividendes.filter((op) => !dividendesVus.current.has(op.id));
+    nouveaux.forEach((op) => dividendesVus.current.add(op.id));
+    if (nouveaux.length === 0) return;
+    const total = nouveaux.reduce((s, op) => s + (Number(op.montantNet ?? op.amount) || 0), 0);
+    const titres = [...new Set(nouveaux.map((op) => op.asset).filter(Boolean))].join(", ");
+    if (total <= 0) return;
+    annoncerMoment({
+      type: "dividende",
+      titre: titres ? `Versé par ${titres}` : "Versé dans ta poche cash",
+      valeur: total,
+      message: `Dividende encaissé${titres ? ` (${titres})` : ""} : ${total.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}.`,
+    });
+  }, [patrimoine.bourse?.operations]);
 
   /*
    * Teinte de la barre de défilement, accordée à l'onglet courant.
@@ -679,6 +734,7 @@ export default function App() {
           ghostMode={ghostMode}
           onToggleGhost={() => setGhostMode((g) => !g)}
         >
+          <SignalMarche etat={seance} />
           <GlobalSearch index={indexPalette} onNavigate={allerA} />
           <button
             type="button"
@@ -771,6 +827,9 @@ export default function App() {
 
       {/* Aperçu d'une valeur au survol de son ticker, partout (data-apercu). */}
       <ApercuTicker />
+
+      {/* Record, palier, objectif atteint, dividende : leur propre scène. */}
+      <Moments />
 
       {/* Les sections au-delà de la quatrième, plus les actions qui vivaient
           uniquement dans la barre latérale — donc invisibles sous 768 px. */}

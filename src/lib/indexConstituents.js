@@ -26,7 +26,7 @@
  *
  * À revoir après chaque revue trimestrielle d'Euronext (troisième vendredi de
  * mars, juin, septembre et décembre) : `COMPOSITION_CAC40_AU` est affichée
- * sous la carte du CAC 40, pour que son âge se voie.
+ * sous le bandeau des valeurs du CAC 40 (onglet Marché), pour que son âge se voie.
  */
 export const COMPOSITION_CAC40_AU = "2025-12-22";
 
