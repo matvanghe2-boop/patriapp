@@ -35,6 +35,8 @@ export const STORAGE_KEYS = [
   "matelasHistory", "objectifs", "alertesWatchlist", "widgetsReplies",
   // Ordre et visibilité des blocs du Dashboard (voir dispositionDashboard.js).
   "dispositionDashboard",
+  // Allocation du Dashboard : piles de pièces ou anneau (PilesAllocation.jsx).
+  "dashboardVueAllocation",
   // Secteur choisi à la main pour une ligne, qui prime sur le classement
   // par défaut (voir sectors.js, secteurDe).
   "secteursManuels",

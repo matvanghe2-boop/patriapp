@@ -24,6 +24,17 @@ function nommer(source, actif) {
   }
 }
 
+/**
+ * Une transition remplacée par une autre est « sautée » : le navigateur
+ * rejette alors sa promesse `ready`. Depuis que le changement d'onglet est lui
+ * aussi une transition (lib/cube.js), cela arrive dès qu'on change d'onglet
+ * pendant qu'une fiche s'ouvre. Ce n'est pas une erreur : sans ceci, elle
+ * finissait pourtant dans le journal d'erreurs de l'appareil.
+ */
+function ignorerSaut(transition) {
+  transition.ready?.catch?.(() => {});
+}
+
 function possible() {
   return typeof document !== "undefined" && typeof document.startViewTransition === "function" && !mouvementReduit();
 }
@@ -41,6 +52,7 @@ export function ouvrirDepuis(source, maj) {
     flushSync(maj);
   });
   t.finished.finally(() => document.documentElement.classList.remove("morph-fiche"));
+  ignorerSaut(t);
 }
 
 /** Ferme la fiche en renvoyant logo et nom vers `trouverSource()` (la ligne d'origine). */
@@ -60,4 +72,5 @@ export function fermerVers(trouverSource, maj) {
     nommer(source, false);
     document.documentElement.classList.remove("morph-fiche");
   });
+  ignorerSaut(t);
 }

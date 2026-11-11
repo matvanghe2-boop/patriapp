@@ -1,10 +1,11 @@
 import { useMemo, useState, useId } from "react";
 import {
-  ResponsiveContainer, Sankey, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import { Workflow, GitCompare, Activity, CalendarDays, Search, Coins, Dices } from "lucide-react";
 import { Card, CardLabel } from "./ui";
 import Montant from "./Montant";
+import RubansFlux from "./RubansFlux";
 import { compact, pctPlain } from "../lib/finance";
 import { COULEURS, GRILLE, AXE, MARGES, TRAITS } from "../lib/styleGraphique";
 import { CATEGORIES } from "../lib/compteCourant";
@@ -31,90 +32,21 @@ const dansLaPeriode = (mois, cle) => (estPeriodeLongue(mois) ? mois.includes(cle
 
 // ─── Flux du mois ────────────────────────────────────────────────────────────
 
-function NoeudFlux({ x, y, width, height, payload }) {
-  if (!payload || height <= 0) return null;
-  // Étiquettes dans les marges, jamais sur les bandes : à gauche pour les
-  // origines, à droite pour les destinations. Attention, recharts appelle
-  // `sourceLinks` les liens qui ARRIVENT sur le nœud — une origine n'en a
-  // aucun.
-  const aDroite = payload.sourceLinks?.length > 0;
-  const milieu = payload.name === "Compte courant";
-  return (
-    <g>
-      <rect x={x} y={y} width={width} height={height} rx={2} fill={milieu ? COULEURS.domaine : "rgb(var(--c-slate-500))"} />
-      {!milieu && (
-        <text
-          x={aDroite ? x + width + 6 : x - 6}
-          y={y + height / 2}
-          textAnchor={aDroite ? "start" : "end"}
-          dominantBaseline="middle"
-          fontSize={11}
-          fill={COULEURS.texte}
-        >
-          {payload.name}
-        </text>
-      )}
-    </g>
-  );
-}
-
-function InfobulleFlux({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
-  const libelle = p.source && p.target ? `${p.source.name} → ${p.target.name}` : p.name;
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-lg">
-      <div className="text-slate-400">{libelle}</div>
-      <Montant valeur={p.value} decimales={2} className="text-slate-100" />
-    </div>
-  );
-}
-
 /**
- * D'où vient l'argent du mois et où il va, en un seul schéma. Les listes en
- * dessous donnent les mêmes chiffres en clair : le diagramme se lit d'un
- * coup d'œil, mais aucun montant ne doit dépendre de la largeur d'une bande.
+ * D'où vient l'argent du mois et où il va, en un seul schéma de rubans (voir
+ * RubansFlux). Les listes en dessous donnent les mêmes chiffres en clair : le
+ * schéma se lit d'un coup d'œil, mais aucun montant ne doit dépendre de la
+ * largeur d'un ruban.
  */
 export function FluxMois({ enrichies, mois }) {
   const flux = useMemo(() => fluxDuMois(enrichies, mois), [enrichies, mois]);
-  const donnees = useMemo(() => {
-    const nodes = [
-      ...flux.sources.map((s) => ({ name: s.libelle })),
-      { name: "Compte courant" },
-      ...flux.destinations.map((d) => ({ name: d.libelle })),
-    ];
-    const centre = flux.sources.length;
-    const links = [
-      ...flux.sources.map((s, i) => ({ source: i, target: centre, value: euros(s.montant) })),
-      ...flux.destinations.map((d, i) => ({ source: centre, target: centre + 1 + i, value: euros(d.montant) })),
-    ];
-    return { nodes, links };
-  }, [flux]);
 
   if (flux.total === 0) return null;
-  const hauteur = Math.max(200, 34 * Math.max(flux.sources.length, flux.destinations.length));
 
   return (
     <Card>
       <CardLabel icon={Workflow}>D'où vient l'argent, où il va</CardLabel>
-      {/* Sous 640 px, les marges des étiquettes ne laissent plus que quelques
-          pixels aux bandes : les deux listes, en dessous, disent la même chose
-          plus lisiblement. */}
-      <div className="hidden sm:block" style={{ height: hauteur }} role="img" aria-label={`Flux d'argent sur ${nomPeriode(mois)}`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <Sankey
-            data={donnees}
-            node={<NoeudFlux />}
-            nodePadding={18}
-            nodeWidth={8}
-            iterations={32}
-            margin={{ top: 8, right: 130, bottom: 8, left: 130 }}
-            link={{ stroke: COULEURS.domaine, strokeOpacity: 0.25 }}
-          >
-            <Tooltip content={<InfobulleFlux />} />
-          </Sankey>
-        </ResponsiveContainer>
-      </div>
+      <RubansFlux sources={flux.sources} destinations={flux.destinations} libelle={`Flux d'argent sur ${nomPeriode(mois)}`} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mt-3 text-xs">
         {[
           ["Entrées", flux.sources],

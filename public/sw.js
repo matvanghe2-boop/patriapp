@@ -30,7 +30,9 @@
 // v4 : polices réduites au latin, et surtout FIN DU skipWaiting automatique
 //      (voir plus bas) — la mise à jour est désormais proposée, pas imposée.
 // v5 : réception du partage Android vers le coffre à papiers (voir plus bas).
-const VERSION = "patrium-v5";
+// v6 : orbit-header.js reçoit l'humeur de la mascotte (attribut `mood`), et
+//      les emojis 3D des catégories arrivent dans `public/emoji/`.
+const VERSION = "patrium-v6";
 const CACHE_COQUILLE = `${VERSION}-coquille`;
 
 // Fichiers reçus par « Partager », en attente que l'onglet Coffre les range

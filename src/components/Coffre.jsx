@@ -26,6 +26,7 @@ import OngletsGlissants from "./OngletsGlissants";
 import { useSousOnglet } from "../lib/useHashRoute";
 import { useAuth } from "../lib/AuthContext";
 import { useToast } from "../lib/ToastContext";
+import { jouerSon } from "../lib/sons";
 import { useConfirm } from "../lib/ConfirmContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import {
@@ -203,6 +204,12 @@ function CoffreOuvert({ userId, contracts, sansCodeSecours = false, onChiffremen
   const [demandeInitiale] = useState(prendreDemande);
   const [ouvertId, setOuvertId] = useState(demandeInitiale?.document ?? null);
   const [onglet, setOnglet] = useSousOnglet(["documents", "echeances", "objets", "reglages"], "documents");
+
+  // Le « clac » de la porte : à chaque fois que le coffre s'ouvre — arrivée
+  // sur l'onglet, ou déverrouillage. Muet tant que les sons sont coupés.
+  useEffect(() => {
+    jouerSon("coffre");
+  }, []);
   // null : fermé ; { objet: null, saisie? } : ajout ; { objet } : modification.
   const [formulaireObjet, setFormulaireObjet] = useState(() => {
     const objet = demandeInitiale?.objet && (coffre.objets || []).find((o) => o.id === demandeInitiale.objet);

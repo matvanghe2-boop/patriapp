@@ -1,4 +1,4 @@
-import { useMemo, useState, lazy, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useSousOnglet } from "../lib/useHashRoute";
 import OngletsGlissants from "./OngletsGlissants";
 import { Calculator, RotateCcw, TrendingDown, Target, Zap, ChevronDown, ChevronUp, Save, GitCompare, Trash2, Landmark, Rocket, Scale } from "lucide-react";
@@ -15,6 +15,33 @@ import ComparateurRattachement from "./ComparateurRattachement";
 // statique, ce poids s'ajoutait au chunk de Simulation et retardait l'affichage
 // des sous-onglets à l'ouverture.
 const Projet = lazy(() => import("./Projet"));
+
+// La boule de neige (canvas + sa feuille de style) est un fragment à part,
+// téléchargé seulement quand sa carte approche de l'écran (voir AProximite).
+const BouleDeNeige = lazy(() => import("./BouleDeNeige"));
+
+/**
+ * Ne monte ses enfants que lorsqu'ils approchent de l'écran. Tant qu'on ne
+ * fait pas défiler jusque-là, le fragment chargé à la demande n'est même pas
+ * téléchargé. Sans IntersectionObserver, il est monté tout de suite.
+ */
+function AProximite({ children, hauteur = 320 }) {
+  const repere = useRef(null);
+  const [proche, setProche] = useState(() => typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    const el = repere.current;
+    if (proche || !el) return undefined;
+    const observateur = new IntersectionObserver(
+      ([entree]) => {
+        if (entree.isIntersecting) setProche(true);
+      },
+      { rootMargin: "500px 0px" }
+    );
+    observateur.observe(el);
+    return () => observateur.disconnect();
+  }, [proche]);
+  return proche ? children : <div ref={repere} style={{ minHeight: hauteur }} aria-hidden="true" />;
+}
 
 /**
  * Onglet « Simulation ».
@@ -522,6 +549,15 @@ export default function Simulation({
           {showInflation && " — La ligne violette montre le pouvoir d'achat réel, corrigé de l'inflation."}
         </p>
       </Card>
+      {/* ─── Boule de neige ──────────────────────────────────────────────────── */}
+      {/* La même projection, racontée autrement : ce que les intérêts
+          ajoutent aux versements, année après année. */}
+      <AProximite>
+        <Suspense fallback={<SkeletonChart height={300} />}>
+          <BouleDeNeige serie={combined} />
+        </Suspense>
+      </AProximite>
+
       {/* ─── Scénarios sauvegardés ────────────────────────────────────────────── */}
       {simScenarios.length > 0 && (
         <Card accent={CARD_THEMES.amber}>

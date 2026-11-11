@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, Suspense, lazy } from "react";
+import { flushSync } from "react-dom";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
   Repeat, CreditCard, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation, LockKeyhole,
@@ -18,7 +19,7 @@ import { rappelsEssais } from "./lib/abonnements";
 import { evenementsAgenda, rappelsAgenda } from "./lib/agendaFinancier";
 import { COFFRE_VIDE, rappelsCoffreDus, acquitterRappelCoffre } from "./lib/coffre";
 import { sauvegardeTropRecente } from "./lib/migrations";
-import { useHashRoute } from "./lib/useHashRoute";
+import { useHashRoute, useSousOngletActuel, allerVersMaintenant } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
 import { useConfirm } from "./lib/ConfirmContext";
 import { NavButton, SkeletonCard } from "./components/ui";
@@ -56,6 +57,11 @@ import Moments from "./components/Moments";
 import SignalMarche, { useSeance } from "./components/SignalMarche";
 import { annoncerMoment } from "./lib/moments";
 import { reparationsAFaire, appliquerReparations } from "./lib/reparations";
+import { estAuPlusHaut, humeurPingouin } from "./lib/humeur";
+import { ecouterVoyages } from "./lib/voyage";
+import { effetsVivants } from "./lib/mouvement";
+import { jouerSon } from "./lib/sons";
+import { tournerEnCube } from "./lib/cube";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -84,6 +90,8 @@ const StrategieLogs = lazy(CHARGEURS.strategie);
 const Abonnements = lazy(CHARGEURS.abonnements);
 const Coffre = lazy(CHARGEURS.coffre);
 const TransfertAppareil = lazy(() => import("./components/TransfertAppareil"));
+// La scène d'un versement n'est téléchargée qu'au premier versement.
+const ArgentQuiVoyage = lazy(() => import("./components/ArgentQuiVoyage"));
 
 /**
  * Précharge les autres onglets un par un, pendant les temps morts du
@@ -194,7 +202,9 @@ export default function App() {
   }, []);
   const [presentation, setPresentation] = React.useState(false);
   const [plusOuvert, setPlusOuvert] = React.useState(false);
-  const { haptique } = useApparence();
+  const { haptique, effets, mouvementReduit } = useApparence();
+  // Les effets d'ambiance sont-ils permis ? (réglage « Vivants », mouvement non réduit)
+  const effetsVivantsActifs = effets === "vivant" && !mouvementReduit;
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -297,14 +307,49 @@ export default function App() {
    * de l'application au lieu d'une succession d'écrans sans rapport.
    */
   const [direction, setDirection] = React.useState("droite");
+  /*
+   * En effets vivants, le changement d'onglet est un CUBE qui tourne (voir
+   * lib/cube.js) : l'écran quitté et l'écran d'arrivée en sont deux faces
+   * voisines. `parCube` retire alors le glissement d'origine, qui se jouerait
+   * sinon À L'INTÉRIEUR de la face qui arrive. Sans cube possible — effets
+   * sobres, animations coupées, navigateur qui ne sait pas — rien ne change.
+   */
+  const [parCube, setParCube] = React.useState(false);
   const allerA = React.useCallback(
     (cible, sous = "") => {
-      setDirection(TAB_IDS.indexOf(cible) >= TAB_IDS.indexOf(tab) ? "droite" : "gauche");
+      const sens = TAB_IDS.indexOf(cible) >= TAB_IDS.indexOf(tab) ? "droite" : "gauche";
       vibrer("navigation", haptique);
+      const enCube =
+        cible !== tab &&
+        TAB_IDS.includes(cible) &&
+        tournerEnCube({
+          sens,
+          changer: () =>
+            flushSync(() => {
+              setDirection(sens);
+              setParCube(true);
+              allerVersMaintenant(cible, sous);
+            }),
+        });
+      if (enCube) return;
+      setDirection(sens);
+      // Seulement quand l'onglet change : la classe d'entrée ne doit pas
+      // revenir sur un écran déjà affiché, elle le rejouerait.
+      if (cible !== tab) setParCube(false);
       setTab(cible, sous);
     },
     [tab, setTab, haptique]
   );
+
+  // Décor propre à l'écran, derrière le contenu (voir FondVivant). Immobilier
+  // est un sous-onglet de Simulation : il se lit dans l'URL.
+  const sousOnglet = useSousOngletActuel();
+  const sceneFond =
+    tab === "bourse" || tab === "livrets" || tab === "coffre"
+      ? tab
+      : tab === "simulation" && sousOnglet === "immobilier"
+        ? "immobilier"
+        : null;
 
   /**
    * Index et actions de la palette de commandes.
@@ -387,6 +432,40 @@ export default function App() {
   }, [seance.ouvert, aDesLignes]);
 
   /*
+   * Le pingouin de l'en-tête réagit : lunettes de soleil sur un record,
+   * sourire en hausse, sueur en baisse (voir lib/humeur.js). L'en-tête est un
+   * composant web posé hors de React (index.html) : on lui parle par attribut.
+   */
+  const auPlusHaut = useMemo(
+    () => estAuPlusHaut({ historique: patrimoine.historyPast, patrimoineActuel: patrimoine.patrimoineNet, aujourdhui: todayIso() }),
+    [patrimoine.historyPast, patrimoine.patrimoineNet]
+  );
+  const humeur = humeurPingouin({ ghost: ghostMode, vivant: effetsVivantsActifs, auPlusHaut, variationJour });
+  useEffect(() => {
+    const entete = document.querySelector("orbit-header");
+    if (!entete) return undefined;
+    if (humeur) entete.setAttribute("mood", humeur);
+    else entete.removeAttribute("mood");
+    return () => entete.removeAttribute("mood");
+  }, [humeur]);
+
+  /*
+   * Argent qui voyage : un versement vers le PEA ou un livret, annoncé par
+   * l'écran qui l'enregistre (lib/voyage.js). Ambiance pure — effets sobres ou
+   * animations coupées, il ne se passe rien de plus que le message habituel.
+   */
+  const [voyages, setVoyages] = React.useState([]);
+  useEffect(
+    () =>
+      ecouterVoyages((v) => {
+        if (!effetsVivants()) return;
+        setVoyages((file) => [...file, { ...v, cle: `${Date.now()}-${Math.random()}` }].slice(-3));
+      }),
+    []
+  );
+  const voyageSuivant = React.useCallback(() => setVoyages((file) => file.slice(1)), []);
+
+  /*
    * Dividende encaissé : un moment, pour chaque dividende ajouté au journal
    * PENDANT la visite (saisi, importé d'un relevé, détecté). Ceux qui étaient
    * déjà là à l'ouverture ne sont pas rejoués.
@@ -455,6 +534,8 @@ export default function App() {
     const total = nouveaux.reduce((s, op) => s + (Number(op.montantNet ?? op.amount) || 0), 0);
     const titres = [...new Set(nouveaux.map((op) => op.asset).filter(Boolean))].join(", ");
     if (total <= 0) return;
+    // La pièce qui tinte — si les sons sont activés (coupés par défaut).
+    jouerSon("piece");
     annoncerMoment({
       type: "dividende",
       titre: titres ? `Versé par ${titres}` : "Versé dans ta poche cash",
@@ -771,11 +852,12 @@ export default function App() {
       <main
         id="contenu-principal"
         key={tab}
-        className={`coquille-zone zone-vivante entree-onglet flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 transition-colors duration-500 ${TAB_BG[tab] || ""}`}
+        className={`coquille-zone zone-vivante ${parCube ? "" : "entree-onglet"} flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 transition-colors duration-500 ${TAB_BG[tab] || ""}`}
       >
         {/* La teinte de l'onglet dérive derrière le contenu, et prend
             l'humeur de la séance (voir FondVivant). */}
         <FondVivant
+          scene={sceneFond}
           humeur={
             variationJour?.exploitable && variationJour.montant
               ? variationJour.montant > 0
@@ -876,7 +958,7 @@ export default function App() {
         {/* La clé force le remontage — et donc l'animation d'entrée — à chaque
             changement d'onglet. aria-live annonce le changement de section aux
             lecteurs d'écran, qui n'ont sinon aucun repère de navigation. */}
-        <div key={tab} className={direction === "droite" ? "page-entre-droite" : "page-entre-gauche"}>
+        <div key={tab} className={parCube ? undefined : direction === "droite" ? "page-entre-droite" : "page-entre-gauche"}>
           {/* Pas de bandeau de titre ici : chaque page porte son propre <h1>,
               visible, avec ses actions. Les deux s'empilaient et répétaient le
               même nom en haut de l'écran, là où la place compte le plus sur
@@ -894,6 +976,13 @@ export default function App() {
 
       {/* Record, palier, objectif atteint, dividende : leur propre scène. */}
       <Moments />
+
+      {/* Versement vers le PEA ou un livret : les pièces volent. */}
+      {voyages[0] && (
+        <Suspense fallback={null}>
+          <ArgentQuiVoyage key={voyages[0].cle} voyage={voyages[0]} onFin={voyageSuivant} />
+        </Suspense>
+      )}
 
       {/* Les sections au-delà de la quatrième, plus les actions qui vivaient
           uniquement dans la barre latérale — donc invisibles sous 768 px. */}

@@ -1,0 +1,150 @@
+/*
+ * Argent qui voyage (components/ArgentQuiVoyage.jsx).
+ *
+ * Feuille du fragment chargé à la demande. Tout est en `transform` et
+ * `opacity` : une dizaine de pièces pendant deux secondes, que le compositeur
+ * déplace sans repeindre.
+ *
+ * Une pièce, c'est trois éléments emboîtés, un par mouvement :
+ *   .voyage-piece        avance de gauche à droite, à vitesse constante ;
+ *   .voyage-piece-arc    monte puis retombe — ensemble, cela fait une parabole ;
+ *   .voyage-piece-disque tourne sur elle-même.
+ */
+.voyage {
+  position: fixed;
+  left: 50%;
+  bottom: 2.5rem;
+  /* Sous les moments (110), au-dessus de la barre de navigation. */
+  z-index: 108;
+  width: min(27rem, calc(100vw - 1.5rem));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(3rem, 0.9fr) minmax(0, 1fr);
+  align-items: end;
+  padding: 0.85rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgb(var(--c-slate-700));
+  background-color: rgb(var(--c-slate-900) / 0.96);
+  box-shadow: 0 30px 60px -28px rgb(0 0 0 / 0.85);
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: voyage-scene var(--duree, 3300ms) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (max-width: 767px) {
+  /* Au-dessus de la barre de navigation basse. */
+  .voyage { bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px)); }
+}
+@keyframes voyage-scene {
+  0% { opacity: 0; transform: translate(-50%, 24px) scale(0.94); }
+  9% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  90% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, 10px) scale(0.97); }
+}
+
+.voyage-carte {
+  --t: 84 81% 62%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.65rem 0.5rem;
+  border-radius: 0.9rem;
+  border: 1px solid hsl(var(--t) / 0.35);
+  background-image: linear-gradient(160deg, hsl(var(--t) / 0.16), transparent 70%);
+  text-align: center;
+}
+.voyage[data-genre="bourse"] .voyage-arrivee { --t: 252 95% 78%; }
+.voyage[data-genre="livret"] .voyage-arrivee { --t: 230 94% 76%; }
+.voyage-picto {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: hsl(var(--t));
+  background: hsl(var(--t) / 0.14);
+}
+.voyage-nom {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: rgb(var(--c-slate-200));
+}
+.voyage-montant {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--c-emerald-300));
+  white-space: nowrap;
+  opacity: 0;
+  animation: voyage-montant 420ms cubic-bezier(0.2, 1.3, 0.4, 1) 1250ms both;
+}
+@keyframes voyage-montant {
+  from { opacity: 0; transform: translateY(6px) scale(0.85); }
+  to { opacity: 1; transform: none; }
+}
+/* Le départ se vide un peu, l'arrivée encaisse : une pulsation par pièce. */
+.voyage-depart {
+  animation: voyage-depart 500ms ease-out 300ms;
+}
+@keyframes voyage-depart {
+  40% { transform: scale(0.96); }
+}
+.voyage-arrivee {
+  animation: voyage-arrivee 190ms ease-out 1180ms;
+  animation-iteration-count: var(--n, 6);
+}
+@keyframes voyage-arrivee {
+  45% { transform: scale(1.045); box-shadow: 0 0 22px -6px hsl(var(--t) / 0.8); }
+}
+
+/* La piste va du centre de la carte de départ au centre de celle d'arrivée. */
+.voyage-piste {
+  position: relative;
+  align-self: center;
+  height: 0;
+  margin: 0 -24%;
+}
+.voyage-piece {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  opacity: 0;
+  animation: voyage-avance 900ms linear both;
+  animation-delay: calc(360ms + var(--i, 0) * 95ms);
+}
+@keyframes voyage-avance {
+  0% { transform: translateX(0); opacity: 0; }
+  10% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+.voyage-piece-arc {
+  display: block;
+  width: 0;
+  animation: voyage-arc 900ms both;
+  animation-delay: calc(360ms + var(--i, 0) * 95ms);
+}
+@keyframes voyage-arc {
+  0% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.5, 1); }
+  50% { transform: translateY(calc(-1 * var(--arc, 60px))); animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.3); }
+  100% { transform: translateY(0); }
+}
+.voyage-piece-disque {
+  display: block;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: -0.475rem 0 0 -0.475rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #fff7d6, #fbbf24 45%, #b45309);
+  box-shadow: inset 0 0 0 1.5px #f59e0b, 0 4px 10px -3px rgb(251 191 36 / 0.7);
+  animation: voyage-tourne 900ms linear both;
+  animation-delay: calc(360ms + var(--i, 0) * 95ms);
+}
+@keyframes voyage-tourne {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(900deg); }
+}

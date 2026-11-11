@@ -12,6 +12,7 @@ import OrderSimulator from "./OrderSimulator";
 import ReparationJournal from "./ReparationJournal";
 import { useToast } from "../lib/ToastContext";
 import { exporterOperationsCsv } from "../lib/exportOperations";
+import { annoncerVoyage } from "../lib/voyage";
 
 
 /**
@@ -106,6 +107,10 @@ export default function Operations({ bourse, setBourse, presetOperation, onConsu
         type: "success",
         message: `${order.type === "VERSEMENT" ? "Versement" : "Retrait"} enregistré : ${order.type === "VERSEMENT" ? "+" : "−"}${eur(montant, 2)} sur la poche cash.`,
       });
+      // Les pièces volent du compte courant vers l'enveloppe (voir voyage.js).
+      if (order.type === "VERSEMENT") {
+        annoncerVoyage({ de: "Compte courant", vers: bourse?.envelope || "PEA", montant, genre: "bourse" });
+      }
       return true;
     }
 
