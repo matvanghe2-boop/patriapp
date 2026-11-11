@@ -20,6 +20,13 @@
  *   solid      — présent = fond opaque, pas de flou
  *   static     — présent = header non sticky
  *   compact    — présent = version dense (mascotte 30px, padding réduit)
+ *   mood       — humeur de la mascotte : record | hausse | baisse (absent = neutre)
+ *                record : lunettes de soleil ; hausse : sourire ; baisse : sueur
+ *   calm       — présent = l'humeur reste affichée mais ne s'anime pas
+ *
+ * `mood` et `calm` sont un ajout de Patrium à sa copie locale : ils sont
+ * ignorés par les autres sites du réseau, et à reporter dans le fichier du hub
+ * avant de recopier celui-ci par-dessus.
  */
 (function () {
   'use strict';
@@ -160,11 +167,43 @@
       '<path d="M41 44 l4 10 l-5 1.5 l-2.5 -9 z" fill="var(--p-accent)"/>'
     };
 
-  function penguinSVG(theme) {
+  // --- Humeurs : une expression posée PAR-DESSUS le corps et l'accessoire ---
+  // Le bec s'ouvre vers le bas pour sourire : sous lui, la cravate du thème
+  // finance ne laisse pas la place d'une bouche.
+  var SMILE = '<path d="M28 37.5 L36 37.5 L32 41.4 Z" fill="#C2410C"/>';
+  var MOODS = {
+    // 😎 lunettes de soleil, sourire, et un éclat sur le verre
+    record:
+      SMILE +
+      '<path d="M18.6 27.4 L13.2 25.8 M45.4 27.4 L50.8 25.8" stroke="#0B1220" stroke-width="1.8" stroke-linecap="round"/>' +
+      '<rect x="18.4" y="24.8" width="12.6" height="9.2" rx="3.4" fill="#0B1220"/>' +
+      '<rect x="33" y="24.8" width="12.6" height="9.2" rx="3.4" fill="#0B1220"/>' +
+      '<path d="M30.6 27.6 h2.8" stroke="#0B1220" stroke-width="2.2"/>' +
+      '<path d="M21.4 27 l3.2 4.6 M36 27 l3.2 4.6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity=".42"/>' +
+      '<path class="glint" d="M44.5 21 l1.1 2.9 l2.9 1.1 l-2.9 1.1 l-1.1 2.9 l-1.1 -2.9 l-2.9 -1.1 l2.9 -1.1 z" fill="#fff"/>',
+    // 😊 yeux plissés, joues roses, bec ouvert
+    hausse:
+      SMILE +
+      '<circle cx="26" cy="29" r="3.5" fill="#fff"/><circle cx="38" cy="29" r="3.5" fill="#fff"/>' +
+      '<path d="M23.5 30.2 q2.5 -3.4 5 0 M35.5 30.2 q2.5 -3.4 5 0" fill="none" stroke="#111" stroke-width="1.6" stroke-linecap="round"/>' +
+      '<ellipse cx="20.6" cy="35" rx="2.7" ry="1.7" fill="#FB7185" opacity=".6"/>' +
+      '<ellipse cx="43.4" cy="35" rx="2.7" ry="1.7" fill="#FB7185" opacity=".6"/>',
+    // 😰 sourcils inquiets et gouttes de sueur
+    baisse:
+      '<path d="M22.2 24.6 L27.6 22.6 M41.8 24.6 L36.4 22.6" stroke="#111" stroke-width="1.5" stroke-linecap="round"/>' +
+      '<g class="sweat">' +
+        '<path d="M47 13.5 q3.4 4.9 0 7.8 q-3.4 -2.9 0 -7.8 z" fill="#38BDF8"/>' +
+        '<path d="M46 17.6 q-.7 1.5 .2 2.5" stroke="#fff" stroke-width=".9" fill="none" stroke-linecap="round" opacity=".8"/>' +
+      '</g>' +
+      '<path class="sweat sweat-2" d="M15.5 19 q2.3 3.3 0 5.3 q-2.3 -2 0 -5.3 z" fill="#38BDF8" opacity=".85"/>'
+  };
+
+  function penguinSVG(theme, mood) {
     return (
       '<svg class="mascot" viewBox="0 0 64 64" aria-hidden="true" focusable="false">' +
         penguinBody() +
         (ACCESSORIES[theme] || ACCESSORIES.default) +
+        (MOODS[mood] ? '<g class="mood">' + MOODS[mood] + '</g>' : '') +
       '</svg>'
     );
   }
@@ -228,8 +267,22 @@
     '@media (max-width:680px){.badge{display:none}nav{gap:.9rem}.bar{padding:.6rem .9rem}}',
     '@media (max-width:420px){nav a.optional{display:none}.name{font-size:.9rem}}',
 
+    // Humeur : l'expression arrive d'un petit bond, la sueur perle, l'éclat scintille
+    '.mood{transform-box:fill-box;transform-origin:center;',
+      'animation:mood-pop .5s cubic-bezier(.34,1.56,.64,1)}',
+    '@keyframes mood-pop{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:none}}',
+    '.sweat{animation:sweat 2.4s ease-in infinite}',
+    '.sweat-2{animation-delay:1.1s}',
+    '@keyframes sweat{0%{opacity:0;transform:translateY(-2.5px)}16%{opacity:1}',
+      '68%{opacity:1;transform:translateY(3.5px)}100%{opacity:0;transform:translateY(6.5px)}}',
+    '.glint{transform-box:fill-box;transform-origin:center;animation:glint 3s ease-in-out infinite}',
+    '@keyframes glint{0%,62%,100%{opacity:0;transform:scale(.3) rotate(0)}',
+      '78%{opacity:1;transform:scale(1) rotate(45deg)}}',
+    ':host([calm]) .mood,:host([calm]) .sweat,:host([calm]) .glint{animation:none}',
+
     '@media (prefers-reduced-motion:reduce){.mascot{transition:none}',
-      '.brand:hover .mascot{transform:none}}'
+      '.brand:hover .mascot{transform:none}',
+      '.mood,.sweat,.glint{animation:none}}'
   ].join('');
 
   // --- Utilitaires ---------------------------------------------------------
@@ -347,7 +400,7 @@
   }
 
   var OBSERVED = ['app-name', 'theme', 'accent', 'accent-var', 'hub-url', 'github',
-                  'links', 'badge', 'appearance', 'solid', 'static', 'compact'];
+                  'links', 'badge', 'appearance', 'solid', 'static', 'compact', 'mood'];
 
   // --- Le composant --------------------------------------------------------
   class OrbitHeader extends HTMLElement {
@@ -454,7 +507,7 @@
           '<div class="wrap">' +
             '<a class="brand" href="' + esc(hubUrl) + '" aria-label="' + esc(appName) +
               ' — retour au hub Orbit">' +
-              penguinSVG(themeName) +
+              penguinSVG(themeName, this.getAttribute('mood')) +
               '<span class="name">' + esc(appName) + '</span>' +
             '</a>' +
             '<nav aria-label="Réseau Orbit">' +

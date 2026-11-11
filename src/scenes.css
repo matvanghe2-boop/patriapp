@@ -1,0 +1,737 @@
+/*
+ * SCÈNES — les effets illustrés de Patrium.
+ *
+ * effets.css anime ce qui existait déjà (cartes, courbes, fond). Ici vivent
+ * les effets qui DESSINENT quelque chose : piles de pièces, carte
+ * holographique, verre qui se remplit, rubans à particules, argent qui
+ * voyage, fonds propres à chaque onglet, cube de changement d'onglet.
+ *
+ * Les trois règles d'effets.css valent ici aussi :
+ *
+ *  · rien n'est masqué si le script qui l'anime ne tourne pas ;
+ *  · `data-mouvement="reduit"` (ou la préférence système, tant que
+ *    l'utilisateur ne l'a pas contredite) fige tout, dans l'état final ;
+ *  · `data-effets="sobre"` garde ce qui informe et retire l'ambiance.
+ *
+ * Et une quatrième, pour que l'application reste fluide : seules `transform`
+ * et `opacity` sont animées en continu — le compositeur s'en charge sans
+ * repeindre. Ce qui repeint (un tracé, un reflet) ne le fait qu'une fois, ou
+ * sous le curseur.
+ */
+
+/* ═══════════════════ PILES DE PIÈCES ══════════════════════════════════════
+ * components/PilesAllocation.jsx. Les pièces tombent l'une après l'autre
+ * quand la carte entre (lib/revelation.js pose `data-revele`), pile après
+ * pile. Sans le script de révélation, elles tombent au montage.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.piles-allocation {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 0.25rem;
+  padding: 0.25rem 0 0.5rem;
+}
+.pile {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.pile-dessin {
+  width: 100%;
+  max-width: 5.25rem;
+  height: auto;
+  overflow: visible;
+}
+.pile-ombre {
+  fill: rgb(0 0 0 / 0.28);
+}
+.piece-listel {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.32);
+  stroke-width: 0.9;
+}
+.piece-symbole {
+  font-family: "Fraunces Variable", "Fraunces", serif;
+  font-size: 11px;
+  font-weight: 700;
+  fill: rgb(0 0 0 / 0.42);
+}
+.pile-nom {
+  margin-top: 0.35rem;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  color: rgb(var(--c-slate-400));
+  overflow-wrap: anywhere;
+}
+.pile-chiffres {
+  font-size: 0.75rem;
+  color: rgb(var(--c-slate-200));
+  white-space: nowrap;
+}
+
+.piece-pile {
+  animation: piece-tombe 380ms cubic-bezier(0.3, 0.9, 0.4, 1) backwards;
+  animation-delay: calc(var(--retard, 0ms) + var(--i, 0) * 42ms + 160ms);
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes piece-tombe {
+  0% { transform: translateY(-46px); opacity: 0; }
+  55% { opacity: 1; }
+  78% { transform: translateY(1.6px); }
+  100% { transform: none; opacity: 1; }
+}
+/* La carte attend son tour : les pièces aussi. Elles partent quand elle entre. */
+:root[data-revele-pret] [data-revele="attente"] .piece-pile {
+  animation: none;
+  opacity: 0;
+}
+/* Au survol, la pile se déplie comme un accordéon. */
+@media (hover: hover) {
+  .pile:hover .piece-pile {
+    transform: translateY(calc(var(--i, 0) * -1.3px));
+  }
+}
+.pile-eclat {
+  fill: #fff;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pile-eclat 760ms ease-out both;
+  animation-delay: calc(var(--retard, 0ms) + var(--n, 1) * 42ms + 520ms);
+}
+@keyframes pile-eclat {
+  0% { opacity: 0; scale: 0.2; rotate: -30deg; }
+  45% { opacity: 0.95; scale: 1; }
+  100% { opacity: 0; scale: 0.3; rotate: 40deg; }
+}
+:root[data-revele-pret] [data-revele="attente"] .pile-eclat {
+  animation: none;
+}
+
+:root[data-mouvement="reduit"] .piece-pile,
+:root[data-mouvement="reduit"] .pile-eclat {
+  animation: none !important;
+  transition: none;
+  transform: none !important;
+}
+:root[data-mouvement="reduit"] .piece-pile { opacity: 1 !important; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-mouvement="complet"]) .piece-pile,
+  :root:not([data-mouvement="complet"]) .pile-eclat {
+    animation: none !important;
+    transition: none;
+    transform: none !important;
+  }
+  :root:not([data-mouvement="complet"]) .piece-pile { opacity: 1 !important; }
+}
+@media print {
+  .piece-pile { animation: none !important; opacity: 1 !important; }
+  .pile-eclat { display: none; }
+}
+
+/* ═══════════════════ CARTE HOLOGRAPHIQUE ══════════════════════════════════
+ * components/CartesPositions.jsx : la ligne la plus performante, façon carte
+ * de collection. Trois couches sous le contenu du recto — un liseré irisé,
+ * des bandes arc-en-ciel qui glissent avec le curseur, et un éclat blanc là
+ * où il se trouve. La position du curseur vient de lib/reflet.js
+ * (`--reflet-x` / `--reflet-y`), déjà posée sur toute carte `data-relief`.
+ *
+ * Sans souris (téléphone), les bandes balaient lentement la carte d'elles-
+ * mêmes. Effets sobres : il ne reste que l'étiquette « Meilleure ligne ».
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.carte-holo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 1.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: rgb(var(--c-amber-200));
+  border: 1px solid rgb(var(--c-amber-400) / 0.45);
+  background: rgb(var(--c-amber-400) / 0.1);
+}
+
+:root[data-effets="vivant"] .carte-position[data-holo] .carte-position-recto {
+  border-color: transparent;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 0% 0%, hsl(var(--marque) / 0.16), transparent 60%) padding-box,
+    linear-gradient(rgb(var(--c-slate-900)), rgb(var(--c-slate-900))) padding-box,
+    linear-gradient(125deg, hsl(322 92% 68%), hsl(42 96% 62%), hsl(158 82% 54%), hsl(198 95% 62%), hsl(272 90% 72%), hsl(322 92% 68%)) border-box;
+  box-shadow:
+    0 14px 30px -22px hsl(var(--marque) / 0.9),
+    0 0 26px -12px hsl(280 90% 70% / 0.55);
+}
+:root[data-effets="vivant"] .carte-position[data-holo] .carte-position-recto > :not(.carte-position-indice) {
+  position: relative;
+  z-index: 1;
+}
+:root[data-effets="vivant"] .carte-position[data-holo] .carte-position-recto::before,
+:root[data-effets="vivant"] .carte-position[data-holo] .carte-position-recto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* Les bandes irisées. Quatre fois plus grandes que la carte : le curseur n'en
+   montre jamais qu'un morceau, et c'est ce glissement qui fait l'hologramme. */
+:root[data-effets="vivant"] .carte-position[data-holo] .carte-position-recto::before {
+  background-image:
+    repeating-linear-gradient(
+      112deg,
+      hsl(2 100% 72% / 0) 0%,
+      hsl(2 100% 72%) 4%,
+      hsl(48 100% 66%) 9%,
+      hsl(96 90% 62%) 14%,
+      hsl(172 95% 62%) 19%,
+      hsl(222 100% 72%) 24%,
+      hsl(282 95% 72%) 29%,
+      hsl(330 100% 72% / 0) 34%
+    ),
+    repeating-linear-gradient(
+      68deg,
+      rgb(255 255 255 / 0) 0 7%,
+      rgb(255 255 255 / 0.55) 8%,
+      rgb(255 255 255 / 0) 9% 16%
+    );
+  background-size: 400% 400%, 260% 260%;
+  background-position:
+    var(--reflet-x, 30%) var(--reflet-y, 40%),
+    calc(100% - var(--reflet-x, 30%)) calc(100% - var(--reflet-y, 40%));
+  opacity: 0.1;
+  transition: opacity 260ms ease, background-position 140ms linear;
+}
+:root[data-effets="vivant"] .carte-position[data-holo][data-reflet] .carte-position-recto::before {
+  opacity: 0.3;
+}
+/* L'éclat : une tache de lumière sous le curseur. */
+:root[data-effets="vivant"] .carte-position[data-holo] .carte-position-recto::after {
+  background: radial-gradient(
+    38% 46% at var(--reflet-x, 50%) var(--reflet-y, 0%),
+    rgb(255 255 255 / 0.22),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+:root[data-effets="vivant"] .carte-position[data-holo][data-reflet] .carte-position-recto::after {
+  opacity: 1;
+}
+/* En clair, des bandes aussi vives délaveraient le texte. */
+:root[data-theme="clair"][data-effets="vivant"] .carte-position[data-holo][data-reflet] .carte-position-recto::before {
+  opacity: 0.2;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="sombre"])[data-effets="vivant"] .carte-position[data-holo][data-reflet] .carte-position-recto::before {
+    opacity: 0.2;
+  }
+}
+/* Sans survol possible : un balayage lent, de lui-même. */
+@media (hover: none) {
+  :root[data-effets="vivant"]:not([data-mouvement="reduit"]) .carte-position[data-holo] .carte-position-recto::before {
+    opacity: 0.2;
+    animation: holo-balayage 7s ease-in-out infinite alternate;
+  }
+}
+@keyframes holo-balayage {
+  from { background-position: 12% 20%, 88% 80%; }
+  to { background-position: 82% 70%, 18% 30%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-mouvement="complet"]) .carte-position[data-holo] .carte-position-recto::before {
+    animation: none;
+  }
+}
+
+/* ═══════════════════ LOGO EN FOND D'EN-TÊTE ═══════════════════════════════
+ * components/FicheLigne.jsx. Le logo de l'entreprise, agrandi et flouté,
+ * derrière l'en-tête de sa fiche. Une image fixe : le flou est calculé une
+ * fois, rien ne bouge.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.entete-marque {
+  overflow: hidden;
+}
+.entete-marque > :not(.entete-marque-fond) {
+  position: relative;
+  z-index: 1;
+}
+.entete-marque-fond {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* S'efface vers le bas et vers la gauche, où se lisent le nom et le ticker. */
+  -webkit-mask-image: linear-gradient(100deg, transparent 18%, #000 78%);
+  mask-image: linear-gradient(100deg, transparent 18%, #000 78%);
+}
+.entete-marque-fond img {
+  position: absolute;
+  right: -1.5rem;
+  top: 50%;
+  width: 11rem;
+  height: 11rem;
+  object-fit: contain;
+  transform: translateY(-50%) rotate(-8deg);
+  filter: blur(22px) saturate(1.7);
+  opacity: 0.6;
+}
+:root[data-theme="clair"] .entete-marque-fond img { opacity: 0.4; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="sombre"]) .entete-marque-fond img { opacity: 0.4; }
+}
+@media print {
+  .entete-marque-fond { display: none; }
+}
+
+/* ═══════════════════ EMOJIS 3D DES CATÉGORIES ═════════════════════════════
+ * components/OperationsCompte.jsx (PastilleCategorie). L'image est fixe ; au
+ * survol de la ligne, elle rebondit — une fois, pas en boucle. La couleur de
+ * la pastille continue de dire la famille (dépense, revenu, interne).
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.emoji-3d {
+  display: block;
+  object-fit: contain;
+  user-select: none;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3));
+}
+@media (hover: hover) {
+  :root[data-effets="vivant"]:not([data-mouvement="reduit"]) button:hover > .pastille-categorie .emoji-3d,
+  :root[data-effets="vivant"]:not([data-mouvement="reduit"]) li:hover > .pastille-categorie .emoji-3d,
+  :root[data-effets="vivant"]:not([data-mouvement="reduit"]) .pastille-categorie:hover .emoji-3d {
+    animation: emoji-rebond 640ms cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+}
+@keyframes emoji-rebond {
+  0% { transform: none; }
+  28% { transform: translateY(-5px) scale(1.2) rotate(-9deg); }
+  52% { transform: translateY(0) scale(0.95) rotate(5deg); }
+  74% { transform: translateY(-2px) scale(1.06) rotate(-2deg); }
+  100% { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-mouvement="complet"]) .emoji-3d { animation: none !important; }
+}
+
+/* ═══════════════════ JAUGE D'EAU DU MATELAS ═══════════════════════════════
+ * components/JaugeMatelas.jsx. Le niveau est fixe (il informe) ; la houle, les
+ * bulles et les gouttes ne tournent qu'en effets vivants. La houle est une
+ * translation d'une longueur d'onde exactement : la boucle ne se voit pas.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.jauge-matelas {
+  --eau: 205 92% 62%;
+  width: 3.5rem;
+  height: auto;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.jauge-matelas[data-deborde] {
+  --eau: 152 68% 50%;
+}
+.jauge-verre {
+  fill: rgb(255 255 255 / 0.035);
+  stroke: rgb(var(--c-slate-400));
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jauge-reflet {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.28);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.jauge-graduations path {
+  stroke: rgb(var(--c-slate-500));
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+.jauge-graduations text {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7.5px;
+  fill: rgb(var(--c-slate-500));
+}
+.jauge-vague-a { fill: hsl(var(--eau) / 0.78); }
+.jauge-vague-b { fill: hsl(var(--eau) / 0.42); }
+.jauge-bulle {
+  fill: rgb(255 255 255 / 0.55);
+  opacity: 0;
+}
+.jauge-flaque { fill: hsl(var(--eau) / 0.28); }
+.jauge-goutte {
+  fill: hsl(var(--eau));
+  opacity: 0;
+}
+/* Verre immobile : les gouttes restent posées sur le bord, pour que le
+   débordement se lise sans mouvement. */
+.jauge-matelas[data-deborde] .jauge-goutte {
+  opacity: 0.9;
+  transform: translateY(6px);
+}
+
+/* L'eau monte à l'arrivée de la carte. */
+.jauge-eau {
+  animation: eau-monte 1500ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms backwards;
+}
+@keyframes eau-monte {
+  from { transform: translateY(var(--course, 40px)); }
+  to { transform: none; }
+}
+:root[data-revele-pret] [data-revele="attente"] .jauge-eau {
+  animation: none;
+  transform: translateY(var(--course, 40px));
+}
+
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) .jauge-vague-a {
+  animation: houle 3.6s linear infinite;
+}
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) .jauge-vague-b {
+  animation: houle 5.2s linear infinite reverse;
+}
+@keyframes houle {
+  from { transform: translateX(0); }
+  to { transform: translateX(32px); }
+}
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) .jauge-bulle {
+  animation: bulle-verre 3.4s ease-in infinite 1.2s;
+}
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) .jauge-bulle-2 {
+  animation-duration: 4.6s;
+  animation-delay: 2.4s;
+}
+@keyframes bulle-verre {
+  0% { opacity: 0; transform: translateY(18px); }
+  20% { opacity: 0.7; }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) .jauge-matelas[data-deborde] .jauge-goutte {
+  animation: goutte-deborde 2.6s cubic-bezier(0.5, 0, 0.9, 0.6) infinite;
+}
+:root[data-effets="vivant"]:not([data-mouvement="reduit"]) .jauge-matelas[data-deborde] .jauge-goutte-d {
+  animation-delay: 1.3s;
+}
+@keyframes goutte-deborde {
+  0% { opacity: 0; transform: translate(0, 0); }
+  12% { opacity: 0.95; }
+  82% { opacity: 0.95; transform: translate(var(--pente, 4px), 58px); }
+  100% { opacity: 0; transform: translate(var(--pente, 4px), 62px); }
+}
+.jauge-goutte-d { --pente: -4px; }
+
+:root[data-mouvement="reduit"] .jauge-eau { animation: none !important; transform: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-mouvement="complet"]) .jauge-eau { animation: none !important; transform: none !important; }
+  :root:not([data-mouvement="complet"]) .jauge-vague,
+  :root:not([data-mouvement="complet"]) .jauge-bulle,
+  :root:not([data-mouvement="complet"]) .jauge-goutte { animation: none !important; }
+}
+@media print {
+  .jauge-eau { animation: none !important; transform: none !important; }
+}
+
+/* ═══════════════════ FLUX DU MOIS EN RUBANS ═══════════════════════════════
+ * components/RubansFlux.jsx. Les rubans se révèlent de gauche à droite avec
+ * leur carte (lib/revelation.js, `data-trace="courbe"`) ; les particules sont
+ * animées en SMIL et n'existent qu'en effets vivants.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.rubans-flux {
+  width: 100%;
+  overflow: hidden;
+}
+.rubans-flux svg {
+  display: block;
+  /* Le schéma est dessiné à la largeur mesurée de la carte. Si celle-ci
+     rétrécit avant la mesure suivante, il se réduit au lieu d'être rogné. */
+  max-width: 100%;
+  height: auto;
+}
+.ruban {
+  cursor: pointer;
+  transition: opacity 180ms ease;
+}
+.ruban[data-efface] {
+  opacity: 0.3;
+}
+.ruban-aire {
+  transition: filter 180ms ease;
+}
+.ruban[data-actif] .ruban-aire {
+  filter: brightness(1.35) saturate(1.2);
+}
+.ruban-etiquette {
+  font-size: 11px;
+  fill: rgb(var(--c-slate-400));
+}
+.ruban[data-actif] .ruban-etiquette {
+  fill: rgb(var(--c-slate-100));
+}
+.ruban-centre {
+  fill: hsl(var(--teinte));
+}
+.ruban-particule {
+  pointer-events: none;
+}
+.rubans-detail {
+  min-height: 1.25rem;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: rgb(var(--c-slate-300));
+  text-align: center;
+}
+@media print {
+  .ruban-particule { display: none; }
+  .rubans-detail { display: none; }
+}
+
+/* ═══════════════════ FONDS PAR ONGLET ═════════════════════════════════════
+ * components/FondVivant.jsx. Un décor par écran, posé sur les nappes de
+ * couleur, dans le même calque collant. Effets sobres : le calque entier
+ * disparaît (effets.css). Mouvement réduit ou appareil économe : le décor
+ * reste, immobile — et le plan de maison est montré déjà tracé.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.fond-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── Bourse : chandeliers flous qui défilent ──
+   La piste fait deux fois la largeur de l'écran et glisse de sa moitié. Le
+   flou est calculé une fois sur le calque ; le déplacement est une simple
+   translation. */
+.fond-chandeliers {
+  top: auto;
+  bottom: 3%;
+  height: 46%;
+  opacity: 0.2;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.fond-chandeliers-piste {
+  display: block;
+  width: 200%;
+  height: 100%;
+  filter: blur(2.5px);
+  will-change: transform;
+  animation: chandeliers-defilent 110s linear infinite;
+}
+@keyframes chandeliers-defilent {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+.fond-chandeliers-piste line {
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.chandelier-hausse line { stroke: rgb(var(--c-emerald-400)); }
+.chandelier-hausse rect { fill: rgb(var(--c-emerald-400)); }
+.chandelier-baisse line { stroke: rgb(var(--c-rose-400)); }
+.chandelier-baisse rect { fill: rgb(var(--c-rose-400)); }
+
+/* ── Livrets : bulles qui montent ── */
+.fond-bulle {
+  position: absolute;
+  bottom: -5rem;
+  border-radius: 50%;
+  border: 1px solid hsl(var(--teinte-h, 230) 90% 78% / 0.34);
+  background: radial-gradient(circle at 32% 28%, hsl(var(--teinte-h, 230) 95% 88% / 0.22), transparent 62%);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: bulle-monte 20s linear infinite;
+}
+@keyframes bulle-monte {
+  0% { transform: translate3d(0, 0, 0) scale(0.7); opacity: 0; }
+  8% { opacity: 0.55; }
+  50% { transform: translate3d(var(--derive, 30px), -62vh, 0) scale(1); opacity: 0.4; }
+  100% { transform: translate3d(calc(var(--derive, 30px) * -0.4), -124vh, 0) scale(1.15); opacity: 0; }
+}
+
+/* ── Immobilier : un plan de maison qui se dessine ──
+   Chaque tracé a une longueur ramenée à 1 (`pathLength`) : il part masqué et
+   se découvre, l'un après l'autre. */
+.fond-plan {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 3%;
+  opacity: 0.13;
+}
+.fond-plan svg {
+  width: min(78vmin, 46rem);
+  height: auto;
+  transform: rotate(-5deg);
+  overflow: visible;
+}
+.plan-trait {
+  fill: none;
+  stroke: hsl(var(--teinte-h, 353) 80% 74%);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: plan-trace 1500ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation-delay: calc(300ms + var(--i, 0) * 260ms);
+}
+.plan-trait-gros { stroke-width: 2.8; animation-duration: 2200ms; }
+.plan-trait-fin { stroke-width: 1; }
+@keyframes plan-trace {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Coffre : métal brossé ──
+   Des stries horizontales très fines, le cadran d'une porte forte en haut à
+   droite, et un reflet qui traverse lentement. */
+.fond-metal {
+  background-image:
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, rgb(148 163 184 / 0.07), transparent 45%, rgb(148 163 184 / 0.05));
+}
+.fond-metal-cadran {
+  position: absolute;
+  top: -11vmax;
+  right: -9vmax;
+  width: 44vmax;
+  height: 44vmax;
+  border-radius: 50%;
+  background-image:
+    repeating-conic-gradient(from 0deg, rgb(255 255 255 / 0.05) 0deg 1.2deg, transparent 1.2deg 3deg),
+    radial-gradient(circle, transparent 0 21%, rgb(255 255 255 / 0.07) 21.4% 22%, transparent 22.4% 61%, rgb(255 255 255 / 0.06) 61.4% 62.2%, transparent 62.6%);
+  -webkit-mask-image: radial-gradient(circle, #000 0 62%, transparent 70%);
+  mask-image: radial-gradient(circle, #000 0 62%, transparent 70%);
+  will-change: transform;
+  animation: cadran-tourne 140s linear infinite;
+}
+@keyframes cadran-tourne {
+  to { transform: rotate(360deg); }
+}
+.fond-metal-reflet {
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: -40%;
+  width: 46%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.055) 45%, rgb(255 255 255 / 0.09) 50%, rgb(255 255 255 / 0.055) 55%, transparent);
+  will-change: transform;
+  animation: metal-reflet 17s ease-in-out infinite;
+}
+@keyframes metal-reflet {
+  0%, 12% { transform: translate3d(0, 0, 0); }
+  70%, 100% { transform: translate3d(340%, 0, 0); }
+}
+
+/* Immobile : mouvement réduit, appareil économe. Le plan est montré tracé. */
+:root[data-mouvement="reduit"] .fond-decor *,
+.fond-vivant[data-econome] .fond-decor * {
+  animation: none !important;
+}
+:root[data-mouvement="reduit"] .plan-trait,
+.fond-vivant[data-econome] .plan-trait {
+  stroke-dashoffset: 0;
+}
+:root[data-mouvement="reduit"] .fond-bulle,
+.fond-vivant[data-econome] .fond-bulle {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-mouvement="complet"]) .fond-decor * { animation: none !important; }
+  :root:not([data-mouvement="complet"]) .plan-trait { stroke-dashoffset: 0; }
+  :root:not([data-mouvement="complet"]) .fond-bulle { display: none; }
+}
+
+/* ═══════════════════ CHANGEMENT D'ONGLET EN CUBE ══════════════════════════
+ * App.jsx (allerA) et lib/cube.js. L'ancien écran et le nouveau sont les deux
+ * faces voisines d'un cube qui tourne d'un quart de tour : deux instantanés
+ * pris par le navigateur (View Transitions), que le compositeur fait pivoter
+ * sans rien recalculer de la page. Effets vivants seulement ; là où l'API
+ * manque, le glissement d'origine reste.
+ *
+ * La face repose à plat (z = 0) et tourne autour d'un axe situé une
+ * demi-largeur derrière elle : c'est le recul puis l'avancée (`translateZ`)
+ * de part et d'autre de la rotation qui en font un cube plutôt qu'une porte.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-cube] #contenu-principal {
+  view-transition-name: page-onglet;
+}
+/* Le reste de l'écran (navigation, en-tête) ne fond pas : il change d'un coup. */
+:root[data-cube]::view-transition-old(root),
+:root[data-cube]::view-transition-new(root) {
+  animation: none;
+}
+:root[data-cube]::view-transition-group(page-onglet) {
+  animation-duration: 560ms;
+  animation-timing-function: cubic-bezier(0.45, 0.05, 0.2, 1);
+  /* Les arêtes du cube ne débordent pas sur la barre de navigation. */
+  overflow: clip;
+}
+:root[data-cube]::view-transition-old(page-onglet),
+:root[data-cube]::view-transition-new(page-onglet) {
+  --persp: calc(var(--cube-prof, 600px) * 3.2);
+  animation-duration: 560ms;
+  animation-timing-function: cubic-bezier(0.45, 0.05, 0.2, 1);
+  animation-fill-mode: both;
+  backface-visibility: hidden;
+  mix-blend-mode: normal;
+}
+:root[data-cube]::view-transition-old(page-onglet) {
+  transform-origin: 50% var(--cube-y-avant, 50vh);
+}
+:root[data-cube]::view-transition-new(page-onglet) {
+  transform-origin: 50% var(--cube-y-apres, 50vh);
+}
+:root[data-cube="droite"]::view-transition-old(page-onglet) { animation-name: cube-sort-a-gauche; }
+:root[data-cube="droite"]::view-transition-new(page-onglet) { animation-name: cube-entre-par-droite; }
+:root[data-cube="gauche"]::view-transition-old(page-onglet) { animation-name: cube-sort-a-droite; }
+:root[data-cube="gauche"]::view-transition-new(page-onglet) { animation-name: cube-entre-par-gauche; }
+
+@keyframes cube-sort-a-gauche {
+  from {
+    transform: perspective(var(--persp)) translateZ(calc(-1 * var(--cube-prof, 600px))) rotateY(0deg) translateZ(var(--cube-prof, 600px));
+    filter: brightness(1);
+  }
+  to {
+    transform: perspective(var(--persp)) translateZ(calc(-1 * var(--cube-prof, 600px))) rotateY(-90deg) translateZ(var(--cube-prof, 600px));
+    filter: brightness(0.4);
+  }
+}
+@keyframes cube-entre-par-droite {
+  from {
+    transform: perspective(var(--persp)) translateZ(calc(-1 * var(--cube-prof, 600px))) rotateY(90deg) translateZ(var(--cube-prof, 600px));
+    filter: brightness(0.4);
+  }
+  to {
+    transform: perspective(var(--persp)) translateZ(calc(-1 * var(--cube-prof, 600px))) rotateY(0deg) translateZ(var(--cube-prof, 600px));
+    filter: brightness(1);
+  }
+}
+@keyframes cube-sort-a-droite {
+  from {
+    transform: perspective(var(--persp)) translateZ(calc(-1 * var(--cube-prof, 600px))) rotateY(0deg) translateZ(var(--cube-prof, 600px));
+    filter: brightness(1);
+  }
+  to {
+    transform: perspective(var(--persp)) translateZ(calc(-1 * var(--cube-prof, 600px))) rotateY(90deg) translateZ(var(--cube-prof, 600px));
+    filter: brightness(0.4);
+  }
+}
+@keyframes cube-entre-par-gauche {
+  from {
+    transform: perspective(var(--persp)) translateZ(calc(-1 * var(--cube-prof, 600px))) rotateY(-90deg) translateZ(var(--cube-prof, 600px));
+    filter: brightness(0.4);
+  }
+  to {
+    transform: perspective(var(--persp)) translateZ(calc(-1 * var(--cube-prof, 600px))) rotateY(0deg) translateZ(var(--cube-prof, 600px));
+    filter: brightness(1);
+  }
+}

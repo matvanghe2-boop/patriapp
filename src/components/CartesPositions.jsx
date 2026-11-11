@@ -1,5 +1,5 @@
 import { forwardRef, useState } from "react";
-import { RotateCcw, BookOpen, NotebookPen, Coins, CalendarClock, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { RotateCcw, BookOpen, NotebookPen, Coins, CalendarClock, ArrowUpRight, ArrowDownRight, Crown } from "lucide-react";
 import AssetLogo from "./AssetLogo";
 import { Sparkline } from "./graphiques";
 import { eur, pct, pctPlain, valeurPosition, todayIso } from "../lib/finance";
@@ -14,6 +14,12 @@ import { styleMarque } from "../lib/couleursMarques";
  * prochain rendez-vous. Les chiffres sont ceux du tableau, rien n'est
  * recalculé à part.
  *
+ * La ligne la plus performante — la meilleure plus-value latente en
+ * pourcentage, depuis l'achat — reçoit une carte HOLOGRAPHIQUE, façon carte de
+ * collection : un reflet irisé qui suit la souris (scenes.css). Une seule
+ * carte, jamais deux, et seulement si elle est réellement en gain ; l'étiquette
+ * « Meilleure ligne » le dit en toutes lettres, effets coupés compris.
+ *
  * Accessibilité : chaque face est un ensemble à part. Le recto est un bouton
  * « Retourner » ; la face cachée est rendue inerte, pour qu'on ne tabule
  * jamais dans un texte invisible.
@@ -22,12 +28,14 @@ const CartesPositions = forwardRef(function CartesPositions(
   { positions, total, strategyNotes = [], evenements = [], seriesCours = {}, dailyData = {}, onOuvrirFiche },
   ref
 ) {
+  const idMeilleure = meilleureLigne(positions);
   return (
     <div ref={ref} className="cartes-positions grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
       {positions.map((p, i) => (
         <CartePosition
           key={p.id}
           rang={i}
+          meilleure={p.id === idMeilleure}
           position={p}
           total={total}
           these={derniereThese(strategyNotes, p.ticker)}
@@ -41,6 +49,22 @@ const CartesPositions = forwardRef(function CartesPositions(
   );
 });
 export default CartesPositions;
+
+/**
+ * Identifiant de la ligne la plus performante : meilleure plus-value latente
+ * en pourcentage du prix de revient. `null` si aucune ligne n'est en gain —
+ * une carte de collection ne récompense pas la moins mauvaise des pertes.
+ */
+export function meilleureLigne(positions = []) {
+  let meilleure = null;
+  for (const p of positions) {
+    const cout = (Number(p.pru) || 0) * (Number(p.quantity) || 0);
+    if (cout <= 0) continue;
+    const gainPct = (valeurPosition(p) - cout) / cout;
+    if (gainPct > 0 && (!meilleure || gainPct > meilleure.gainPct)) meilleure = { id: p.id, gainPct };
+  }
+  return meilleure ? meilleure.id : null;
+}
 
 function derniereThese(notes, ticker) {
   const t = String(ticker || "").toUpperCase();
@@ -61,7 +85,7 @@ function prochainEvenement(evenements, ticker) {
   );
 }
 
-function CartePosition({ rang, position: p, total, these, prochain, serie = [], jour = null, onOuvrirFiche }) {
+function CartePosition({ rang, position: p, total, these, prochain, serie = [], jour = null, meilleure = false, onOuvrirFiche }) {
   const [retournee, setRetournee] = useState(false);
   const valeur = valeurPosition(p);
   const cout = (Number(p.pru) || 0) * (Number(p.quantity) || 0);
@@ -81,6 +105,7 @@ function CartePosition({ rang, position: p, total, these, prochain, serie = [], 
       data-flip={p.id}
       data-relief=""
       data-retournee={retournee ? "" : undefined}
+      data-holo={meilleure ? "" : undefined}
       style={{ ...styleMarque(p.ticker), "--i": Math.min(rang, 12) }}
     >
       <div className="carte-position-interieur">
@@ -103,6 +128,11 @@ function CartePosition({ rang, position: p, total, these, prochain, serie = [], 
               </span>
               <span className="block truncate text-micro text-slate-500">{nom}</span>
             </span>
+            {meilleure && (
+              <span className="carte-holo-badge" title="Ta meilleure plus-value en pourcentage, depuis l'achat">
+                <Crown size={11} aria-hidden="true" /> Meilleure ligne
+              </span>
+            )}
           </span>
 
           <span className="flex items-end justify-between gap-3 text-left mt-4">

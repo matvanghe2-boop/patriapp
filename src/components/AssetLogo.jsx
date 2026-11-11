@@ -27,6 +27,15 @@ function initials(ticker, name) {
   return base.slice(0, 2).toUpperCase();
 }
 
+/**
+ * Adresse du logo d'une valeur, ou `null` si son domaine n'est pas connu.
+ * Partagée avec la fiche d'une ligne, qui s'en sert comme fond d'en-tête.
+ */
+export function urlLogo(ticker) {
+  const domaine = DOMAIN_OVERRIDES[String(ticker || "").toUpperCase()];
+  return domaine ? `https://icons.duckduckgo.com/ip3/${domaine}.ico` : null;
+}
+
 const SIZES = { xs: "w-5 h-5 text-[9px]", sm: "w-7 h-7 text-micro", md: "w-9 h-9 text-xs" };
 
 /**
@@ -37,8 +46,6 @@ const SIZES = { xs: "w-5 h-5 text-[9px]", sm: "w-7 h-7 text-micro", md: "w-9 h-9
 export default function AssetLogo({ ticker, name, size = "sm", className = "" }) {
   const [errored, setErrored] = useState(false);
   const sizeCls = SIZES[size] || SIZES.sm;
-  const upperTicker = String(ticker || "").toUpperCase();
-  const domain = DOMAIN_OVERRIDES[upperTicker];
 
   // Le service "par ticker" (financialmodelingprep) résout le symbole sans
   // tenir compte de la place boursière et n'est fiable que pour des tickers
@@ -46,7 +53,7 @@ export default function AssetLogo({ ticker, name, size = "sm", className = "" })
   // On utilise donc uniquement les domaines connus, via le service de
   // favicon de DuckDuckGo (fiable, rarement bloqué par les extensions
   // anti-tracking, contrairement à Clearbit qui y est souvent catalogué).
-  const logoUrl = domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null;
+  const logoUrl = urlLogo(ticker);
 
   if (!ticker || errored || !logoUrl) {
     return (

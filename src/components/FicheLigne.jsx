@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, NotebookPen, CalendarDays, Coins, ListOrdered, Link2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
 import Modal from "./Modal";
-import AssetLogo from "./AssetLogo";
+import AssetLogo, { urlLogo } from "./AssetLogo";
 import { styleMarque } from "../lib/couleursMarques";
 import { eur, pct, pctPlain, nombre, valeurPosition, coutPosition, compact } from "../lib/finance";
 import { fetchHistory } from "../lib/api";
@@ -161,6 +161,11 @@ export default function FicheLigne({
             haut de la fiche : on sait d'un coup d'œil de quelle ligne on
             parle, avant d'avoir lu son nom. */}
         <div className="avec-marque entete-marque flex items-center gap-3 pr-8" style={styleMarque(ticker)}>
+          {/* Le logo lui-même, agrandi et flouté, en fond d'en-tête : il ne
+              reste de lui que sa couleur et sa masse, comme une affiche vue
+              de trop près. Décoratif — il disparaît sans bruit si l'image
+              manque. */}
+          <FondLogo ticker={ticker} />
           {/* Noms de transition partagés avec la ligne d'où la fiche s'ouvre
               (lib/morph.js) : une seule fiche est ouverte à la fois. */}
           <span className="inline-flex shrink-0" style={{ viewTransitionName: "ligne-logo" }}>
@@ -367,5 +372,17 @@ export default function FicheLigne({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** Logo agrandi et flouté derrière l'en-tête de la fiche (voir scenes.css). */
+function FondLogo({ ticker }) {
+  const [absent, setAbsent] = useState(false);
+  const url = urlLogo(ticker);
+  if (!url || absent) return null;
+  return (
+    <span className="entete-marque-fond" aria-hidden="true">
+      <img src={url} alt="" loading="lazy" decoding="async" onError={() => setAbsent(true)} />
+    </span>
   );
 }

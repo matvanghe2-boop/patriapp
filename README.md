@@ -406,6 +406,8 @@ Sans clé configurée ni connexion à `/api/rates` (ex : `npm run dev` sans `ver
 Un mouvement doit dire quelque chose — le sens d'une variation, son ampleur, une
 progression — et jamais retarder la navigation. Les effets vivent dans
 [`src/effets.css`](src/effets.css) et, pour ce qui tourne hors de React, dans `src/lib/`.
+Les effets qui DESSINENT quelque chose (piles de pièces, verre d'eau, rubans, décors…) ont
+leur feuille, [`src/scenes.css`](src/scenes.css) — voir « Scènes » plus bas.
 
 - **Réglages** (Apparence) : « Animations » (Auto / Oui / Non) pose `data-mouvement` sur
   `<html>` ; « Effets » (Vivants / Sobres) pose `data-effets`. Sobre garde ce qui informe (une
@@ -488,6 +490,66 @@ progression — et jamais retarder la navigation. Les effets vivent dans
 - **Mode Ghost dans les fenêtres** : la classe `ghost-mode` est aussi posée sur `<body>`, pour
   caviarder les montants des modales et du récit, rendus dans un portail hors de la coquille.
 
+### Scènes
+
+Les effets illustrés, dans [`src/scenes.css`](src/scenes.css). Une règle de plus que pour le
+reste, pour que l'application reste fluide : seules `transform` et `opacity` sont animées en
+continu (le compositeur s'en charge sans repeindre) ; ce qui repeint ne le fait qu'une fois, ou
+sous le curseur. Tout ce qui est ambiance disparaît en effets sobres et se fige en mouvement
+réduit ; les montants restent caviardés par le mode Ghost.
+
+- **Piles de pièces** (`components/PilesAllocation.jsx`, carte « Allocation » du Dashboard) :
+  une pile par poche — compte courant compris —, dont la hauteur suit le montant ; les pièces
+  tombent l'une sur l'autre à l'arrivée de la carte. Sélecteur « Piles | Anneau » (mémorisé dans
+  `dashboardVueAllocation`) ; effets sobres ou animations coupées, l'anneau revient d'office.
+- **Carte holographique** (`components/CartesPositions.jsx`) : la ligne à la meilleure
+  plus-value latente en pourcentage (`meilleureLigne`, seulement si elle est en gain) reçoit un
+  reflet irisé qui suit la souris, et l'étiquette « Meilleure ligne ». Sans souris, le reflet
+  balaie lentement la carte.
+- **Logo en fond d'en-tête** (`components/FicheLigne.jsx`) : le logo de l'entreprise, agrandi et
+  flouté, derrière l'en-tête de sa fiche. Image fixe ; absent si le logo manque.
+- **Emojis 3D des catégories** (`PastilleCategorie`, `public/emoji/`) : une image par catégorie
+  du compte courant, nommée d'après son identifiant. Ce sont les « Fluent Emoji » 3D de
+  Microsoft (licence MIT, voir `public/emoji/LICENCE.txt`), réduits à 96 px et servis depuis
+  l'application. Ils rebondissent au survol de leur ligne ; l'icône au trait reprend sa place
+  si l'image manque. Les versions animées de Microsoft ne sont pas sous licence libre : le
+  rebond est fait en CSS.
+- **Le pingouin réagit** (`src/lib/humeur.js`, attribut `mood` de `public/orbit-header.js`) :
+  lunettes de soleil quand le patrimoine dépasse son plus haut historique, sourire quand le
+  portefeuille monte aujourd'hui, sueur quand il baisse. Neutre en mode Ghost, en effets sobres
+  et en mouvement réduit. `mood` est un ajout à la copie locale de l'en-tête Orbit : à reporter
+  dans le fichier du hub avant de recopier celui-ci par-dessus.
+- **Jauge d'eau du matelas** (`components/JaugeMatelas.jsx`, onglet Livrets) : un verre qui se
+  remplit jusqu'à six mois de dépenses, gradué à trois et six. Au-delà, l'eau passe au vert et
+  déborde. Le niveau reste affiché dans tous les modes ; la houle et les gouttes sont de
+  l'ambiance.
+- **Flux du mois en rubans** (`components/RubansFlux.jsx`, Compte courant > Analyse) : d'où vient
+  l'argent, où il part, la largeur d'un ruban étant son montant ; des particules coulent le long
+  (SMIL, en pause hors de l'écran, absentes sur un appareil économe). Il remplace le diagramme de
+  Sankey de recharts et s'affiche aussi sur téléphone. Survoler ou toucher un ruban donne son
+  montant.
+- **Boule de neige** (`components/BouleDeNeige.jsx`, Simulation > Projection) : une boule dévale
+  une pente au fil des années de la projection. Sa surface suit le capital : le cœur est ce qui a
+  été versé, la couche blanche ce que les intérêts ont ajouté. Canvas animé pendant la descente
+  seulement ; un curseur la déplace d'une année à l'autre. Fragment chargé à la demande, quand la
+  carte approche de l'écran.
+- **Argent qui voyage** (`src/lib/voyage.js`, `components/ArgentQuiVoyage.jsx`) : à
+  l'enregistrement d'un versement sur le PEA (Opérations) ou d'un dépôt sur un livret, une scène
+  de trois secondes montre les pièces voler du compte courant à leur destination. Fragment chargé
+  au premier versement ; effets vivants seulement.
+- **Fonds par onglet** (`components/FondVivant.jsx`, prop `scene`) : chandeliers flous qui
+  défilent (Bourse), bulles qui montent (Livrets), plan de maison qui se dessine (Simulation >
+  Immobilier), métal brossé et cadran de porte forte (Coffre). Le sous-onglet est suivi par
+  `useSousOngletActuel` (`src/lib/useHashRoute.js`).
+- **Changement d'onglet en cube** (`src/lib/cube.js`) : en effets vivants, l'écran quitté et
+  l'écran d'arrivée sont deux faces voisines d'un cube qui tourne d'un quart de tour (API View
+  Transitions). Sans elle, ou sur un appareil économe, le glissement d'origine reste.
+  `allerVersMaintenant` (`useHashRoute.js`) navigue de façon synchrone, ce que la transition
+  exige.
+- **Sons** (`src/lib/sons.js`, réglage « Sons » d'Apparence, coupé par défaut) : une pièce qui
+  tinte sur un dividende, un « clac » à l'ouverture du coffre. Synthétisés par Web Audio — aucun
+  fichier. `data-sons` sur `<html>` porte le réglage.
+
 ## 🗂️ Structure du projet
 
 L'arborescence complète et à jour est dans `structure.txt`, régénéré par
@@ -514,6 +576,7 @@ patrium/
 │   ├── anonymiser.js           # base 100 + audit de fuite
 │   └── ratesCatalog.js  screener.js  dividendes.js  reequilibrage.js  …
 ├── public/                     # manifest PWA, service worker, icônes, orbit-header.js
+│   └── emoji/                  # emojis 3D des catégories du compte courant (Fluent, MIT)
 ├── sql/
 │   └── schema.sql              # table kv_store + RLS, bucket « coffre »
 ├── src/
@@ -542,11 +605,13 @@ patrium/
 │   │   ├── reflet.js  glisse.js  useFlip.js  # reflet au curseur, surlignage, tri en douceur
 │   │   ├── couleursMarques.js     # couleur de chaque entreprise (relevée par scripts/)
 │   │   ├── moments.js  seance.js  morph.js  # moments, séance de Paris, ligne → fiche
+│   │   ├── voyage.js  cube.js  sons.js  humeur.js  # versement qui vole, cube d'onglets, sons, pingouin
 │   │   └── api.js                 # appels vers api/*
 │   ├── App.jsx                 # coquille de navigation
 │   ├── main.jsx                # providers + service worker
 │   ├── index.css
-│   └── effets.css              # le mouvement : révélations, tracés, ambiance
+│   ├── effets.css              # le mouvement : révélations, tracés, ambiance
+│   └── scenes.css              # les effets illustrés : piles, verre d'eau, rubans, décors, cube
 ├── .github/workflows/ci.yml
 ├── eslint.config.js            # ESLint 9, configuration « à plat »
 ├── index.html

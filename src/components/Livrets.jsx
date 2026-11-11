@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useId } from "react";
 import { useSousOnglet } from "../lib/useHashRoute";
 import OngletsGlissants from "./OngletsGlissants";
-import { PiggyBank, ShieldCheck, Target, Trash2, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
+import { PiggyBank, Target, Trash2, Plus, X, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, ArrowDown, Minus, Wallet, Pencil, Check, Percent } from "lucide-react";
 import { Card, CardLabel, GhostButton, AddPanel, EmptyState, PageGlow, CARD_THEMES } from "./ui";
 import { eur, uid, guessEnvelope, todayIso, lireNombre, pctPlain, nombre } from "../lib/finance";
 import { usePersistentState } from "../lib/storage";
@@ -21,6 +21,8 @@ import MenuActions from "./MenuActions";
 import ReglagesLivret from "./ReglagesLivret";
 import InteretsFinAnnee from "./InteretsFinAnnee";
 import LivretsReglementes from "./LivretsReglementes";
+import JaugeMatelas from "./JaugeMatelas";
+import { annoncerVoyage } from "../lib/voyage";
 
 // ─── Historique du matelas de sécurité (texte seul, pas de graphique) ────────
 /**
@@ -699,8 +701,21 @@ export default function Livrets({
           : x
       )
     );
-  const enregistrerMouvement = (id, mouvement) =>
+  const enregistrerMouvement = (id, mouvement) => {
     setLivrets((l) => l.map((x) => (x.id === id ? ajouterMouvement(x, { id: uid(), ...mouvement }) : x)));
+    // Un dépôt : les pièces volent du compte courant vers le livret (voyage.js).
+    // Pas pour un dépôt ancien « déjà compris dans le solde » : celui-là ne
+    // fait que compléter l'historique, aucun argent ne bouge aujourd'hui.
+    if (mouvement.nature === "depot" && !mouvement.dejaCompris) {
+      const cible = livrets.find((l) => l.id === id);
+      annoncerVoyage({
+        de: "Compte courant",
+        vers: cible?.name || "Livret",
+        montant: Math.abs(Number(mouvement.montant) || 0),
+        genre: "livret",
+      });
+    }
+  };
   // Réglages d'une ligne (taux, boost, virement, ouverture) : fusionnés tels
   // quels, un réglage vidé valant `null`.
   const reglerLivret = (id, reglages) => setLivrets((l) => l.map((x) => (x.id === id ? { ...x, ...reglages } : x)));
@@ -753,9 +768,9 @@ export default function Livrets({
       {/* KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card accent={CARD_THEMES.indigo} className="flex items-center gap-4">
-          <div className="rounded-full bg-indigo-400/10 text-indigo-300 p-3 shrink-0">
-            <ShieldCheck size={20} />
-          </div>
+          {/* Un verre qui se remplit : plein à six mois, il déborde en vert
+              au-delà (voir JaugeMatelas). */}
+          <JaugeMatelas mois={matelasMois} />
           <div>
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Matelas de sécurité</div>
             {/* `matelasMois` vaut null tant que les dépenses mensuelles ne sont

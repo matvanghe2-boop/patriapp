@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { Check, Monitor, Moon, Sun, Rows3, Rows4, Vibrate, Sparkles, WandSparkles, Leaf } from "lucide-react";
+import { Check, Monitor, Moon, Sun, Rows3, Rows4, Vibrate, Sparkles, WandSparkles, Leaf, Volume2 } from "lucide-react";
 import Modal from "./Modal";
 import { useApparence, THEMES_AFFICHAGE, DENSITES, INTENSITES_EFFETS } from "../lib/ApparenceContext";
 import { haptiqueDisponible, vibrer } from "../lib/haptique";
+import { jouerSon } from "../lib/sons";
 
 /**
  * Réglages d'apparence.
  *
- * Six préférences, toutes persistées et donc synchronisées : thème, accent,
- * densité, retour tactile, animations et intensité des effets.
+ * Sept préférences, toutes persistées et donc synchronisées : thème, accent,
+ * densité, retour tactile, sons, animations et intensité des effets.
  *
  * CHAQUE RÉGLAGE S'APPLIQUE IMMÉDIATEMENT, sans bouton « Enregistrer ». Ce
  * sont des choix visuels : leur effet EST leur aperçu, et demander une
@@ -27,6 +28,7 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
     haptique, setHaptique,
     animations, setAnimations,
     effets, setEffets, mouvementReduit,
+    sons, setSons,
   } = useApparence();
 
   /**
@@ -200,6 +202,18 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
               })}
             </div>
           </div>
+          {/* Coupés par défaut. Les activer en joue un tout de suite : c'est
+              le seul moyen de savoir à quoi l'on vient de dire oui. */}
+          <Bascule
+            icone={Volume2}
+            titre="Sons"
+            detail="Une pièce qui tinte sur un dividende, un « clac » à l'ouverture du coffre"
+            valeur={!!sons}
+            onChange={(v) => {
+              setSons(v);
+              if (v) jouerSon("piece", { force: true });
+            }}
+          />
           {/* Le retour tactile n'est proposé que là où il existe : afficher un
               interrupteur sans effet sur un ordinateur de bureau n'informe de
               rien, et donne l'impression que quelque chose est cassé. */}

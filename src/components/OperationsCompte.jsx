@@ -51,6 +51,12 @@ export const ICONES_CATEGORIE = {
  */
 export function PastilleCategorie({ id, taille = 18 }) {
   const Icone = ICONES_CATEGORIE[id] || CircleDashed;
+  // L'emoji 3D de la catégorie (public/emoji/, Fluent Emoji de Microsoft,
+  // licence MIT) remplace l'icône au trait. Servi depuis l'application, il est
+  // mis en cache par le service worker ; s'il manque — hors ligne à la toute
+  // première visite, catégorie inconnue — l'icône au trait reprend sa place.
+  const [sansEmoji, setSansEmoji] = useState(false);
+  const emoji = ICONES_CATEGORIE[id] && !sansEmoji;
   const famille = categorie(id).famille;
   const teinte =
     famille === "revenu"
@@ -59,8 +65,22 @@ export function PastilleCategorie({ id, taille = 18 }) {
         ? "bg-sky-500/15 text-sky-300"
         : "bg-slate-800 text-slate-300";
   return (
-    <span className={`shrink-0 inline-flex items-center justify-center rounded-full w-9 h-9 ${teinte}`} aria-hidden="true">
-      <Icone size={taille} />
+    <span className={`pastille-categorie shrink-0 inline-flex items-center justify-center rounded-full w-9 h-9 ${teinte}`} aria-hidden="true">
+      {emoji ? (
+        <img
+          src={`/emoji/${id}.png`}
+          alt=""
+          width={taille + 8}
+          height={taille + 8}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="emoji-3d"
+          onError={() => setSansEmoji(true)}
+        />
+      ) : (
+        <Icone size={taille} />
+      )}
     </span>
   );
 }

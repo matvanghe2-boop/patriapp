@@ -18,7 +18,7 @@ import EtatVide from "./EtatVide";
 import Montant from "./Montant";
 import { AnneauRepartition, CalendrierAnnuel, CourbeEvolution } from "./graphiques";
 import { serieSparkline, marqueursOperations, NATURES_MARQUEUR } from "../lib/marqueursCourbe";
-import { FileDown, FileSpreadsheet, PieChart as PieIcon, SlidersHorizontal } from "lucide-react";
+import { FileDown, FileSpreadsheet, PieChart as PieIcon, SlidersHorizontal, Coins } from "lucide-react";
 import { Disposition, Bloc, PersonnaliserDashboard } from "./DispositionDashboard";
 import { ResumeCompteCourant, SanteFinanciere } from "./BlocsCompteDashboard";
 import { DISPOSITION_DEFAUT } from "../lib/dispositionDashboard";
@@ -36,6 +36,8 @@ import OnboardingCard from "./CarteBienvenue";
 import { ProfilReel, ProfileFreshness, formatDateFr } from "./ProfilMensuelOutils";
 import StagnationBadge from "./BadgeFraicheurCours";
 import AllocationTarget from "./AllocationCible";
+import PilesAllocation from "./PilesAllocation";
+import { useApparence } from "../lib/ApparenceContext";
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 /**
@@ -109,6 +111,14 @@ export default function Dashboard() {
   // c'était la seule donnée de l'app à ne jamais suivre d'un appareil à
   // l'autre, sans que rien ne le signale.
   const [allocationTarget, saveAllocationTarget] = usePersistentState("allocationTarget", { bourse: 60 });
+
+  // Allocation en piles de pièces ou en anneau. Les piles sont un effet
+  // « vivant » : effets sobres ou animations coupées, l'anneau revient
+  // d'office et le sélecteur disparaît.
+  const [vueAllocation, setVueAllocation] = usePersistentState("dashboardVueAllocation", "piles");
+  const { effets, mouvementReduit } = useApparence();
+  const pilesPermises = effets === "vivant" && !mouvementReduit;
+  const enPiles = pilesPermises && vueAllocation !== "anneau";
 
   // Ordre et visibilité des blocs. Persistés comme le reste : la disposition
   // choisie sur l'ordinateur se retrouve sur le téléphone.
@@ -415,6 +425,16 @@ export default function Dashboard() {
       .filter((d) => d.value > 0);
   }, [livrets, bourseTotal, bourse]);
   const totalAlloc = allocationData.reduce((s, d) => s + d.value, 0);
+
+  // Les piles montrent chaque POCHE, compte courant compris : c'est l'argent
+  // tel qu'il est rangé. L'anneau garde sa répartition par enveloppe fiscale.
+  const pochesPiles = useMemo(() => {
+    const dejaLa = allocationData.some((d) => d.name === ENVELOPE_META.Cash.label);
+    return cash > 0 && !dejaLa
+      ? [{ name: ENVELOPE_META.Cash.label, value: cash, color: ENVELOPE_META.Cash.color }, ...allocationData]
+      : allocationData;
+  }, [allocationData, cash]);
+  const totalPiles = pochesPiles.reduce((s, d) => s + d.value, 0);
 
   /**
    * Objectifs à porter en jalons sur la courbe.
@@ -807,11 +827,36 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Allocation card */}
         <Card accent={CARD_THEMES.emerald}>
-          <CardLabel>Allocation d'actifs globale</CardLabel>
+          <div className="flex items-center justify-between gap-2">
+            <CardLabel>Allocation d'actifs globale</CardLabel>
+            {pilesPermises && allocationData.length > 0 && (
+              <div role="group" aria-label="Affichage de l'allocation" className="flex rounded-lg border border-slate-800 overflow-hidden shrink-0 mb-2">
+                {[
+                  { id: "piles", libelle: "Piles", icone: Coins },
+                  { id: "anneau", libelle: "Anneau", icone: PieIcon },
+                ].map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    aria-pressed={(enPiles ? "piles" : "anneau") === v.id}
+                    onClick={() => setVueAllocation(v.id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 text-micro transition-colors ${
+                      (enPiles ? "piles" : "anneau") === v.id ? "bg-emerald-500/15 text-emerald-200" : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <v.icone size={12} aria-hidden="true" />
+                    {v.libelle}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {allocationData.length === 0 ? (
             <EtatVide picto="liquidites" titre="Rien à répartir pour l'instant">
               Ajoute un livret ou une position : la répartition se dessine dès la première ligne.
             </EtatVide>
+          ) : enPiles ? (
+            <PilesAllocation poches={pochesPiles} total={totalPiles} />
           ) : (
             <>
               {/*

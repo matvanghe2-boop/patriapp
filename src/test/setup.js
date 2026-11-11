@@ -34,6 +34,14 @@ if (!globalThis.ResizeObserver) {
   };
 }
 
+// jsdom ne dessine pas : son `getContext` écrit « Not implemented » dans la
+// sortie à chaque appel, puis ne rend rien. Les composants qui dessinent sur
+// un canvas (confettis, boule de neige) savent déjà s'en passer : on leur
+// répond `null` en silence.
+if (window.HTMLCanvasElement) {
+  window.HTMLCanvasElement.prototype.getContext = () => null;
+}
+
 if (!window.matchMedia) {
   window.matchMedia = (query) => ({
     matches: false,

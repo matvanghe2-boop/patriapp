@@ -4,7 +4,7 @@ import { ACCENTS, ACCENT_DEFAUT, accent as trouverAccent } from "./themes";
 
 /**
  * Préférences d'apparence : thème, accent, densité, mouvement, intensité des
- * effets, retour tactile.
+ * effets, retour tactile, sons.
  *
  * POURQUOI UN CONTEXTE À PART, et non une tranche de plus dans
  * PatrimoineContext : ce ne sont pas des données patrimoniales. Elles changent
@@ -57,6 +57,12 @@ const DEFAUTS = {
    * une carte qui entre, une courbe qui se trace, un compteur qui défile.
    */
   effets: "vivant",
+  /**
+   * Sons discrets (lib/sons.js) : une pièce qui tinte sur un dividende, un
+   * « clac » à l'ouverture du coffre. Coupés par défaut — une application qui
+   * se met à sonner sans qu'on le lui ait demandé, c'est une mauvaise surprise.
+   */
+  sons: false,
 };
 
 /** Intensités proposées pour les effets. */
@@ -171,6 +177,12 @@ export function ApparenceProvider({ children }) {
     document.documentElement.setAttribute("data-effets", reglages.effets === "sobre" ? "sobre" : "vivant");
   }, [reglages.effets]);
 
+  // ── Sons ─────────────────────────────────────────────────────────────────
+  // Lu par lib/sons.js au moment de jouer, hors de React.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-sons", reglages.sons ? "oui" : "non");
+  }, [reglages.sons]);
+
   const valeur = useMemo(() => {
     const definir = (cle) => (v) => setApparence((prec) => ({ ...DEFAUTS, ...(prec || {}), [cle]: v }));
     return {
@@ -186,6 +198,7 @@ export function ApparenceProvider({ children }) {
       setHaptique: definir("haptique"),
       setAnimations: definir("animations"),
       setEffets: definir("effets"),
+      setSons: definir("sons"),
     };
   }, [reglages, setApparence]);
 
@@ -212,5 +225,6 @@ export function useApparence() {
     setHaptique: () => {},
     setAnimations: () => {},
     setEffets: () => {},
+    setSons: () => {},
   };
 }

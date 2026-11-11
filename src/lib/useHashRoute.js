@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 
 /**
  * Onglet courant synchronisé avec l'URL (`#/bourse`).
@@ -29,6 +29,54 @@ const versHash = (onglet, sous) => `#/${onglet}${sous ? `/${sous}` : ""}`;
  */
 export function allerVers(onglet, sous = "") {
   window.location.hash = versHash(onglet, sous);
+}
+
+/**
+ * La même navigation, mais SYNCHRONE : au retour de l'appel, les écouteurs ont
+ * déjà été prévenus.
+ *
+ * Écrire `location.hash` ne prévient personne tout de suite — le navigateur
+ * poste l'événement `hashchange` pour plus tard. C'est sans importance en temps
+ * normal, mais une transition de vue (le cube de changement d'onglet, voir
+ * lib/cube.js) photographie l'écran AU RETOUR de la fonction qu'on lui confie :
+ * il faut que le nouvel onglet y soit déjà. On pousse donc l'entrée
+ * d'historique nous-mêmes et on émet l'événement sur-le-champ. Le bouton
+ * « Précédent » se comporte exactement comme avec `allerVers`.
+ */
+export function allerVersMaintenant(onglet, sous = "") {
+  const cible = versHash(onglet, sous);
+  if (window.location.hash === cible) return;
+  window.history.pushState(null, "", cible);
+  window.dispatchEvent(new HashChangeEvent("hashchange"));
+}
+
+/**
+ * Changer de sous-onglet passe par `replaceState`, qui n'émet aucun événement :
+ * celui-ci prévient ceux qui suivent le sous-onglet depuis l'EXTÉRIEUR de la
+ * page (le fond de l'application, voir useSousOngletActuel).
+ */
+const EVENEMENT_SOUS_ONGLET = "patrium:sous-onglet";
+
+function abonnerSousOnglet(rappel) {
+  window.addEventListener("hashchange", rappel);
+  window.addEventListener(EVENEMENT_SOUS_ONGLET, rappel);
+  return () => {
+    window.removeEventListener("hashchange", rappel);
+    window.removeEventListener(EVENEMENT_SOUS_ONGLET, rappel);
+  };
+}
+
+/**
+ * Sous-onglet inscrit dans l'URL, tel qu'il est à l'instant (« » pour le
+ * sous-onglet par défaut d'une page). Pour un composant qui n'est PAS la page
+ * elle-même — celle-ci utilise `useSousOnglet`, qui connaît ses sous-onglets.
+ */
+export function useSousOngletActuel() {
+  return useSyncExternalStore(
+    abonnerSousOnglet,
+    () => lireHash().sous,
+    () => ""
+  );
 }
 
 export function useHashRoute(validTabs, defaultTab, aliases = {}) {
@@ -122,7 +170,10 @@ export function useSousOnglet(ids, defaut) {
       if (!valides.includes(valeur)) return;
       setSousState(valeur);
       const { onglet } = lireHash();
-      if (onglet) window.history.replaceState(null, "", versHash(onglet, valeur === defaut ? "" : valeur));
+      if (onglet) {
+        window.history.replaceState(null, "", versHash(onglet, valeur === defaut ? "" : valeur));
+        window.dispatchEvent(new Event(EVENEMENT_SOUS_ONGLET));
+      }
     },
     [lire, valides, defaut]
   );
