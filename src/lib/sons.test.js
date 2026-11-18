@@ -66,20 +66,18 @@ describe("sons", () => {
     expect(sonsActifs()).toBe(false);
     expect(jouerSon("piece")).toBe(false);
     document.documentElement.setAttribute("data-sons", "non");
-    expect(jouerSon("coffre")).toBe(false);
+    expect(jouerSon("piece")).toBe(false);
     expect(contextes).toHaveLength(0);
   });
 
-  it("joue la pièce et le coffre une fois le réglage activé", async () => {
+  it("joue la pièce une fois le réglage activé, et ignore un son inconnu", async () => {
     const { jouerSon } = await charger();
     document.documentElement.setAttribute("data-sons", "oui");
     expect(jouerSon("piece")).toBe(true);
-    expect(jouerSon("coffre")).toBe(true);
-    // Un seul contexte, réutilisé : la pièce est faite de notes, le coffre
-    // ajoute ses claquements.
+    expect(jouerSon("inconnu")).toBe(false);
+    // Un seul contexte, fait de notes.
     expect(contextes).toHaveLength(1);
-    expect(contextes[0].oscillateurs).toBeGreaterThanOrEqual(4);
-    expect(contextes[0].souffles).toBe(2);
+    expect(contextes[0].oscillateurs).toBeGreaterThanOrEqual(3);
   });
 
   it("ne double pas un son rejoué dans la foulée", async () => {

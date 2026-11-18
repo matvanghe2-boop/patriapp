@@ -513,6 +513,23 @@ function hydraterDepuisCloud() {
 }
 
 /**
+ * Promesse tenue une fois la première lecture du cloud terminée, réussie ou
+ * non ; tout de suite sans cloud ou en bac à sable.
+ *
+ * Pour un calcul qui ÉCRIT une clé d'après les autres — les badges : avant de
+ * trancher, il doit connaître la version du cloud, sans quoi un second
+ * appareil, encore vide au démarrage, rejouerait des déblocages déjà fêtés.
+ */
+export async function attendreHydratationCloud() {
+  if (!isSupabaseConfigured || bacASable) return;
+  try {
+    await hydraterDepuisCloud();
+  } catch {
+    /* lecture impossible : on n'attend pas davantage */
+  }
+}
+
+/**
  * Applique une ligne cloud localement si elle est plus récente que ce qu'on a
  * déjà (même arbitrage updated_at que dans l'effet de montage de
  * usePersistentState).
@@ -1078,11 +1095,6 @@ export async function clearCloudData(keys) {
 
 // ─── Chiffrement : interface publique ────────────────────────────────────────
 
-/** Valeur enregistrée sur cet appareil pour une clé, lue une fois, sans s'y abonner. */
-export function lireValeurLocale(key, defaut = null) {
-  return readLocal(key, defaut);
-}
-
 /** `{ actif, verrouille }` — verrouillé : chiffré dans le cloud, sans clé sur cet appareil. */
 export function useEtatChiffrement() {
   return useSyncExternalStore(
@@ -1096,19 +1108,9 @@ export function useEtatChiffrement() {
 }
 
 /**
- * Clé de chiffrement de cet appareil, ou `null` si le chiffrement est inactif
- * ou l'appareil verrouillé. Le coffre à papiers en enveloppe ses clés de
- * fichier (voir coffreFichiers.js).
- */
-export async function cleChiffrementActive() {
-  await cleChargee;
-  return chiffrement.config ? chiffrement.cle : null;
-}
-
-/**
  * Oublie la clé de cet appareil : la phrase secrète sera redemandée. Les
- * données déjà présentes sur l'appareil restent lisibles par Patrium ; ce
- * sont la synchronisation et les fichiers du coffre qui se ferment.
+ * données déjà présentes sur l'appareil restent lisibles par Patrium ; c'est
+ * la synchronisation qui se ferme.
  */
 export function verrouillerCetAppareil() {
   if (!chiffrement.config) return;

@@ -1,12 +1,10 @@
 /**
  * Sons discrets — coupés par défaut.
  *
- * Deux sons seulement, et aucun fichier : ils sont SYNTHÉTISÉS à la demande
- * par l'API Web Audio, ce qui ne pèse rien dans le paquet et rien sur le
- * réseau.
+ * Aucun fichier : les sons sont SYNTHÉTISÉS à la demande par l'API Web
+ * Audio, ce qui ne pèse rien dans le paquet et rien sur le réseau.
  *
- *  · « piece »  — le tintement d'une pièce, sur un dividende encaissé ;
- *  · « coffre » — un petit « clac » de serrure, à l'ouverture du coffre.
+ *  · « piece »  — le tintement d'une pièce, sur un dividende encaissé.
  *
  * TROIS GARDE-FOUS, les mêmes que pour le retour tactile (haptique.js) :
  *
@@ -53,24 +51,6 @@ function note(ctx, sortie, { frequence, debut, duree, volume, forme = "sine", gl
   osc.stop(debut + duree + 0.02);
 }
 
-/** Un souffle très court, filtré : le « clac » d'un pêne. */
-function claquement(ctx, sortie, { debut, duree, volume, frequence }) {
-  const taille = Math.max(1, Math.floor(ctx.sampleRate * duree));
-  const tampon = ctx.createBuffer(1, taille, ctx.sampleRate);
-  const donnees = tampon.getChannelData(0);
-  for (let i = 0; i < taille; i++) donnees[i] = (Math.random() * 2 - 1) * (1 - i / taille) ** 2;
-  const source = ctx.createBufferSource();
-  source.buffer = tampon;
-  const filtre = ctx.createBiquadFilter();
-  filtre.type = "bandpass";
-  filtre.frequency.value = frequence;
-  filtre.Q.value = 1.4;
-  const gain = ctx.createGain();
-  gain.gain.value = volume;
-  source.connect(filtre).connect(gain).connect(sortie);
-  source.start(debut);
-}
-
 const PARTITIONS = {
   // Deux partiels aigus, le second une quinte au-dessus et un souffle plus
   // tard : c'est l'écart entre les deux qui fait « pièce » plutôt que « bip ».
@@ -79,18 +59,12 @@ const PARTITIONS = {
     note(ctx, sortie, { frequence: 1975.5, debut: t + 0.07, duree: 0.5, volume: 0.045 });
     note(ctx, sortie, { frequence: 3951, debut: t + 0.07, duree: 0.22, volume: 0.012 });
   },
-  // Un claquement sec, puis le corps grave de la porte qui cède.
-  coffre(ctx, sortie, t) {
-    claquement(ctx, sortie, { debut: t, duree: 0.045, volume: 0.16, frequence: 2400 });
-    note(ctx, sortie, { frequence: 150, glisseVers: 62, debut: t + 0.012, duree: 0.16, volume: 0.09 });
-    claquement(ctx, sortie, { debut: t + 0.085, duree: 0.03, volume: 0.07, frequence: 1500 });
-  },
 };
 
 /**
  * Joue un son, si le réglage le permet.
  *
- * @param {"piece"|"coffre"} nom
+ * @param {"piece"} nom
  * @param {{ force?: boolean }} [options]  `force` : pour l'aperçu donné au
  *        moment où l'on active le réglage, avant que l'attribut soit posé.
  * @returns {boolean} `true` si le son est parti.

@@ -1,6 +1,7 @@
 import { MoreHorizontal } from "lucide-react";
 import { theme as themeDe } from "../lib/themes";
 import IndicateurGlissant from "./IndicateurGlissant";
+import { PastilleOnglet } from "./ui";
 
 /**
  * Barre de navigation basse, mobile uniquement (masquée dès md:).
@@ -17,12 +18,14 @@ import IndicateurGlissant from "./IndicateurGlissant";
  */
 const MAX_DIRECTS = 4;
 
-export default function BottomNav({ tabs, active, onChange, onPlus }) {
+export default function BottomNav({ tabs, active, onChange, onPlus, pastilles = new Set() }) {
   const directs = tabs.slice(0, MAX_DIRECTS);
   const replies = tabs.slice(MAX_DIRECTS);
   // L'entrée « Plus » se surligne quand la section courante s'y trouve : sans
   // ça, ouvrir Abonnements laisserait la barre sans repère actif.
   const plusActif = replies.some((t) => t.key === active);
+  // La feuille « Plus » cache des onglets : sa pastille dit qu'un d'eux en porte une.
+  const plusPastille = replies.some((t) => pastilles.has(t.key));
 
   return (
     // Nom distinct de celui de la barre latérale : les deux coexistent dans le
@@ -51,12 +54,15 @@ export default function BottomNav({ tabs, active, onChange, onPlus }) {
             aria-current={isActive ? "page" : undefined}
             // Le libellé court est purement visuel : le lecteur d'écran
             // annonce le nom complet de l'onglet.
-            aria-label={t.label}
+            aria-label={pastilles.has(t.key) ? `${t.label} — du nouveau` : t.label}
             className={`btn-flash relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400/40 ${
               isActive ? palette.navText : "text-slate-500"
             }`}
           >
-            <Icon size={22} strokeWidth={isActive ? 2.4 : 2} aria-hidden="true" />
+            <span className="relative inline-flex">
+              <Icon size={22} strokeWidth={isActive ? 2.4 : 2} aria-hidden="true" />
+              {pastilles.has(t.key) && <PastilleOnglet />}
+            </span>
             <span aria-hidden="true" className="text-micro font-medium leading-none">
               {t.shortLabel || t.label}
             </span>
@@ -68,12 +74,15 @@ export default function BottomNav({ tabs, active, onChange, onPlus }) {
         <button
           onClick={onPlus}
           data-plus-actif={plusActif ? "" : undefined}
-          aria-label={`Plus — ${replies.map((t) => t.label).join(", ")}, réglages, rétrospective`}
+          aria-label={`Plus — ${replies.map((t) => t.label).join(", ")}, réglages, rétrospective${plusPastille ? " — du nouveau" : ""}`}
           className={`btn-flash relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400/40 ${
             plusActif ? "text-amber-300" : "text-slate-500"
           }`}
         >
-          <MoreHorizontal size={22} strokeWidth={plusActif ? 2.4 : 2} aria-hidden="true" />
+          <span className="relative inline-flex">
+            <MoreHorizontal size={22} strokeWidth={plusActif ? 2.4 : 2} aria-hidden="true" />
+            {plusPastille && <PastilleOnglet />}
+          </span>
           <span aria-hidden="true" className="text-micro font-medium leading-none">Plus</span>
         </button>
       )}

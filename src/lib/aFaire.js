@@ -6,7 +6,6 @@ import { rapprocherCompte, statutContrat, statutDe, joursEntre, prochainPrelevem
 import { boostsAFinir, interetsFinAnnee, projectionVirement, verifierVirement, deMot } from "./epargne";
 import { controlesDonnees } from "./qualiteDonnees";
 import { rapprocherAvances, aRelancer } from "./avances";
-import { aFaireDuCoffre } from "./coffre";
 
 /**
  * Le centre « À faire » du Dashboard.
@@ -32,7 +31,7 @@ export function elementsAFaire({
   livrets = [], bourse = {}, matelasMois = null, tauxReference = 0,
   strategyNotes = [], series = {}, evenements = [],
   subs = [], contracts = [], compteEnrichies = [], ignores = [],
-  enveloppes = [], objectifs = [], compteReleves = [], patrimoineNet = 0, avances = [], coffre = null,
+  enveloppes = [], objectifs = [], compteReleves = [], patrimoineNet = 0, avances = [],
   aujourdhui = todayIso(),
 } = {}) {
   const liste = [];
@@ -71,10 +70,6 @@ export function elementsAFaire({
       lien: { onglet: "strategie", sous: "theses" },
     });
   }
-
-  // ── Papiers du coffre ────────────────────────────────────────────────────
-  // Ceux qui sont liés à un contrat sont signalés par la section suivante.
-  aFaireDuCoffre(coffre, { contracts, aujourdhui }).forEach(ajouter);
 
   // ── Contrats ─────────────────────────────────────────────────────────────
   for (const c of contracts || []) {

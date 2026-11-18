@@ -73,10 +73,9 @@ export const STORAGE_KEYS = [
   "agendaReglages", "agendaVus",
   // Comparateur rattachement / déclaration séparée (voir rattachementFiscal.js).
   "rattachementReglages",
-  // Coffre à papiers : métadonnées des documents et clés de fichier
-  // enveloppées. Les fichiers eux-mêmes sont dans le bucket « coffre »
-  // (voir coffre.js, coffreFichiers.js et COFFRE_SPEC.md).
-  "coffre",
+  // Badges obtenus (niveau et date de chacun) et nouveautés déjà vues par
+  // onglet, pour les pastilles (voir badges.js et pastilles.js).
+  "badges", "pastillesVues",
 ];
 
 /**

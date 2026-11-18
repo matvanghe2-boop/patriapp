@@ -1,7 +1,6 @@
 import { lireNombre } from "./finance";
 import { FREQUENCES, STATUTS } from "./abonnements";
 import { STATUTS_THESE } from "./theses";
-import { normaliserCoffre } from "./coffre";
 
 /**
  * Migrations des données stockées.
@@ -109,18 +108,18 @@ export const ETAPES = {
       }),
     },
   ],
-  coffre: [
-    {
-      version: 3,
-      // Posée dès la création de la clé, pour que les évolutions suivantes du
-      // coffre aient un point d'entrée (voir COFFRE_SPEC.md, §6).
-      description: "Liste de documents, fichiers, notes et réglages présents",
-      migrer: normaliserCoffre,
-    },
-  ],
 };
 
-export const VERSION_DONNEES = Math.max(...Object.values(ETAPES).flat().map((e) => e.version));
+/**
+ * Plancher de `VERSION_DONNEES`. L'étape 3 mettait en forme le coffre à
+ * papiers, retiré depuis avec son onglet. Les sauvegardes exportées entre-temps
+ * portent `__versionDonnees: 3` : sans ce plancher, le numéro retomberait à 2
+ * et elles seraient refusées comme « trop récentes ». La prochaine étape
+ * prendra donc le numéro 4.
+ */
+const VERSION_PLANCHER = 3;
+
+export const VERSION_DONNEES = Math.max(VERSION_PLANCHER, ...Object.values(ETAPES).flat().map((e) => e.version));
 
 /**
  * Valeur d'une clé, mise à la forme courante. Une étape qui lève une erreur

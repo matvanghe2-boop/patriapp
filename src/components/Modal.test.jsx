@@ -1,7 +1,7 @@
 /**
  * Modale : le focus ne doit pas sauter quand le parent se redessine.
  *
- * Régression corrigée avec le code de secours du coffre : `onClose`, recréé à
+ * Régression corrigée avec le code de secours du chiffrement : `onClose`, recréé à
  * chaque rendu du parent, relançait l'effet de focus à chaque frappe. Le focus
  * partait sur le bouton « Fermer » après le premier caractère, et une espace
  * refermait la fenêtre — taper une phrase secrète était impossible.

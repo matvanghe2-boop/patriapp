@@ -207,7 +207,7 @@ export default function ReglagesApparence({ ouvert, onFermer }) {
           <Bascule
             icone={Volume2}
             titre="Sons"
-            detail="Une pièce qui tinte sur un dividende, un « clac » à l'ouverture du coffre"
+            detail="Une pièce qui tinte sur un dividende"
             valeur={!!sons}
             onChange={(v) => {
               setSons(v);

@@ -58,8 +58,8 @@ const DEFAUTS = {
    */
   effets: "vivant",
   /**
-   * Sons discrets (lib/sons.js) : une pièce qui tinte sur un dividende, un
-   * « clac » à l'ouverture du coffre. Coupés par défaut — une application qui
+   * Sons discrets (lib/sons.js) : une pièce qui tinte sur un dividende.
+   * Coupés par défaut — une application qui
    * se met à sonner sans qu'on le lui ait demandé, c'est une mauvaise surprise.
    */
   sons: false,

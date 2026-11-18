@@ -31,8 +31,8 @@
 
 /**
  * Identifiants de thème valides. Un par onglet ; `lime` est celui du Compte
- * courant, ajouté en dernier pour ne renuméroter aucun des six autres, et
- * `fuchsia` celui du Coffre, ajouté après lui pour la même raison.
+ * courant, ajouté en dernier pour ne renuméroter aucun des six autres.
+ * `fuchsia` était celui du Coffre, retiré depuis : la teinte reste libre.
  */
 export const THEME_IDS = ["emerald", "indigo", "violet", "amber", "rose", "cyan", "lime", "fuchsia"];
 
