@@ -1,0 +1,247 @@
+/* ═══════════════════ MÉDAILLES 3D (badges) ═════════════════════════════════
+ * Voir Medaille.jsx. Une pièce = une face avant, une face arrière et six
+ * disques empilés pour la tranche, dans un même repère 3D (`preserve-3d`).
+ * La matière (bronze → diamant) ne change que des variables de couleur.
+ */
+
+.medaille {
+  --d: 72px;
+  --epaisseur: calc(var(--d) * 0.018);
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--d);
+  height: var(--d);
+  perspective: calc(var(--d) * 6);
+}
+.medaille[data-taille="sm"] { --d: 44px; }
+.medaille[data-taille="lg"] { --d: 128px; }
+.medaille[data-taille="xl"] { --d: 168px; }
+
+.medaille-piece {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateY(-18deg) rotateX(6deg);
+}
+
+.medaille-couche {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--m-tranche);
+  transform: translateZ(calc((var(--i) - 2.5) * var(--epaisseur)));
+}
+
+.medaille-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  background: radial-gradient(circle at 32% 28%, var(--m-clair) 0%, var(--m-milieu) 50%, var(--m-sombre) 100%);
+  box-shadow:
+    inset 0 0 0 calc(var(--d) * 0.035) var(--m-sombre),
+    inset 0 calc(var(--d) * 0.03) calc(var(--d) * 0.05) rgb(255 255 255 / 0.4);
+}
+.medaille-avant { transform: translateZ(calc(var(--epaisseur) * 3)); }
+.medaille-arriere { transform: rotateY(180deg) translateZ(calc(var(--epaisseur) * 3)); }
+
+/* Le cercle gravé à l'intérieur du bord. */
+.medaille-anneau {
+  position: absolute;
+  inset: 13%;
+  border-radius: 50%;
+  border: calc(var(--d) * 0.018) solid rgb(255 255 255 / 0.32);
+  box-shadow: 0 0 0 calc(var(--d) * 0.012) rgb(0 0 0 / 0.18);
+}
+
+.medaille-icone {
+  position: relative;
+  z-index: 1;
+  color: var(--m-encre);
+  filter: drop-shadow(0 1px 0 rgb(255 255 255 / 0.45));
+}
+.medaille-chiffre {
+  position: relative;
+  z-index: 1;
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-size: calc(var(--d) * 0.38);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--m-encre);
+}
+
+/* Le reflet qui traverse la face. */
+.medaille-reflet {
+  position: absolute;
+  inset: -20%;
+  z-index: 2;
+  background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.5) 49%, transparent 60%);
+  transform: translateX(-70%);
+  animation: medaille-reflet 5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes medaille-reflet {
+  0%, 55% { transform: translateX(-70%); }
+  85%, 100% { transform: translateX(70%); }
+}
+
+.medaille-ombre {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: calc(var(--d) * -0.16);
+  height: calc(var(--d) * 0.09);
+  border-radius: 50%;
+  background: radial-gradient(rgb(0 0 0 / 0.45), transparent 70%);
+  filter: blur(2px);
+}
+
+/* ── Matières ── */
+.medaille[data-matiere="bronze"] {
+  --m-clair: #f7d6b4; --m-milieu: #c98546; --m-sombre: #7c4518; --m-encre: #44210a;
+  --m-tranche: linear-gradient(#a86330, #5e3210);
+}
+.medaille[data-matiere="argent"] {
+  --m-clair: #ffffff; --m-milieu: #c3ccd8; --m-sombre: #6c7787; --m-encre: #283140;
+  --m-tranche: linear-gradient(#9aa4b2, #4f5866);
+}
+.medaille[data-matiere="or"] {
+  --m-clair: #fff6c2; --m-milieu: #f0c43a; --m-sombre: #a2700a; --m-encre: #553700;
+  --m-tranche: linear-gradient(#c8930f, #7a5205);
+}
+.medaille[data-matiere="platine"] {
+  --m-clair: #f8fbff; --m-milieu: #cfd9ea; --m-sombre: #7e8ba6; --m-encre: #24304a;
+  --m-tranche: linear-gradient(#a7b4cb, #5b6782);
+}
+.medaille[data-matiere="diamant"] {
+  --m-clair: #f0fdff; --m-milieu: #8fe6ff; --m-sombre: #2f6fd1; --m-encre: #06264f;
+  --m-tranche: linear-gradient(#6fc6f5, #1d4f9c);
+}
+.medaille[data-matiere="fermee"] {
+  --m-clair: #4a5262; --m-milieu: #2c333e; --m-sombre: #171c24; --m-encre: #7a8496;
+  --m-tranche: linear-gradient(#262c36, #11151b);
+}
+.medaille[data-matiere="fermee"] .medaille-reflet { display: none; }
+.medaille[data-matiere="fermee"] .medaille-icone { filter: none; opacity: 0.75; }
+
+/* Platine et diamant : un film holographique qui tourne sur la face. */
+.medaille[data-matiere="platine"] .medaille-avant::before,
+.medaille[data-matiere="diamant"] .medaille-avant::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff9ad5, #9ad0ff, #a0ffd8, #fff3a0, #ffb3a0, #ff9ad5);
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  animation: medaille-holo 7s linear infinite;
+}
+.medaille[data-matiere="diamant"] .medaille-avant::before { opacity: 0.75; animation-duration: 4s; }
+@keyframes medaille-holo {
+  to { transform: rotate(360deg); }
+}
+
+/* Diamant : trois éclats qui scintillent autour. */
+.medaille-eclats {
+  position: absolute;
+  inset: -14%;
+  pointer-events: none;
+}
+.medaille-eclats span {
+  position: absolute;
+  width: calc(var(--d) * 0.14);
+  height: calc(var(--d) * 0.14);
+  background: radial-gradient(circle, #ffffff 0 30%, #bdf3ff 60%, transparent 70%);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  opacity: 0;
+  animation: medaille-eclat 2.6s ease-in-out infinite;
+}
+.medaille-eclats span:nth-child(1) { top: 4%; right: 10%; }
+.medaille-eclats span:nth-child(2) { bottom: 14%; left: 2%; animation-delay: 0.9s; }
+.medaille-eclats span:nth-child(3) { top: 40%; right: -2%; animation-delay: 1.7s; width: calc(var(--d) * 0.09); height: calc(var(--d) * 0.09); }
+@keyframes medaille-eclat {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  45% { opacity: 1; transform: scale(1) rotate(45deg); }
+}
+
+/* ── Mouvements ── */
+.medaille[data-anime="tour"] .medaille-piece {
+  animation: medaille-tour 3.6s linear infinite;
+}
+@keyframes medaille-tour {
+  from { transform: rotateY(0deg) rotateX(6deg); }
+  to { transform: rotateY(360deg) rotateX(6deg); }
+}
+.medaille[data-anime="balancement"] .medaille-piece {
+  animation: medaille-balance 5.5s ease-in-out infinite alternate;
+}
+@keyframes medaille-balance {
+  from { transform: rotateY(-30deg) rotateX(7deg); }
+  to { transform: rotateY(30deg) rotateX(4deg); }
+}
+/* Au survol (ou au focus de sa carte), une médaille obtenue fait un tour. */
+.medaille-survol:hover .medaille:not([data-matiere="fermee"]) .medaille-piece,
+.medaille-survol:focus-visible .medaille:not([data-matiere="fermee"]) .medaille-piece {
+  animation: medaille-tour 1.4s cubic-bezier(0.3, 0.7, 0.3, 1) 1;
+}
+
+/* Effets sobres : pas de va-et-vient permanent ni de film qui tourne. */
+:root[data-effets="sobre"] .medaille[data-anime="balancement"] .medaille-piece,
+:root[data-effets="sobre"] .medaille-reflet,
+:root[data-effets="sobre"] .medaille-avant::before,
+:root[data-effets="sobre"] .medaille-eclats span {
+  animation: none;
+}
+
+/* Mouvement réduit : tout s'arrête, la médaille reste de trois quarts. */
+:root[data-mouvement="reduit"] .medaille *,
+:root[data-mouvement="reduit"] .medaille *::before {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-mouvement="complet"]) .medaille *,
+  :root:not([data-mouvement="complet"]) .medaille *::before {
+    animation: none !important;
+  }
+}
+
+/* ═══════════════════ CÉLÉBRATION ═══════════════════════════════════════════
+ * Voir CelebrationBadges.jsx.
+ */
+.celebration-badges-confettis {
+  position: fixed;
+  inset: 0;
+  z-index: 110; /* au-dessus de la modale (z-100), comme les confettis des moments */
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+.celebration-badges-panneau {
+  animation: celebration-entree 520ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+@keyframes celebration-entree {
+  from { opacity: 0; transform: translateY(24px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+.celebration-badges-grille > * {
+  animation: celebration-medaille 600ms cubic-bezier(0.2, 0.9, 0.25, 1.3) both;
+  animation-delay: calc(var(--rang, 0) * 70ms + 200ms);
+}
+@keyframes celebration-medaille {
+  from { opacity: 0; transform: translateY(14px) scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+:root[data-mouvement="reduit"] .celebration-badges-panneau,
+:root[data-mouvement="reduit"] .celebration-badges-grille > * {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-mouvement="complet"]) .celebration-badges-panneau,
+  :root:not([data-mouvement="complet"]) .celebration-badges-grille > * {
+    animation: none;
+  }
+}

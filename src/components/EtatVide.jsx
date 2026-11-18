@@ -1,6 +1,6 @@
 import {
   PiggyBank, TrendingUp, NotebookPen, Repeat, Target, Wallet, Search, CalendarDays, LineChart, Coins,
-  ListOrdered, Home, Vault,
+  ListOrdered, Home,
 } from "lucide-react";
 
 /**
@@ -34,7 +34,6 @@ const PICTOS = {
   dividendes: Coins,
   operations: ListOrdered,
   maison: Home,
-  coffre: Vault,
 };
 
 export default function EtatVide({

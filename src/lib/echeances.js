@@ -1,12 +1,11 @@
 import { lireNombre, todayIso, pctPlain } from "./finance";
-import { echeancesDuCoffre } from "./coffre";
 
 /**
  * Prochaines échéances — l'agrégation.
  *
- * Cinq types de dates vivent dans Patrium sans jamais se croiser : les
+ * Quatre types de dates vivent dans Patrium sans jamais se croiser : les
  * dividendes attendus, les fins d'engagement de contrat, les préavis de
- * résiliation, les échéances d'objectifs et celles des papiers du coffre.
+ * résiliation et les échéances d'objectifs.
  * Chacun est visible dans son onglet, mais aucun écran ne répond à
  * « qu'est-ce qui arrive bientôt ».
  *
@@ -43,12 +42,10 @@ function decaler(iso, jours) {
  * @returns {{id, date, jours, type, libelle, detail, urgence}[]}
  */
 export function prochainesEcheances(
-  { evenements = [], contracts = [], objectifs = [], patrimoineNet = 0, coffre = null } = {},
+  { evenements = [], contracts = [], objectifs = [], patrimoineNet = 0 } = {},
   { fenetreJours = 42, aujourdhui = todayIso() } = {}
 ) {
-  // Papiers du coffre : la logique (date de rappel, contrats liés écartés) vit
-  // dans coffre.js, avec le reste des règles de dates des documents.
-  const liste = echeancesDuCoffre(coffre, { contracts, aujourdhui, fenetreJours });
+  const liste = [];
 
   // ── Dividendes et événements de marché déjà récupérés ────────────────────
   for (const e of evenements) {

@@ -294,8 +294,6 @@ Les variables préfixées `VITE_` sont **intégrées au JavaScript envoyé au na
 
 Exécute `sql/schema.sql` dans l'éditeur SQL de ton projet Supabase. La table est protégée par RLS : chaque utilisateur ne voit que ses propres lignes.
 
-Le même fichier crée aussi le bucket privé `coffre`, où l'onglet **Coffre** range les fichiers de tes papiers, chiffrés par le navigateur avant l'envoi (voir `COFFRE_SPEC.md`). Ses politiques n'ouvrent à chacun que son propre dossier. Si ta base est déjà en service, exécute seulement le bloc « COFFRE À PAPIERS » en fin de fichier.
-
 ### 5. (Optionnel) Domaine personnalisé
 
 Réglages du projet Vercel → **Domains**.
@@ -539,7 +537,7 @@ réduit ; les montants restent caviardés par le mode Ghost.
   au premier versement ; effets vivants seulement.
 - **Fonds par onglet** (`components/FondVivant.jsx`, prop `scene`) : chandeliers flous qui
   défilent (Bourse), bulles qui montent (Livrets), plan de maison qui se dessine (Simulation >
-  Immobilier), métal brossé et cadran de porte forte (Coffre). Le sous-onglet est suivi par
+  Immobilier). Le sous-onglet est suivi par
   `useSousOngletActuel` (`src/lib/useHashRoute.js`).
 - **Changement d'onglet en cube** (`src/lib/cube.js`) : en effets vivants, l'écran quitté et
   l'écran d'arrivée sont deux faces voisines d'un cube qui tourne d'un quart de tour (API View
@@ -547,7 +545,7 @@ réduit ; les montants restent caviardés par le mode Ghost.
   `allerVersMaintenant` (`useHashRoute.js`) navigue de façon synchrone, ce que la transition
   exige.
 - **Sons** (`src/lib/sons.js`, réglage « Sons » d'Apparence, coupé par défaut) : une pièce qui
-  tinte sur un dividende, un « clac » à l'ouverture du coffre. Synthétisés par Web Audio — aucun
+  tinte sur un dividende. Synthétisés par Web Audio — aucun
   fichier. `data-sons` sur `<html>` porte le réglage.
 
 ## 🗂️ Structure du projet
@@ -578,7 +576,7 @@ patrium/
 ├── public/                     # manifest PWA, service worker, icônes, orbit-header.js
 │   └── emoji/                  # emojis 3D des catégories du compte courant (Fluent, MIT)
 ├── sql/
-│   └── schema.sql              # table kv_store + RLS, bucket « coffre »
+│   └── schema.sql              # table kv_store + RLS
 ├── src/
 │   ├── components/             # composants d'interface
 │   │   ├── Dashboard.jsx  Livrets.jsx  Bourse.jsx  Simulation.jsx

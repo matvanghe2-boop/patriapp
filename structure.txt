@@ -13,7 +13,6 @@ La description commentée de l'arborescence se trouve dans README.md.
 .prettierignore
 .prettierrc.json
 .vercelignore
-COFFRE_SPEC.md
 HORIZON_SPEC.md
 README.md
 api/_lib/auth.js
@@ -151,7 +150,6 @@ src/App.test.jsx
 src/accessibilite.test.jsx
 src/classesCss.test.js
 src/components/Abonnements.jsx
-src/components/AbonnementsCoffre.test.jsx
 src/components/AbonnementsDetectes.jsx
 src/components/AddPositionPanel.jsx
 src/components/AgendaFinancier.jsx
@@ -172,6 +170,7 @@ src/components/Avances.jsx
 src/components/AvertissementsPortefeuille.jsx
 src/components/BackupReminder.jsx
 src/components/BadgeFraicheurCours.jsx
+src/components/Badges.jsx
 src/components/BilanMensuel.jsx
 src/components/BilanMensuel.test.jsx
 src/components/BlocsCompteDashboard.jsx
@@ -192,8 +191,6 @@ src/components/CentreAFaire.jsx
 src/components/ChampNumerique.test.jsx
 src/components/ChartFocusModal.jsx
 src/components/ClasserOperations.jsx
-src/components/Coffre.jsx
-src/components/Coffre.test.jsx
 src/components/CommuniqueDepose.jsx
 src/components/ComparaisonPairs.jsx
 src/components/ComparateurRattachement.jsx
@@ -320,14 +317,10 @@ src/components/Timeline.jsx
 src/components/TrajectoireObjectif.jsx
 src/components/TransfertAppareil.jsx
 src/components/Watchlist.jsx
-src/components/coffre/DossierSinistre.jsx
-src/components/coffre/FicheDocument.jsx
-src/components/coffre/FormulaireDocument.jsx
-src/components/coffre/FormulaireObjet.jsx
-src/components/coffre/ReglagesCoffre.jsx
-src/components/coffre/StockageCoffre.jsx
-src/components/coffre/VueEcheances.jsx
-src/components/coffre/VueObjets.jsx
+src/components/badges/CelebrationBadges.jsx
+src/components/badges/Medaille.css
+src/components/badges/Medaille.jsx
+src/components/badges/iconesBadges.js
 src/components/gestes.jsx
 src/components/graphiques.jsx
 src/components/graphiques.test.jsx
@@ -360,6 +353,8 @@ src/lib/apparence.test.jsx
 src/lib/authErrors.js
 src/lib/authErrors.test.js
 src/lib/avances.js
+src/lib/badges.js
+src/lib/badges.test.js
 src/lib/benchmarks.js
 src/lib/briefing.js
 src/lib/briefing.test.js
@@ -372,17 +367,6 @@ src/lib/chiffreAffairesZones.js
 src/lib/chiffreAffairesZones.test.js
 src/lib/chiffrement.js
 src/lib/chiffrement.test.js
-src/lib/coffre.js
-src/lib/coffre.test.js
-src/lib/coffreAgenda.js
-src/lib/coffreAgenda.test.js
-src/lib/coffreArchive.js
-src/lib/coffreArchive.test.js
-src/lib/coffreCache.js
-src/lib/coffreCache.test.js
-src/lib/coffreFichiers.js
-src/lib/coffreFichiers.test.js
-src/lib/coffreNavigation.js
 src/lib/compact.test.js
 src/lib/compositionEtf.js
 src/lib/compteCourant.js
@@ -395,8 +379,6 @@ src/lib/couleursMarques.json
 src/lib/couleursMarques.test.js
 src/lib/cube.js
 src/lib/cube.test.js
-src/lib/datesDocument.js
-src/lib/datesDocument.test.js
 src/lib/decisions.js
 src/lib/decisions.test.js
 src/lib/decumulation.js
@@ -408,8 +390,6 @@ src/lib/dispositionDashboard.test.js
 src/lib/dividendesAuto.js
 src/lib/dividendesAuto.test.js
 src/lib/domainesLogos.js
-src/lib/dossierSinistre.js
-src/lib/dossierSinistre.test.js
 src/lib/doublonsAbonnements.js
 src/lib/doublonsAbonnements.test.js
 src/lib/echeances.js
@@ -438,8 +418,6 @@ src/lib/identiteLigne.js
 src/lib/identiteLigne.test.js
 src/lib/indexConstituents.js
 src/lib/inflation.js
-src/lib/inventaire.js
-src/lib/inventaire.test.js
 src/lib/jeuExemple.js
 src/lib/jeuExemple.test.js
 src/lib/journalErreurs.js
@@ -466,8 +444,8 @@ src/lib/objectifs.js
 src/lib/objectifs.test.js
 src/lib/pairs.js
 src/lib/pairs.test.js
-src/lib/partageCoffre.js
-src/lib/partageCoffre.test.js
+src/lib/pastilles.js
+src/lib/pastilles.test.js
 src/lib/patrimoineParPoche.js
 src/lib/patrimoineParPoche.test.js
 src/lib/performanceComparee.js
@@ -523,6 +501,7 @@ src/lib/transfertQr.js
 src/lib/tri.test.js
 src/lib/univers.js
 src/lib/useAlertesWatchlist.js
+src/lib/useBadges.js
 src/lib/useBilanRappel.js
 src/lib/useDailySnapshot.js
 src/lib/useFlip.js
@@ -530,6 +509,7 @@ src/lib/useHashRoute.js
 src/lib/useHashRoute.test.jsx
 src/lib/useMaintenant.js
 src/lib/useMaintenant.test.js
+src/lib/usePastilles.js
 src/lib/useRappelsCalendrier.js
 src/lib/useRappelsCalendrier.test.js
 src/lib/useSuiviBourse.js

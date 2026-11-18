@@ -266,7 +266,6 @@ describe("FondVivant", () => {
     ["bourse", ".fond-chandeliers"],
     ["livrets", ".fond-bulles"],
     ["immobilier", ".fond-plan"],
-    ["coffre", ".fond-metal"],
   ])("pose le décor de l'écran « %s »", (scene, selecteur) => {
     const { container } = render(<FondVivant scene={scene} />);
     expect(container.querySelectorAll(".fond-decor")).toHaveLength(1);

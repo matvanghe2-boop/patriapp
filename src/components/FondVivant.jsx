@@ -10,12 +10,11 @@ import { appareilEconome } from "../lib/mouvement";
  * il baisse. Le chiffre de la variation reste écrit dans l'en-tête : la couleur
  * n'ajoute qu'une impression, elle n'informe jamais seule.
  *
- * Quatre écrans ont en plus leur propre DÉCOR, posé sur les nappes (`scene`) :
+ * Trois écrans ont en plus leur propre DÉCOR, posé sur les nappes (`scene`) :
  *
  *  · « bourse »     — des chandeliers flous qui défilent ;
  *  · « livrets »    — des bulles qui montent ;
- *  · « immobilier » — un plan de maison qui se dessine ;
- *  · « coffre »     — du métal brossé, et le cadran d'une porte forte.
+ *  · « immobilier » — un plan de maison qui se dessine.
  *
  * Chaque décor ne coûte que des `transform` et des `opacity` en continu (voir
  * scenes.css, « Fonds par onglet ») ; le plan se trace une fois, puis ne bouge
@@ -36,7 +35,6 @@ export default function FondVivant({ humeur = "neutre", scene = null }) {
         {scene === "bourse" && <Chandeliers />}
         {scene === "livrets" && <Bulles />}
         {scene === "immobilier" && <PlanMaison />}
-        {scene === "coffre" && <MetalBrosse />}
       </div>
     </div>
   );
@@ -176,17 +174,6 @@ function PlanMaison() {
           />
         ))}
       </svg>
-    </div>
-  );
-}
-
-/* ── Coffre : métal brossé ────────────────────────────────────────────────── */
-
-function MetalBrosse() {
-  return (
-    <div className="fond-decor fond-metal">
-      <span className="fond-metal-cadran" />
-      <span className="fond-metal-reflet" />
     </div>
   );
 }

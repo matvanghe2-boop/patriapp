@@ -12,7 +12,7 @@ import { mouvementReduit as lireMouvementReduit } from "../lib/mouvement";
 // modification qui n'apporterait rien.
 export { CARD_THEMES, GHOST_THEMES };
 
-export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber", current, glissant = false }) {
+export function NavButton({ active, onClick, icon: Icon, label, disabled, theme = "amber", current, glissant = false, pastille = false }) {
   const t = themeDe(theme);
   // En mode glissant, le fond et le trait de l'onglet actif sont dessinés par
   // un repère unique qui se déplace (IndicateurGlissant) : le bouton ne garde
@@ -29,10 +29,27 @@ export function NavButton({ active, onClick, icon: Icon, label, disabled, theme 
         ${disabled ? "text-slate-500 cursor-not-allowed" : active ? classeActive : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"}`}
     >
       {active && !glissant && <span aria-hidden="true" className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full ${t.bar} hidden md:block`} />}
-      <Icon size={17} strokeWidth={2} aria-hidden="true" />
+      <span className="relative inline-flex">
+        <Icon size={17} strokeWidth={2} aria-hidden="true" />
+        {pastille && <PastilleOnglet />}
+      </span>
       <span className="font-medium">{label}</span>
+      {pastille && <span className="sr-only"> — du nouveau</span>}
       {disabled && <Lock size={12} className="ml-auto opacity-60" aria-hidden="true" />}
     </button>
+  );
+}
+
+/**
+ * Point d'une nouveauté sur un onglet (voir lib/pastilles.js) : un point, pas
+ * un compteur. Posé sur le coin de l'icône, cerné du fond pour s'en détacher.
+ */
+export function PastilleOnglet({ className = "" }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`pop-in absolute -right-1 -top-1 h-2 w-2 rounded-full bg-fuchsia-400 ring-2 ring-slate-950 ${className}`}
+    />
   );
 }
 

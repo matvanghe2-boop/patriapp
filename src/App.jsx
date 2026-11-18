@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import {
   LayoutDashboard, PiggyBank, TrendingUp, Calculator, NotebookPen,
   Repeat, CreditCard, Download, Upload, RotateCcw, Eye, EyeOff, LogOut, Palette, Sparkles, Presentation, LockKeyhole,
-  MessageCircleQuestion, Bug, Stethoscope, FlaskConical, FolderSync, Smartphone, Vault,
+  MessageCircleQuestion, Bug, Stethoscope, FlaskConical, FolderSync, Smartphone, Medal,
 } from "lucide-react";
 import {
   exportAllData, importAllData, clearAllData, clearCloudData, markBackupDone,
@@ -17,7 +17,6 @@ import { useRappelsCalendrier } from "./lib/useRappelsCalendrier";
 import { useBilanRappel } from "./lib/useBilanRappel";
 import { rappelsEssais } from "./lib/abonnements";
 import { evenementsAgenda, rappelsAgenda } from "./lib/agendaFinancier";
-import { COFFRE_VIDE, rappelsCoffreDus, acquitterRappelCoffre } from "./lib/coffre";
 import { sauvegardeTropRecente } from "./lib/migrations";
 import { useHashRoute, useSousOngletActuel, allerVersMaintenant } from "./lib/useHashRoute";
 import { useToast } from "./lib/ToastContext";
@@ -62,6 +61,9 @@ import { ecouterVoyages } from "./lib/voyage";
 import { effetsVivants } from "./lib/mouvement";
 import { jouerSon } from "./lib/sons";
 import { tournerEnCube } from "./lib/cube";
+import { useSuiviBadges } from "./lib/useBadges";
+import { usePastilles } from "./lib/usePastilles";
+import CelebrationBadges from "./components/badges/CelebrationBadges";
 
 // Chaque onglet est chargé à la demande. Le bundle initial ne contient plus
 // que le Dashboard : les 1 500 lignes de « PEA & Bourse », les graphiques
@@ -79,7 +81,7 @@ const CHARGEURS = {
   simulation: () => import("./components/Simulation"),
   strategie: () => import("./components/StrategieLogs"),
   abonnements: () => import("./components/Abonnements"),
-  coffre: () => import("./components/Coffre"),
+  badges: () => import("./components/Badges"),
 };
 const Dashboard = lazy(CHARGEURS.dashboard);
 const CompteCourant = lazy(CHARGEURS.compte);
@@ -88,7 +90,7 @@ const Bourse = lazy(CHARGEURS.bourse);
 const Simulation = lazy(CHARGEURS.simulation);
 const StrategieLogs = lazy(CHARGEURS.strategie);
 const Abonnements = lazy(CHARGEURS.abonnements);
-const Coffre = lazy(CHARGEURS.coffre);
+const Badges = lazy(CHARGEURS.badges);
 const TransfertAppareil = lazy(() => import("./components/TransfertAppareil"));
 // La scène d'un versement n'est téléchargée qu'au premier versement.
 const ArgentQuiVoyage = lazy(() => import("./components/ArgentQuiVoyage"));
@@ -133,8 +135,6 @@ function prechargerOnglets(ongletCourant) {
 // depuis la fusion d'Immobilier dans Simulation.
 // Compte courant vient juste après le Dashboard : c'est l'écran qu'on ouvre le
 // plus souvent, et il garde ainsi sa place dans la barre basse du mobile.
-// Le Coffre ferme la marche : on y range un papier de temps en temps, il vit
-// donc dans la feuille « Plus » du mobile (voir COFFRE_SPEC.md).
 const TABS = [
   { id: "dashboard", label: "Dashboard", shortLabel: "Accueil", icon: LayoutDashboard, theme: "emerald", Page: Dashboard },
   { id: "compte", label: "Compte courant", shortLabel: "Compte", icon: CreditCard, theme: "lime", Page: CompteCourant },
@@ -143,7 +143,10 @@ const TABS = [
   { id: "simulation", label: "Simulation", shortLabel: "Simuler", icon: Calculator, theme: "amber", Page: Simulation },
   { id: "strategie", label: "Stratégie & Logs", shortLabel: "Stratégie", icon: NotebookPen, theme: "rose", Page: StrategieLogs },
   { id: "abonnements", label: "Abonnements", shortLabel: "Abos", icon: Repeat, theme: "cyan", Page: Abonnements },
-  { id: "coffre", label: "Coffre", shortLabel: "Coffre", icon: Vault, theme: "fuchsia", Page: Coffre },
+  // Badges ferme la marche : une vitrine qu'on visite de temps en temps, qui
+  // vit donc dans la feuille « Plus » du mobile. Une pastille y signale un
+  // nouveau badge (voir usePastilles).
+  { id: "badges", label: "Badges", shortLabel: "Badges", icon: Medal, theme: "fuchsia", Page: Badges },
 ];
 
 const TAB_IDS = TABS.map((t) => t.id);
@@ -209,6 +212,10 @@ export default function App() {
   const { showToast } = useToast();
   const confirm = useConfirm();
   const patrimoine = usePatrimoine();
+  // Badges : évalués quel que soit l'onglet ouvert, célébrés dès qu'ils tombent.
+  const etatBadges = useSuiviBadges({ ghostMode });
+  // Un point sur les onglets où une nouveauté attend (voir lib/pastilles.js).
+  const pastilles = usePastilles({ onglet: tab, badges: etatBadges });
 
   const activeTab = TABS.find((t) => t.id === tab) || TABS[0];
 
@@ -268,17 +275,6 @@ export default function App() {
     [setAgendaVus]
   );
 
-  // Papiers du coffre arrivés à leur date de rappel. Les métadonnées sont en
-  // clair sur l'appareil : le rappel sonne même coffre verrouillé.
-  const [coffre, setCoffre] = usePersistentState("coffre", COFFRE_VIDE);
-  const rappelsCoffre = useMemo(
-    () => rappelsCoffreDus(coffre, { contracts: patrimoine.contracts }),
-    [coffre, patrimoine.contracts]
-  );
-  const acquitterCoffre = React.useCallback(
-    (docId, rappel) => setCoffre((c) => acquitterRappelCoffre(c, docId, rappel)),
-    [setCoffre]
-  );
   const acquitterEssai = React.useCallback(
     (id) => setSubs((l) => (l || []).map((s) => (s.id === id ? { ...s, rappelEssaiVu: s.fin_essai } : s))),
     [setSubs]
@@ -345,7 +341,7 @@ export default function App() {
   // est un sous-onglet de Simulation : il se lit dans l'URL.
   const sousOnglet = useSousOngletActuel();
   const sceneFond =
-    tab === "bourse" || tab === "livrets" || tab === "coffre"
+    tab === "bourse" || tab === "livrets"
       ? tab
       : tab === "simulation" && sousOnglet === "immobilier"
         ? "immobilier"
@@ -371,12 +367,11 @@ export default function App() {
         subs: patrimoine.subs,
         contracts: patrimoine.contracts,
         compteEnrichies: patrimoine.compteEnrichies,
-        coffre,
       }),
     [
       patrimoine.livrets, patrimoine.bourse, patrimoine.dettes, patrimoine.watchlist,
       patrimoine.strategyNotes, patrimoine.enveloppes, patrimoine.objectifs,
-      patrimoine.subs, patrimoine.contracts, patrimoine.compteEnrichies, coffre,
+      patrimoine.subs, patrimoine.contracts, patrimoine.compteEnrichies,
     ]
   );
 
@@ -672,7 +667,7 @@ export default function App() {
     const ok = await confirm({
       title: "Tout réinitialiser ?",
       message: user
-        ? "Toutes tes données seront effacées : livrets, portefeuille, historique, abonnements, papiers du coffre — sur cet appareil ET sur ton compte, donc sur tous tes appareils. Cette action est irréversible : pense à exporter une sauvegarde avant."
+        ? "Toutes tes données seront effacées : livrets, portefeuille, historique, abonnements — sur cet appareil ET sur ton compte, donc sur tous tes appareils. Cette action est irréversible : pense à exporter une sauvegarde avant."
         : "Toutes les données de cet appareil seront effacées : livrets, portefeuille, historique, abonnements. Cette action est irréversible — pense à exporter une sauvegarde avant.",
       confirmLabel: "Effacer définitivement",
       danger: true,
@@ -682,17 +677,7 @@ export default function App() {
     // rechargement qui suit reprenait les données depuis Supabase (le local
     // n'ayant plus d'horodatage, la version cloud gagnait l'arbitrage) et la
     // réinitialisation n'avait aucun effet visible pour un compte connecté.
-    // Les fichiers du coffre partent en premier : effacer leurs métadonnées
-    // sans eux laisserait des scans de pièces d'identité dans le stockage.
-    // Chargé à la demande, comme l'onglet Coffre lui-même.
     try {
-      if (user) {
-        const { viderCoffreCloud } = await import("./lib/coffreFichiers");
-        await viderCoffreCloud(user.id);
-        // Copies chiffrées gardées pour la consultation hors ligne.
-        const { viderCache } = await import("./lib/coffreCache");
-        await viderCache();
-      }
       await clearCloudData(STORAGE_KEYS);
     } catch {
       showToast({ type: "error", message: "Effacement cloud impossible — données locales conservées." });
@@ -765,6 +750,7 @@ export default function App() {
               theme={t.theme}
               current={tab === t.id}
               glissant
+              pastille={pastilles.has(t.id)}
             />
           ))}
         </nav>
@@ -896,11 +882,10 @@ export default function App() {
           <Notifications
             reminders={patrimoine.reminders}
             setReminders={patrimoine.setReminders}
-            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier, ...rappelsEssaisDus, ...rappelsAgendaDus, ...rappelsCoffre]}
+            alertes={[...bilanDu, ...alertesDues, ...rappelsCalendrier, ...rappelsEssaisDus, ...rappelsAgendaDus]}
             onAcquitterAlerte={acquitterAlerte}
             onAcquitterEssai={acquitterEssai}
             onAcquitterAgenda={acquitterAgenda}
-            onAcquitterCoffre={acquitterCoffre}
             onAcquitterBilan={acquitterBilan}
           />
           {/* En mode local (sans compte), il n'y a rien à déconnecter. */}
@@ -969,13 +954,16 @@ export default function App() {
         </div>
       </main>
 
-      <BottomNav tabs={BOTTOM_NAV_TABS} active={tab} onChange={allerA} onPlus={() => setPlusOuvert(true)} />
+      <BottomNav tabs={BOTTOM_NAV_TABS} active={tab} onChange={allerA} onPlus={() => setPlusOuvert(true)} pastilles={pastilles} />
 
       {/* Aperçu d'une valeur au survol de son ticker, partout (data-apercu). */}
       <ApercuTicker />
 
       {/* Record, palier, objectif atteint, dividende : leur propre scène. */}
       <Moments />
+
+      {/* Badges débloqués : une médaille qui tourne, ou toute la vitrine d'un coup. */}
+      <CelebrationBadges onVoir={() => allerA("badges")} />
 
       {/* Versement vers le PEA ou un livret : les pièces volent. */}
       {voyages[0] && (
@@ -990,6 +978,7 @@ export default function App() {
         ouvert={plusOuvert}
         onFermer={() => setPlusOuvert(false)}
         sections={BOTTOM_NAV_TABS.slice(4)}
+        pastilles={pastilles}
         actif={tab}
         onNaviguer={allerA}
         actions={[

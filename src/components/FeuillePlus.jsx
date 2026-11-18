@@ -1,4 +1,5 @@
 import Modal from "./Modal";
+import { PastilleOnglet } from "./ui";
 
 /**
  * Feuille « Plus » de la barre de navigation basse.
@@ -17,7 +18,7 @@ import Modal from "./Modal";
  * la convention mobile, et la seule zone atteignable d'une main sur un grand
  * téléphone.
  */
-export default function FeuillePlus({ ouvert, onFermer, sections = [], actions = [], onNaviguer, actif }) {
+export default function FeuillePlus({ ouvert, onFermer, sections = [], actions = [], onNaviguer, actif, pastilles = new Set() }) {
   return (
     <Modal
       open={ouvert}
@@ -44,8 +45,12 @@ export default function FeuillePlus({ ouvert, onFermer, sections = [], actions =
                       : "border-slate-700 text-slate-300 hover:border-slate-600 hover:text-slate-100"
                   }`}
                 >
-                  <s.icon size={17} aria-hidden="true" className="shrink-0" />
+                  <span className="relative inline-flex shrink-0">
+                    <s.icon size={17} aria-hidden="true" />
+                    {pastilles.has(s.key) && <PastilleOnglet />}
+                  </span>
                   {s.label}
+                  {pastilles.has(s.key) && <span className="sr-only"> — du nouveau</span>}
                 </button>
               ))}
             </div>

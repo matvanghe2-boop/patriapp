@@ -7,7 +7,7 @@ import { useConfirm } from "../lib/ConfirmContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import {
   useEtatChiffrement, activerChiffrement, deverrouillerChiffrement, desactiverChiffrement,
-  creerCodeSecours, changerPhraseSecrete, deverrouillerAvecCodeSecours, lireValeurLocale,
+  creerCodeSecours, changerPhraseSecrete, deverrouillerAvecCodeSecours,
 } from "../lib/storage";
 
 /**
@@ -111,7 +111,7 @@ export default function ReglagesChiffrement({ ouvert, onFermer }) {
     return executer(async () => {
       const ok = await deverrouillerAvecCodeSecours(code, phrase);
       if (!ok) throw new Error("Code de secours incorrect.");
-      showToast({ message: "Coffre et données rouverts : ta nouvelle phrase secrète remplace l'ancienne partout." });
+      showToast({ message: "Données rouvertes : ta nouvelle phrase secrète remplace l'ancienne partout." });
       fermer();
     });
   };
@@ -145,25 +145,11 @@ export default function ReglagesChiffrement({ ouvert, onFermer }) {
   };
 
   const desactiver = async () => {
-    // Le coffre à papiers repose sur la clé qu'on s'apprête à oublier : ses
-    // fichiers, chiffrés avec elle, ne pourront plus être ouverts. Ça se dit
-    // AVANT de confirmer, avec le nombre de fichiers concernés.
-    const documents = lireValeurLocale("coffre")?.documents;
-    const fichiers = Array.isArray(documents)
-      ? documents.reduce((n, d) => n + (Array.isArray(d?.fichiers) ? d.fichiers.length : 0), 0)
-      : 0;
-    const coffre =
-      fichiers > 0
-        ? ` Attention : le coffre à papiers a besoin du chiffrement. Il se refermera, et ${
-            fichiers > 1 ? `les ${fichiers} fichiers qu'il contient ne pourront plus être ouverts` : "le fichier qu'il contient ne pourra plus être ouvert"
-          }, même en réactivant le chiffrement plus tard.`
-        : " Le coffre à papiers, qui a besoin du chiffrement, se refermera.";
     const ok = await confirm({
       title: "Désactiver le chiffrement ?",
       message:
         "Tes données seront réécrites en clair dans le cloud. Elles restent protégées par ton compte, mais plus contre un accès direct à la base. " +
-        "Les versions de CET appareil font foi : elles remplacent celles de tes autres appareils, y compris ceux qui demandaient la phrase secrète." +
-        coffre,
+        "Les versions de CET appareil font foi : elles remplacent celles de tes autres appareils, y compris ceux qui demandaient la phrase secrète.",
       confirmLabel: "Désactiver",
       danger: true,
     });
@@ -264,8 +250,8 @@ export default function ReglagesChiffrement({ ouvert, onFermer }) {
               {codeAffiche}
             </p>
             <p className="text-xs text-slate-400">
-              Écris-le sur papier et range-le avec tes papiers importants, mais pas dans le coffre ni dans Patrium : il sert
-              justement quand ils sont fermés. Il rouvre tes données si tu oublies ta phrase.
+              Écris-le sur papier et range-le avec tes papiers importants, mais pas dans Patrium : il sert
+              justement quand Patrium est fermé. Il rouvre tes données si tu oublies ta phrase.
             </p>
             <label className="flex items-start gap-2 text-xs text-slate-300">
               <input type="checkbox" checked={codeNote} onChange={(e) => setCodeNote(e.target.checked)} className="mt-0.5 accent-amber-400" />
@@ -283,7 +269,7 @@ export default function ReglagesChiffrement({ ouvert, onFermer }) {
             <p className="text-xs text-slate-500">
               {etat.codeSecours
                 ? `Créé le ${dateFr(etat.codeSecours)}. En créer un nouveau rend l'ancien inutilisable.`
-                : "Aucun pour l'instant : une phrase oubliée rendrait tes données du cloud et ton coffre irrécupérables."}
+                : "Aucun pour l'instant : une phrase oubliée rendrait tes données du cloud irrécupérables."}
             </p>
             <button
               type="button"
